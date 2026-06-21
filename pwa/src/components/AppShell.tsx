@@ -13,15 +13,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         }`}
       >
         <div className="mx-auto flex max-w-6xl items-center px-4">
-          <Link to="/" className="inline-flex items-center gap-3" aria-label="46 Advance — home">
+          <Link to="/" className="inline-flex items-end gap-2.5" aria-label="46 Advance — home">
             <img
-              src="/brand/46-entertainment-white.png"
-              alt="46 Entertainment"
-              className={`w-auto transition-all duration-300 ${scrolled ? 'h-7' : 'h-11'}`}
+              src="/brand/46-mark-white.png"
+              alt=""
+              aria-hidden="true"
+              className={`w-auto transition-all duration-300 ${scrolled ? 'h-8' : 'h-12'}`}
             />
             <span
-              className={`font-accent uppercase tracking-[0.3em] text-brand-fg/70 transition-all duration-300 ${
-                scrolled ? 'text-[0.6rem]' : 'text-xs'
+              className={`font-sans font-normal uppercase leading-none text-brand-fg transition-all duration-300 ${
+                scrolled ? 'pb-1 text-sm tracking-[0.28em]' : 'pb-1.5 text-lg tracking-[0.35em]'
               }`}
             >
               Advance

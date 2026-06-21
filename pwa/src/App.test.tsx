@@ -14,6 +14,6 @@ describe('App', () => {
       </QueryClientProvider>,
     );
     expect(screen.getByRole('heading', { name: '46 Advance' })).toBeInTheDocument();
-    expect(screen.getByAltText('46 Entertainment')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /46 advance/i })).toBeInTheDocument();
   });
 });
