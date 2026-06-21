@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
 import type { AuthContextValue } from '@/contexts/auth-context';
@@ -8,6 +8,7 @@ import {
   signInWithEmail,
   signOutUser,
   signUpWithEmail,
+  syncUserClaims,
 } from '@/features/auth/auth-service';
 import type { User } from '@/features/auth/auth-service';
 import { createLogger } from '@/lib/logger';
@@ -18,23 +19,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const syncedUid = useRef<string | null>(null);
 
   useEffect(() => {
     return observeAuthState((nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
+        syncedUid.current = null;
         setIsAdmin(false);
         setLoading(false);
         return;
       }
-      nextUser
-        .getIdTokenResult()
-        .then((token) => setIsAdmin(token.claims.admin === true))
-        .catch((err) => {
-          logger.error('Failed to read admin claim', err);
-          setIsAdmin(false);
-        })
-        .finally(() => setLoading(false));
+      // Sync once per sign-in (token refreshes re-fire this with the same uid).
+      if (syncedUid.current === nextUser.uid) return;
+      syncedUid.current = nextUser.uid;
+      void (async () => {
+        try {
+          const { isAdmin: admin } = await syncUserClaims();
+          await nextUser.getIdToken(true); // refresh so the token carries the new claim
+          setIsAdmin(admin);
+        } catch (err) {
+          logger.error('Failed to sync user claims; falling back to cached claim', err);
+          try {
+            const token = await nextUser.getIdTokenResult();
+            setIsAdmin(token.claims.admin === true);
+          } catch {
+            setIsAdmin(false);
+          }
+        } finally {
+          setLoading(false);
+        }
+      })();
     });
   }, []);
 

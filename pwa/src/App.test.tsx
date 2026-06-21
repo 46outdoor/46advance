@@ -15,6 +15,7 @@ vi.mock('@/features/auth/auth-service', () => ({
   signUpWithEmail: vi.fn(),
   signOutUser: vi.fn(),
   sendPasswordReset: vi.fn(),
+  syncUserClaims: vi.fn(() => Promise.resolve({ isAdmin: false })),
 }));
 
 describe('App', () => {
