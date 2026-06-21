@@ -13,7 +13,7 @@ describe('App', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    expect(screen.getAllByText('46').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: '46 Advance' })).toBeInTheDocument();
+    expect(screen.getByAltText('46 Entertainment')).toBeInTheDocument();
   });
 });

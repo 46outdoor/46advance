@@ -17,7 +17,7 @@ export function App() {
 function Home() {
   return (
     <section className="space-y-3">
-      <h1 className="font-display text-4xl font-extrabold tracking-tight text-brand">46 Advance</h1>
+      <h1 className="font-display text-4xl font-black tracking-tight text-brand">46 Advance</h1>
       <p className="text-ink-muted">
         Foundation scaffold (Phase 0) — festival artist advance management for 46 Entertainment.
       </p>
