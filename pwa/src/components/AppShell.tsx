@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <span
               className={`font-sans font-normal uppercase leading-none text-brand-fg transition-all duration-300 ${
-                scrolled ? 'pb-1 text-sm tracking-[0.28em]' : 'pb-1.5 text-lg tracking-[0.35em]'
+                scrolled ? 'pb-0.5 text-[0.7rem] tracking-[0.3em]' : 'pb-1 text-sm tracking-[0.3em]'
               }`}
             >
               Advance
