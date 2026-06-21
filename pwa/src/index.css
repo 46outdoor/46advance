@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+/* 46 Advance design tokens — derived from 46entertainment.com brand.
+   See planning/ROADMAP.md § UI / Design language. */
+@theme {
+  /* Brand */
+  --color-brand: #273449; /* navy-slate — the brand "black" / dark chrome */
+  --color-brand-fg: #ffffff;
+  --color-accent: #f04040; /* signature red (reserved for brand/primary, not status) */
+  --color-accent-orange: #ff853c;
+  --color-accent-lime: #8dff1c;
+
+  /* Neutrals */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f2f2;
+  --color-ink: #262626;
+  --color-ink-muted: #525763;
+  --color-line: #b3b3b3;
+
+  /* Functional status (distinct from brand red): not started -> in progress -> complete */
+  --color-status-none: #94a3b8; /* neutral/grey */
+  --color-status-progress: #f59e0b; /* amber */
+  --color-status-complete: #22c55e; /* green */
+
+  /* Type */
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+  --font-display: 'Archivo Variable', 'Poppins', sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+}
