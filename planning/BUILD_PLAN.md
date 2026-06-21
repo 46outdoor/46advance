@@ -131,7 +131,7 @@ portal, and integrations are post-MVP fast-follows.
 
 ## Immediate next actions (to start Phase 0)
 
-1. **Provision the Firebase project**; record its id (resolves a roadmap TBD).
-2. **Capture brand tokens** — exact **red hex** + **font families** from 46entertainment.com (Chrome DevTools MCP) / brand assets.
+1. **Firebase project** — `advancethat` (project # 518865772715), under `jared@yourstagemanager.com`. Configure the **46advance.com** custom domain + Auth authorized domains + OAuth redirect URIs (hosting/domain managed externally).
+2. **Brand tokens — captured** (from site CSS): fonts **Nexa** + **Hikou**; dark `#273449`, red `#f04040`, neutrals `#f2f2f2`/`#b3b3b3`/`#262626`, accents `#ff853c`/`#8dff1c`. Fonts: use OFL substitutes **Poppins** (Nexa role) + **Archivo** (Hikou/display role) — self-host woff2; build the Tailwind theme.
 3. **Decide CI specifics + code-review tool**; port MPA `.github/`.
 4. **Scaffold `pwa/`** and create `pwa/scripts/cli/` wrappers; then wire the deferred CLI hooks.

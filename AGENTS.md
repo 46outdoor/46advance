@@ -65,10 +65,9 @@ App-specific docs live under each app's directory.
 
 ## Firebase Backend (Shared)
 
-The chosen stack reuses Firebase. Concrete identifiers are **TBD** until the
-project is provisioned.
+The chosen stack reuses Firebase. The project is provisioned:
 
-- **Project**: `<!-- TBD: firebase-project-id -->`
+- **Project**: `advancethat` (display name "46 Advance", project number 518865772715; owned by the `jared@yourstagemanager.com` Google account)
 - **Region**: `us-central1` (default; change if planning decides otherwise)
 - **Services**: Auth, Firestore (with offline persistence), Functions, Storage
 - **Emulators**: started from `pwa/` via `npm run dev:emulator` (Auth 9099, Firestore 8080) or `npm run emulators` (full suite + Functions 5001, Storage 9199, Hosting 5000)

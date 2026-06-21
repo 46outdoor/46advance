@@ -30,6 +30,14 @@ questions.
 - Backend: **Firebase** (user base is much smaller than MPA, so Firebase is comfortably sufficient).
 - Apps: web (`pwa/`) and native (`mobile/`) per the workspace governance.
 - **No separate freelance section** (MPA has one; exclude here).
+- **Custom domain:** **46advance.com** (production web). Implications: add to Firebase Auth
+  **authorized domains**; set OAuth **redirect URIs** (Google/Apple sign-in + per-user
+  Calendar/Meet/Drive) to it; use for the PWA manifest and mobile deep/universal links;
+  staging on a subdomain (e.g. `staging.46advance.com`). Hosting (incl. the domain) is
+  **managed externally** — agents never deploy hosting.
+- **Firebase project:** **`advancethat`** (display name "46 Advance", project # 518865772715),
+  owned by the `jared@yourstagemanager.com` Google account. (Repo is under `46outdoor`; all the
+  same user's accounts.)
 
 ## UI / Design language
 
@@ -38,14 +46,17 @@ questions.
 
 ### Design language (reviewed 2026-06-21 — logo + 46entertainment.com)
 
-- **Palette — dark, high-contrast.** Black / near-black backgrounds, white text (brand core).
-  **Signature accent: RED** (the brand's red diagonal band, confirmed in 46's production docs),
-  with silver/grey, plus **full-bleed event photography** for color.
+- **Palette — dark, high-contrast.** Brand dark is a **navy-slate #273449** (not pure black) with
+  white text; near-monochrome core. **Signature accent: red #f04040** (the slash band); plus sparing
+  orange/lime and **full-bleed event photography** for color.
   → *Reconciliation:* keep a **dark base** (aligns with MPA's dark default) but **re-skin to 46
   branding** (true black/white, not generic zinc). "Adopt brand" = brand the dark theme, not switch to light.
 - **Typography.** Bold sans-serif. Distinctive: **bold condensed numerals** ("46") and
-  **letter-spaced uppercase** labels (per the logo); clean sans body for data. Exact font
-  families not declared on the site — capture during design.
+  **letter-spaced uppercase** labels (per the logo); clean sans body for data. **Fonts (captured
+  from site CSS):** primary **Nexa** (geometric sans — Black/Bold/Book; Nexa Black ≈ the logo
+  numerals) + accent **Hikou**; fallback Helvetica/Arial/sans-serif. Self-host woff2 (as the site
+  does) for `pwa/` + `mobile/`. Nexa/Hikou are **licensed**, so the app + PDFs use **OFL
+  substitutes (decided): Poppins** (Nexa role) **+ Archivo** (Hikou/display role), self-hosted.
 - **Motifs.** **Diagonal slash** — small in the logo *and* scaled up as a bold **red diagonal
   page-divider** (thin silver edges) on document covers — a signature device. Plus a
   **right-facing arrow** (CTAs / forward momentum). The slash is the hero brand accent.
@@ -65,9 +76,15 @@ questions.
 - **Functional vs brand colors.** The app needs **functional status colors** distinct from brand:
   tracker **neutral → amber → green** (§8) and validation states. **Red stays brand/primary** (not a
   status color). Define a small functional palette that coexists with the black/white/red brand.
-- **Tokens still to capture (design phase):** exact **hex values** and **font-family names** — the
-  site declares none in its markup; pull from the live site's CSS (e.g. via Chrome DevTools MCP) or
-  brand assets when building the theme. Update the `pwa/AGENTS.md` styling note then.
+- **Brand tokens (captured 2026-06-21 from 46entertainment.com theme CSS):**
+  - **Dark/primary surface:** `#273449` (navy-slate — the brand's "black"). White `#ffffff`.
+  - **Neutrals:** light `#f2f2f2` / `#f7f7f7`; mid grey `#b3b3b3` / `#a2a2a2`; dark grey `#262626` / `#525763`.
+  - **Accents:** **red `#f04040`** (signature) · orange `#ff853c` · lime `#8dff1c` (use sparingly).
+  - **Fonts:** brand source **Nexa** + **Hikou** (licensed) → **implemented as OFL substitutes: Poppins** (primary) **+ Archivo** (display accent), self-hosted across app + PDF. See Typography.
+  - Status colors stay distinct from brand red (neutral → amber → green; amber/green may harmonize with brand orange/lime).
+  - *Notes:* the parent theme is Bootstrap defaults (ignore). The production-doc red reads more saturated
+    than `#f04040` — report covers may use pure black + a punchier red slash; treat these **web tokens
+    as the system source of truth**. Apply them in the Tailwind theme and update the `pwa/AGENTS.md` styling note (Phase 0).
 
 ## 3. Authentication
 
@@ -328,6 +345,7 @@ web redirect flow.
 **Q&A round 5 — design (2026-06-21, after reviewing 46entertainment.com + 46 production packets):**
 
 - **Brand palette:** **black / white / red** (red = signature accent, from the diagonal-slash band) + silver-grey; additional color via event photography.
+- **Fonts:** Nexa/Hikou are licensed → implement **OFL substitutes Poppins** (primary) **+ Archivo** (display accent), self-hosted across app + PDF.
 - **App base theme:** **dark, branded chrome (nav/header/sidebars) + light content areas** (readability for dense forms/tables).
 - **Status colors:** **neutral/grey → amber → green** (not started → in progress → complete). **Red is reserved for brand/primary, not status** — supersedes round 3's "red = not started".
 - **Photography:** dramatic event photography on **entry/landing, empty states, and PDF report covers**; work screens stay clean.
