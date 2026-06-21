@@ -25,7 +25,7 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  server: { port: 5174, strictPort: true },
+  server: { port: 4646, strictPort: true },
   test: {
     environment: 'jsdom',
     globals: true,

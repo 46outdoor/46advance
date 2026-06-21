@@ -3,14 +3,36 @@ updates:
   - package-ecosystem: npm
     directory: /pwa
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
+    groups:
+      pwa-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Handle major upgrades manually (they often need code changes).
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
   - package-ecosystem: npm
     directory: /pwa/functions
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
+    groups:
+      functions-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]

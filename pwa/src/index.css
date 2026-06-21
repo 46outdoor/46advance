@@ -1,30 +1,59 @@
 @import 'tailwindcss';
 
-/* 46 Advance design tokens — derived from 46entertainment.com brand.
-   See planning/ROADMAP.md § UI / Design language. */
+/* Self-hosted 46 brand fonts (Nexa primary, Hikou accent) — internal-tool use of the
+   company's licensed brand fonts. Files in public/fonts. */
+@font-face {
+  font-family: 'Nexa';
+  src: url('/fonts/Nexa/Nexa-Book.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Book.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nexa';
+  src: url('/fonts/Nexa/Nexa-Bold.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nexa';
+  src: url('/fonts/Nexa/Nexa-Black.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Black.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Hikou';
+  src:
+    url('/fonts/Hikou/hikou_regular-webfont.woff2') format('woff2'),
+    url('/fonts/Hikou/hikou_regular-webfont.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 46 Advance design tokens — see planning/ROADMAP.md § UI / Design language. */
 @theme {
-  /* Brand */
-  --color-brand: #273449; /* navy-slate — the brand "black" / dark chrome */
+  --color-brand: #273449; /* navy-slate — dark chrome / brand "black" */
   --color-brand-fg: #ffffff;
-  --color-accent: #f04040; /* signature red (reserved for brand/primary, not status) */
+  --color-accent: #f04040; /* signature red (brand/primary, not status) */
   --color-accent-orange: #ff853c;
   --color-accent-lime: #8dff1c;
 
-  /* Neutrals */
   --color-surface: #ffffff;
   --color-surface-muted: #f2f2f2;
   --color-ink: #262626;
   --color-ink-muted: #525763;
   --color-line: #b3b3b3;
 
-  /* Functional status (distinct from brand red): not started -> in progress -> complete */
-  --color-status-none: #94a3b8; /* neutral/grey */
-  --color-status-progress: #f59e0b; /* amber */
-  --color-status-complete: #22c55e; /* green */
+  --color-status-none: #94a3b8; /* not started */
+  --color-status-progress: #f59e0b; /* in progress */
+  --color-status-complete: #22c55e; /* complete */
 
-  /* Type */
-  --font-sans: 'Poppins', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
-  --font-display: 'Archivo Variable', 'Poppins', sans-serif;
+  --font-sans: 'Nexa', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+  --font-display: 'Nexa', sans-serif;
+  --font-accent: 'Hikou', 'Nexa', sans-serif;
 }
 
 @layer base {
