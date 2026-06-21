@@ -1,0 +1,9 @@
+# Compiled output (predeploy `npm run build`)
+lib/
+
+# Dependencies
+node_modules/
+
+# Local env / runtime
+*.local
+.env
