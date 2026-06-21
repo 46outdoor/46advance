@@ -6,7 +6,7 @@ import { useScrolled } from '@/hooks/useScrolled';
 /** App frame: dark, branded chrome (sticky header that shrinks on scroll) + light content. */
 export function AppShell({ children }: { children: ReactNode }) {
   const scrolled = useScrolled(8);
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   return (
     <div className="min-h-screen bg-surface text-ink">
       <header
@@ -39,6 +39,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
             {user && (
               <>
+                {isAdmin && (
+                  <span className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white">
+                    Admin
+                  </span>
+                )}
                 <span className="hidden text-xs text-brand-fg/60 sm:inline">{user.email}</span>
                 <button
                   type="button"
