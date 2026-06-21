@@ -21,15 +21,16 @@ deploys are managed externally by the user only. Additional enforcement hooks
 | `block-any-types.sh` | `pwa/.claude/hooks/` | **Active** | nothing (parses Edit/Write payload) |
 | `require-plan-approval.sh` | `pwa/.claude/hooks/` | **Active** | nothing (PostToolUse on ExitPlanMode) |
 | `guard-autofix-dirty-tree.sh` | `pwa/.claude/hooks/` | **Active** (no-op until git + src exist) | a git repo |
-| `enforce-cli-wrappers.sh` | `pwa/.claude/hooks/` | **Deferred** | `pwa/scripts/cli/firebase-safe.sh` + `gcloud-safe.sh` |
-| `pre-functions-deploy-secrets-check.sh` | `pwa/.claude/hooks/` | **Deferred** | `pwa/scripts/cli/verify-secrets-health.sh` |
+| `enforce-cli-wrappers.sh` | `pwa/.claude/hooks/` | **Active** (Phase 0) | `pwa/scripts/cli/firebase-safe.sh` + `gcloud-safe.sh` (now present) |
+| `pre-functions-deploy-secrets-check.sh` | `pwa/.claude/hooks/` | **Active** (Phase 0) | `pwa/scripts/cli/verify-secrets-health.sh` (now present) |
 
-**Why defer two hooks?** `enforce-cli-wrappers.sh` blocks all raw `firebase`/
-`gcloud` commands unless they go through wrapper scripts. If wired before the
-wrappers exist, it would block Firebase/gcloud use entirely with no escape.
-`pre-functions-deploy-secrets-check.sh` calls a health script that doesn't exist
-yet (it degrades gracefully, but is pointless until then). Wire both in
-`pwa/.claude/settings.local.json` once `pwa/scripts/cli/` is populated.
+**Activated in Phase 0.** `pwa/scripts/cli/` (`firebase-safe.sh`, `gcloud-safe.sh`,
+`verify-secrets-health.sh`) now exist, so both hooks are wired in
+`pwa/.claude/settings.local.json`. They were deferred earlier because
+`enforce-cli-wrappers.sh` blocks all raw `firebase`/`gcloud` commands unless they go
+through the wrappers — which didn't exist before Phase 0 (wiring it then would have
+blocked Firebase/gcloud entirely with no escape). Note: `npm run emulators`/`dev:emulator`
+are unaffected (the hook matches literal `firebase`/`gcloud` in the command, not npm scripts).
 
 ## Required configuration
 
