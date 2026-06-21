@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Locked down by default. Phase 7/9 introduce scoped upload/download rules
+// (signed quotes, artist-portal files — see planning/ROADMAP.md).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

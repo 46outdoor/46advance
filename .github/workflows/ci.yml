@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'planning/**']
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'planning/**']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pwa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+      - run: npm ci
+      - run: npm run lint -- --max-warnings 0
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pwa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+      - run: npm ci
+      - run: npm run test:coverage
+
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pwa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  # Required status check for branch protection on `main`. Runs at repo root
+  # (no working-directory) and just aggregates the gate jobs' results.
+  ci-summary:
+    name: CI Summary
+    needs: [quality, test, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify all gate jobs passed
+        run: |
+          if [ "${{ needs.quality.result }}" != "success" ] \
+            || [ "${{ needs.test.result }}" != "success" ] \
+            || [ "${{ needs.build.result }}" != "success" ]; then
+            echo "One or more CI jobs failed."
+            exit 1
+          fi
+          echo "All CI jobs passed."

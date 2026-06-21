@@ -1,0 +1,53 @@
+name: Production Deployment
+
+# Hosting is deployed ONLY through this manual workflow (never agent/local).
+# It deploys whatever is on `main`, so merge first.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Type "deploy" to confirm a production hosting deploy'
+        required: true
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: pwa
+
+jobs:
+  deploy:
+    if: ${{ github.event.inputs.confirm_deploy == 'deploy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+      - run: npm ci
+      - run: npm run lint -- --max-warnings 0
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      - name: Deploy to Firebase Hosting (live)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: advancethat
+          channelId: live
+          entryPoint: pwa
+# TODO(Phase 0/U): set repo secrets VITE_FIREBASE_* + FIREBASE_SERVICE_ACCOUNT before first run.
