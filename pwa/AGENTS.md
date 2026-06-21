@@ -1,0 +1,327 @@
+# 46 Advance — Web App (PWA)
+
+Primary web client for 46 Entertainment, running as a Progressive Web App.
+
+> **Status:** Greenfield. The stack below is the chosen foundation (reused from a
+> mature sibling project); the product use case, feature set, and concrete
+> backend identifiers are **TBD** and resolved during planning. Items marked
+> `<!-- TBD -->` are placeholders — do not invent details to fill them.
+
+> **See `../AGENTS.md` for shared/workspace rules**: cross-app coordination,
+> Firebase backend, CLI tooling, secrets, staging deploys, git workflow,
+> parallel-agent safety, plan-mode approval, MCP token efficiency, and the Issues
+> Log. This file covers web-only concerns: stack, project structure, code
+> patterns, and discovery protocol.
+
+## Tech Stack
+
+- **Framework**: React 19 with TypeScript 5.9 (strict mode)
+- **Build**: Vite 7 with PWA support
+- **State**: React Query v5 for server state, Context for global UI state
+- **Database**: Firebase Web SDK (Firestore, Auth, Functions, Storage)
+- **Styling**: Tailwind CSS 4 (dark theme default)
+- **Routing**: React Router v7 with lazy code splitting
+- **Validation**: Zod for runtime validation
+- **Testing**: Vitest (unit), Playwright (E2E)
+
+## Project Structure
+
+The target structure mirrors the sibling project's proven layout. Feature modules
+and types are created as the design firms up — the tree below is the *convention*,
+not a claim that these directories exist yet.
+
+```text
+src/
+├── features/           # Feature modules (preferred for all new code)
+│   └── <feature>/      # index.ts (barrel), components/, hooks/, lib/, types/
+│                       # <!-- TBD: feature modules defined during planning -->
+├── components/         # Shared/legacy components
+├── config/             # App config (endpoints, integrations, feature flags, security)
+├── contexts/           # React Context providers
+├── hooks/              # Shared React hooks
+├── lib/                # Core utilities & services
+│   ├── dates/         # Date formatting, calculations, parsing
+│   ├── firestore/     # Timestamp helpers, validation utilities
+│   ├── hooks/         # Shared lib hooks (e.g. useModalState)
+│   ├── security/      # Frontend security utilities
+│   └── styles/        # Variant-based styling system
+├── routes/             # Route components
+├── shared/             # Shared hooks and type re-exports
+├── testing/            # Test infrastructure (mock factories, Firebase mocks)
+├── types/              # Canonical TypeScript definitions
+└── services/           # Cross-feature services
+
+functions/              # Firebase Cloud Functions — SHARED BACKEND (serves both apps)
+└── src/
+    ├── handlers/      # Handler files grouped by domain
+    ├── lib/           # Shared backend utilities (rate limiting, security)
+    ├── types/         # Backend type definitions
+    └── wiring/        # Function registration & export wiring
+
+contracts/              # Shared callable schemas (consumed by both apps)
+└── schemas/callables/  # Zod schemas for Cloud Function callables
+```
+
+## Essential Commands
+
+Expected scripts once `package.json` is scaffolded (mirrors the sibling project):
+
+```bash
+# Core workflow
+npm run dev              # Start dev server (strict port)
+npm run build            # Production build
+npm run typecheck        # TypeScript validation (tsc --noEmit)
+npm run lint             # ESLint check
+npm run test             # Run Vitest tests
+npm run test:e2e         # Playwright E2E tests
+
+# Quality
+npm run lint:fix         # Auto-fix ESLint violations (see auto-fix safety in ../AGENTS.md)
+npm run format           # Prettier formatting
+npm run arch:check       # Dependency architecture check (dependency-cruiser)
+
+# Emulators
+npm run dev:emulator     # Auth (9099) + Firestore (8080) only
+npm run emulators        # Full suite (+ Functions 5001, Storage 9199, Hosting 5000)
+
+# Deployment (see ../AGENTS.md for full safety rules)
+# HOSTING DEPLOYS ARE FORBIDDEN — managed externally, never deploy hosting
+./scripts/cli/firebase-safe.sh deploy --only functions         # Cloud Functions (requires confirmation)
+./scripts/cli/firebase-safe.sh deploy --only firestore:rules   # Firestore rules (requires confirmation)
+```
+
+## Code Style
+
+- Functional components with hooks only
+- Named exports preferred
+- PascalCase for component files, camelCase for utilities
+- Feature-based organization for all new code
+- Tailwind utility classes (no CSS files)
+- Zod schemas for runtime validation
+
+### Import order
+
+1. React and external libraries
+2. Internal components and hooks (`@/`)
+3. Types and utilities
+4. Relative imports
+
+### TypeScript rules
+
+- **Zero `any` types** — use `unknown`, `DocumentData`, or proper interfaces (enforced by the `block-any-types` hook)
+- Use utility types: `Partial<T>`, `Pick<T, K>`, `Omit<T, K>`, `Record<K, V>`
+- Use type guards for runtime type checking
+- Canonical type definitions live in `src/types/` — all other locations import from there
+- Run `npm run typecheck` before every commit
+
+### Responsive design
+
+- Mobile-first with Tailwind breakpoints: `sm:` → `md:` → `lg:` → `xl:`
+- Minimum 44px touch targets for mobile/PWA
+- Use responsive grid: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
+
+## Code Patterns
+
+### Feature module structure
+
+```typescript
+// features/[name]/index.ts — barrel export
+export { Component } from './components';
+export { useHook } from './hooks';
+export { utility } from './lib';
+```
+
+### React Query hooks
+
+```typescript
+function useThings(filters?) {
+  return useQuery({ queryKey: ['things', filters], queryFn: () => fetchThings(filters) });
+}
+
+function useAddThing() {
+  return useMutation({
+    mutationFn: createThing,
+    onSuccess: () => queryClient.invalidateQueries(['things']),
+  });
+}
+```
+
+### Styling with variants
+
+```typescript
+import { button } from '@/lib/styles/variants';
+<button className={button('primary', 'md')}>Click</button>
+```
+
+### Logging
+
+```typescript
+import { createLogger } from '@/lib/logger';
+const logger = createLogger('FeatureName');
+logger.info('message');
+logger.error('message', error);
+// NEVER use console.log — always use createLogger()
+```
+
+### Firestore timestamps
+
+```typescript
+import { timestampToDate, dateToTimestamp } from '@/lib/firestore/timestamps';
+// Always convert between Firestore timestamps and JS Dates
+```
+
+## Code Discovery Protocol
+
+Before searching the codebase, consult the index. Blind grep/glob searches waste
+time and tokens. As the codebase grows, keep this index current.
+
+### Step 1: Check the canonical sources table
+
+`.claude/rules/code-organization.md` holds the verified table of every shared
+utility, its exact file path, and its exports. Before creating or searching for
+any utility, type, hook, or pattern — check the table first. The table below
+lists the **infrastructure** canonical sources expected on this stack; create
+each on first use and keep the table updated. Domain-specific canonical sources
+(permissions, business rules) are **TBD** and added during planning.
+
+| Concept               | Canonical Location (create on first use)                 |
+| --------------------- | -------------------------------------------------------- |
+| Date formatting       | `src/lib/dates/formatting.ts`                            |
+| Date calculations     | `src/lib/dates/calculations.ts`                          |
+| Date parsing          | `src/lib/dates/parsing.ts`                               |
+| Error capture         | `src/lib/errorCapture.ts`                                |
+| Logging               | `src/lib/logger.ts`                                      |
+| Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
+| Rate limiting (in-memory)   | `functions/src/lib/security/rateLimit.ts` (backend — low-stakes paths) |
+| Firestore timestamps  | `src/lib/firestore/timestamps.ts`                        |
+| Type definitions      | `src/types/`                                             |
+| Modal state           | `src/lib/hooks/useModalState.ts`                         |
+| Variants/styles       | `src/lib/styles/variants.ts`                             |
+| Config: endpoints     | `src/config/endpoints.ts`                                |
+| Config: integrations  | `src/config/integrations.ts`                             |
+| Config: feature flags | `src/config/featureFlags.ts`                             |
+| Config: security      | `src/config/security.ts`                                 |
+| Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
+| Test mocks: domain    | `src/testing/mockFactories.ts`                           |
+| Shared callable schemas | `contracts/schemas/callables/` (consumed by mobile too) |
+| Permission checks     | `<!-- TBD: define during planning -->`                   |
+
+### Step 2: Resolve name variants before searching
+
+Maintain `docs/architecture/FEATURE_NAME_CROSSWALK.md` (create when features
+exist) to map alternate names and shorthand to canonical directories. If a prompt
+uses a term missing from the crosswalk that you can confidently resolve, add it in
+the same task.
+
+### Step 3: Identify the feature module
+
+All domain code lives in `src/features/<name>/` with `components/`, `hooks/`,
+`lib/`, and an `index.ts` barrel.
+
+### Step 4: Check the rules
+
+`.claude/rules/` contains path-scoped rules applied automatically based on the
+files you modify: `code-organization.md`, `type-safety.md`, `security.md`,
+`firebase.md`, `testing.md`, `mcp-usage.md`.
+
+### Step 5: Search only when the index doesn't cover it
+
+Start narrow (the specific feature directory), then shared libraries
+(`src/lib/`, `src/hooks/`, `src/types/`), then project-wide as a last resort.
+
+## Important Rules
+
+- ALWAYS run `npm run typecheck` before committing
+- ALWAYS use existing patterns from similar components
+- ALWAYS search first, write second — check for existing implementations before creating new utilities, hooks, or types
+- ALWAYS extract to a shared utility when code appears 3+ times — don't defer to a future refactor
+- ALWAYS check if documentation needs updating when a change adds/removes/moves features, modifies APIs, changes behavior, renames files, or alters structure — update the relevant doc in the same session
+- ALWAYS check the sibling app (`../mobile/`) when modifying Cloud Functions, Firestore document shapes, security rules, or auth claims — see `../AGENTS.md` § Cross-App Coordination
+- NEVER commit `.env` files or secrets
+- NEVER create re-export wrapper files — import from canonical sources directly
+- Use React Query for all server state (not `useState` for async data)
+- Use `createLogger()` for logging, never `console.log`
+- Convert Firestore timestamps with helper utilities
+- Default timezone: `<!-- TBD: set default timezone during planning -->`
+- Rate-limit external API calls and abuse-sensitive endpoints: default to `checkFirestoreRateLimit()` (distributed); `checkRateLimit()` is reserved for low-stakes, latency-sensitive paths
+- Error capture: use `src/lib/errorCapture.ts`; route through the logger so the Sentry integration stays the one place that knows about the SDK
+
+## PWA & Service Worker
+
+The app runs as a PWA via `vite-plugin-pwa` (Workbox). Configure registration as
+`prompt` (user-controlled updates), `skipWaiting: false`, `clientsClaim: false`,
+`display: standalone`. <!-- TBD: finalize manifest name/icons, cache strategies, and navigation fallback during build-out. -->
+
+### Stale cache recovery (pattern to carry forward)
+
+After deploys, stale dynamically-imported chunks must self-heal. Implement layered
+recovery: a lazy-import retry wrapper, an error boundary that catches "Failed to
+fetch dynamically imported module", and an inline HTML global handler. All paths
+follow the same strategy: clear SW caches → unregister service workers → delete
+IndexedDB → hard reload.
+
+## Third-Party API Integration
+
+When the design introduces an external API, follow this pattern (placeholders
+until an integration is chosen):
+
+| Setting | Value |
+| ------- | ----- |
+| Base URL | `<!-- TBD -->` |
+| Auth | Token via Firebase Functions Secret Manager (see `../AGENTS.md` § Secrets) |
+| Rate limiting | Required — `checkFirestoreRateLimit()` before the call |
+| Secrets definition | `functions/src/config/secrets.ts` |
+
+## Running Scripts That Need Secrets
+
+Scripts in `scripts/` read secrets from environment variables. Firebase Admin auth
+comes from ADC (preferred) or a fallback key file.
+
+```bash
+gcloud auth application-default login          # one-time; applicationDefault() picks it up
+export $(grep -v '^#' .env.local | grep -v '^VITE_' | xargs)   # other secrets
+node --import tsx scripts/<script>.ts
+```
+
+## Testing Requirements
+
+- Coverage thresholds: 75% lines/functions, 70% branches (adjust during planning)
+- Unit tests: `*.test.ts`, `*.test.tsx` (colocated)
+- E2E tests in `tests/` at project root
+- Run `npm run test` before pushing
+
+## Changelog
+
+`CHANGELOG.md` (workspace root) follows [Keep a Changelog](https://keepachangelog.com/).
+Update `[Unreleased]` for user-facing work — **Added** / **Changed** / **Fixed**.
+Use a bold feature-name prefix. Internal-only changes (test infra, tooling, docs)
+don't need entries unless they affect UX. Mobile user-facing changes also go here,
+prefixed `(Mobile)`.
+
+## Standing Quality Practices
+
+Long-lived A+ engineering practices (file-size thresholds, performance
+expectations, compliance sweeps, dead-code standards) should live in
+`docs/architecture/A_PLUS_ENGINEERING_PRACTICES.md` <!-- TBD: port/author this doc during planning -->.
+Trigger phrases like "compliance sweep", "audit the codebase", "security audit",
+and "docs are stale" map to that guide and the agents in `.claude/agents/`.
+
+## Compliance & Hooks
+
+Rules in `.claude/rules/` are enforced automatically by path scope. The
+`compliance-checker` agent (`.claude/agents/compliance-checker.md`) audits any
+scope for violations. Hooks in `.claude/hooks/` provide deterministic enforcement
+at tool-call boundaries. These rules are non-negotiable unless the user explicitly
+requests an override for a specific case.
+
+### Documentation freshness
+
+After significant changes, verify affected docs are still accurate. The `docs-sync`
+agent (`.claude/agents/docs-sync.md`) audits documentation against the codebase.
+Keep current: `../CHANGELOG.md`, `../AGENTS.md`, this `AGENTS.md`,
+`.claude/rules/*.md`, and auto-memory (`MEMORY.md`).
+
+## Project Status
+
+Greenfield. Agent governance is scaffolded; application design and feature set are
+pending planning. Replace this section with phase/status tracking once work begins.

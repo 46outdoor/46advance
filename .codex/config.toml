@@ -1,0 +1,30 @@
+# Codex configuration for 46 Advance.
+#
+# Chrome DevTools MCP (browser debugging for the web app) is configured here once
+# the safe wrapper script exists. It is commented out until then so Codex does not
+# fail trying to launch a missing command.
+#
+# TBD: create pwa/scripts/cli/browser-mcp-safe.sh (sandbox-safe launcher), then
+# uncomment the block below and adjust the path.
+#
+# [mcp_servers.chrome-devtools]
+# command = "/Users/millertime/Code/46advance/pwa/scripts/cli/browser-mcp-safe.sh"
+# args = ["devtools"]
+#
+# [mcp_servers.chrome-devtools.tools.take_snapshot]
+# approval_mode = "approve"
+#
+# [mcp_servers.chrome-devtools.tools.click]
+# approval_mode = "approve"
+#
+# [mcp_servers.chrome-devtools.tools.fill]
+# approval_mode = "approve"
+#
+# [mcp_servers.chrome-devtools.tools.new_page]
+# approval_mode = "approve"
+#
+# [mcp_servers.chrome-devtools.tools.navigate_page]
+# approval_mode = "approve"
+#
+# [mcp_servers.chrome-devtools.tools.evaluate_script]
+# approval_mode = "approve"
