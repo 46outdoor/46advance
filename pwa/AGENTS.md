@@ -204,7 +204,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
 | Test mocks: domain    | `src/testing/mockFactories.ts`                           |
 | Shared callable schemas | `contracts/schemas/callables/` (consumed by mobile too) |
-| Permission checks     | `<!-- TBD: define during planning -->`                   |
+| RBAC roles + schemas  | `src/features/auth/lib/roles.ts`                         |
+| Permission checks     | `src/features/auth/lib/permissions.ts` (pure predicates) |
+| Per-event membership IO | `src/features/auth/lib/membership.ts`                  |
 
 ### Step 2: Resolve name variants before searching
 
