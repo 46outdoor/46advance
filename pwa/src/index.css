@@ -35,7 +35,7 @@
 
 /* 46 Advance design tokens — see planning/ROADMAP.md § UI / Design language. */
 @theme {
-  --color-brand: #273449; /* navy-slate — dark chrome / brand "black" */
+  --color-brand: #0a0a0a; /* near-black — brand dark surface / chrome (the site is black/white) */
   --color-brand-fg: #ffffff;
   --color-accent: #f04040; /* signature red (brand/primary, not status) */
   --color-accent-orange: #ff853c;
