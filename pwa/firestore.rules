@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Per-event RBAC (Phase 1). Mirrors the predicates in
-// src/features/auth/lib/permissions.ts — keep the two in sync.
+// src/lib/rbac/permissions.ts — keep the two in sync.
 //
 //   global admin       (token.admin == true) -> all events
 //   production-manager (per-event role)       -> read + write + flag
