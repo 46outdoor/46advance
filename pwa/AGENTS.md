@@ -208,6 +208,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |
+| Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
+| Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
+| Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 
 ### Step 2: Resolve name variants before searching
 
