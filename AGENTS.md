@@ -37,7 +37,7 @@ change in one app's data layer can silently break the other.
 | Cloud Function callables (signatures, validation) | `pwa/functions/src/handlers/` + `pwa/contracts/schemas/callables/` | Any caller passing the old shape |
 | Firestore document shape (fields, types, required vs optional) | Read/write sites in every app + `pwa/src/types/` | Reads/writes that assume the old shape |
 | Firestore security rules | `pwa/firestore.rules` | An app losing read/write access |
-| Auth custom claims / RBAC roles | `pwa/src/features/auth/lib/roles.ts` (TBD), claims setters in `functions/` | Any app's permission checks |
+| Auth custom claims / RBAC roles | `pwa/src/lib/rbac/roles.ts` (roles + Zod), `permissions.ts` (predicates), `membership.ts` (IO); claims setters in `functions/` | Any app's permission checks |
 | Storage paths & rules | `pwa/storage.rules` | Any app's upload/download flows |
 | Shared backend contracts | `pwa/contracts/schemas/` | Cross-app drift |
 

@@ -7,6 +7,7 @@ import './index.css';
 
 import { App } from '@/App';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { AuthProvider } from '@/contexts/AuthProvider';
 import { initSentry } from '@/lib/sentry';
 
 initSentry();
@@ -20,9 +21,11 @@ createRoot(container).render(
   <StrictMode>
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <AuthProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </AuthProvider>
       </QueryClientProvider>
     </AppErrorBoundary>
   </StrictMode>,

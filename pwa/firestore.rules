@@ -1,11 +1,79 @@
 rules_version = '2';
 
-// Locked down by default. Phase 1 introduces per-event RBAC rules
-// (roles granted per advance/event — see planning/ROADMAP.md § RBAC).
+// Per-event RBAC (Phase 1). Mirrors the predicates in
+// src/lib/rbac/permissions.ts — keep the two in sync.
+//
+//   global admin       (token.admin == true) -> all events
+//   production-manager (per-event role)       -> read + write + flag
+//   department-lead    (per-event role)       -> read + flag
+//   tech               (per-event role)       -> read
+//
+// Anything not matched below is denied by default.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // `.get(..., false)` avoids an "undefined property" eval error for users
+      // who have no admin claim (most users).
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function memberPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid);
+    }
+
+    function isMember(eventId) {
+      return isSignedIn() && exists(memberPath(eventId));
+    }
+
+    function hasEventRole(eventId, role) {
+      return isMember(eventId) && get(memberPath(eventId)).data.role == role;
+    }
+
+    function canEditEvent(eventId) {
+      return isAdmin() || hasEventRole(eventId, 'production-manager');
+    }
+
+    function canFlagEvent(eventId) {
+      return isAdmin()
+        || hasEventRole(eventId, 'production-manager')
+        || hasEventRole(eventId, 'department-lead');
+    }
+
+    // User profiles are server-managed (syncUserClaims via the Admin SDK).
+    // Clients may read their own profile; admins may read any (member admin UI).
+    match /users/{uid} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if isAdmin() || isMember(eventId);
+      allow create, delete: if isAdmin();
+      allow update: if canEditEvent(eventId);
+
+      // Membership is admin-managed in v1. Members may read their own row and
+      // the roster of an event they belong to.
+      match /members/{memberUid} {
+        allow read: if isAdmin()
+          || (isSignedIn() && request.auth.uid == memberUid)
+          || isMember(eventId);
+        allow write: if isAdmin();
+      }
+
+      // Flags/comments: production-manager + department-lead (and admin) may
+      // create; authors (or admin) may modify their own.
+      match /flags/{flagId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create: if canFlagEvent(eventId)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update, delete: if isAdmin()
+          || (isSignedIn() && resource.data.createdBy == request.auth.uid && canFlagEvent(eventId));
+      }
     }
   }
 }

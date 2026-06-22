@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/auth-context';
 import { useScrolled } from '@/hooks/useScrolled';
 
 /** App frame: dark, branded chrome (sticky header that shrinks on scroll) + light content. */
 export function AppShell({ children }: { children: ReactNode }) {
   const scrolled = useScrolled(8);
+  const { user, isAdmin, signOut } = useAuth();
   return (
     <div className="min-h-screen bg-surface text-ink">
       <header
@@ -28,13 +30,35 @@ export function AppShell({ children }: { children: ReactNode }) {
               Advance
             </span>
           </Link>
-          <nav className="ml-auto flex items-center gap-5 text-sm">
+          <nav className="ml-auto flex items-center gap-4 text-sm">
             <Link className="transition-colors hover:text-accent" to="/">
               Home
             </Link>
             <Link className="transition-colors hover:text-accent" to="/__theme">
               Theme
             </Link>
+            {user && (
+              <>
+                {isAdmin && (
+                  <Link
+                    className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+                    to="/admin"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <span className="hidden text-xs text-brand-fg/60 sm:inline">{user.email}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void signOut();
+                  }}
+                  className="rounded border border-brand-fg/30 px-2 py-1 text-xs transition-colors hover:border-accent hover:text-accent"
+                >
+                  Sign out
+                </button>
+              </>
+            )}
           </nav>
         </div>
       </header>

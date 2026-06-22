@@ -72,7 +72,8 @@ npm run dev              # Start dev server (strict port)
 npm run build            # Production build
 npm run typecheck        # TypeScript validation (tsc --noEmit)
 npm run lint             # ESLint check
-npm run test             # Run Vitest tests
+npm run test             # Run Vitest unit tests (jsdom)
+npm run test:rules       # Firestore security-rules tests (Firestore emulator; needs Java)
 npm run test:e2e         # Playwright E2E tests
 
 # Quality
@@ -204,7 +205,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
 | Test mocks: domain    | `src/testing/mockFactories.ts`                           |
 | Shared callable schemas | `contracts/schemas/callables/` (consumed by mobile too) |
-| Permission checks     | `<!-- TBD: define during planning -->`                   |
+| RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
+| Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
+| Per-event membership IO | `src/lib/rbac/membership.ts`                           |
 
 ### Step 2: Resolve name variants before searching
 

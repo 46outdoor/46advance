@@ -46,7 +46,7 @@ questions.
 
 ### Design language (reviewed 2026-06-21 — logo + 46entertainment.com)
 
-- **Palette — dark, high-contrast.** Brand dark is a **navy-slate #273449** (not pure black) with
+- **Palette — dark, high-contrast.** Brand dark is **near-black `#0a0a0a`** (the site is black/white) with
   white text; near-monochrome core. **Signature accent: red #f04040** (the slash band); plus sparing
   orange/lime and **full-bleed event photography** for color.
   → *Reconciliation:* keep a **dark base** (aligns with MPA's dark default) but **re-skin to 46
@@ -77,7 +77,7 @@ questions.
   tracker **neutral → amber → green** (§8) and validation states. **Red stays brand/primary** (not a
   status color). Define a small functional palette that coexists with the black/white/red brand.
 - **Brand tokens (captured 2026-06-21 from 46entertainment.com theme CSS):**
-  - **Dark/primary surface:** `#273449` (navy-slate — the brand's "black"). White `#ffffff`.
+  - **Dark/primary surface:** `#0a0a0a` (near-black — the site's black). White `#ffffff`. (Corrected from an earlier `#273449` misread — that hex was the most-frequent in the site CSS but was a component color, not the page background.)
   - **Neutrals:** light `#f2f2f2` / `#f7f7f7`; mid grey `#b3b3b3` / `#a2a2a2`; dark grey `#262626` / `#525763`.
   - **Accents:** **red `#f04040`** (signature) · orange `#ff853c` · lime `#8dff1c` (use sparingly).
   - **Fonts:** brand source **Nexa** + **Hikou** (licensed) → **implemented as OFL substitutes: Poppins** (primary) **+ Archivo** (display accent), self-hosted across app + PDF. See Typography.

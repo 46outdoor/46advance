@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -14,8 +14,8 @@ export default defineConfig({
         name: '46 Advance',
         short_name: '46 Advance',
         description: 'Festival artist advance management for 46 Entertainment',
-        theme_color: '#273449',
-        background_color: '#273449',
+        theme_color: '#0a0a0a',
+        background_color: '#0a0a0a',
         display: 'standalone',
         icons: [],
       },
@@ -30,7 +30,19 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/testing/setup.ts'],
+    // Rules tests run in Node against the emulator via vitest.rules.config.ts.
+    exclude: [...configDefaults.exclude, 'test/**/*.rules.test.ts'],
     css: true,
+    // Dummy Firebase config so `services/firebase.ts` can initialize under test
+    // (CI has no .env.local). Non-secret placeholders; no network at init.
+    env: {
+      VITE_FIREBASE_API_KEY: 'test-api-key',
+      VITE_FIREBASE_AUTH_DOMAIN: 'demo-test.firebaseapp.com',
+      VITE_FIREBASE_PROJECT_ID: 'demo-test',
+      VITE_FIREBASE_STORAGE_BUCKET: 'demo-test.appspot.com',
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '0',
+      VITE_FIREBASE_APP_ID: 'test-app-id',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
