@@ -33,6 +33,16 @@ export default defineConfig({
     // Rules tests run in Node against the emulator via vitest.rules.config.ts.
     exclude: [...configDefaults.exclude, 'test/**/*.rules.test.ts'],
     css: true,
+    // Dummy Firebase config so `services/firebase.ts` can initialize under test
+    // (CI has no .env.local). Non-secret placeholders; no network at init.
+    env: {
+      VITE_FIREBASE_API_KEY: 'test-api-key',
+      VITE_FIREBASE_AUTH_DOMAIN: 'demo-test.firebaseapp.com',
+      VITE_FIREBASE_PROJECT_ID: 'demo-test',
+      VITE_FIREBASE_STORAGE_BUCKET: 'demo-test.appspot.com',
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '0',
+      VITE_FIREBASE_APP_ID: 'test-app-id',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
