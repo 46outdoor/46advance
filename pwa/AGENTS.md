@@ -72,7 +72,8 @@ npm run dev              # Start dev server (strict port)
 npm run build            # Production build
 npm run typecheck        # TypeScript validation (tsc --noEmit)
 npm run lint             # ESLint check
-npm run test             # Run Vitest tests
+npm run test             # Run Vitest unit tests (jsdom)
+npm run test:rules       # Firestore security-rules tests (Firestore emulator; needs Java)
 npm run test:e2e         # Playwright E2E tests
 
 # Quality
