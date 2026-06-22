@@ -40,9 +40,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             {user && (
               <>
                 {isAdmin && (
-                  <span className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white">
+                  <Link
+                    className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+                    to="/admin"
+                  >
                     Admin
-                  </span>
+                  </Link>
                 )}
                 <span className="hidden text-xs text-brand-fg/60 sm:inline">{user.email}</span>
                 <button

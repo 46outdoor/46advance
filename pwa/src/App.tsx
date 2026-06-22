@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { ThemeSpecimen } from '@/routes/ThemeSpecimen';
 import { SignInScreen, SignUpScreen, AuthGate } from '@/features/auth';
+import { AdminScreen, AdminGate } from '@/features/admin';
 
 export function App() {
   return (
@@ -10,6 +11,14 @@ export function App() {
       <Route path="/sign-up" element={<SignUpScreen />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Home />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminGate>
+              <AdminScreen />
+            </AdminGate>
+          }
+        />
         <Route path="/__theme" element={<ThemeSpecimen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

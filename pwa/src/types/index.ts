@@ -5,3 +5,13 @@
 
 /** Discriminated result type for operations that can fail. */
 export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
+
+/** A user account profile — `users/{uid}`, written server-side by syncUserClaims. */
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  isAdmin: boolean;
+  createdAt: Date | null;
+  lastSeenAt: Date | null;
+}
