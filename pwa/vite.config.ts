@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -30,6 +30,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/testing/setup.ts'],
+    // Rules tests run in Node against the emulator via vitest.rules.config.ts.
+    exclude: [...configDefaults.exclude, 'test/**/*.rules.test.ts'],
     css: true,
     coverage: {
       provider: 'v8',
