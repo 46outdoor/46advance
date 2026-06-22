@@ -5,7 +5,8 @@
  */
 import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/services/firebase';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 import {
   eventRoleSchema,
@@ -21,6 +22,7 @@ function toUserProfile(uid: string, data: DocumentData): UserProfile {
     email: data.email ?? null,
     displayName: data.displayName ?? null,
     isAdmin: data.isAdmin === true,
+    organizer: data.organizer === true,
     createdAt: timestampToDate(data.createdAt ?? null),
     lastSeenAt: timestampToDate(data.lastSeenAt ?? null),
   };
@@ -60,4 +62,17 @@ export async function assignEventMember(
 /** Remove a user from an event. */
 export async function removeEventMember(eventId: string, uid: string): Promise<void> {
   await deleteDoc(doc(db, 'events', eventId, 'members', uid));
+}
+
+/** Admin-only: grant/revoke a user's global `organizer` capability (event creation). */
+export async function setUserOrganizer(
+  uid: string,
+  organizer: boolean,
+): Promise<{ uid: string; organizer: boolean }> {
+  const callable = httpsCallable<
+    { uid: string; organizer: boolean },
+    { uid: string; organizer: boolean }
+  >(functions, 'setUserOrganizer');
+  const result = await callable({ uid, organizer });
+  return result.data;
 }

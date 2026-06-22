@@ -32,9 +32,12 @@ export function sendPasswordReset(email: string): Promise<void> {
   return sendPasswordResetEmail(auth, email);
 }
 
-/** Upsert the caller's profile + resolve the global admin claim (allowlist). Call after sign-in. */
-export async function syncUserClaims(): Promise<{ isAdmin: boolean }> {
-  const callable = httpsCallable<unknown, { isAdmin: boolean }>(functions, 'syncUserClaims');
+/** Upsert the caller's profile + resolve global claims (admin allowlist, organizer). Call after sign-in. */
+export async function syncUserClaims(): Promise<{ isAdmin: boolean; isOrganizer: boolean }> {
+  const callable = httpsCallable<unknown, { isAdmin: boolean; isOrganizer: boolean }>(
+    functions,
+    'syncUserClaims',
+  );
   const result = await callable();
   return result.data;
 }
