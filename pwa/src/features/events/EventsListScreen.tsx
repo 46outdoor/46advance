@@ -6,6 +6,7 @@ import { createLogger } from '@/lib/logger';
 import { canCreateEvents } from '@/lib/rbac/permissions';
 import { formatDateRange } from '@/lib/dates/formatting';
 import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/event';
+import { listDepartments } from '@/lib/departments/departments-service';
 import { createEvent, listEvents } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
@@ -26,6 +27,8 @@ export function EventsListScreen() {
     queryFn: () => listEvents(viewer!),
     enabled: !!viewer,
   });
+
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
   const create = useMutation({
     mutationFn: (input: EventInput) => createEvent(input, viewer!.uid),
@@ -61,6 +64,7 @@ export function EventsListScreen() {
       {showCreate && canCreateEvents(viewer) && (
         <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
           <EventForm
+            departments={departmentsQuery.data ?? []}
             submitLabel="Create event"
             pending={create.isPending}
             error={create.isError ? 'Could not create the event.' : null}

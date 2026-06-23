@@ -10,6 +10,7 @@ import {
   removeEventMember,
   setUserOrganizer,
 } from './admin-service';
+import { DepartmentsAdmin } from './DepartmentsAdmin';
 
 const logger = createLogger('Admin');
 
@@ -117,6 +118,8 @@ export function AdminScreen() {
           </table>
         )}
       </div>
+
+      <DepartmentsAdmin />
 
       {/* Membership management */}
       <div className="space-y-4">

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } from '@/lib/events/event';
+import type { DepartmentRecord } from '@/lib/departments/department';
 import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
 
 interface EventFormProps {
@@ -9,7 +10,10 @@ interface EventFormProps {
     endDate: Date | null;
     venue: string | null;
     status?: EventStatus;
+    departmentIds?: string[];
   };
+  /** Available departments to enable. */
+  departments: DepartmentRecord[];
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -24,6 +28,7 @@ const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none foc
 /** Create/edit form for an event. Validates with eventInputSchema before submitting. */
 export function EventForm({
   initial,
+  departments,
   submitLabel,
   pending,
   error,
@@ -36,7 +41,19 @@ export function EventForm({
   const [end, setEnd] = useState(dateInputValue(initial?.endDate ?? null));
   const [venue, setVenue] = useState(initial?.venue ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
+  // Default: edit keeps the event's departments; create enables all available.
+  const [deptIds, setDeptIds] = useState<Set<string>>(
+    () => new Set(initial?.departmentIds ?? departments.map((d) => d.id)),
+  );
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const toggleDept = (id: string) =>
+    setDeptIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -45,6 +62,7 @@ export function EventForm({
       startDate: parseDateInput(start),
       endDate: parseDateInput(end),
       venue: venue.trim() || undefined,
+      departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
       ...(showStatus ? { status } : {}),
     });
     if (!parsed.success) {
@@ -85,6 +103,22 @@ export function EventForm({
           </select>
         </label>
       )}
+      <fieldset className="block text-sm sm:col-span-2">
+        <legend className="mb-1 font-semibold text-ink">Departments</legend>
+        {departments.length === 0 ? (
+          <p className="text-ink-muted">No departments configured yet (seed them in Admin).</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {departments.map((d) => (
+              <label key={d.id} className="inline-flex items-center gap-1.5">
+                <input type="checkbox" checked={deptIds.has(d.id)} onChange={() => toggleDept(d.id)} />
+                {d.name}
+              </label>
+            ))}
+          </div>
+        )}
+      </fieldset>
+
       <div className="flex items-center gap-3 sm:col-span-2">
         <button
           type="submit"

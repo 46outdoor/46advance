@@ -19,6 +19,8 @@ export interface EventRecord {
   endDate: Date | null;
   venue: string | null;
   status: EventStatus;
+  /** Enabled departments (ids) — drive the advance's sections. */
+  departmentIds: string[];
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -30,6 +32,7 @@ const eventDocSchema = z.object({
   endDate: z.instanceof(Timestamp).nullable().optional(),
   venue: z.string().nullable().optional(),
   status: eventStatusSchema,
+  departmentIds: z.array(z.string()).optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -45,6 +48,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     endDate: timestampToDate(doc.endDate ?? null),
     venue: doc.venue ?? null,
     status: doc.status,
+    departmentIds: doc.departmentIds ?? [],
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
@@ -59,6 +63,7 @@ export const eventInputSchema = z
     endDate: z.date().nullable().optional(),
     venue: z.string().trim().optional(),
     status: eventStatusSchema.optional(),
+    departmentIds: z.array(z.string()).optional(),
   })
   .refine(
     (v) => !v.startDate || !v.endDate || v.endDate >= v.startDate,
