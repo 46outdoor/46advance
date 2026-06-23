@@ -56,6 +56,7 @@ export async function assignEventMember(
     role: eventRoleSchema.parse(role),
     addedBy,
     addedAt: serverTimestamp(),
+    uid, // mirrors the doc id so collectionGroup("members").where("uid","==",me) can list events
   });
 }
 
