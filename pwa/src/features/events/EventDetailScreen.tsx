@@ -10,6 +10,7 @@ import type { EventInput } from '@/lib/events/event';
 import { getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
+import { AdvancesPanel } from './AdvancesPanel';
 
 const logger = createLogger('Events');
 
@@ -93,12 +94,7 @@ export function EventDetailScreen() {
         </div>
       )}
 
-      {event && (
-        <div className="space-y-3 border-t border-line pt-6">
-          <h2 className="font-display text-xl font-bold text-brand">Advances</h2>
-          <p className="text-sm text-ink-muted">Artist advance management lands in the next step (2.3).</p>
-        </div>
-      )}
+      {event && <AdvancesPanel eventId={eventId} canEdit={canEdit} />}
     </section>
   );
 }
