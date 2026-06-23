@@ -18,7 +18,7 @@ import {
 import { db } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseAdvance, type Advance, type AdvanceInput } from '@/lib/advances/advance';
-import { initialSections } from '@/lib/advances/sections';
+import { initialSections, type SectionKey, type SectionStatus } from '@/lib/advances/sections';
 
 function advancesCol(eventId: string) {
   return collection(db, 'events', eventId, 'advances');
@@ -71,4 +71,26 @@ export async function updateAdvance(
 
 export async function deleteAdvance(eventId: string, advanceId: string): Promise<void> {
   await deleteDoc(doc(db, 'events', eventId, 'advances', advanceId));
+}
+
+/**
+ * Set one section's status. `complete` stamps finalizedAt/finalizedBy (the lock);
+ * any other status clears them (start / unlock / reset). Permission + transition
+ * validity are enforced by firestore.rules; the UI gates the controls.
+ */
+export async function updateSectionStatus(
+  eventId: string,
+  advanceId: string,
+  key: SectionKey,
+  status: SectionStatus,
+  uid: string,
+): Promise<void> {
+  const state =
+    status === 'complete'
+      ? { status, finalizedAt: serverTimestamp(), finalizedBy: uid }
+      : { status, finalizedAt: null, finalizedBy: null };
+  await updateDoc(doc(db, 'events', eventId, 'advances', advanceId), {
+    [`sections.${key}`]: state,
+    updatedAt: serverTimestamp(),
+  });
 }

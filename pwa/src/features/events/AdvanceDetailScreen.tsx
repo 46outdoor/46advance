@@ -6,9 +6,16 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDate } from '@/lib/dates/formatting';
-import { SECTION_KEYS, SECTION_LABELS } from '@/lib/advances/sections';
+import {
+  SECTION_KEYS,
+  SECTION_LABELS,
+  canFinalizeSection,
+  canUnlockSection,
+  type SectionKey,
+  type SectionStatus,
+} from '@/lib/advances/sections';
 import type { AdvanceInput } from '@/lib/advances/advance';
-import { deleteAdvance, getAdvance, updateAdvance } from './advances-service';
+import { deleteAdvance, getAdvance, updateAdvance, updateSectionStatus } from './advances-service';
 import { AdvanceForm } from './AdvanceForm';
 import { SectionStatusBadge } from './SectionStatusBadge';
 
@@ -56,10 +63,23 @@ export function AdvanceDetailScreen() {
     onError: (err) => logger.error('Failed to delete advance', err),
   });
 
+  const setStatus = useMutation({
+    mutationFn: ({ key, status }: { key: SectionKey; status: SectionStatus }) =>
+      updateSectionStatus(eventId!, advanceId!, key, status, user!.uid),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['advances', eventId, advanceId] });
+      void queryClient.invalidateQueries({ queryKey: ['advances', eventId] });
+    },
+    onError: (err) => logger.error('Failed to update section status', err),
+  });
+
   if (!user || !eventId || !advanceId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
-  const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
+  const role = roleQuery.data ?? null;
+  const canEdit = canEditEvent(viewer, role);
+  const canFinalize = canFinalizeSection(viewer, role);
+  const canUnlock = canUnlockSection(viewer, role);
   const advance = advanceQuery.data;
 
   return (
@@ -126,19 +146,53 @@ export function AdvanceDetailScreen() {
           <ul className="divide-y divide-line/60">
             {SECTION_KEYS.map((key) => {
               const state = advance.sections[key];
+              const pending = setStatus.isPending;
               return (
-                <li key={key} className="flex items-center justify-between gap-3 py-3">
+                <li key={key} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <span className="font-medium text-ink">{SECTION_LABELS[key]}</span>
-                  <SectionStatusBadge status={state.status} />
+                  <div className="flex items-center gap-2">
+                    {state.status === 'complete' && state.finalizedAt && (
+                      <span className="text-xs text-ink-muted">Locked {formatDate(state.finalizedAt)}</span>
+                    )}
+                    <SectionStatusBadge status={state.status} />
+                    {state.status === 'not_started' && canEdit && (
+                      <SectionActionButton label="Start" pending={pending} onClick={() => setStatus.mutate({ key, status: 'in_progress' })} />
+                    )}
+                    {state.status === 'in_progress' && canFinalize && (
+                      <SectionActionButton label="Finalize" pending={pending} onClick={() => setStatus.mutate({ key, status: 'complete' })} />
+                    )}
+                    {state.status === 'complete' && canUnlock && (
+                      <SectionActionButton label="Unlock" pending={pending} onClick={() => setStatus.mutate({ key, status: 'in_progress' })} />
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ul>
-          <p className="text-xs text-ink-muted">
-            Section content (transportation, schedules) arrives in Phase 4; finalize/lock controls in 2.4.
-          </p>
+          <p className="text-xs text-ink-muted">Section content (transportation, schedules) arrives in Phase 4.</p>
         </div>
       )}
     </section>
+  );
+}
+
+function SectionActionButton({
+  label,
+  pending,
+  onClick,
+}: {
+  label: string;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={onClick}
+      className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+    >
+      {label}
+    </button>
   );
 }
