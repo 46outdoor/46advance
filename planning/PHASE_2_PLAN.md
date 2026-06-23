@@ -21,8 +21,12 @@ rest of the app hangs on (templates, content, tracker, packets).
 
 ## Decisions (locked 2026-06-21)
 
-1. **Event creators:** **admin + production-manager** (relaxes Phase 1's admin-only create).
-   Admin still owns membership; a PM can spin up a festival. *(Confirmed by user.)*
+1. **Event creators:** **admin + global "organizer" capability** *(confirmed by user)*.
+   Per-event roles can't gate creation of a not-yet-existent event, so creation is
+   authorized by a **global `organizer` custom claim** (admin-grantable, like `admin`).
+   Organizers + admin can create events; on create the creator is **auto-added as that
+   event's production-manager**. A new admin-only callable `setUserOrganizer` sets the
+   claim (+ mirrors `users/{uid}.organizer`); the admin tool gets an organizer toggle.
 2. **Section storage shape:** section status/metadata **embedded on the advance doc**
    (`advance.sections.{key} = { status, finalizedAt, finalizedBy }`); rich section
    **content** arrives in Phase 4. Keeps the tracker's one-read-per-advance cheap.
