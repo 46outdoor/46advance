@@ -26,11 +26,12 @@ function advanceDoc(eventId: string, stageId: string, advanceId: string) {
   return doc(db, 'events', eventId, 'stages', stageId, 'advances', advanceId);
 }
 
-/** Create an advance with every section initialized to not_started. */
+/** Create an advance with one not-started section per enabled department. */
 export async function createAdvance(
   eventId: string,
   stageId: string,
   input: AdvanceInput,
+  departmentIds: readonly string[],
   creatorUid: string,
 ): Promise<string> {
   const ref = await addDoc(advancesCol(eventId, stageId), {
@@ -38,7 +39,10 @@ export async function createAdvance(
     performanceDate: dateToTimestamp(input.performanceDate ?? null),
     stage: input.stage ?? null,
     notes: input.notes ?? null,
-    sections: initialSections(),
+    additions: input.additions ?? null,
+    concerns: input.concerns ?? null,
+    pending: input.pending ?? null,
+    sections: initialSections(departmentIds),
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -73,6 +77,9 @@ export async function updateAdvance(
     performanceDate: dateToTimestamp(input.performanceDate ?? null),
     stage: input.stage ?? null,
     notes: input.notes ?? null,
+    additions: input.additions ?? null,
+    concerns: input.concerns ?? null,
+    pending: input.pending ?? null,
     updatedAt: serverTimestamp(),
   });
 }

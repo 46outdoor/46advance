@@ -3,16 +3,17 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { SECTION_KEYS } from '@/lib/advances/sections';
 import { formatDate } from '@/lib/dates/formatting';
 import type { Advance, AdvanceInput } from '@/lib/advances/advance';
 import { createAdvance, listAdvances } from './advances-service';
+import { getEvent } from './events-service';
 import { AdvanceForm } from './AdvanceForm';
 
 const logger = createLogger('Advances');
 
-function completeCount(a: Advance): number {
-  return SECTION_KEYS.filter((k) => a.sections[k].status === 'complete').length;
+function sectionProgress(a: Advance): { complete: number; total: number } {
+  const keys = Object.keys(a.sections);
+  return { complete: keys.filter((k) => a.sections[k].status === 'complete').length, total: keys.length };
 }
 
 /** Advances list + create, embedded on the stage detail page. */
@@ -34,8 +35,15 @@ export function AdvancesPanel({
     queryFn: () => listAdvances(eventId, stageId),
   });
 
+  // Enabled departments seed a new advance's sections.
+  const eventQuery = useQuery({
+    queryKey: ['events', 'detail', eventId],
+    queryFn: () => getEvent(eventId),
+  });
+
   const create = useMutation({
-    mutationFn: (input: AdvanceInput) => createAdvance(eventId, stageId, input, user!.uid),
+    mutationFn: (input: AdvanceInput) =>
+      createAdvance(eventId, stageId, input, eventQuery.data?.departmentIds ?? [], user!.uid),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['advances', eventId, stageId] });
       setShowCreate(false);
@@ -93,7 +101,7 @@ export function AdvancesPanel({
                 )}
               </span>
               <span className="shrink-0 text-xs text-ink-muted">
-                {completeCount(a)}/{SECTION_KEYS.length} complete
+                {sectionProgress(a).complete}/{sectionProgress(a).total} complete
               </span>
             </Link>
           </li>
