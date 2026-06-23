@@ -11,20 +11,23 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
 import type { Viewer } from '@/lib/rbac/permissions';
 
-/** Create an event + add the creator as its production-manager. Returns the new event id. */
+/**
+ * Create an event, then add the creator as its production-manager.
+ * Sequential (not batched): the membership rule verifies `createdBy` via get(),
+ * which can only see the event once it's committed.
+ */
 export async function createEvent(input: EventInput, creatorUid: string): Promise<string> {
   const eventRef = doc(collection(db, 'events'));
-  const batch = writeBatch(db);
-  batch.set(eventRef, {
+  await setDoc(eventRef, {
     name: input.name,
     startDate: dateToTimestamp(input.startDate ?? null),
     endDate: dateToTimestamp(input.endDate ?? null),
@@ -34,13 +37,12 @@ export async function createEvent(input: EventInput, creatorUid: string): Promis
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  batch.set(doc(db, 'events', eventRef.id, 'members', creatorUid), {
+  await setDoc(doc(db, 'events', eventRef.id, 'members', creatorUid), {
     role: 'production-manager',
     addedBy: creatorUid,
     addedAt: serverTimestamp(),
     uid: creatorUid,
   });
-  await batch.commit();
   return eventRef.id;
 }
 
