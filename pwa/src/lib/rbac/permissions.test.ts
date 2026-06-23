@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { canEditEvent, canFlag, canManageMembers, canViewEvent, isAdmin } from './permissions';
+import {
+  canCreateEvents,
+  canEditEvent,
+  canFlag,
+  canManageMembers,
+  canViewEvent,
+  isAdmin,
+} from './permissions';
 import type { Viewer } from './permissions';
 
 const admin: Viewer = { uid: 'admin-1', isAdmin: true };
 const member: Viewer = { uid: 'user-1', isAdmin: false };
+
+describe('permissions — event creation (global capability)', () => {
+  it('admin and organizers may create events; plain members may not', () => {
+    expect(canCreateEvents(admin)).toBe(true);
+    expect(canCreateEvents({ uid: 'o', isAdmin: false, isOrganizer: true })).toBe(true);
+    expect(canCreateEvents(member)).toBe(false);
+  });
+});
 
 describe('permissions — global admin', () => {
   it('admin can do everything regardless of per-event role', () => {
