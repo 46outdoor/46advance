@@ -22,7 +22,7 @@ import { SectionStatusBadge } from './SectionStatusBadge';
 const logger = createLogger('Advances');
 
 export function AdvanceDetailScreen() {
-  const { eventId, advanceId } = useParams();
+  const { eventId, stageId, advanceId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -30,9 +30,9 @@ export function AdvanceDetailScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const advanceQuery = useQuery({
-    queryKey: ['advances', eventId, advanceId],
-    queryFn: () => getAdvance(eventId!, advanceId!),
-    enabled: !!eventId && !!advanceId,
+    queryKey: ['advances', eventId, stageId, advanceId],
+    queryFn: () => getAdvance(eventId!, stageId!, advanceId!),
+    enabled: !!eventId && !!stageId && !!advanceId,
   });
 
   const roleQuery = useQuery({
@@ -42,11 +42,11 @@ export function AdvanceDetailScreen() {
   });
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['advances', eventId] });
+    void queryClient.invalidateQueries({ queryKey: ['advances', eventId, stageId] });
   };
 
   const update = useMutation({
-    mutationFn: (input: AdvanceInput) => updateAdvance(eventId!, advanceId!, input),
+    mutationFn: (input: AdvanceInput) => updateAdvance(eventId!, stageId!, advanceId!, input),
     onSuccess: () => {
       invalidate();
       setEditing(false);
@@ -55,25 +55,22 @@ export function AdvanceDetailScreen() {
   });
 
   const remove = useMutation({
-    mutationFn: () => deleteAdvance(eventId!, advanceId!),
+    mutationFn: () => deleteAdvance(eventId!, stageId!, advanceId!),
     onSuccess: () => {
       invalidate();
-      navigate(`/events/${eventId}`);
+      navigate(`/events/${eventId}/stages/${stageId}`);
     },
     onError: (err) => logger.error('Failed to delete advance', err),
   });
 
   const setStatus = useMutation({
     mutationFn: ({ key, status }: { key: SectionKey; status: SectionStatus }) =>
-      updateSectionStatus(eventId!, advanceId!, key, status, user!.uid),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['advances', eventId, advanceId] });
-      void queryClient.invalidateQueries({ queryKey: ['advances', eventId] });
-    },
+      updateSectionStatus(eventId!, stageId!, advanceId!, key, status, user!.uid),
+    onSuccess: () => invalidate(),
     onError: (err) => logger.error('Failed to update section status', err),
   });
 
-  if (!user || !eventId || !advanceId) return null;
+  if (!user || !eventId || !stageId || !advanceId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
   const role = roleQuery.data ?? null;
@@ -84,8 +81,8 @@ export function AdvanceDetailScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventId}`} className="text-sm text-ink-muted hover:text-accent">
-        ← Event
+      <Link to={`/events/${eventId}/stages/${stageId}`} className="text-sm text-ink-muted hover:text-accent">
+        ← Stage
       </Link>
 
       {advanceQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}

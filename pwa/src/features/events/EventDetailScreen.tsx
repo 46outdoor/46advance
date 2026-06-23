@@ -10,7 +10,7 @@ import type { EventInput } from '@/lib/events/event';
 import { getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
-import { AdvancesPanel } from './AdvancesPanel';
+import { StagesPanel } from './StagesPanel';
 
 const logger = createLogger('Events');
 
@@ -94,7 +94,7 @@ export function EventDetailScreen() {
         </div>
       )}
 
-      {event && <AdvancesPanel eventId={eventId} canEdit={canEdit} />}
+      {event && <StagesPanel eventId={eventId} canEdit={canEdit} />}
     </section>
   );
 }

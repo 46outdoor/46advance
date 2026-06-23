@@ -15,21 +15,29 @@ function completeCount(a: Advance): number {
   return SECTION_KEYS.filter((k) => a.sections[k].status === 'complete').length;
 }
 
-/** Advances list + create, embedded on the event detail page. */
-export function AdvancesPanel({ eventId, canEdit }: { eventId: string; canEdit: boolean }) {
+/** Advances list + create, embedded on the stage detail page. */
+export function AdvancesPanel({
+  eventId,
+  stageId,
+  canEdit,
+}: {
+  eventId: string;
+  stageId: string;
+  canEdit: boolean;
+}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
 
   const advancesQuery = useQuery({
-    queryKey: ['advances', eventId],
-    queryFn: () => listAdvances(eventId),
+    queryKey: ['advances', eventId, stageId],
+    queryFn: () => listAdvances(eventId, stageId),
   });
 
   const create = useMutation({
-    mutationFn: (input: AdvanceInput) => createAdvance(eventId, input, user!.uid),
+    mutationFn: (input: AdvanceInput) => createAdvance(eventId, stageId, input, user!.uid),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['advances', eventId] });
+      void queryClient.invalidateQueries({ queryKey: ['advances', eventId, stageId] });
       setShowCreate(false);
     },
     onError: (err) => logger.error('Failed to create advance', err),
@@ -74,7 +82,7 @@ export function AdvancesPanel({ eventId, canEdit }: { eventId: string; canEdit: 
         {advances.map((a) => (
           <li key={a.id}>
             <Link
-              to={`/events/${eventId}/advances/${a.id}`}
+              to={`/events/${eventId}/stages/${stageId}/advances/${a.id}`}
               className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-accent"
             >
               <span>
