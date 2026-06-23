@@ -46,11 +46,12 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users', PM), { email: 'pm@x.com', isAdmin: false });
     await setDoc(doc(db, 'users', OUTSIDER), { email: 'out@x.com', isAdmin: false });
     await setDoc(doc(db, 'events/event-a/flags/seed'), { createdBy: LEAD, text: 'seed' });
-    // An advance on event A for read/write tests.
-    await setDoc(doc(db, 'events/event-a/advances/adv-1'), {
+    // A stage on event A with an advance under it, for read/write tests.
+    await setDoc(doc(db, 'events/event-a/stages/stg-a'), { name: 'Main', order: 0 });
+    await setDoc(doc(db, 'events/event-a/stages/stg-a/advances/adv-1'), {
       artistName: 'Seed Band',
       createdBy: PM,
-      sections: { transportation: { status: 'in_progress', finalizedAt: null, finalizedBy: null } },
+      sections: { audio: { status: 'in_progress', finalizedAt: null, finalizedBy: null } },
     });
   });
 });
@@ -258,50 +259,82 @@ describe('firestore.rules — advances', () => {
   });
 
   it('any member can read advances; outsiders cannot', async () => {
-    await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/advances/adv-1')));
-    await assertSucceeds(getDoc(doc(dbFor(LEAD), 'events/event-a/advances/adv-1')));
-    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/advances/adv-1')));
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1')));
+    await assertSucceeds(getDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-1')));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/stages/stg-a/advances/adv-1')));
   });
 
   it('production-manager + admin can create advances', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/advances/adv-pm'), newAdvance(PM)));
+    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-pm'), newAdvance(PM)));
     await assertSucceeds(
-      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/advances/adv-adm'), newAdvance(ADMIN.uid)),
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-adm'), newAdvance(ADMIN.uid)),
     );
   });
 
   it('tech and department-lead cannot create advances', async () => {
-    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/advances/adv-t'), newAdvance(TECH)));
-    await assertFails(setDoc(doc(dbFor(LEAD), 'events/event-a/advances/adv-l'), newAdvance(LEAD)));
+    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-t'), newAdvance(TECH)));
+    await assertFails(setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-l'), newAdvance(LEAD)));
   });
 
   it('cannot forge another user as the advance creator', async () => {
-    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/advances/adv-forge'), newAdvance('someone-else')));
+    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-forge'), newAdvance('someone-else')));
   });
 });
 
 describe('firestore.rules — section finalize/unlock (write gate)', () => {
-  const finalize = { sections: { transportation: { status: 'complete', finalizedAt: null, finalizedBy: PM } } };
+  const finalize = { sections: { audio: { status: 'complete', finalizedAt: null, finalizedBy: PM } } };
 
   it('production-manager can finalize a section (update the advance)', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/advances/adv-1'), finalize));
+    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
   });
 
   it('admin can finalize/unlock', async () => {
     await assertSucceeds(
-      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/advances/adv-1'), {
-        sections: { transportation: { status: 'complete', finalizedAt: null, finalizedBy: ADMIN.uid } },
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-1'), {
+        sections: { audio: { status: 'complete', finalizedAt: null, finalizedBy: ADMIN.uid } },
       }),
     );
   });
 
   it('tech and department-lead cannot change section status', async () => {
-    await assertFails(updateDoc(doc(dbFor(TECH), 'events/event-a/advances/adv-1'), finalize));
-    await assertFails(updateDoc(doc(dbFor(LEAD), 'events/event-a/advances/adv-1'), finalize));
+    await assertFails(updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
+    await assertFails(updateDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
   });
 
   it('only PM/admin can delete advances', async () => {
-    await assertFails(deleteDoc(doc(dbFor(TECH), 'events/event-a/advances/adv-1')));
-    await assertSucceeds(deleteDoc(doc(dbFor(PM), 'events/event-a/advances/adv-1')));
+    await assertFails(deleteDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1')));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1')));
+  });
+});
+
+describe('firestore.rules — stages', () => {
+  it('any member can read a stage; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a')));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/stages/stg-a')));
+  });
+
+  it('production-manager + admin can create/update/delete stages', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-pm'), { name: 'PM Stage', order: 1 }));
+    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a'), { name: 'Renamed' }));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a')));
+  });
+
+  it('tech and department-lead cannot write stages', async () => {
+    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-t'), { name: 'no', order: 9 }));
+    await assertFails(setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-l'), { name: 'no', order: 9 }));
+  });
+});
+
+describe('firestore.rules — departments (app-wide config)', () => {
+  it('any signed-in user can read; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'departments/audio')));
+    await assertFails(getDoc(doc(dbAnon(), 'departments/audio')));
+  });
+
+  it('only admin can write departments', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), 'departments/audio'), { name: 'Audio', order: 0 }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'departments/audio'), { name: 'Audio', order: 0 }),
+    );
   });
 });
