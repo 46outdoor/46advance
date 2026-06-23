@@ -67,6 +67,7 @@ portal, and integrations are post-MVP fast-follows.
 
 ## Phase 4 — Advance content: transportation + schedules
 **Goal:** the artist-advancing substance.
+- **Field taxonomy reference:** the audio lead's working advance ([`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)) — concrete section groups (documents, staff, power, backline, risers, audio, etc.). Breadth (multi-department vs audio-first vs department-configurable) is pending (ROADMAP §15).
 - Transportation/logistics (trucks, buses, vehicles, car services…) — fields per roadmap (**still being defined — iterate**).
 - Schedules: production / show / travel / **stagehand labor** / custom; **master schedule** (whole-section toggles + per-item overrides).
 - Section-status auto-fill hooks; data shaped to feed tracker + packets.
@@ -115,6 +116,7 @@ portal, and integrations are post-MVP fast-follows.
 - **Exit:** link a Drive file to an advance; save a packet to Drive.
 
 ## Later / backlog
+- **Gear inventory & pull sheet** (new — from the audio advance reference): house-stock model library, per-advance quantities roll up to event totals + shortages. Own phase vs simplified vs defer — pending (ROADMAP §8b / §15).
 - **Slack** — notifications-first, per-user creds.
 - **Lasso** — staffing; tie into the stagehand labor schedule.
 - **Native mobile build-out** (`mobile/`) — once PWA features stabilize, implement screens consuming the shared contracts; the per-phase **Mobile** notes pre-answer most decisions.

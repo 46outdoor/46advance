@@ -125,6 +125,41 @@ event.
 
 > Building this list with the user — capture in progress; expect more categories below.
 
+### Section taxonomy (from the audio lead's working advance — reference)
+
+The audio advance lead's live spreadsheet (see
+[`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)) is the concrete model for
+**advance content (Phase 4)**. Its operating philosophy matches ours: **most
+production is a standard festival package (templated, §6); the advance captures each
+artist's additions, exceptions, and concerns.** Candidate section groups (breadth
+pending — see Decisions):
+
+- **Identity/header** — producer, show, **stage**, days, venue, address, website,
+  maps, published date, blurb *(extends Event fields)*.
+- **Schedule** — arrival · crossload · load-in · soundcheck · backline drop-off ·
+  load-out · crossload return · set time *(maps to §5 schedules)*.
+- **Documents** — production rider · stage plot · input list (received?) *(new)*.
+- **Contacts** — PM / TM / Audio / additional (cell + email) *(§11, embedded per advance)*.
+- **Staff** — FOH / monitor / playback / backline / LD / programming / VJ /
+  content / additional crew / total personnel *(new)*.
+- **Transportation** — semis · box truck · buses · vans · trailers · fest transpo ·
+  personal *(extends §5)*.
+- **Power** — audio / lighting / video / pyro / bus shore *(new)*.
+- **Backline** — rented/carried/shared · list · notes *(new)*.
+- **Risers** — typed counts *(new)*.
+- **Audio** — consoles (FOH/MON) · snakes · patch · mics & DIs · stands & XLR (typed)
+  · MON needs · RF · IEM · COM *(new — the audio dept content)*.
+- **Lighting / Video / Rigging / Gas-Pyro** — present but mostly N/A on the audio
+  sheet *(new; other departments)*.
+- **Labor** — loaders / hands / heavy / riggers counts *(extends §5 stagehand labor)*.
+- **Additions / Concerns / Pending** — structured per-advance, roll up to the summary
+  report *(new vs our flags — see Decisions)*.
+- **Financial** — direct pay / settlement *(new)*.
+
+The sheet also has two **auto-filled report tabs**: a per-day **completion summary**
+(→ §7 packet / §8 tracker) and a **gear pull-sheet/shortage** calculator (→ new
+capability, below).
+
 ### Artist Transportation / Logistics
 
 Basic info production managers collect (initial list — more coming):
@@ -220,6 +255,23 @@ A **grid/matrix-style tracker** for advances across events — at-a-glance statu
 
 **Mobile:** dense grids are hard on small screens — plan a condensed/filtered (or read-only)
 mobile view rather than a 1:1 port.
+
+## 8b. Gear inventory & pull sheet (new — from the audio advance reference)
+
+The audio advance's "DO NOT EDIT" tab maintains a **mic/DI/stand model library** with
+**on-site stock**, auto-sums each artist's requested quantities, and surfaces
+**shortages** (negative = short, flagged). This is a distinct capability from the §8
+status tracker — an **inventory/pull-sheet** that rolls per-advance gear up to the
+event level vs house stock.
+
+- Maintain house stock per item (mic models, DIs, stands, XLR, cable, CAM tie-ins…).
+- Advances contribute per-item quantities (the "Stands & XLR – REQUIRED" + mic/DI
+  picks); the event aggregates **total in use** and **available/shortage**.
+- Output: a **pull sheet** + shortage report (feeds purchasing/cross-rental).
+- **Decision pending:** include as its own phase (full model library + auto-totals),
+  a simplified version (free-text gear lists, no auto-shortage), or defer. See
+  [`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md).
+- **Mobile:** read pull sheet / shortages on site; entry PWA-first.
 
 ## 9. Quotes / Estimates (artist-covered expenses)
 
@@ -352,6 +404,15 @@ web redirect flow.
 - **PDF reports:** match 46's packet idiom — branded cover (photo + red diagonal slash + logos) + white title-block content pages (§7).
 
 ## 15. Open questions (parked)
+
+**From the audio advance reference (2026-06-23) — asked:**
+- **Advance content breadth:** full multi-department taxonomy, audio-first, or
+  department-configurable (sections per the event's departments)?
+- **Gear inventory / pull-sheet / shortage engine:** own phase, simplified, or defer?
+- **Stage as a first-class layer** (event → stages → advances) vs `stage` as a field?
+- **Additions / Concerns / Pending:** structured per-advance fields (roll up to the
+  summary report) vs the flags/comments mechanism?
+- (Granular per-section field inclusion confirmed during Phase 4 as each is built.)
 
 - Department lead: which specific write scopes?
 - What does an "advance" contain for a multi-day festival (sections/fields)? (Being built in §5.)
