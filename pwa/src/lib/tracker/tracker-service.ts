@@ -47,7 +47,7 @@ function eventColumns(event: EventRecord, deptNames: Map<string, string>): Track
 }
 
 /** Read every located advance for an event (stages → advances), ordered by stage. */
-async function loadLocatedAdvances(eventId: string): Promise<LocatedAdvance[]> {
+export async function listEventAdvances(eventId: string): Promise<LocatedAdvance[]> {
   const stageSnap = await getDocs(collection(db, 'events', eventId, 'stages'));
   const stages = stageSnap.docs
     .map((d) => parseStage(d.id, d.data()))
@@ -72,7 +72,7 @@ export async function getEventTracker(eventId: string): Promise<EventTrackerView
   if (!eventSnap.exists()) return null;
   const event = parseEvent(eventSnap.id, eventSnap.data());
 
-  const [deptNames, located] = await Promise.all([loadDepartmentNames(), loadLocatedAdvances(eventId)]);
+  const [deptNames, located] = await Promise.all([loadDepartmentNames(), listEventAdvances(eventId)]);
   return { event, tracker: rollUpEvent(located, eventColumns(event, deptNames)) };
 }
 
@@ -106,7 +106,7 @@ export async function listEventTrackerSummaries(viewer: Viewer): Promise<EventTr
   const events = await listVisibleEvents(viewer);
   const summaries = await Promise.all(
     events.map(async (event) => {
-      const located = await loadLocatedAdvances(event.id);
+      const located = await listEventAdvances(event.id);
       const counts = sumCounts(
         located.map((l) => {
           const c: StatusCounts = { not_started: 0, in_progress: 0, complete: 0, total: 0 };

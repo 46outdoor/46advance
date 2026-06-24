@@ -226,8 +226,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Event contact attachments | `src/features/events/event-contacts-service.ts` (per-event join) |
 | Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
 | iCalendar (.ics) builder | `src/lib/calendar/ics.ts` (pure VEVENT + download) |
-| Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status read, `useGoogleConnection.ts`) |
-| Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + calendar/Meet creation) |
+| Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
+| Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron) |
+| Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`) |
 
 ### Step 2: Resolve name variants before searching
 
@@ -265,7 +266,7 @@ Start narrow (the specific feature directory), then shared libraries
 - Use React Query for all server state (not `useState` for async data)
 - Use `createLogger()` for logging, never `console.log`
 - Convert Firestore timestamps with helper utilities
-- Default timezone: `<!-- TBD: set default timezone during planning -->`
+- Default timezone: **Central (`America/Chicago`)** — all advance-call times. Convert/format via `src/lib/dates/timezone.ts`; never rely on the browser's local zone. Store instants as UTC (`Timestamp`).
 - Rate-limit external API calls and abuse-sensitive endpoints: default to `checkFirestoreRateLimit()` (distributed); `checkRateLimit()` is reserved for low-stakes, latency-sensitive paths
 - Error capture: use `src/lib/errorCapture.ts`; route through the logger so the Sentry integration stays the one place that knows about the SDK
 

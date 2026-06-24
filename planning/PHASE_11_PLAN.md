@@ -64,6 +64,24 @@ The roadmap's decided **"store an existing link"** path, plus immediate offline 
 Once provided, the agent builds 11b, deploys functions + rules, grants invoker, and verifies
 end-to-end (connect Google → create an advance call → Meet link appears).
 
+## 11b (sync) — Appointment Schedule → advance auto-matching  [A — BUILT, pending deploy + verify]
+Added 2026-06-24 after the user clarified the real workflow: artists self-book via a Google
+**Appointment Schedule** link (required field: Artist Name). 46 Advance reads those bookings
+and matches them to advances — the *pull* model, complementing the manual *push* model.
+- **`functions/src/googleBookings.ts`** — reads the connecting user's **primary** calendar,
+  parses advance bookings (Meet link + "Artist Name" field / "Advance" in title), matches by
+  normalized artist name within an event (scoped by the event's optional **booking label** =
+  festival segment). Exactly one unlinked match → **auto-attach** (write time + Meet link back);
+  ambiguous → queued in `events/{id}/callBookings` for one-click review.
+- **`syncAdvanceCallBookings`** (onCall, manual "Sync now") + **`scheduledAdvanceCallSync`**
+  (cron `0 1,5,9,11,13,15,17,21 * * *` Central = every 2h business hours / 4h off-hours).
+- **Timezone:** all times **Central** (`America/Chicago`). Bookings carry an offset in
+  `start.dateTime` → parsed to a true UTC instant; stored UTC; rendered Central via
+  `src/lib/dates/timezone.ts` (DST-aware, unit-tested). The manual picker is Central-explicit.
+- **Rules:** `events/{id}/callBookings` — member read, PM/admin write (+2 tests).
+- **UI:** `BookedCallsPanel` on the event page (Sync now + review queue) + a **booking label**
+  field on the event form.
+
 ## Out of scope (later)
 Schedule-item push (needs a Schedules phase) · two-way sync / reading existing calendars ·
 Drive (separate phase) · mobile native OAuth (`expo-auth-session`).

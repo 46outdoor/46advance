@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { downloadIcs } from '@/lib/calendar/ics';
+import { dateToZonedInput, zonedInputToDate, formatCentralDateTime } from '@/lib/dates/timezone';
 import { createAdvanceCall, useGoogleConnection } from '@/lib/google';
 
 const logger = createLogger('AdvanceCall');
@@ -27,13 +28,6 @@ interface Props {
   onCreated: () => void;
 }
 
-/** Format a Date into the `YYYY-MM-DDTHH:mm` value a datetime-local input expects (local time). */
-function toLocalInput(d: Date | null): string {
-  if (!d) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function AdvanceCallPanel({
   eventId,
   stageId,
@@ -47,14 +41,15 @@ export function AdvanceCallPanel({
 }: Props) {
   const connection = useGoogleConnection();
   const isConnected = connection.data?.connected === true;
-  const [when, setWhen] = useState(() => toLocalInput(at));
+  // The datetime-local value is wall-clock interpreted in Central (not the browser's zone).
+  const [when, setWhen] = useState(() => dateToZonedInput(at));
   const [duration, setDuration] = useState(30);
 
   const create = useMutation({
     mutationFn: () => {
-      const ms = new Date(when).getTime();
-      if (Number.isNaN(ms)) throw new Error('Pick a date and time first.');
-      return createAdvanceCall({ eventId, stageId, advanceId, startMillis: ms, durationMinutes: duration });
+      const start = zonedInputToDate(when);
+      if (!start) throw new Error('Pick a date and time first.');
+      return createAdvanceCall({ eventId, stageId, advanceId, startMillis: start.getTime(), durationMinutes: duration });
     },
     onSuccess: () => onCreated(),
     onError: (e) => logger.error('Failed to create Google Meet advance call', e),
@@ -77,7 +72,7 @@ export function AdvanceCallPanel({
 
       {hasCall ? (
         <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
-          {at && <span className="text-ink-muted">{at.toLocaleString()}</span>}
+          {at && <span className="text-ink-muted">{formatCentralDateTime(at)}</span>}
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
               Join
@@ -104,7 +99,7 @@ export function AdvanceCallPanel({
           {isConnected ? (
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-xs text-ink-muted">
-                Call time
+                Call time (Central)
                 <input
                   type="datetime-local"
                   value={when}

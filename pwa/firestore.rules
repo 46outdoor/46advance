@@ -168,6 +168,13 @@ service cloud.firestore {
         allow create, update, delete: if canEditEvent(eventId);
       }
 
+      // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
+      // PM/admin resolve (attach/dismiss) from the review queue. Member read.
+      match /callBookings/{bookingId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create, update, delete: if canEditEvent(eventId);
+      }
+
       // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.
       match /flags/{flagId} {
         allow read: if isAdmin() || isMember(eventId);

@@ -19,16 +19,16 @@ import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
 
 /** OAuth2 client type, taken from googleapis' own auth bundle (avoids a duplicate-copy type clash). */
-type AuthClient = InstanceType<typeof google.auth.OAuth2>;
+export type AuthClient = InstanceType<typeof google.auth.OAuth2>;
 
 const CLIENT_ID = defineSecret('GOOGLE_OAUTH_CLIENT_ID');
 const CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
-const OAUTH_SECRETS = [CLIENT_ID, CLIENT_SECRET];
+export const OAUTH_SECRETS = [CLIENT_ID, CLIENT_SECRET];
 
 const PROJECT_ID = 'advancethat';
 const REGION = 'us-central1';
-/** Default org timezone (Calendar events carry it explicitly). */
-const TIME_ZONE = 'America/New_York';
+/** Org operating timezone — Central. Calendar events carry it explicitly. */
+export const TIME_ZONE = 'America/Chicago';
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 const SCOPES = [
@@ -50,7 +50,7 @@ function callbackUrl(): string {
   return `https://${REGION}-${PROJECT_ID}.cloudfunctions.net/googleAuthCallback`;
 }
 
-function oauthClient(): AuthClient {
+export function oauthClient(): AuthClient {
   return new google.auth.OAuth2(CLIENT_ID.value(), CLIENT_SECRET.value(), callbackUrl());
 }
 
@@ -77,7 +77,7 @@ h1{font-size:1.15rem;margin:0 0 10px}p{color:rgba(255,255,255,.7);font-size:.92r
 }
 
 /** PM-or-admin gate (mirrors firestore.rules canEditEvent). */
-async function assertCanEditEvent(
+export async function assertCanEditEvent(
   db: Firestore,
   uid: string,
   isAdmin: boolean,
@@ -91,7 +91,7 @@ async function assertCanEditEvent(
 }
 
 /** Build an OAuth2 client primed with a user's stored tokens; persists refreshes. */
-async function authedClientForUser(db: Firestore, uid: string): Promise<AuthClient> {
+export async function authedClientForUser(db: Firestore, uid: string): Promise<AuthClient> {
   const snap = await db.collection('googleTokens').doc(uid).get();
   const t = snap.data() as
     | { refreshToken?: string | null; accessToken?: string | null; accessTokenExpiry?: number | null }
