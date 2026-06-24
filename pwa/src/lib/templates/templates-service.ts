@@ -2,7 +2,17 @@
  * Template data access (`templates/{templateId}`). Shared lib (admin editor authors;
  * event-create reads). Writes are admin-only per firestore.rules.
  */
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { parseTemplate, type TemplateInput, type TemplateRecord } from './template';
 
@@ -35,4 +45,9 @@ export async function updateTemplate(id: string, input: TemplateInput): Promise<
 
 export async function deleteTemplate(id: string): Promise<void> {
   await deleteDoc(doc(db, 'templates', id));
+}
+
+/** Patch specific template fields (keys may be dot-paths, e.g. `stageProduction.s1.content.audio`). */
+export async function patchTemplate(id: string, data: Record<string, unknown>): Promise<void> {
+  await updateDoc(doc(db, 'templates', id), { ...data, updatedAt: serverTimestamp() });
 }

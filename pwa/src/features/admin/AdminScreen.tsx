@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { EVENT_ROLES, type EventRole } from '@/lib/rbac/roles';
+import { listUsers } from '@/lib/users/users-service';
 import {
   assignEventMember,
   listEventMembers,
-  listUsers,
   removeEventMember,
   setUserOrganizer,
 } from './admin-service';

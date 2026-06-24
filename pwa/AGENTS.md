@@ -215,6 +215,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
+| Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
+| Users directory (read) | `src/lib/users/users-service.ts`                         |
+| Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 
 ### Step 2: Resolve name variants before searching
 

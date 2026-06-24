@@ -10,6 +10,7 @@ import {
   StageDetailScreen,
   AdvanceDetailScreen,
 } from '@/features/events';
+import { TemplatesListScreen, TemplateEditorScreen } from '@/features/templates';
 
 export function App() {
   return (
@@ -31,6 +32,22 @@ export function App() {
           element={
             <AdminGate>
               <AdminScreen />
+            </AdminGate>
+          }
+        />
+        <Route
+          path="/templates"
+          element={
+            <AdminGate>
+              <TemplatesListScreen />
+            </AdminGate>
+          }
+        />
+        <Route
+          path="/templates/:templateId"
+          element={
+            <AdminGate>
+              <TemplateEditorScreen />
             </AdminGate>
           }
         />

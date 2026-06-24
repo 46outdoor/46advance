@@ -7,7 +7,8 @@ import { canCreateEvents } from '@/lib/rbac/permissions';
 import { formatDateRange } from '@/lib/dates/formatting';
 import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
-import { createEvent, listEvents } from './events-service';
+import { listTemplates } from '@/lib/templates/templates-service';
+import { createEvent, createEventFromTemplate, listEvents } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 
@@ -19,6 +20,7 @@ export function EventsListScreen() {
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | EventStatus>('all');
+  const [templateId, setTemplateId] = useState('');
 
   const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
 
@@ -29,12 +31,15 @@ export function EventsListScreen() {
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
+  const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: listTemplates });
 
   const create = useMutation({
-    mutationFn: (input: EventInput) => createEvent(input, viewer!.uid),
+    mutationFn: (input: EventInput) =>
+      templateId ? createEventFromTemplate(templateId, input) : createEvent(input, viewer!.uid),
     onSuccess: (id) => {
       void queryClient.invalidateQueries({ queryKey: ['events'] });
       setShowCreate(false);
+      setTemplateId('');
       navigate(`/events/${id}`);
     },
     onError: (err) => logger.error('Failed to create event', err),
@@ -62,10 +67,32 @@ export function EventsListScreen() {
       </header>
 
       {showCreate && canCreateEvents(viewer) && (
-        <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
+        <div className="space-y-3 rounded-lg border border-line bg-surface-muted/40 p-4">
+          {(templatesQuery.data ?? []).length > 0 && (
+            <label className="block text-sm">
+              <span className="mb-1 block font-semibold text-ink">Start from template (optional)</span>
+              <select
+                className="w-72 rounded border border-line px-3 py-2 outline-none focus:border-brand"
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+              >
+                <option value="">Blank event</option>
+                {(templatesQuery.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {templateId && (
+                <span className="mt-1 block text-xs text-ink-muted">
+                  Departments, stages, production, and roles come from the template.
+                </span>
+              )}
+            </label>
+          )}
           <EventForm
             departments={departmentsQuery.data ?? []}
-            submitLabel="Create event"
+            submitLabel={templateId ? 'Create from template' : 'Create event'}
             pending={create.isPending}
             error={create.isError ? 'Could not create the event.' : null}
             onSubmit={(input) => create.mutate(input)}

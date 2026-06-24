@@ -8,7 +8,7 @@ import {
 } from '@/lib/advances/fields';
 import type { AdvanceSectionState, SectionStatus } from '@/lib/advances/sections';
 import { SectionStatusBadge } from './SectionStatusBadge';
-import { SectionContentForm } from './SectionContentForm';
+import { SectionContentForm } from '@/components/production/SectionContentForm';
 
 interface AdvanceSectionProps {
   deptId: string;
