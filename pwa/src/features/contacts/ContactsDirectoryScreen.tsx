@@ -107,7 +107,14 @@ export function ContactsDirectoryScreen() {
             <article key={contact.id} className="rounded-lg border border-line p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h2 className="font-semibold text-ink">{contact.name}</h2>
+                  <h2 className="flex items-center gap-2 font-semibold text-ink">
+                    {contact.name}
+                    {contact.userId && (
+                      <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ink-muted">
+                        Account
+                      </span>
+                    )}
+                  </h2>
                   {contactSubtitle(contact) && <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>}
                 </div>
                 {canManage(contact) && (
