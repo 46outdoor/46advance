@@ -12,6 +12,7 @@ import { generatePacket, getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
+import { EventContactsPanel } from './EventContactsPanel';
 
 const logger = createLogger('Events');
 
@@ -128,6 +129,8 @@ export function EventDetailScreen() {
       )}
 
       {event && <StagesPanel eventId={eventId} canEdit={canEdit} />}
+
+      {event && <EventContactsPanel eventId={eventId} uid={user.uid} canEdit={canEdit} />}
     </section>
   );
 }
