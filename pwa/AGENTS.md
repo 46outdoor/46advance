@@ -195,6 +195,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
 | Rate limiting (in-memory)   | `functions/src/lib/security/rateLimit.ts` (backend — low-stakes paths) |
 | Firestore timestamps  | `src/lib/firestore/timestamps.ts`                        |
+| File uploads (Storage) | `src/lib/storage/uploads.ts` (validate + upload/delete) |
 | Type definitions      | `src/types/`                                             |
 | Modal state           | `src/lib/hooks/useModalState.ts`                         |
 | Variants/styles       | `src/lib/styles/variants.ts`                             |

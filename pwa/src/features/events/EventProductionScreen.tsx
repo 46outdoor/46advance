@@ -5,9 +5,11 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { EVENT_PRODUCTION_FIELDS, type SectionContent } from '@/lib/advances/fields';
-import type { ProductionContact, ProductionLink } from '@/lib/production/production';
+import type { ProductionAttachment, ProductionContact, ProductionLink } from '@/lib/production/production';
 import {
+  addEventProductionAttachment,
   getEventProduction,
+  removeEventProductionAttachment,
   setEventProductionContacts,
   setEventProductionInfo,
   setEventProductionLinks,
@@ -15,6 +17,7 @@ import {
 import { SectionContentForm } from './SectionContentForm';
 import { ProductionContactsEditor } from './ProductionContactsEditor';
 import { ProductionLinksEditor } from './ProductionLinksEditor';
+import { AttachmentsEditor } from './AttachmentsEditor';
 
 const logger = createLogger('Production');
 
@@ -52,6 +55,16 @@ export function EventProductionScreen() {
     mutationFn: (links: ProductionLink[]) => setEventProductionLinks(eventId!, links),
     onSuccess: invalidate,
     onError: (err) => logger.error('Failed to save production links', err),
+  });
+  const uploadAttachment = useMutation({
+    mutationFn: (file: File) => addEventProductionAttachment(eventId!, file, user!.uid),
+    onSuccess: invalidate,
+    onError: (err) => logger.error('Failed to upload attachment', err),
+  });
+  const removeAttachment = useMutation({
+    mutationFn: (a: ProductionAttachment) => removeEventProductionAttachment(eventId!, a),
+    onSuccess: invalidate,
+    onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
   if (!user || !eventId) return null;
@@ -103,6 +116,17 @@ export function EventProductionScreen() {
               readOnly={!canEdit}
               pending={saveLinks.isPending}
               onSave={(l) => saveLinks.mutate(l)}
+            />
+          </div>
+
+          <div className="space-y-3 border-t border-line pt-5">
+            <h2 className="font-display text-xl font-bold text-brand">Attachments (plots / CAD / maps)</h2>
+            <AttachmentsEditor
+              attachments={production.attachments}
+              readOnly={!canEdit}
+              uploading={uploadAttachment.isPending}
+              onUpload={(f) => uploadAttachment.mutate(f)}
+              onRemove={(a) => removeAttachment.mutate(a)}
             />
           </div>
         </>

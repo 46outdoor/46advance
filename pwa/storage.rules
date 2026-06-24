@@ -1,11 +1,39 @@
 rules_version = '2';
 
-// Locked down by default. Phase 7/9 introduce scoped upload/download rules
-// (signed quotes, artist-portal files — see planning/ROADMAP.md).
+// Production attachments (stage plots / CAD / site maps) under events/{eventId}/...
+// Membership is read from Firestore (per-event RBAC). Internal tool.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+    function isMember(eventId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/events/$(eventId)/members/$(request.auth.uid));
+    }
+    function isPM(eventId) {
+      return isMember(eventId)
+        && firestore.get(/databases/(default)/documents/events/$(eventId)/members/$(request.auth.uid)).data.role == 'production-manager';
+    }
+    function canEditEvent(eventId) {
+      return isAdmin() || isPM(eventId);
+    }
+    // 25 MB cap; allow PDFs/images and CAD (DWG/DXF often arrive as octet-stream).
+    function validUpload() {
+      return request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType in [
+          'application/pdf', 'image/png', 'image/jpeg', 'application/octet-stream'
+        ];
+    }
+
+    match /events/{eventId}/{allPaths=**} {
+      allow read: if isAdmin() || isMember(eventId);
+      allow write: if canEditEvent(eventId) && validUpload();
+      allow delete: if canEditEvent(eventId);
     }
   }
 }

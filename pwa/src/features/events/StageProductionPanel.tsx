@@ -6,13 +6,17 @@ import type { SectionContent } from '@/lib/advances/fields';
 import { canFinalizeSection, canUnlockSection, type SectionStatus } from '@/lib/advances/sections';
 import type { EventRole } from '@/lib/rbac/roles';
 import { listDepartments } from '@/lib/departments/departments-service';
+import type { ProductionAttachment } from '@/lib/production/production';
 import { getEvent } from './events-service';
 import {
+  addStageProductionAttachment,
   getStageProduction,
+  removeStageProductionAttachment,
   updateStageProductionContent,
   updateStageProductionStatus,
 } from './production-service';
 import { AdvanceSection } from './AdvanceSection';
+import { AttachmentsEditor } from './AttachmentsEditor';
 
 const logger = createLogger('Production');
 
@@ -53,6 +57,16 @@ export function StageProductionPanel({
     onSuccess: invalidate,
     onError: (err) => logger.error('Failed to save production content', err),
   });
+  const uploadAttachment = useMutation({
+    mutationFn: (file: File) => addStageProductionAttachment(eventId, stageId, file, user!.uid),
+    onSuccess: invalidate,
+    onError: (err) => logger.error('Failed to upload attachment', err),
+  });
+  const removeAttachment = useMutation({
+    mutationFn: (a: ProductionAttachment) => removeStageProductionAttachment(eventId, stageId, a),
+    onSuccess: invalidate,
+    onError: (err) => logger.error('Failed to remove attachment', err),
+  });
 
   const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
   const canEdit = viewer ? canEditEvent(viewer, role) : false;
@@ -89,6 +103,19 @@ export function StageProductionPanel({
             onSaveContent={(deptId, content, bump) => saveContent.mutate({ deptId, content, bump })}
           />
         ))}
+
+      {production && (
+        <div className="pt-3">
+          <h3 className="mb-2 text-sm font-semibold text-ink">Attachments (plots / CAD)</h3>
+          <AttachmentsEditor
+            attachments={production.attachments}
+            readOnly={!canEdit}
+            uploading={uploadAttachment.isPending}
+            onUpload={(f) => uploadAttachment.mutate(f)}
+            onRemove={(a) => removeAttachment.mutate(a)}
+          />
+        </div>
+      )}
     </div>
   );
 }
