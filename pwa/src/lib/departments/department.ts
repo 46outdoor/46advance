@@ -16,9 +16,10 @@ export const DEFAULT_DEPARTMENTS: ReadonlyArray<DepartmentRecord> = [
   { id: 'audio', name: 'Audio', order: 0 },
   { id: 'lighting', name: 'Lighting', order: 1 },
   { id: 'video-led', name: 'Video/LED', order: 2 },
-  { id: 'logistics', name: 'Logistics', order: 3 },
-  { id: 'labor', name: 'Labor', order: 4 },
-  { id: 'artist-relations', name: 'Artist Relations', order: 5 },
+  { id: 'staging', name: 'Staging', order: 3 },
+  { id: 'logistics', name: 'Logistics', order: 4 },
+  { id: 'labor', name: 'Labor', order: 5 },
+  { id: 'artist-relations', name: 'Artist Relations', order: 6 },
 ];
 
 const departmentDocSchema = z.object({

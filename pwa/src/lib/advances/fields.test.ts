@@ -4,8 +4,17 @@ import { getDepartmentFields, sectionContentSchema, sectionHasData } from './fie
 describe('field registry', () => {
   it('returns the Audio field set and empty for unknown departments', () => {
     expect(getDepartmentFields('audio').length).toBeGreaterThan(0);
-    expect(getDepartmentFields('lighting')).toEqual([]);
+    expect(getDepartmentFields('lighting')).toEqual([]); // no advance-context fields yet
     expect(getDepartmentFields('nope')).toEqual([]);
+  });
+
+  it('production context has its own house-package field sets', () => {
+    expect(getDepartmentFields('staging', 'production').length).toBeGreaterThan(0);
+    expect(getDepartmentFields('audio', 'production').length).toBeGreaterThan(0);
+    expect(getDepartmentFields('lighting', 'production').length).toBeGreaterThan(0);
+    expect(getDepartmentFields('video-led', 'production').length).toBeGreaterThan(0);
+    // staging has no per-artist advance fields
+    expect(getDepartmentFields('staging', 'advance')).toEqual([]);
   });
 
   it('Audio fields all have a key, label, and type', () => {
