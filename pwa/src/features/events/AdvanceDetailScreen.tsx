@@ -6,7 +6,6 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDate } from '@/lib/dates/formatting';
-import { downloadIcs } from '@/lib/calendar/ics';
 import {
   canFinalizeSection,
   canUnlockSection,
@@ -26,6 +25,7 @@ import {
 import { getEvent } from './events-service';
 import { AdvanceForm } from './AdvanceForm';
 import { AdvanceSection } from './AdvanceSection';
+import { AdvanceCallPanel } from './AdvanceCallPanel';
 import { QuotesPanel } from './QuotesPanel';
 
 const logger = createLogger('Advances');
@@ -154,13 +154,17 @@ export function AdvanceDetailScreen() {
             <SummaryField label="Concerns" value={advance.concerns} />
             <SummaryField label="Pending" value={advance.pending} />
           </div>
-          {(advance.advanceCallAt || advance.advanceCallLink) && (
-            <AdvanceCall
-              artistName={advance.artistName}
-              at={advance.advanceCallAt}
-              link={advance.advanceCallLink}
-            />
-          )}
+          <AdvanceCallPanel
+            eventId={eventId}
+            stageId={stageId}
+            advanceId={advanceId}
+            artistName={advance.artistName}
+            at={advance.advanceCallAt}
+            link={advance.advanceCallLink}
+            viaGoogle={advance.googleCalendarEventId !== null}
+            canEdit={canEdit}
+            onCreated={invalidate}
+          />
         </header>
       )}
 
@@ -222,29 +226,3 @@ function SummaryField({ label, value }: { label: string; value: string | null })
   );
 }
 
-/** Advance call: scheduled time, a Join link, and an offline "add to calendar" (.ics). */
-function AdvanceCall({ artistName, at, link }: { artistName: string; at: Date | null; link: string | null }) {
-  const title = `Advance call — ${artistName}`;
-  return (
-    <div className="mt-3 rounded-lg border border-line p-3">
-      <h2 className="text-sm font-semibold text-brand">Advance call</h2>
-      <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
-        {at && <span className="text-ink-muted">{at.toLocaleString()}</span>}
-        {link && (
-          <a href={link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-            Join
-          </a>
-        )}
-        {at && (
-          <button
-            type="button"
-            onClick={() => downloadIcs({ uid: `${title}-${at.getTime()}@46advance`, title, start: at, durationMinutes: 30, url: link })}
-            className="text-accent hover:underline"
-          >
-            Add to calendar
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}

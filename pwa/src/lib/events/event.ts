@@ -21,6 +21,14 @@ export interface EventRecord {
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
   departmentIds: string[];
+  /** Google calendar created for this event (Phase 11b); null until connected + created. */
+  googleCalendarId: string | null;
+  /**
+   * Optional label matching the festival segment in booking titles (e.g. "RTC Ashland"),
+   * so Appointment Schedule bookings map to this event during sync (Phase 11b). Null = match
+   * by artist name only.
+   */
+  bookingLabel: string | null;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -33,6 +41,8 @@ const eventDocSchema = z.object({
   venue: z.string().nullable().optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
+  googleCalendarId: z.string().nullable().optional(),
+  bookingLabel: z.string().nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -49,6 +59,8 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     venue: doc.venue ?? null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
+    googleCalendarId: doc.googleCalendarId ?? null,
+    bookingLabel: doc.bookingLabel ?? null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
@@ -64,6 +76,7 @@ export const eventInputSchema = z
     venue: z.string().trim().optional(),
     status: eventStatusSchema.optional(),
     departmentIds: z.array(z.string()).optional(),
+    bookingLabel: z.string().trim().optional(),
   })
   .refine(
     (v) => !v.startDate || !v.endDate || v.endDate >= v.startDate,

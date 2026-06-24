@@ -16,6 +16,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "firebase-admin": "^13.0.0",
     "firebase-functions": "^6.1.0",
+    "googleapis": "^144.0.0",
     "react": "^19.2.7"
   },
   "devDependencies": {

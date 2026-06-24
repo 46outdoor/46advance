@@ -61,6 +61,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                     Admin
                   </Link>
                 )}
+                <Link className="transition-colors hover:text-accent" to="/settings">
+                  Settings
+                </Link>
                 <span className="hidden text-xs text-brand-fg/60 sm:inline">{user.email}</span>
                 <button
                   type="button"

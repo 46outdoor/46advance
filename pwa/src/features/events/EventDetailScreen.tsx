@@ -13,6 +13,7 @@ import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
 import { EventContactsPanel } from './EventContactsPanel';
+import { BookedCallsPanel } from './BookedCallsPanel';
 
 const logger = createLogger('Events');
 
@@ -127,6 +128,8 @@ export function EventDetailScreen() {
           />
         </div>
       )}
+
+      {event && <BookedCallsPanel eventId={eventId} canEdit={canEdit} />}
 
       {event && <StagesPanel eventId={eventId} canEdit={canEdit} />}
 

@@ -84,6 +84,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Google connection STATUS (Phase 11b) — non-secret mirror written by the Admin SDK
+    // (OAuth callback). Owner or admin reads to render connect/disconnect UI; no client
+    // write. Refresh/access tokens live in googleTokens/{uid} (server-only, below).
+    match /googleConnections/{uid} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+
+    // OAuth refresh/access tokens and the single-use CSRF state — Admin SDK only,
+    // never client-readable or client-writable.
+    match /googleTokens/{uid} {
+      allow read, write: if false;
+    }
+    match /googleOAuthStates/{stateId} {
+      allow read, write: if false;
+    }
+
     match /events/{eventId} {
       allow read: if isAdmin() || isMember(eventId);
       allow create: if canCreateEvents()
@@ -147,6 +164,13 @@ service cloud.firestore {
 
       // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin write.
       match /contacts/{attachId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create, update, delete: if canEditEvent(eventId);
+      }
+
+      // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
+      // PM/admin resolve (attach/dismiss) from the review queue. Member read.
+      match /callBookings/{bookingId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create, update, delete: if canEditEvent(eventId);
       }

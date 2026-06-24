@@ -10,6 +10,18 @@ import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 
+// Phase 11b — Google Calendar + Meet (per-user OAuth). Defined in ./google.ts.
+export {
+  googleAuthUrl,
+  googleAuthCallback,
+  googleDisconnect,
+  createEventCalendar,
+  createAdvanceCall,
+} from './google.js';
+
+// Phase 11b (sync) — match Appointment Schedule bookings to advances. ./googleBookings.ts.
+export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBookings.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const fmtDate = (v: unknown): string | null => (v instanceof Timestamp ? PACKET_DATE_FMT.format(v.toDate()) : null);

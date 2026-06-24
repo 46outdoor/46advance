@@ -53,6 +53,16 @@ beforeEach(async () => {
       createdBy: PM,
       sections: { audio: { status: 'in_progress', finalizedAt: null, finalizedBy: null } },
     });
+    // Google (Phase 11b): a connection status doc + server-only token/state docs.
+    await setDoc(doc(db, 'googleConnections', PM), { connected: true, email: 'pm@x.com' });
+    await setDoc(doc(db, 'googleTokens', PM), { refreshToken: 'secret-refresh' });
+    await setDoc(doc(db, 'googleOAuthStates/state-1'), { uid: PM });
+    // Booked-call inbox under event A (server-synced; PM/admin resolve).
+    await setDoc(doc(db, 'events/event-a/callBookings/cal-evt-1'), {
+      calendarEventId: 'cal-evt-1',
+      artistName: 'jelly roll',
+      status: 'needs_review',
+    });
   });
 });
 
@@ -482,5 +492,48 @@ describe('firestore.rules — templates', () => {
   it('only admin can write templates', async () => {
     await assertFails(setDoc(doc(dbFor(PM), 'templates/tpl-1'), { name: 'X' }));
     await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'templates/tpl-1'), { name: 'X' }));
+  });
+});
+
+describe('firestore.rules — Google connection (Phase 11b)', () => {
+  it('owner reads their own connection status; another user cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(PM), 'googleConnections', PM)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'googleConnections', PM)));
+  });
+
+  it('admin can read any connection status', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'googleConnections', PM)));
+  });
+
+  it('clients cannot write connection status (server-managed)', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), 'googleConnections', PM), { connected: false }));
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'googleConnections', PM), { connected: false }));
+  });
+
+  it('tokens are never client-readable or client-writable (even the owner / admin)', async () => {
+    await assertFails(getDoc(doc(dbFor(PM), 'googleTokens', PM)));
+    await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'googleTokens', PM)));
+    await assertFails(setDoc(doc(dbFor(PM), 'googleTokens', PM), { refreshToken: 'x' }));
+  });
+
+  it('OAuth state docs are server-only (no client read/write)', async () => {
+    await assertFails(getDoc(doc(dbFor(PM), 'googleOAuthStates/state-1')));
+    await assertFails(setDoc(doc(dbFor(PM), 'googleOAuthStates/state-2'), { uid: PM }));
+  });
+});
+
+describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
+  const bookingPath = 'events/event-a/callBookings/cal-evt-1';
+
+  it('any event member reads the inbox; a non-member cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), bookingPath)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), bookingPath)));
+  });
+
+  it('PM/admin can resolve (write); tech and dept-lead cannot', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), bookingPath), { status: 'dismissed' }));
+    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }));
+    await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
+    await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
   });
 });

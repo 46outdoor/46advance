@@ -26,6 +26,7 @@ function advance(id: string, artistName: string, statuses: Record<string, Sectio
     pending: null,
     advanceCallAt: null,
     advanceCallLink: null,
+    googleCalendarEventId: null,
     sections: Object.fromEntries(
       Object.entries(statuses).map(([k, status]) => [k, { status, finalizedAt: null, finalizedBy: null }]),
     ),

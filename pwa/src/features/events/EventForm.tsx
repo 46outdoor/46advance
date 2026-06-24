@@ -11,6 +11,7 @@ interface EventFormProps {
     venue: string | null;
     status?: EventStatus;
     departmentIds?: string[];
+    bookingLabel?: string | null;
   };
   /** Available departments to enable. */
   departments: DepartmentRecord[];
@@ -40,6 +41,7 @@ export function EventForm({
   const [start, setStart] = useState(dateInputValue(initial?.startDate ?? null));
   const [end, setEnd] = useState(dateInputValue(initial?.endDate ?? null));
   const [venue, setVenue] = useState(initial?.venue ?? '');
+  const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
   // Default: edit keeps the event's departments; create enables all available.
   const [deptIds, setDeptIds] = useState<Set<string>>(
@@ -63,6 +65,7 @@ export function EventForm({
       endDate: parseDateInput(end),
       venue: venue.trim() || undefined,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
+      bookingLabel: bookingLabel.trim() || undefined,
       ...(showStatus ? { status } : {}),
     });
     if (!parsed.success) {
@@ -90,6 +93,19 @@ export function EventForm({
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Venue</span>
         <input className={inputClass} value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Riverside Park" />
+      </label>
+      <label className="block text-sm sm:col-span-2">
+        <span className="mb-1 block font-semibold text-ink">Booking label</span>
+        <input
+          className={inputClass}
+          value={bookingLabel}
+          onChange={(e) => setBookingLabel(e.target.value)}
+          placeholder="RTC Ashland"
+        />
+        <span className="mt-1 block text-xs text-ink-muted">
+          Optional. The festival name as it appears in your Appointment Schedule booking titles, so
+          booked advance calls map to this event during sync.
+        </span>
       </label>
       {showStatus && (
         <label className="block text-sm">
