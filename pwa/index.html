@@ -6,11 +6,25 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0a" />
-    <meta name="description" content="Festival artist advance management for 46 Entertainment" />
+    <meta name="description" content="Event-production advance management for 46 Entertainment — artist advances, production details, quotes, contacts, and Google Calendar/Meet advance calls for live events." />
     <title>46 Advance</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static fallback shown before the app mounts and to non-JS crawlers (e.g. Google's
+           OAuth verifier): describes the app's purpose without requiring login or JavaScript. -->
+      <main style="font-family: system-ui, sans-serif; max-width: 42rem; margin: 0 auto; padding: 4rem 1.5rem; color: #262626">
+        <h1 style="font-size: 2rem; margin: 0 0 0.5rem">46 Advance</h1>
+        <p style="line-height: 1.6; color: #525763">
+          Event-production advance management for 46 Entertainment — the internal tool our production
+          team uses to organize artist advances, production details, quotes, contacts, and scheduling
+          (including Google Calendar and Google Meet advance calls) for live events and festivals.
+        </p>
+        <p style="margin-top: 1rem">
+          <a href="/sign-in">Sign in</a> &middot; <a href="/privacy">Privacy Policy</a>
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
