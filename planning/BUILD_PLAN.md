@@ -5,7 +5,13 @@ dependency: **foundations → core advancing loop → visibility/output → peop
 integrations**. PWA-first, mobile-aware throughout (shared backend + contracts so the
 native app inherits logic).
 
-**Status:** draft v1 (2026-06-21). Phases and the MVP line are adjustable.
+**Status:** draft v1 (2026-06-21) — historical. The **executed** build re-sequenced and
+renumbered these phases as it went; this doc captures the original intent, not what shipped.
+**Phases 0–12 are built** (auth/RBAC, events/advances/sections, stages/departments, advance
+content, production records + attachments, templates, PDF packets, tracker, quotes, contacts,
+Google Calendar + Meet, Schedules). What actually shipped per phase lives in
+[`archive/feature/`](archive/feature/); **ROADMAP.md is the source of truth** for current scope.
+Remaining forward-looking items below (Drive, Lasso, artist portal, etc.) are **not yet built**.
 
 ## Principles
 
