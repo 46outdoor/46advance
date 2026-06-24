@@ -86,3 +86,30 @@ const CENTRAL_DATETIME_FMT = new Intl.DateTimeFormat('en-US', {
 export function formatCentralDateTime(date: Date | null): string {
   return date ? CENTRAL_DATETIME_FMT.format(date) : '—';
 }
+
+const CENTRAL_DATE_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: APP_TIME_ZONE,
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+const CENTRAL_TIME_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: APP_TIME_ZONE,
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+/** Date only, in Central, e.g. "Wed, Jun 24". */
+export function formatCentralDate(date: Date | null): string {
+  return date ? CENTRAL_DATE_FMT.format(date) : '—';
+}
+
+/** Time only, in Central, e.g. "4:00 PM" (empty string for null). */
+export function formatCentralTime(date: Date | null): string {
+  return date ? CENTRAL_TIME_FMT.format(date) : '';
+}
+
+/** Stable per-day key (`YYYY-MM-DD` in Central) for grouping items by day. */
+export function centralDayKey(date: Date | null): string {
+  return date ? dateToZonedInput(date).slice(0, 10) : '';
+}

@@ -168,6 +168,12 @@ service cloud.firestore {
         allow create, update, delete: if canEditEvent(eventId);
       }
 
+      // Schedule items (Phase 12a): member read; PM/admin write (mirrors advances).
+      match /scheduleItems/{itemId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create, update, delete: if canEditEvent(eventId);
+      }
+
       // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
       // PM/admin resolve (attach/dismiss) from the review queue. Member read.
       match /callBookings/{bookingId} {
