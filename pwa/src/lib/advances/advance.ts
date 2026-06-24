@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { sectionStatusSchema, type AdvanceSections } from './sections';
+import { parseSectionsMap, sectionsMapSchema, type AdvanceSections } from './sections';
 import { advanceContentSchema, type AdvanceContent } from './fields';
 
 export interface Advance {
@@ -27,12 +27,6 @@ export interface Advance {
   updatedAt: Date | null;
 }
 
-const sectionStateDocSchema = z.object({
-  status: sectionStatusSchema,
-  finalizedAt: z.instanceof(Timestamp).nullable().optional(),
-  finalizedBy: z.string().nullable().optional(),
-});
-
 const advanceDocSchema = z.object({
   artistName: z.string().min(1),
   performanceDate: z.instanceof(Timestamp).nullable().optional(),
@@ -41,7 +35,7 @@ const advanceDocSchema = z.object({
   additions: z.string().nullable().optional(),
   concerns: z.string().nullable().optional(),
   pending: z.string().nullable().optional(),
-  sections: z.record(z.string(), sectionStateDocSchema).optional(),
+  sections: sectionsMapSchema.optional(),
   content: advanceContentSchema.optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
@@ -51,14 +45,7 @@ const advanceDocSchema = z.object({
 /** Validate + normalize a raw advance doc. Sections are department-keyed (dynamic). */
 export function parseAdvance(id: string, data: unknown): Advance {
   const doc = advanceDocSchema.parse(data);
-  const sections: AdvanceSections = {};
-  for (const [key, raw] of Object.entries(doc.sections ?? {})) {
-    sections[key] = {
-      status: raw.status,
-      finalizedAt: timestampToDate(raw.finalizedAt ?? null),
-      finalizedBy: raw.finalizedBy ?? null,
-    };
-  }
+  const sections: AdvanceSections = parseSectionsMap(doc.sections ?? {});
 
   return {
     id,

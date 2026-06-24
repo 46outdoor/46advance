@@ -7,7 +7,13 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { sectionContentSchema, type SectionContent } from '@/lib/advances/fields';
+import {
+  advanceContentSchema,
+  sectionContentSchema,
+  type AdvanceContent,
+  type SectionContent,
+} from '@/lib/advances/fields';
+import { parseSectionsMap, sectionsMapSchema, type AdvanceSections } from '@/lib/advances/sections';
 
 export interface ProductionContact {
   role: string;
@@ -57,6 +63,38 @@ export function parseEventProduction(data: unknown): EventProduction {
 export const emptyEventProduction = (): EventProduction => ({
   info: {},
   contacts: [],
+  links: [],
+  updatedAt: null,
+});
+
+/** Per-stage technical production record (house package), department-keyed (production context). */
+export interface StageProduction {
+  sections: AdvanceSections;
+  content: AdvanceContent;
+  links: ProductionLink[];
+  updatedAt: Date | null;
+}
+
+const stageProductionDocSchema = z.object({
+  sections: sectionsMapSchema.optional(),
+  content: advanceContentSchema.optional(),
+  links: z.array(productionLinkSchema).optional(),
+  updatedAt: z.instanceof(Timestamp).nullable().optional(),
+});
+
+export function parseStageProduction(data: unknown): StageProduction {
+  const doc = stageProductionDocSchema.parse(data);
+  return {
+    sections: parseSectionsMap(doc.sections ?? {}),
+    content: doc.content ?? {},
+    links: doc.links ?? [],
+    updatedAt: timestampToDate(doc.updatedAt ?? null),
+  };
+}
+
+export const emptyStageProduction = (): StageProduction => ({
+  sections: {},
+  content: {},
   links: [],
   updatedAt: null,
 });
