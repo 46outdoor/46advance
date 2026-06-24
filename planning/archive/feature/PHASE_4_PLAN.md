@@ -1,7 +1,7 @@
 # Phase 4 — Advance Content: Audio Section (execution plan)
 
 From the re-scoped build order ([`PHASE_3_PLAN.md`](PHASE_3_PLAN.md) → Phase 4) and the
-audio lead's reference ([`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)).
+audio lead's reference ([`AUDIO_ADVANCE_REFERENCE.md`](../reference/AUDIO_ADVANCE_REFERENCE.md)).
 **Goal:** give a department section real **content fields** — starting with **Audio**
 — so a PM can actually fill an advance, with the section status moving to **in
 progress** automatically as data is entered and **locking** on finalize. Other

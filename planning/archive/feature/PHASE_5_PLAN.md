@@ -1,7 +1,7 @@
 # Phase 5 — Festival Production Record (event + stage) + Attachments
 
 The festival's own **production advance** — the artist-facing packet (see
-[`PRODUCTION_ADVANCE_REFERENCE.md`](PRODUCTION_ADVANCE_REFERENCE.md)) — distinct from
+[`PRODUCTION_ADVANCE_REFERENCE.md`](../reference/PRODUCTION_ADVANCE_REFERENCE.md)) — distinct from
 per-artist advances. **Goal:** capture the festival's **event-level general/policy/contact
 info** + **per-stage technical house package** (staging, audio, lighting, LED/video), with
 **file attachments** (stage plots, CAD, site maps). This becomes the source for the PDF
