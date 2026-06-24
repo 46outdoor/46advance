@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { advanceInputSchema, type AdvanceInput } from '@/lib/advances/advance';
-import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
+import { dateInputValue, dateTimeInputValue, parseDateInput, parseDateTimeInput } from '@/lib/dates/parsing';
 
 interface AdvanceFormProps {
   initial?: {
@@ -11,6 +11,8 @@ interface AdvanceFormProps {
     additions: string | null;
     concerns: string | null;
     pending: string | null;
+    advanceCallAt: Date | null;
+    advanceCallLink: string | null;
   };
   submitLabel: string;
   pending?: boolean;
@@ -30,6 +32,8 @@ export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, on
   const [additions, setAdditions] = useState(initial?.additions ?? '');
   const [concerns, setConcerns] = useState(initial?.concerns ?? '');
   const [pendingItems, setPendingItems] = useState(initial?.pending ?? '');
+  const [advanceCallAt, setAdvanceCallAt] = useState(dateTimeInputValue(initial?.advanceCallAt ?? null));
+  const [advanceCallLink, setAdvanceCallLink] = useState(initial?.advanceCallLink ?? '');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const submit = (e: FormEvent) => {
@@ -42,6 +46,8 @@ export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, on
       additions: additions.trim() || undefined,
       concerns: concerns.trim() || undefined,
       pending: pendingItems.trim() || undefined,
+      advanceCallAt: parseDateTimeInput(advanceCallAt),
+      advanceCallLink: advanceCallLink.trim() || undefined,
     });
     if (!parsed.success) {
       setLocalError(parsed.error.issues[0]?.message ?? 'Invalid input.');
@@ -80,6 +86,14 @@ export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, on
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Pending items</span>
         <textarea className={inputClass} rows={2} value={pendingItems} onChange={(e) => setPendingItems(e.target.value)} />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Advance call — date/time</span>
+        <input type="datetime-local" className={inputClass} value={advanceCallAt} onChange={(e) => setAdvanceCallAt(e.target.value)} />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Advance call — meeting link</span>
+        <input className={inputClass} value={advanceCallLink} onChange={(e) => setAdvanceCallLink(e.target.value)} placeholder="https://meet.google.com/…" />
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <button

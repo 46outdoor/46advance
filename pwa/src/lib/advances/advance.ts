@@ -19,6 +19,9 @@ export interface Advance {
   additions: string | null;
   concerns: string | null;
   pending: string | null;
+  /** Advance call (ROADMAP §12): scheduled time + an existing meeting link (11a). */
+  advanceCallAt: Date | null;
+  advanceCallLink: string | null;
   sections: AdvanceSections;
   /** Per-department field values: content[deptId][fieldKey]. */
   content: AdvanceContent;
@@ -35,6 +38,8 @@ const advanceDocSchema = z.object({
   additions: z.string().nullable().optional(),
   concerns: z.string().nullable().optional(),
   pending: z.string().nullable().optional(),
+  advanceCallAt: z.instanceof(Timestamp).nullable().optional(),
+  advanceCallLink: z.string().nullable().optional(),
   sections: sectionsMapSchema.optional(),
   content: advanceContentSchema.optional(),
   createdBy: z.string().min(1),
@@ -56,6 +61,8 @@ export function parseAdvance(id: string, data: unknown): Advance {
     additions: doc.additions ?? null,
     concerns: doc.concerns ?? null,
     pending: doc.pending ?? null,
+    advanceCallAt: timestampToDate(doc.advanceCallAt ?? null),
+    advanceCallLink: doc.advanceCallLink ?? null,
     sections,
     content: doc.content ?? {},
     createdBy: doc.createdBy,
@@ -73,5 +80,7 @@ export const advanceInputSchema = z.object({
   additions: z.string().trim().optional(),
   concerns: z.string().trim().optional(),
   pending: z.string().trim().optional(),
+  advanceCallAt: z.date().nullable().optional(),
+  advanceCallLink: z.union([z.string().trim().url('Enter a valid URL.'), z.literal('')]).optional(),
 });
 export type AdvanceInput = z.infer<typeof advanceInputSchema>;

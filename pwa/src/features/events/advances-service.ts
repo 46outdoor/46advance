@@ -43,6 +43,8 @@ export async function createAdvance(
     additions: input.additions ?? null,
     concerns: input.concerns ?? null,
     pending: input.pending ?? null,
+    advanceCallAt: dateToTimestamp(input.advanceCallAt ?? null),
+    advanceCallLink: input.advanceCallLink ? input.advanceCallLink : null,
     sections: initialSections(departmentIds),
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
@@ -81,6 +83,8 @@ export async function updateAdvance(
     additions: input.additions ?? null,
     concerns: input.concerns ?? null,
     pending: input.pending ?? null,
+    advanceCallAt: dateToTimestamp(input.advanceCallAt ?? null),
+    advanceCallLink: input.advanceCallLink ? input.advanceCallLink : null,
     updatedAt: serverTimestamp(),
   });
 }

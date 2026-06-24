@@ -16,3 +16,22 @@ export function dateInputValue(date: Date | null): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/** Parse an `<input type="datetime-local">` value ('YYYY-MM-DDTHH:mm') to a local Date, or null. */
+export function parseDateTimeInput(value: string): Date | null {
+  if (!value) return null;
+  const [date, time] = value.split('T');
+  if (!date || !time) return null;
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  if (!y || !m || !d || Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return new Date(y, m - 1, d, hh, mm);
+}
+
+/** Format a Date as an `<input type="datetime-local">` value ('YYYY-MM-DDTHH:mm'), or '' for null. */
+export function dateTimeInputValue(date: Date | null): string {
+  if (!date) return '';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${dateInputValue(date)}T${hh}:${mm}`;
+}

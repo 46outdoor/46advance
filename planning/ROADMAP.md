@@ -365,6 +365,14 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   Meet links for advance calls. Meet links are created via Google Calendar events with
   conferencing, so this **builds on the Calendar integration**. Per-user creds (see auth model).
 
+- **Built — execution Phase 11a (2026-06-24):** the decided **"store an existing link"** path —
+  an **Advance Call** on each advance (`advanceCallAt` + `advanceCallLink`, rides the advance
+  write gate) with a Join link and an offline **"Add to calendar" (.ics)** download
+  (`src/lib/calendar/ics.ts`, pure). **11b (per-user Google OAuth + auto-create Meet on an
+  org-owned per-event calendar) is PAUSED on external OAuth-client setup** — see
+  `planning/PHASE_11_PLAN.md` for the setup checklist. **Schedule-item push deferred** (no
+  structured schedule model yet — needs a Schedules phase, §5).
+
 - **Slack (explore):** company heavily uses Slack — explore integration (e.g. advance
   updates / notifications to channels, reminders, approvals). Scope TBD. Likely new (not in MPA).
 - **Google Drive (explore):** company heavily uses Drive. Targeted (decided): **attach/link
