@@ -24,6 +24,8 @@ function advance(id: string, artistName: string, statuses: Record<string, Sectio
     additions: null,
     concerns: null,
     pending: null,
+    advanceCallAt: null,
+    advanceCallLink: null,
     sections: Object.fromEntries(
       Object.entries(statuses).map(([k, status]) => [k, { status, finalizedAt: null, finalizedBy: null }]),
     ),

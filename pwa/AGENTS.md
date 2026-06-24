@@ -225,6 +225,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Contacts directory (read/write) | `src/lib/contacts/contacts-service.ts` (global `contacts/{id}`) |
 | Event contact attachments | `src/features/events/event-contacts-service.ts` (per-event join) |
 | Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
+| iCalendar (.ics) builder | `src/lib/calendar/ics.ts` (pure VEVENT + download) |
 
 ### Step 2: Resolve name variants before searching
 
