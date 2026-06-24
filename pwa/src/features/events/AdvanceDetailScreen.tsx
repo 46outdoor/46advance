@@ -115,7 +115,7 @@ export function AdvanceDetailScreen() {
       {advanceQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {advanceQuery.isError && <p className="text-sm text-accent">Failed to load this advance.</p>}
       {advanceQuery.data === null && (
-        <p className="text-sm text-ink-muted">Advance not found, or you don’t have access.</p>
+        <p className="text-sm text-ink-muted">Artist advance not found, or you don’t have access.</p>
       )}
 
       {advance && !editing && (
@@ -157,7 +157,7 @@ export function AdvanceDetailScreen() {
 
       {advance && editing && (
         <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
-          <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit advance</h2>
+          <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit artist advance</h2>
           <AdvanceForm
             initial={advance}
             submitLabel="Save changes"
