@@ -313,6 +313,50 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
   });
 });
 
+describe('firestore.rules — quotes (under an advance)', () => {
+  const quotePath = (q: string) => `events/event-a/stages/stg-a/advances/adv-1/quotes/${q}`;
+  const newQuote = (createdBy: string) => ({ title: 'Backline', status: 'draft', createdBy });
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), quotePath('q-seed')), { title: 'Seed', status: 'sent', createdBy: PM });
+    });
+  });
+
+  it('any member can read quotes; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), quotePath('q-seed'))));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), quotePath('q-seed'))));
+  });
+
+  it('PM + admin can create quotes (authored by self)', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(PM), quotePath('q-pm')), newQuote(PM)));
+    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), quotePath('q-adm')), newQuote(ADMIN.uid)));
+  });
+
+  it('tech and department-lead cannot create quotes', async () => {
+    await assertFails(setDoc(doc(dbFor(TECH), quotePath('q-t')), newQuote(TECH)));
+    await assertFails(setDoc(doc(dbFor(LEAD), quotePath('q-l')), newQuote(LEAD)));
+  });
+
+  it('cannot forge another user as the quote creator', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), quotePath('q-forge')), newQuote('someone-else')));
+  });
+
+  it('PM can approve (update status); tech cannot', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), quotePath('q-seed')), { status: 'approved', decisionBy: PM }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(TECH), quotePath('q-seed')), { status: 'approved', decisionBy: TECH }),
+    );
+  });
+
+  it('only PM/admin can delete quotes', async () => {
+    await assertFails(deleteDoc(doc(dbFor(TECH), quotePath('q-seed'))));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), quotePath('q-seed'))));
+  });
+});
+
 describe('firestore.rules — stages', () => {
   it('any member can read a stage; outsiders cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a')));

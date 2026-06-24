@@ -5,6 +5,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { renderPacket, type PacketData } from './lib/pdf/packet.js';
+import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -264,6 +265,88 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
 
   const buffer = await renderPacket(data);
   const path = `events/${eventId}/packets/${Date.now()}.pdf`;
+  await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
+  return { path };
+});
+
+/**
+ * Generate a 46-branded PDF for a single quote/estimate and store it in Storage. Authorized
+ * for admin or any member of the event. Returns the Storage `{ path }`; the client resolves
+ * a member-gated download URL. Input: { eventId, stageId, advanceId, quoteId }.
+ */
+export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  const { uid, token } = request.auth;
+  const { eventId, stageId, advanceId, quoteId } = request.data ?? {};
+  if (
+    typeof eventId !== 'string' ||
+    typeof stageId !== 'string' ||
+    typeof advanceId !== 'string' ||
+    typeof quoteId !== 'string' ||
+    !eventId ||
+    !stageId ||
+    !advanceId ||
+    !quoteId
+  ) {
+    throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, quoteId }.');
+  }
+
+  const db = getFirestore();
+  const eventSnap = await db.doc(`events/${eventId}`).get();
+  if (!eventSnap.exists) {
+    throw new HttpsError('not-found', 'Event not found.');
+  }
+  if (token.admin !== true) {
+    const member = await db.doc(`events/${eventId}/members/${uid}`).get();
+    if (!member.exists) {
+      throw new HttpsError('permission-denied', 'Not a member of this event.');
+    }
+  }
+
+  const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
+  const [advanceSnap, quoteSnap] = await Promise.all([
+    db.doc(advancePath).get(),
+    db.doc(`${advancePath}/quotes/${quoteId}`).get(),
+  ]);
+  if (!quoteSnap.exists) {
+    throw new HttpsError('not-found', 'Quote not found.');
+  }
+  const ev = eventSnap.data() ?? {};
+  const adv = advanceSnap.data() ?? {};
+  const q = quoteSnap.data() ?? {};
+
+  const rawLines = Array.isArray(q.lineItems) ? q.lineItems : [];
+  const lines = rawLines.map((li) => {
+    const quantity = typeof li.quantity === 'number' ? li.quantity : 0;
+    const unitPrice = typeof li.unitPrice === 'number' ? li.unitPrice : 0;
+    return {
+      description: String(li.description ?? ''),
+      quantity,
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+  });
+  const total = lines.reduce((sum, l) => sum + l.total, 0);
+  const statusLabel = String(q.status ?? 'draft');
+
+  const data: QuotePdfData = {
+    event: { name: String(ev.name ?? ''), venue: ev.venue ?? null, dateRange: fmtRange(ev.startDate, ev.endDate) },
+    artistName: String(adv.artistName ?? ''),
+    quote: {
+      title: String(q.title ?? 'Quote'),
+      statusLabel: statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1),
+      notes: q.notes ?? null,
+      decisionNote: q.decisionNote ?? null,
+      lines,
+      total: fmtMoney(total),
+    },
+    generatedAt: PACKET_DATE_FMT.format(new Date()),
+  };
+
+  const buffer = await renderQuote(data);
+  const path = `events/${eventId}/quotes/${quoteId}/quote-${Date.now()}.pdf`;
   await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
   return { path };
 });

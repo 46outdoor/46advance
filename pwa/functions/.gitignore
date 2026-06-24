@@ -1,5 +1,6 @@
-# Compiled output (predeploy `npm run build`)
-lib/
+# Compiled output (predeploy `npm run build`) — anchored to the functions root so it
+# does NOT also ignore source under src/lib/ (e.g. src/lib/pdf/*.tsx).
+/lib/
 
 # Dependencies
 node_modules/
