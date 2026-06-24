@@ -56,14 +56,14 @@ export function AdvancesPanel({
   return (
     <div className="space-y-4 border-t border-line pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-xl font-bold text-brand">Advances</h2>
+        <h2 className="font-display text-xl font-bold text-brand">Artist Advances</h2>
         {canEdit && (
           <button
             type="button"
             onClick={() => setShowCreate((v) => !v)}
             className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
           >
-            {showCreate ? 'Close' : 'Add advance'}
+            {showCreate ? 'Close' : 'Add artist advance'}
           </button>
         )}
       </div>
@@ -71,7 +71,7 @@ export function AdvancesPanel({
       {showCreate && canEdit && (
         <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
           <AdvanceForm
-            submitLabel="Add advance"
+            submitLabel="Add artist advance"
             pending={create.isPending}
             error={create.isError ? 'Could not add the advance.' : null}
             onSubmit={(input) => create.mutate(input)}
@@ -80,10 +80,10 @@ export function AdvancesPanel({
         </div>
       )}
 
-      {advancesQuery.isLoading && <p className="text-sm text-ink-muted">Loading advances…</p>}
-      {advancesQuery.isError && <p className="text-sm text-accent">Failed to load advances.</p>}
+      {advancesQuery.isLoading && <p className="text-sm text-ink-muted">Loading artist advances…</p>}
+      {advancesQuery.isError && <p className="text-sm text-accent">Failed to load artist advances.</p>}
       {advancesQuery.data && advances.length === 0 && (
-        <p className="text-sm text-ink-muted">No advances yet.</p>
+        <p className="text-sm text-ink-muted">No artist advances yet.</p>
       )}
 
       <ul className="divide-y divide-line/60">
