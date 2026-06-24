@@ -13,11 +13,18 @@ import {
   type SectionStatus,
 } from '@/lib/advances/sections';
 import type { AdvanceInput } from '@/lib/advances/advance';
+import type { SectionContent } from '@/lib/advances/fields';
 import { listDepartments } from '@/lib/departments/departments-service';
-import { deleteAdvance, getAdvance, updateAdvance, updateSectionStatus } from './advances-service';
+import {
+  deleteAdvance,
+  getAdvance,
+  updateAdvance,
+  updateSectionContent,
+  updateSectionStatus,
+} from './advances-service';
 import { getEvent } from './events-service';
 import { AdvanceForm } from './AdvanceForm';
-import { SectionStatusBadge } from './SectionStatusBadge';
+import { AdvanceSection } from './AdvanceSection';
 
 const logger = createLogger('Advances');
 
@@ -76,6 +83,13 @@ export function AdvanceDetailScreen() {
       updateSectionStatus(eventId!, stageId!, advanceId!, key, status, user!.uid),
     onSuccess: () => invalidate(),
     onError: (err) => logger.error('Failed to update section status', err),
+  });
+
+  const saveContent = useMutation({
+    mutationFn: ({ deptId, content, bump }: { deptId: string; content: SectionContent; bump: boolean }) =>
+      updateSectionContent(eventId!, stageId!, advanceId!, deptId, content, bump),
+    onSuccess: () => invalidate(),
+    onError: (err) => logger.error('Failed to save section content', err),
   });
 
   if (!user || !eventId || !stageId || !advanceId) return null;
@@ -156,42 +170,29 @@ export function AdvanceDetailScreen() {
       )}
 
       {advance && (
-        <div className="space-y-2 border-t border-line pt-6">
-          <h2 className="font-display text-xl font-bold text-brand">Sections</h2>
+        <div className="space-y-1 border-t border-line pt-6">
+          <h2 className="mb-2 font-display text-xl font-bold text-brand">Sections</h2>
           {sectionRows.length === 0 && (
             <p className="text-sm text-ink-muted">No departments enabled for this event.</p>
           )}
-          <ul className="divide-y divide-line/60">
-            {sectionRows.map((dept) => {
-              const state = advance.sections[dept.id] ?? {
-                status: 'not_started' as const,
-                finalizedAt: null,
-                finalizedBy: null,
-              };
-              const pending = setStatus.isPending;
-              return (
-                <li key={dept.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <span className="font-medium text-ink">{dept.name}</span>
-                  <div className="flex items-center gap-2">
-                    {state.status === 'complete' && state.finalizedAt && (
-                      <span className="text-xs text-ink-muted">Locked {formatDate(state.finalizedAt)}</span>
-                    )}
-                    <SectionStatusBadge status={state.status} />
-                    {state.status === 'not_started' && canEdit && (
-                      <SectionActionButton label="Start" pending={pending} onClick={() => setStatus.mutate({ key: dept.id, status: 'in_progress' })} />
-                    )}
-                    {state.status === 'in_progress' && canFinalize && (
-                      <SectionActionButton label="Finalize" pending={pending} onClick={() => setStatus.mutate({ key: dept.id, status: 'complete' })} />
-                    )}
-                    {state.status === 'complete' && canUnlock && (
-                      <SectionActionButton label="Unlock" pending={pending} onClick={() => setStatus.mutate({ key: dept.id, status: 'in_progress' })} />
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="text-xs text-ink-muted">Per-department content fields arrive in Phase 4.</p>
+          {sectionRows.map((dept) => (
+            <AdvanceSection
+              key={dept.id}
+              deptId={dept.id}
+              deptName={dept.name}
+              state={
+                advance.sections[dept.id] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null }
+              }
+              content={advance.content[dept.id] ?? {}}
+              canEdit={canEdit}
+              canFinalize={canFinalize}
+              canUnlock={canUnlock}
+              statusPending={setStatus.isPending}
+              contentPending={saveContent.isPending}
+              onSetStatus={(deptId, status) => setStatus.mutate({ key: deptId, status })}
+              onSaveContent={(deptId, content, bump) => saveContent.mutate({ deptId, content, bump })}
+            />
+          ))}
         </div>
       )}
     </section>
@@ -205,26 +206,5 @@ function SummaryField({ label, value }: { label: string; value: string | null })
       <span className="font-semibold text-ink">{label}:</span>{' '}
       <span className="whitespace-pre-line text-ink-muted">{value}</span>
     </p>
-  );
-}
-
-function SectionActionButton({
-  label,
-  pending,
-  onClick,
-}: {
-  label: string;
-  pending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={onClick}
-      className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-    >
-      {label}
-    </button>
   );
 }

@@ -17,6 +17,7 @@ import { db } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseAdvance, type Advance, type AdvanceInput } from '@/lib/advances/advance';
 import { initialSections, type SectionKey, type SectionStatus } from '@/lib/advances/sections';
+import type { SectionContent } from '@/lib/advances/fields';
 
 function advancesCol(eventId: string, stageId: string) {
   return collection(db, 'events', eventId, 'stages', stageId, 'advances');
@@ -112,4 +113,26 @@ export async function updateSectionStatus(
     [`sections.${key}`]: state,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Save a department section's content fields. When `bumpToInProgress` is set, also
+ * advances the section status not_started → in_progress (auto, on first data).
+ */
+export async function updateSectionContent(
+  eventId: string,
+  stageId: string,
+  advanceId: string,
+  deptId: string,
+  content: SectionContent,
+  bumpToInProgress: boolean,
+): Promise<void> {
+  const patch: Record<string, unknown> = {
+    [`content.${deptId}`]: content,
+    updatedAt: serverTimestamp(),
+  };
+  if (bumpToInProgress) {
+    patch[`sections.${deptId}`] = { status: 'in_progress', finalizedAt: null, finalizedBy: null };
+  }
+  await updateDoc(advanceDoc(eventId, stageId, advanceId), patch);
 }

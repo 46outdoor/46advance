@@ -213,6 +213,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |
 | Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
+| Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
 
 ### Step 2: Resolve name variants before searching
 

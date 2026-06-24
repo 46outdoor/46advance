@@ -305,6 +305,12 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
     await assertFails(deleteDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1')));
     await assertSucceeds(deleteDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1')));
   });
+
+  it('section content edits ride the same gate (PM yes, tech no)', async () => {
+    const content = { content: { audio: { foh_console: 'X-32' } } };
+    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), content));
+    await assertFails(updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), content));
+  });
 });
 
 describe('firestore.rules — stages', () => {
