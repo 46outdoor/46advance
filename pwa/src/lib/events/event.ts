@@ -21,6 +21,8 @@ export interface EventRecord {
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
   departmentIds: string[];
+  /** Google calendar created for this event (Phase 11b); null until connected + created. */
+  googleCalendarId: string | null;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -33,6 +35,7 @@ const eventDocSchema = z.object({
   venue: z.string().nullable().optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
+  googleCalendarId: z.string().nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -49,6 +52,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     venue: doc.venue ?? null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
+    googleCalendarId: doc.googleCalendarId ?? null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),

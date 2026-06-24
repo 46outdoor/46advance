@@ -3,9 +3,12 @@
 ROADMAP §12: **per-user Google OAuth**; **org-owned, one calendar per event**; push schedule
 items; **advance calls** (create a Calendar event + Meet link, or store an existing link).
 
-> **Status: split — 11a APPROVED & built; 11b PAUSED on external OAuth setup (2026-06-24).**
-> Branch `feature/phase-11-calendar`, PR → `main` (11a). 11b resumes after the user creates
-> the Google OAuth client + secrets.
+> **Status: 11a SHIPPED (#26). 11b BUILT on `feature/phase-11b-google-calendar` (2026-06-24)
+> — pending secrets + deploy + end-to-end verification.** OAuth client created by the user;
+> credentials go to Functions Secret Manager (`GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`).
+> Calendar ownership decision: the **connecting user owns** each event's calendar (per-user
+> OAuth). Required Authorized redirect URI on the OAuth client:
+> `https://us-central1-advancethat.cloudfunctions.net/googleAuthCallback`.
 
 ## Why the split
 - **No structured schedule data exists yet.** The executed phases never built a schedule-item
@@ -27,10 +30,18 @@ The roadmap's decided **"store an existing link"** path, plus immediate offline 
 - UI on the advance detail: show the call time, a **Join** link, and **Add to calendar (.ics)**
   (pure client download — works with any calendar app, no Google account).
 
-## 11b — Google API automation  [A — PAUSED on setup]
-- **Per-user OAuth** (offline access; store refresh token server-side in a restricted
-  `googleConnections/{uid}` doc — never client-readable). Connect/disconnect UI.
-- **Org-owned per-event calendar:** create on demand; store `googleCalendarId` on the event.
+## 11b — Google API automation  [A — BUILT, pending deploy + verify]
+- **Per-user OAuth** (offline access; refresh token stored server-side). Connect/disconnect UI.
+- **Per-event calendar:** create on demand; store `googleCalendarId` on the event.
+
+> **As built (2026-06-24).** Token storage is split because Firestore reads are not
+> field-level: non-secret status in `googleConnections/{uid}` (owner/admin read), and
+> refresh/access tokens in `googleTokens/{uid}` + single-use CSRF state in
+> `googleOAuthStates/{id}` (both Admin-SDK-only, `allow read, write: if false`). The
+> redirect URI uses the stable 2nd-gen alias `https://us-central1-advancethat.cloudfunctions.net/googleAuthCallback`
+> (no hosting rewrite — hosting deploys are forbidden). Files: `functions/src/google.ts`,
+> `src/lib/google/*`, `src/features/google/*` (Settings screen + `/settings` route),
+> `AdvanceCallPanel.tsx`. Tests: 5 new rules tests for the Google collections.
 - **Advance call → Google:** create a Calendar event **with a Meet link** (conferenceData) on
   the event calendar; write the resulting link back to `advanceCallLink`.
 - Cloud Functions (googleapis): `googleAuthUrl`, `googleAuthCallback`, `googleDisconnect`,

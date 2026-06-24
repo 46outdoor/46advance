@@ -19,9 +19,11 @@ export interface Advance {
   additions: string | null;
   concerns: string | null;
   pending: string | null;
-  /** Advance call (ROADMAP §12): scheduled time + an existing meeting link (11a). */
+  /** Advance call (ROADMAP §12): scheduled time + a meeting link (existing 11a, or Google Meet 11b). */
   advanceCallAt: Date | null;
   advanceCallLink: string | null;
+  /** Calendar event id when the Meet was created via Google (Phase 11b); null otherwise. */
+  googleCalendarEventId: string | null;
   sections: AdvanceSections;
   /** Per-department field values: content[deptId][fieldKey]. */
   content: AdvanceContent;
@@ -40,6 +42,7 @@ const advanceDocSchema = z.object({
   pending: z.string().nullable().optional(),
   advanceCallAt: z.instanceof(Timestamp).nullable().optional(),
   advanceCallLink: z.string().nullable().optional(),
+  googleCalendarEventId: z.string().nullable().optional(),
   sections: sectionsMapSchema.optional(),
   content: advanceContentSchema.optional(),
   createdBy: z.string().min(1),
@@ -63,6 +66,7 @@ export function parseAdvance(id: string, data: unknown): Advance {
     pending: doc.pending ?? null,
     advanceCallAt: timestampToDate(doc.advanceCallAt ?? null),
     advanceCallLink: doc.advanceCallLink ?? null,
+    googleCalendarEventId: doc.googleCalendarEventId ?? null,
     sections,
     content: doc.content ?? {},
     createdBy: doc.createdBy,

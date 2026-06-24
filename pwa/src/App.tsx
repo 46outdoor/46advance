@@ -13,6 +13,7 @@ import {
 import { TemplatesListScreen, TemplateEditorScreen } from '@/features/templates';
 import { TrackerOverviewScreen, EventTrackerScreen } from '@/features/tracker';
 import { ContactsDirectoryScreen } from '@/features/contacts';
+import { SettingsScreen } from '@/features/google';
 
 export function App() {
   return (
@@ -27,6 +28,7 @@ export function App() {
         <Route path="/tracker" element={<TrackerOverviewScreen />} />
         <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
         <Route path="/contacts" element={<ContactsDirectoryScreen />} />
+        <Route path="/settings" element={<SettingsScreen />} />
         <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
         <Route
           path="/events/:eventId/stages/:stageId/advances/:advanceId"
