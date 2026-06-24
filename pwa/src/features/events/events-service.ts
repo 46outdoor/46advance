@@ -16,7 +16,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '@/services/firebase';
+import { getDownloadURL, ref } from 'firebase/storage';
+import { db, functions, storage } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
 import type { Viewer } from '@/lib/rbac/permissions';
@@ -86,6 +87,17 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
 
 export async function setEventStatus(eventId: string, status: EventStatus): Promise<void> {
   await updateDoc(doc(db, 'events', eventId), { status, updatedAt: serverTimestamp() });
+}
+
+/**
+ * Generate a 46-branded full-event PDF packet (server-side render). The callable
+ * uploads to `events/{id}/packets/{ts}.pdf` and returns its Storage path; we resolve
+ * a member-gated download URL (storage.rules enforce read access). Returns the URL.
+ */
+export async function generatePacket(eventId: string): Promise<string> {
+  const callable = httpsCallable<{ eventId: string }, { path: string }>(functions, 'generatePacket');
+  const result = await callable({ eventId });
+  return getDownloadURL(ref(storage, result.data.path));
 }
 
 /** Create an event from a template (clones the blueprint server-side). Returns the new id. */

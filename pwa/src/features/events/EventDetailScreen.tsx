@@ -8,7 +8,7 @@ import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
 import type { EventInput } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
-import { getEvent, updateEvent } from './events-service';
+import { generatePacket, getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
@@ -44,6 +44,12 @@ export function EventDetailScreen() {
     onError: (err) => logger.error('Failed to update event', err),
   });
 
+  const packet = useMutation({
+    mutationFn: () => generatePacket(eventId!),
+    onSuccess: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+    onError: (err) => logger.error('Failed to generate packet', err),
+  });
+
   if (!user || !eventId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
@@ -74,6 +80,14 @@ export function EventDetailScreen() {
               >
                 Production
               </Link>
+              <button
+                type="button"
+                onClick={() => packet.mutate()}
+                disabled={packet.isPending}
+                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                {packet.isPending ? 'Generating…' : 'Generate packet'}
+              </button>
               {canEdit && (
                 <button
                   type="button"
@@ -87,6 +101,7 @@ export function EventDetailScreen() {
           </div>
           <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
           {event.venue && <p className="text-ink-muted">{event.venue}</p>}
+          {packet.isError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
         </header>
       )}
 
