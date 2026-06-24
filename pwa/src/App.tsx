@@ -11,6 +11,7 @@ import {
   AdvanceDetailScreen,
 } from '@/features/events';
 import { TemplatesListScreen, TemplateEditorScreen } from '@/features/templates';
+import { TrackerOverviewScreen, EventTrackerScreen } from '@/features/tracker';
 
 export function App() {
   return (
@@ -22,6 +23,8 @@ export function App() {
         <Route path="/events" element={<EventsListScreen />} />
         <Route path="/events/:eventId" element={<EventDetailScreen />} />
         <Route path="/events/:eventId/production" element={<EventProductionScreen />} />
+        <Route path="/tracker" element={<TrackerOverviewScreen />} />
+        <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
         <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
         <Route
           path="/events/:eventId/stages/:stageId/advances/:advanceId"

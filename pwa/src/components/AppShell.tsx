@@ -37,6 +37,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="transition-colors hover:text-accent" to="/events">
               Events
             </Link>
+            <Link className="transition-colors hover:text-accent" to="/tracker">
+              Tracker
+            </Link>
             <Link className="transition-colors hover:text-accent" to="/__theme">
               Theme
             </Link>

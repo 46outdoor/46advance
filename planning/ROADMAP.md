@@ -272,6 +272,10 @@ A **grid/matrix-style tracker** for advances across events — at-a-glance statu
 - **Status model (decided):** read-only roll-up **colored by per-section status** — **neutral/grey =
   not started, amber = in progress** (data entered), **green = complete** (section finalized/locked,
   see §5). Red is reserved for brand, not status. Surfaces what's outstanding vs. complete at a glance.
+- **Built — execution Phase 8 (2026-06-23):** **overview → drill-in** *(decided)*. `/tracker` lists
+  visible events with a completion roll-up; `/tracker/:eventId` is an **advances (rows) × departments
+  (columns)** status-colored grid; cells link to the advance. Read-only over existing section data —
+  no new Firestore shape, functions, or rules. Read-model in `src/lib/tracker/`.
 
 **Mobile:** dense grids are hard on small screens — plan a condensed/filtered (or read-only)
 mobile view rather than a 1:1 port.
