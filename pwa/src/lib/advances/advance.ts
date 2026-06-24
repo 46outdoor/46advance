@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 import { sectionStatusSchema, type AdvanceSections } from './sections';
+import { advanceContentSchema, type AdvanceContent } from './fields';
 
 export interface Advance {
   id: string;
@@ -19,6 +20,8 @@ export interface Advance {
   concerns: string | null;
   pending: string | null;
   sections: AdvanceSections;
+  /** Per-department field values: content[deptId][fieldKey]. */
+  content: AdvanceContent;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -39,6 +42,7 @@ const advanceDocSchema = z.object({
   concerns: z.string().nullable().optional(),
   pending: z.string().nullable().optional(),
   sections: z.record(z.string(), sectionStateDocSchema).optional(),
+  content: advanceContentSchema.optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -66,6 +70,7 @@ export function parseAdvance(id: string, data: unknown): Advance {
     concerns: doc.concerns ?? null,
     pending: doc.pending ?? null,
     sections,
+    content: doc.content ?? {},
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
