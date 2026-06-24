@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, Link } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { ThemeSpecimen } from '@/routes/ThemeSpecimen';
+import { PrivacyScreen } from '@/routes/PrivacyScreen';
 import { SignInScreen, SignUpScreen, AuthGate } from '@/features/auth';
 import { AdminScreen, AdminGate } from '@/features/admin';
 import {
@@ -20,6 +21,7 @@ export function App() {
     <Routes>
       <Route path="/sign-in" element={<SignInScreen />} />
       <Route path="/sign-up" element={<SignUpScreen />} />
+      <Route path="/privacy" element={<PrivacyScreen />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<EventsListScreen />} />
@@ -79,14 +81,19 @@ function Home() {
   return (
     <section className="space-y-3">
       <h1 className="font-display text-4xl font-black tracking-tight text-brand">46 Advance</h1>
-      <p className="text-ink-muted">
-        Foundation scaffold (Phase 0) — festival artist advance management for 46 Entertainment.
+      <p className="max-w-prose text-ink-muted">
+        Event-production advance management for 46 Entertainment — artist advances, production
+        details, quotes, contacts, and scheduling for live events.
       </p>
       <p className="text-sm text-ink-muted">
-        Design tokens preview at{' '}
-        <a className="text-accent underline" href="/__theme">
-          /__theme
-        </a>
+        Jump to{' '}
+        <Link className="text-accent underline" to="/events">
+          Events
+        </Link>{' '}
+        or the{' '}
+        <Link className="text-accent underline" to="/tracker">
+          Tracker
+        </Link>
         .
       </p>
     </section>
