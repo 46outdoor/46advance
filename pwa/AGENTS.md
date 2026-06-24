@@ -219,6 +219,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 | Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |
+| Quote/estimate model | `src/lib/quotes/quote.ts` (type + Zod + totals/lifecycle helpers) |
+| Quotes data access | `src/features/events/quotes-service.ts` (CRUD, status, signed copy, PDF) |
 
 ### Step 2: Resolve name variants before searching
 

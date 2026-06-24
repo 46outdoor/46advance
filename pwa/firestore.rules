@@ -111,6 +111,16 @@ service cloud.firestore {
             && request.resource.data.createdBy == request.auth.uid;
           allow update: if canEditEvent(eventId);
           allow delete: if canEditEvent(eventId);
+
+          // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
+          // Status changes (approve/reject) ride the update gate, so tech/dept-lead can't decide.
+          match /quotes/{quoteId} {
+            allow read: if isAdmin() || isMember(eventId);
+            allow create: if canEditEvent(eventId)
+              && request.resource.data.createdBy == request.auth.uid;
+            allow update: if canEditEvent(eventId);
+            allow delete: if canEditEvent(eventId);
+          }
         }
 
         // Per-stage technical production record (house package): member read; PM/admin write.

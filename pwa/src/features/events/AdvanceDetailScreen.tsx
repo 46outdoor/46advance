@@ -25,6 +25,7 @@ import {
 import { getEvent } from './events-service';
 import { AdvanceForm } from './AdvanceForm';
 import { AdvanceSection } from './AdvanceSection';
+import { QuotesPanel } from './QuotesPanel';
 
 const logger = createLogger('Advances');
 
@@ -194,6 +195,10 @@ export function AdvanceDetailScreen() {
             />
           ))}
         </div>
+      )}
+
+      {advance && (
+        <QuotesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} uid={user.uid} canEdit={canEdit} />
       )}
     </section>
   );

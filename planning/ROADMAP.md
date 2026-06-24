@@ -309,6 +309,13 @@ Create **very simple quotes/estimates** for **artist-covered expenses** and rout
 
 **Mobile:** approve + view/upload from mobile is valuable (PMs on the go); authoring can be PWA-first.
 
+- **Built — execution Phase 9 (2026-06-24):** quotes attach **per artist advance** *(decided)*
+  at `…/advances/{id}/quotes/{quoteId}`: line items (desc/qty/unit) with computed total,
+  lifecycle **draft→sent→approved/rejected** (PM/admin decide; decision audit by/at/note),
+  **server-side PDF** (`generateQuotePdf`, reuses the functions PDF lib), and **signed-copy
+  upload** to `events/{id}/quotes/**` (existing storage.rules). firestore.rules: quotes under
+  the advance — member read, PM/admin write. Model in `src/lib/quotes/`.
+
 ## 10. Artist Portal (external shared-link access)
 
 **Explore** a portal where a **shareable link** lets the **artist's production team** interact
