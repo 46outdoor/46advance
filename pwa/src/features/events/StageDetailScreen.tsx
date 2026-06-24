@@ -8,6 +8,7 @@ import { getEventRole } from '@/lib/rbac/membership';
 import type { StageInput } from '@/lib/events/stage';
 import { deleteStage, getStage, updateStage } from './stages-service';
 import { StageForm } from './StageForm';
+import { StageProductionPanel } from './StageProductionPanel';
 import { AdvancesPanel } from './AdvancesPanel';
 
 const logger = createLogger('Stages');
@@ -110,6 +111,7 @@ export function StageDetailScreen() {
         </div>
       )}
 
+      {stage && <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />}
       {stage && <AdvancesPanel eventId={eventId} stageId={stageId} canEdit={canEdit} />}
     </section>
   );

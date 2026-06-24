@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_DEPARTMENTS, departmentInputSchema, parseDepartment } from './department';
 
 describe('departments', () => {
-  it('ships the six confirmed defaults with stable ids', () => {
+  it('ships the seven confirmed defaults with stable ids', () => {
     expect(DEFAULT_DEPARTMENTS.map((d) => d.id)).toEqual([
       'audio',
       'lighting',
       'video-led',
+      'staging',
       'logistics',
       'labor',
       'artist-relations',

@@ -5,6 +5,8 @@
  * predicates. Rich per-department content (fields) lands in Phase 4.
  */
 import { z } from 'zod';
+import { Timestamp } from 'firebase/firestore';
+import { timestampToDate } from '@/lib/firestore/timestamps';
 import { canEditEvent, type Viewer } from '@/lib/rbac/permissions';
 import type { EventRole } from '@/lib/rbac/roles';
 
@@ -30,6 +32,29 @@ export function initialSections(departmentIds: readonly string[]): AdvanceSectio
   return Object.fromEntries(
     departmentIds.map((id) => [id, { status: 'not_started', finalizedAt: null, finalizedBy: null }]),
   );
+}
+
+const sectionStateDocSchema = z.object({
+  status: sectionStatusSchema,
+  finalizedAt: z.instanceof(Timestamp).nullable().optional(),
+  finalizedBy: z.string().nullable().optional(),
+});
+
+/** Zod schema for a raw `sections` map (department-keyed). */
+export const sectionsMapSchema = z.record(z.string(), sectionStateDocSchema);
+
+/** Validate + normalize a raw sections map (Timestamp → Date). Shared by advances + production. */
+export function parseSectionsMap(raw: unknown): AdvanceSections {
+  const parsed = sectionsMapSchema.parse(raw ?? {});
+  const out: AdvanceSections = {};
+  for (const [key, v] of Object.entries(parsed)) {
+    out[key] = {
+      status: v.status,
+      finalizedAt: timestampToDate(v.finalizedAt ?? null),
+      finalizedBy: v.finalizedBy ?? null,
+    };
+  }
+  return out;
 }
 
 const ALLOWED_TRANSITIONS: Record<SectionStatus, readonly SectionStatus[]> = {

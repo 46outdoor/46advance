@@ -331,6 +331,33 @@ describe('firestore.rules — stages', () => {
   });
 });
 
+describe('firestore.rules — production records', () => {
+  it('event-level: members read, PM/admin write, tech cannot write', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/production/record')));
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), 'events/event-a/production/record'), { info: { crew_parking: 'Lot B' } }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'events/event-a/production/record'), { info: { crew_parking: 'no' } }),
+    );
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/production/record')));
+  });
+
+  it('stage-level: members read, PM/admin write, dept-lead cannot write', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/production/record')));
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/production/record'), {
+        content: { audio: { foh_console: 'DM7' } },
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/production/record'), {
+        content: { audio: { foh_console: 'no' } },
+      }),
+    );
+  });
+});
+
 describe('firestore.rules — departments (app-wide config)', () => {
   it('any signed-in user can read; anonymous cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'departments/audio')));

@@ -67,15 +67,23 @@ export function EventDetailScreen() {
               <h1 className="font-display text-3xl font-black tracking-tight text-brand">{event.name}</h1>
               <EventStatusBadge status={event.status} />
             </div>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/events/${eventId}/production`}
                 className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
               >
-                Edit
-              </button>
-            )}
+                Production
+              </Link>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
           {event.venue && <p className="text-ink-muted">{event.venue}</p>}

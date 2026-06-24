@@ -6,6 +6,7 @@ import { AdminScreen, AdminGate } from '@/features/admin';
 import {
   EventsListScreen,
   EventDetailScreen,
+  EventProductionScreen,
   StageDetailScreen,
   AdvanceDetailScreen,
 } from '@/features/events';
@@ -19,6 +20,7 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<EventsListScreen />} />
         <Route path="/events/:eventId" element={<EventDetailScreen />} />
+        <Route path="/events/:eventId/production" element={<EventProductionScreen />} />
         <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
         <Route
           path="/events/:eventId/stages/:stageId/advances/:advanceId"

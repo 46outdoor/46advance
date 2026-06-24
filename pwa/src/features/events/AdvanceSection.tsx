@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { formatDate } from '@/lib/dates/formatting';
-import { getDepartmentFields, sectionHasData, type SectionContent } from '@/lib/advances/fields';
+import {
+  getDepartmentFields,
+  sectionHasData,
+  type FieldContext,
+  type SectionContent,
+} from '@/lib/advances/fields';
 import type { AdvanceSectionState, SectionStatus } from '@/lib/advances/sections';
 import { SectionStatusBadge } from './SectionStatusBadge';
 import { SectionContentForm } from './SectionContentForm';
@@ -15,6 +20,8 @@ interface AdvanceSectionProps {
   canUnlock: boolean;
   statusPending: boolean;
   contentPending: boolean;
+  /** Field context: 'advance' (per-artist) or 'production' (house package). */
+  context?: FieldContext;
   onSetStatus: (deptId: string, status: SectionStatus) => void;
   onSaveContent: (deptId: string, content: SectionContent, bumpToInProgress: boolean) => void;
 }
@@ -30,11 +37,12 @@ export function AdvanceSection({
   canUnlock,
   statusPending,
   contentPending,
+  context = 'advance',
   onSetStatus,
   onSaveContent,
 }: AdvanceSectionProps) {
   const [open, setOpen] = useState(false);
-  const fields = getDepartmentFields(deptId);
+  const fields = getDepartmentFields(deptId, context);
   const locked = state.status === 'complete';
   const readOnly = locked || !canEdit;
 

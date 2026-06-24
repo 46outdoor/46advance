@@ -202,6 +202,26 @@ Each advance section carries a status that drives the §8 tracker:
 
 (Red is reserved for brand/primary, not status — see UI § Design language.)
 
+## 5b. Festival / stage production record (general production — not per-artist)
+
+In addition to per-artist advances, a festival needs a **general production record** for
+the festival itself — the **house / standard package + site-wide info** that applies
+across all artists (the design direction came from 46's production packets — RTS / Rock
+the South; see § UI / §7). Distinct from a band advance; one (or a few) per event/stage.
+
+- **Reuses the same machinery** as advances: department → section → content fields
+  (Phase 4 registry), just attached to the **festival (event)** and/or **stage** instead
+  of an artist. Likely content: house PA + FOH/MON console packages, site power / distro,
+  festival-provided staff (house engineers), production schedule, site/venue/parking/
+  credentials/load-in routes, hospitality/catering, safety/weather/curfew.
+- **Feeds the standard package:** templates (§6) should seed this production record's
+  defaults too; per-artist advances capture only exceptions to it.
+- **Decided (2026-06-23):** **both levels** — event-level (general/policy/contacts) **and**
+  per-stage technical (staging/audio/lighting/LED-video); a new **Staging** department;
+  **file attachments** (stage plots/CAD/site maps via Storage) + external links. Built as
+  **Phase 5** (before templates, which seed it). Field taxonomy from
+  [`PRODUCTION_ADVANCE_REFERENCE.md`](PRODUCTION_ADVANCE_REFERENCE.md). Drives the §7 PDF.
+
 ## 6. Event / Advance Templates
 
 Most events being advanced share the **exact same stage and production package**, so
