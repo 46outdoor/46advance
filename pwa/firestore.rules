@@ -105,6 +105,18 @@ service cloud.firestore {
           allow update: if canEditEvent(eventId);
           allow delete: if canEditEvent(eventId);
         }
+
+        // Per-stage technical production record (house package): member read; PM/admin write.
+        match /production/{recordId} {
+          allow read: if isAdmin() || isMember(eventId);
+          allow write: if canEditEvent(eventId);
+        }
+      }
+
+      // Event-level production record (general/tech-operational): member read; PM/admin write.
+      match /production/{recordId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow write: if canEditEvent(eventId);
       }
 
       // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.
