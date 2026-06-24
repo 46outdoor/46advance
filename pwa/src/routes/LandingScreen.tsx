@@ -15,8 +15,9 @@ const FEATURES = [
 ];
 
 export function LandingScreen() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
+  const { user } = useAuth();
+  // Render the public description immediately (even while auth initializes) so crawlers —
+  // including Google's OAuth verifier — never see a blank frame. Only signed-in users redirect.
   if (user) return <Navigate to="/events" replace />;
 
   return (
