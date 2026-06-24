@@ -218,6 +218,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
+| Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |
 
 ### Step 2: Resolve name variants before searching
 
