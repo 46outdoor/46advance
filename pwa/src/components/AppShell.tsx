@@ -80,6 +80,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+      <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-ink-muted">
+        <Link to="/privacy" className="hover:text-accent">
+          Privacy Policy
+        </Link>
+      </footer>
     </div>
   );
 }
