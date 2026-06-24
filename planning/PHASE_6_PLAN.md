@@ -1,88 +1,69 @@
 # Phase 6 — Templates (execution plan)
 
-From the re-scoped build order (now **after** Phase 5 — the event production record).
-**Goal:** spin up a new festival fast — a **named template** seeds a new event's
-**enabled departments + stages + default section content + the event production record
-defaults + default member/role list**, then a PM adjusts per event. Most production is
-standard (ROADMAP §6 / the audio reference); the advance only captures per-artist
-exceptions.
+Spin up a new festival fast: a **named template** is an admin-authored blueprint that, on
+**create-from-template**, clones a full event setup — **enabled departments + stages +
+event production record + per-stage production (house package) + default roles** — leaving
+**Artist Advances empty** (filled per artist as exceptions to the house package).
 
-> **Status: APPROVED (template decisions) — but now sequenced as Phase 6**, after the
-> Phase 5 production record (so templates seed production defaults too). Implementation on
-> `feature/phase-6-templates`, PR → `main`. Downstream: PDF packets become Phase 7.
+> **Status: APPROVED — decisions locked 2026-06-23/24.** Large phase; built in slices.
+> Branch `feature/phase-6-templates` (may split 6a editor / 6b clone). PR → `main`.
 
-## Builds on
-Phases 2–4: events → stages → advances; per-event `departmentIds`; `advance.content`
-(department field registry); per-event membership. A template is a reusable blueprint
-for all of that.
+## Decisions (locked)
+1. **Authoring:** **dedicated admin template editor** *(user)* — author template fields
+   directly (reusing the production/section/stage editors), not a snapshot-of-event.
+2. **Clone scope:** **full blueprint, advances empty** *(user)* — departments + stages +
+   event production + per-stage production + default roles; new Artist Advances start empty.
+3. **Mechanism:** **`createEventFromTemplate` Cloud Function** (admin|organizer) — clones
+   everything server-side (Admin SDK), incl. the member roster, atomically; caller added as PM.
+4. **Edits → new events only** (no retro-propagation). **Admin-managed** templates.
+5. **Field definitions stay code-defined** (Phase 4 registry); templates store field
+   **values**, not new field types.
 
-## Decisions (locked 2026-06-23)
-1. **What a template seeds:** **full blueprint** *(user)* — departments + stages + default
-   section content + default member/role list.
-2. **Default content propagation:** **copy-on-create** *(user)* — template defaults copy to
-   `event.defaults[deptId]`, and each new advance copies them into `advance.content`; the PM
-   edits per artist. Edits do **not** retro-propagate to existing advances.
-3. **Create-from-template mechanism:** **Cloud Function `createEventFromTemplate`** *(user)*
-   (admin|organizer) — seeds event + stages + members + defaults server-side (Admin SDK), so
-   an organizer can create a fully-seeded event incl. the roster, atomically.
-4. **Template editing → existing events:** new events only (no retroactive change).
-5. **Field definitions / form-builder:** out of scope; field *definitions* stay code-defined
-   (Phase 4 registry). Templates seed field **values** (defaults), not new field types.
-6. **Who manages templates:** admin-only CRUD (app-wide config, like departments).
-
-## Data model (proposed)
+## Data model
 ```
 templates/{templateId}
   { name,
     departmentIds: [ ... ],
-    stages: [ { name, order }, ... ],
-    defaults: { <deptId>: { <fieldKey>: value } },   # standard-package content
-    members: [ { uid, role }, ... ],                 # default role list
+    stages: [ { id, name, order } ],                 # template-stage ids are local/stable
+    eventProduction: { info: {<fieldKey>: value}, contacts: [...], links: [...] },
+    stageProduction: { <templateStageId>: { content: { <deptId>: {<fieldKey>: value} } } },
+    members: [ { uid, role } ],
     createdBy, createdAt, updatedAt }
-
-events/{eventId}  { ...Phase 2–3..., templateId?, defaults?: { <deptId>: { <fieldKey>: value } } }
-events/{eventId}/stages/{stageId}/advances/{advId}  { ..., content seeded from event.defaults }
 ```
+On clone → real `events/{id}` (+ departmentIds), `members`, `events/{id}/production/record`,
+and for each template stage a real `stages/{newId}` + its `production/record`; map
+templateStageId → newStageId when writing stage production. No advances created.
 
 ## Workstreams ([A] agent · [U] user)
 
-### 5.1 Template model + admin editor  [A] + [U]
-- `lib/templates/template.ts` (type + Zod + parser); `templates-service` (admin CRUD).
-- Admin **template editor** (in `/admin` or its own admin route): name · enabled
-  departments · stages list · **default section content per department** (reuse the
-  Phase 4 `SectionContentForm`/registry) · default member/role list (reuse the membership
-  primitive).
-- **[U]** provide a first real template (departments, stages, standard Audio defaults).
+### 6.1 Template model + service  [A]
+- `src/lib/templates/template.ts` (type + Zod + parser); `templates-service` (admin CRUD).
 
-### 5.2 Create-from-template  [A]
-- Cloud Function `createEventFromTemplate(templateId, eventInput)` (admin|organizer):
-  creates the event (createdBy = caller), seeds stages + members + `event.defaults`,
-  and adds the caller as PM. Returns the new event id.
-- Event create UI gains a **"From template"** picker (falls back to the blank create).
+### 6.2 Template editor (admin)  [A]
+- Admin route/section: name · enabled departments (checkboxes) · stages list (add/rename/
+  reorder) · **default roles** (reuse the membership primitive) · **event production
+  defaults** (reuse `SectionContentForm` w/ `EVENT_PRODUCTION_FIELDS` + contacts/links
+  editors) · **per-stage production defaults** (reuse `SectionContentForm`, production
+  context, per enabled department).
 
-### 5.3 Defaults → advances  [A]
-- `createAdvance` copies `event.defaults[deptId]` into `advance.content[deptId]` (new
-  advances start pre-filled with the standard package; sections still start not_started).
+### 6.3 createEventFromTemplate function  [A]
+- Callable (admin|organizer): validate caller; clone event + members (+ caller as PM) +
+  event production + stages + per-stage production; return new event id. Advances empty.
 
-### 5.4 Security rules + rules tests  [A]
-- `templates/{id}`: signed-in read (or admin-only read?), admin write. The
-  `createEventFromTemplate` function runs with Admin SDK (bypasses rules) but validates
-  caller is admin|organizer. Extend rules tests.
+### 6.4 Create-from-template UI + rules + tests  [A]
+- Event create gains a **"From template"** picker → calls the function.
+- `firestore.rules`: `templates/{id}` signed-in read, admin write. Rules/clone tests.
 
-### 5.5 Verify & hand off  [A] → [U]
-- typecheck · lint · unit · rules · arch · build green; manual pass (build a template →
-  create event from it → advances pre-filled); PR; **stop for "ship it."**
+### 6.5 Verify & hand off  [A] → [U]
+- typecheck · lint · unit · rules · arch · build green; manual pass (author a template →
+  create event from it → structure + production seeded, advances empty); PR; deploy
+  (functions + rules); **stop for "ship it."**
 
-## Out of scope (later phases)
-Form-builder / admin-editable field *definitions* · schedules + master schedule · retro
-template propagation · PDF packets + summary report (Phase 6) · gear inventory (deferred).
-
-## [U] checklist
-- Confirm the **Decisions** (esp. propagation model + create mechanism).
-- Provide a **first template** (departments, stages, standard Audio defaults, default roles).
+## Out of scope
+PDF packets (Phase 7) · gear inventory (deferred) · schedules/master schedule · retro
+template propagation · admin-editable field definitions (form-builder).
 
 ## Exit criteria
-An admin builds a named template (departments + stages + default Audio content + default
-roles); an admin **or organizer** creates an event **from the template** and gets a
-fully-seeded event whose new advances start pre-filled with the standard package; rules +
-tests green; CI green.
+An admin authors a template (departments + stages + event/stage production defaults +
+roles); an admin or organizer creates an event **from the template** and gets a fully-seeded
+event (structure + production records + roles, advances empty); rules + tests green; CI green.
