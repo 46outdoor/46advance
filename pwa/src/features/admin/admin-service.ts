@@ -12,10 +12,19 @@ import {
   type EventMember,
   type EventRole,
 } from '@/lib/rbac/roles';
+import { parseEvent, type EventRecord } from '@/lib/events/event';
 
 /** A membership row with its user id attached. */
 export interface EventMemberRow extends EventMember {
   uid: string;
+}
+
+/** All events (admin reads every event per firestore.rules), name-sorted — for the assign picker. */
+export async function listAllEvents(): Promise<EventRecord[]> {
+  const snap = await getDocs(collection(db, 'events'));
+  return snap.docs
+    .map((d) => parseEvent(d.id, d.data()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** All members of an event. */

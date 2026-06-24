@@ -119,9 +119,21 @@ export function EventsListScreen() {
 
       {eventsQuery.isLoading && <p className="text-sm text-ink-muted">Loading events…</p>}
       {eventsQuery.isError && <p className="text-sm text-accent">Failed to load events.</p>}
-      {eventsQuery.data && events.length === 0 && (
-        <p className="text-sm text-ink-muted">No events{statusFilter !== 'all' ? ` with status “${statusFilter}”` : ''} yet.</p>
-      )}
+      {eventsQuery.data &&
+        events.length === 0 &&
+        (statusFilter !== 'all' ? (
+          <p className="text-sm text-ink-muted">No events with status “{statusFilter}”.</p>
+        ) : canCreateEvents(viewer) ? (
+          <p className="text-sm text-ink-muted">No events yet. Use “New event” to create one.</p>
+        ) : (
+          <div className="rounded-lg border border-line p-4">
+            <p className="font-semibold text-ink">You’re not on any events yet</p>
+            <p className="mt-1 text-sm text-ink-muted">
+              An admin needs to add you to an event before it appears here. Once you’re assigned a
+              role on an event, it’ll show up on this page.
+            </p>
+          </div>
+        ))}
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {events.map((e) => (
