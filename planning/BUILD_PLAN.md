@@ -67,7 +67,7 @@ portal, and integrations are post-MVP fast-follows.
 
 ## Phase 4 — Advance content: transportation + schedules
 **Goal:** the artist-advancing substance.
-- **Field taxonomy reference:** the audio lead's working advance ([`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)) — concrete section groups (documents, staff, power, backline, risers, audio, etc.). Breadth (multi-department vs audio-first vs department-configurable) is pending (ROADMAP §15).
+- **Field taxonomy reference:** the audio lead's working advance ([`AUDIO_ADVANCE_REFERENCE.md`](archive/reference/AUDIO_ADVANCE_REFERENCE.md)) — concrete section groups (documents, staff, power, backline, risers, audio, etc.). Breadth (multi-department vs audio-first vs department-configurable) is pending (ROADMAP §15).
 - Transportation/logistics (trucks, buses, vehicles, car services…) — fields per roadmap (**still being defined — iterate**).
 - Schedules: production / show / travel / **stagehand labor** / custom; **master schedule** (whole-section toggles + per-item overrides).
 - Section-status auto-fill hooks; data shaped to feed tracker + packets.

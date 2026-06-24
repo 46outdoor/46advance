@@ -1,7 +1,7 @@
 # Phase 3 — Stages, Departments & Configurable Sections (execution plan)
 
 Re-scoped from [`BUILD_PLAN.md`](BUILD_PLAN.md) after the 2026-06-23 decisions on the
-audio advance reference ([`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)).
+audio advance reference ([`AUDIO_ADVANCE_REFERENCE.md`](../reference/AUDIO_ADVANCE_REFERENCE.md)).
 **Goal:** the structural foundation the rest of the advance work needs — a festival
 holds **stages**, each stage holds **advances**, and an advance shows **one section
 per the event's enabled department**, with **structured additions/concerns/pending**

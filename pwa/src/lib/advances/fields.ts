@@ -27,7 +27,7 @@ export const sectionContentSchema = z.record(z.string(), fieldValueSchema);
 export const advanceContentSchema = z.record(z.string(), sectionContentSchema);
 export type AdvanceContent = Record<string, SectionContent>;
 
-/** Audio department fields, grouped (from AUDIO_ADVANCE_REFERENCE.md). */
+/** Audio department fields, grouped (from planning/archive/reference/AUDIO_ADVANCE_REFERENCE.md). */
 const AUDIO_FIELDS: readonly FieldDef[] = [
   { key: 'foh_console', label: 'FOH console', type: 'text', group: 'Consoles' },
   { key: 'mon_console', label: 'MON console', type: 'text', group: 'Consoles' },
@@ -56,7 +56,7 @@ const ADVANCE_FIELDS: Record<string, readonly FieldDef[]> = {
 
 /**
  * Per-stage production (house package) fields — tech-operational (internal app; see
- * memory `audience-internal-tech`). Starter sets from PRODUCTION_ADVANCE_REFERENCE.md.
+ * memory `audience-internal-tech`). Starter sets from planning/archive/reference/PRODUCTION_ADVANCE_REFERENCE.md.
  */
 const PRODUCTION_FIELDS: Record<string, readonly FieldDef[]> = {
   staging: [

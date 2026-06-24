@@ -128,7 +128,7 @@ event.
 ### Section taxonomy (from the audio lead's working advance — reference)
 
 The audio advance lead's live spreadsheet (see
-[`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md)) is the concrete model for
+[`AUDIO_ADVANCE_REFERENCE.md`](archive/reference/AUDIO_ADVANCE_REFERENCE.md)) is the concrete model for
 **advance content (Phase 4)**. Its operating philosophy matches ours: **most
 production is a standard festival package (templated, §6); the advance captures each
 artist's additions, exceptions, and concerns.** Candidate section groups (breadth
@@ -220,7 +220,7 @@ the South; see § UI / §7). Distinct from a band advance; one (or a few) per ev
   per-stage technical (staging/audio/lighting/LED-video); a new **Staging** department;
   **file attachments** (stage plots/CAD/site maps via Storage) + external links. Built as
   **Phase 5** (before templates, which seed it). Field taxonomy from
-  [`PRODUCTION_ADVANCE_REFERENCE.md`](PRODUCTION_ADVANCE_REFERENCE.md). Drives the §7 PDF.
+  [`PRODUCTION_ADVANCE_REFERENCE.md`](archive/reference/PRODUCTION_ADVANCE_REFERENCE.md). Drives the §7 PDF.
 
 ## 6. Event / Advance Templates
 
@@ -294,7 +294,7 @@ event level vs house stock.
 - Output: a **pull sheet** + shortage report (feeds purchasing/cross-rental).
 - **Decision pending:** include as its own phase (full model library + auto-totals),
   a simplified version (free-text gear lists, no auto-shortage), or defer. See
-  [`AUDIO_ADVANCE_REFERENCE.md`](AUDIO_ADVANCE_REFERENCE.md).
+  [`AUDIO_ADVANCE_REFERENCE.md`](archive/reference/AUDIO_ADVANCE_REFERENCE.md).
 - **Mobile:** read pull sheet / shortages on site; entry PWA-first.
 
 ## 9. Quotes / Estimates (artist-covered expenses)
@@ -370,7 +370,7 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   write gate) with a Join link and an offline **"Add to calendar" (.ics)** download
   (`src/lib/calendar/ics.ts`, pure). **11b (per-user Google OAuth + auto-create Meet on an
   org-owned per-event calendar) is PAUSED on external OAuth-client setup** — see
-  `planning/PHASE_11_PLAN.md` for the setup checklist. **Schedule-item push deferred** (no
+  `planning/archive/feature/PHASE_11_PLAN.md` for the setup checklist. **Schedule-item push deferred** (no
   structured schedule model yet — needs a Schedules phase, §5).
 
 - **Slack (explore):** company heavily uses Slack — explore integration (e.g. advance

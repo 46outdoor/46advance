@@ -77,7 +77,7 @@ patterns" are actually absent (confirming enforcement works).
 This project was scaffolded with `<!-- TBD -->` placeholders. Cross-reference open
 TBDs against the codebase: if a placeholder has been resolved in code (e.g. a
 Firebase project ID now exists, a default timezone is set) but the doc still says
-TBD, flag it for update. See `planning/AGENT_GOVERNANCE_IMPORT.md` for the master
+TBD, flag it for update. See `planning/archive/governance/AGENT_GOVERNANCE_IMPORT.md` for the master
 TBD checklist.
 
 ### 7. Memory File Accuracy
