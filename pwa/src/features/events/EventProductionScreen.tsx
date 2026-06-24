@@ -14,9 +14,9 @@ import {
   setEventProductionInfo,
   setEventProductionLinks,
 } from './production-service';
-import { SectionContentForm } from './SectionContentForm';
-import { ProductionContactsEditor } from './ProductionContactsEditor';
-import { ProductionLinksEditor } from './ProductionLinksEditor';
+import { SectionContentForm } from '@/components/production/SectionContentForm';
+import { ProductionContactsEditor } from '@/components/production/ProductionContactsEditor';
+import { ProductionLinksEditor } from '@/components/production/ProductionLinksEditor';
 import { AttachmentsEditor } from './AttachmentsEditor';
 
 const logger = createLogger('Production');

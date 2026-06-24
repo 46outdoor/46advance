@@ -4,35 +4,14 @@
  * (`AdminGate`) is UX, the rules are the enforcement.
  */
 import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { DocumentData } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
-import { timestampToDate } from '@/lib/firestore/timestamps';
 import {
   eventRoleSchema,
   parseEventMember,
   type EventMember,
   type EventRole,
 } from '@/lib/rbac/roles';
-import type { UserProfile } from '@/types';
-
-function toUserProfile(uid: string, data: DocumentData): UserProfile {
-  return {
-    uid,
-    email: data.email ?? null,
-    displayName: data.displayName ?? null,
-    isAdmin: data.isAdmin === true,
-    organizer: data.organizer === true,
-    createdAt: timestampToDate(data.createdAt ?? null),
-    lastSeenAt: timestampToDate(data.lastSeenAt ?? null),
-  };
-}
-
-/** All user profiles (admin-only read). */
-export async function listUsers(): Promise<UserProfile[]> {
-  const snap = await getDocs(collection(db, 'users'));
-  return snap.docs.map((d) => toUserProfile(d.id, d.data()));
-}
 
 /** A membership row with its user id attached. */
 export interface EventMemberRow extends EventMember {

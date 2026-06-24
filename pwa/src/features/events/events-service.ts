@@ -15,7 +15,8 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
 import type { Viewer } from '@/lib/rbac/permissions';
@@ -85,4 +86,20 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
 
 export async function setEventStatus(eventId: string, status: EventStatus): Promise<void> {
   await updateDoc(doc(db, 'events', eventId), { status, updatedAt: serverTimestamp() });
+}
+
+/** Create an event from a template (clones the blueprint server-side). Returns the new id. */
+export async function createEventFromTemplate(templateId: string, input: EventInput): Promise<string> {
+  const callable = httpsCallable<
+    { templateId: string; name: string; startDate: number | null; endDate: number | null; venue: string | null },
+    { eventId: string }
+  >(functions, 'createEventFromTemplate');
+  const result = await callable({
+    templateId,
+    name: input.name,
+    startDate: input.startDate ? input.startDate.getTime() : null,
+    endDate: input.endDate ? input.endDate.getTime() : null,
+    venue: input.venue ?? null,
+  });
+  return result.data.eventId;
 }

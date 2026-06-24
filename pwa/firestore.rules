@@ -62,6 +62,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Event templates (blueprints): any signed-in user reads (event-create picker);
+    // admin authors. Cloning runs server-side (createEventFromTemplate, Admin SDK).
+    match /templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // User profiles are server-managed (Admin SDK). Self/admin read; no client write.
     match /users/{uid} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
