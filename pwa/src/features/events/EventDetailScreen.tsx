@@ -7,10 +7,11 @@ import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
 import type { EventInput } from '@/lib/events/event';
+import { listDepartments } from '@/lib/departments/departments-service';
 import { getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
-import { AdvancesPanel } from './AdvancesPanel';
+import { StagesPanel } from './StagesPanel';
 
 const logger = createLogger('Events');
 
@@ -31,6 +32,8 @@ export function EventDetailScreen() {
     queryFn: () => getEventRole(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
+
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
   const update = useMutation({
     mutationFn: (input: EventInput) => updateEvent(eventId!, input),
@@ -84,6 +87,7 @@ export function EventDetailScreen() {
           <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit event</h2>
           <EventForm
             initial={event}
+            departments={departmentsQuery.data ?? []}
             submitLabel="Save changes"
             showStatus
             pending={update.isPending}
@@ -94,7 +98,7 @@ export function EventDetailScreen() {
         </div>
       )}
 
-      {event && <AdvancesPanel eventId={eventId} canEdit={canEdit} />}
+      {event && <StagesPanel eventId={eventId} canEdit={canEdit} />}
     </section>
   );
 }

@@ -33,6 +33,7 @@ export async function createEvent(input: EventInput, creatorUid: string): Promis
     endDate: dateToTimestamp(input.endDate ?? null),
     venue: input.venue ?? null,
     status: input.status ?? 'draft',
+    departmentIds: input.departmentIds ?? [],
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -77,6 +78,7 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     endDate: dateToTimestamp(input.endDate ?? null),
     venue: input.venue ?? null,
     ...(input.status ? { status: input.status } : {}),
+    ...(input.departmentIds ? { departmentIds: input.departmentIds } : {}),
     updatedAt: serverTimestamp(),
   });
 }

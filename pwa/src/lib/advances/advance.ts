@@ -1,18 +1,12 @@
 /**
- * Advance document model: `events/{eventId}/advances/{advanceId}`.
- * One advance per artist/performance. Types + Zod schemas + the Firestore
- * parser live together (mirrors src/lib/rbac). See sections.ts for the
- * section state machine.
+ * Advance document model: `events/{eventId}/stages/{stageId}/advances/{advanceId}`.
+ * One advance per artist/performance. Types + Zod schemas + the Firestore parser
+ * live together (mirrors src/lib/rbac). Sections are department-keyed (sections.ts).
  */
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import {
-  SECTION_KEYS,
-  sectionStatusSchema,
-  type AdvanceSectionState,
-  type AdvanceSections,
-} from './sections';
+import { sectionStatusSchema, type AdvanceSections } from './sections';
 
 export interface Advance {
   id: string;
@@ -20,6 +14,10 @@ export interface Advance {
   performanceDate: Date | null;
   stage: string | null;
   notes: string | null;
+  /** Structured summary fields (roll up to the per-day report). */
+  additions: string | null;
+  concerns: string | null;
+  pending: string | null;
   sections: AdvanceSections;
   createdBy: string;
   createdAt: Date | null;
@@ -37,28 +35,26 @@ const advanceDocSchema = z.object({
   performanceDate: z.instanceof(Timestamp).nullable().optional(),
   stage: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  additions: z.string().nullable().optional(),
+  concerns: z.string().nullable().optional(),
+  pending: z.string().nullable().optional(),
   sections: z.record(z.string(), sectionStateDocSchema).optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
 
-/** Validate + normalize a raw advance doc. Missing/unknown sections default to not_started. */
+/** Validate + normalize a raw advance doc. Sections are department-keyed (dynamic). */
 export function parseAdvance(id: string, data: unknown): Advance {
   const doc = advanceDocSchema.parse(data);
-  const sections = Object.fromEntries(
-    SECTION_KEYS.map((key) => {
-      const raw = doc.sections?.[key];
-      const state: AdvanceSectionState = raw
-        ? {
-            status: raw.status,
-            finalizedAt: timestampToDate(raw.finalizedAt ?? null),
-            finalizedBy: raw.finalizedBy ?? null,
-          }
-        : { status: 'not_started', finalizedAt: null, finalizedBy: null };
-      return [key, state];
-    }),
-  ) as AdvanceSections;
+  const sections: AdvanceSections = {};
+  for (const [key, raw] of Object.entries(doc.sections ?? {})) {
+    sections[key] = {
+      status: raw.status,
+      finalizedAt: timestampToDate(raw.finalizedAt ?? null),
+      finalizedBy: raw.finalizedBy ?? null,
+    };
+  }
 
   return {
     id,
@@ -66,6 +62,9 @@ export function parseAdvance(id: string, data: unknown): Advance {
     performanceDate: timestampToDate(doc.performanceDate ?? null),
     stage: doc.stage ?? null,
     notes: doc.notes ?? null,
+    additions: doc.additions ?? null,
+    concerns: doc.concerns ?? null,
+    pending: doc.pending ?? null,
     sections,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
@@ -79,5 +78,8 @@ export const advanceInputSchema = z.object({
   performanceDate: z.date().nullable().optional(),
   stage: z.string().trim().optional(),
   notes: z.string().trim().optional(),
+  additions: z.string().trim().optional(),
+  concerns: z.string().trim().optional(),
+  pending: z.string().trim().optional(),
 });
 export type AdvanceInput = z.infer<typeof advanceInputSchema>;

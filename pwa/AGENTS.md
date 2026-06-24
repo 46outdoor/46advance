@@ -209,6 +209,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |
 | Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
+| Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
+| Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |
 | Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 

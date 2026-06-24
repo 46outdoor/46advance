@@ -3,7 +3,12 @@ import { AppShell } from '@/components/AppShell';
 import { ThemeSpecimen } from '@/routes/ThemeSpecimen';
 import { SignInScreen, SignUpScreen, AuthGate } from '@/features/auth';
 import { AdminScreen, AdminGate } from '@/features/admin';
-import { EventsListScreen, EventDetailScreen, AdvanceDetailScreen } from '@/features/events';
+import {
+  EventsListScreen,
+  EventDetailScreen,
+  StageDetailScreen,
+  AdvanceDetailScreen,
+} from '@/features/events';
 
 export function App() {
   return (
@@ -14,7 +19,11 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<EventsListScreen />} />
         <Route path="/events/:eventId" element={<EventDetailScreen />} />
-        <Route path="/events/:eventId/advances/:advanceId" element={<AdvanceDetailScreen />} />
+        <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
+        <Route
+          path="/events/:eventId/stages/:stageId/advances/:advanceId"
+          element={<AdvanceDetailScreen />}
+        />
         <Route
           path="/admin"
           element={
