@@ -14,6 +14,7 @@ function toUserProfile(uid: string, data: DocumentData): UserProfile {
     displayName: data.displayName ?? null,
     isAdmin: data.isAdmin === true,
     organizer: data.organizer === true,
+    approved: data.approved === true,
     createdAt: timestampToDate(data.createdAt ?? null),
     lastSeenAt: timestampToDate(data.lastSeenAt ?? null),
   };

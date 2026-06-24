@@ -55,19 +55,26 @@ export const syncUserClaims = onCall(async (request) => {
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
   const isOrganizer = existing.organizer === true;
-  if (existing.admin !== isAdmin) {
-    await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin });
-  }
 
   const db = getFirestore();
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
+
+  // Admin-approval gate: admins are always approved; a brand-new account starts PENDING;
+  // pre-existing accounts are grandfathered approved (unless an admin explicitly revoked).
+  const approved = isAdmin ? true : snap.exists ? existing.approved !== false : false;
+
+  if (existing.admin !== isAdmin || existing.approved !== approved) {
+    await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin, approved });
+  }
+
   await ref.set(
     {
       email,
       displayName: token.name ?? null,
       isAdmin,
       organizer: isOrganizer,
+      approved,
       lastSeenAt: FieldValue.serverTimestamp(),
       ...(snap.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
     },
@@ -93,7 +100,33 @@ export const syncUserClaims = onCall(async (request) => {
     });
   }
 
-  return { isAdmin, isOrganizer };
+  return { isAdmin, isOrganizer, approved };
+});
+
+/**
+ * Admin-only. Approves/revokes a user's access to the app. Sets the `approved` custom claim
+ * and mirrors `users/{uid}.approved`. The target user picks it up on their next token
+ * refresh / sign-in. Input: { uid: string, approved: boolean }.
+ */
+export const setUserApproved = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError('permission-denied', 'Admin only.');
+  }
+  const uid = request.data?.uid;
+  const approved = request.data?.approved;
+  if (typeof uid !== 'string' || uid.length === 0 || typeof approved !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'Expected { uid: string, approved: boolean }.');
+  }
+
+  const adminAuth = getAuth();
+  const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
+  await adminAuth.setCustomUserClaims(uid, { ...existing, approved });
+  await getFirestore().collection('users').doc(uid).set({ approved }, { merge: true });
+
+  return { uid, approved };
 });
 
 /**

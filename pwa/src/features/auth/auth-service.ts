@@ -33,8 +33,8 @@ export function sendPasswordReset(email: string): Promise<void> {
 }
 
 /** Upsert the caller's profile + resolve global claims (admin allowlist, organizer). Call after sign-in. */
-export async function syncUserClaims(): Promise<{ isAdmin: boolean; isOrganizer: boolean }> {
-  const callable = httpsCallable<unknown, { isAdmin: boolean; isOrganizer: boolean }>(
+export async function syncUserClaims(): Promise<{ isAdmin: boolean; isOrganizer: boolean; approved: boolean }> {
+  const callable = httpsCallable<unknown, { isAdmin: boolean; isOrganizer: boolean; approved: boolean }>(
     functions,
     'syncUserClaims',
   );
