@@ -31,6 +31,7 @@ export interface EventProduction {
   info: SectionContent;
   contacts: ProductionContact[];
   links: ProductionLink[];
+  attachments: ProductionAttachment[];
   updatedAt: Date | null;
 }
 
@@ -43,10 +44,44 @@ export const productionContactSchema = z.object({
 
 export const productionLinkSchema = z.object({ label: z.string(), url: z.string() });
 
+export interface ProductionAttachment {
+  name: string;
+  path: string;
+  url: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: Date | null;
+}
+
+const attachmentDocSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  url: z.string(),
+  contentType: z.string().optional(),
+  size: z.number().optional(),
+  uploadedBy: z.string().optional(),
+  uploadedAt: z.instanceof(Timestamp).nullable().optional(),
+});
+
+function parseAttachments(raw: unknown): ProductionAttachment[] {
+  const arr = z.array(attachmentDocSchema).optional().parse(raw) ?? [];
+  return arr.map((a) => ({
+    name: a.name,
+    path: a.path,
+    url: a.url,
+    contentType: a.contentType ?? '',
+    size: a.size ?? 0,
+    uploadedBy: a.uploadedBy ?? '',
+    uploadedAt: timestampToDate(a.uploadedAt ?? null),
+  }));
+}
+
 const eventProductionDocSchema = z.object({
   info: sectionContentSchema.optional(),
   contacts: z.array(productionContactSchema).optional(),
   links: z.array(productionLinkSchema).optional(),
+  attachments: z.unknown().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
 
@@ -56,6 +91,7 @@ export function parseEventProduction(data: unknown): EventProduction {
     info: doc.info ?? {},
     contacts: doc.contacts ?? [],
     links: doc.links ?? [],
+    attachments: parseAttachments(doc.attachments),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
   };
 }
@@ -64,6 +100,7 @@ export const emptyEventProduction = (): EventProduction => ({
   info: {},
   contacts: [],
   links: [],
+  attachments: [],
   updatedAt: null,
 });
 
@@ -72,6 +109,7 @@ export interface StageProduction {
   sections: AdvanceSections;
   content: AdvanceContent;
   links: ProductionLink[];
+  attachments: ProductionAttachment[];
   updatedAt: Date | null;
 }
 
@@ -79,6 +117,7 @@ const stageProductionDocSchema = z.object({
   sections: sectionsMapSchema.optional(),
   content: advanceContentSchema.optional(),
   links: z.array(productionLinkSchema).optional(),
+  attachments: z.unknown().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
 
@@ -88,6 +127,7 @@ export function parseStageProduction(data: unknown): StageProduction {
     sections: parseSectionsMap(doc.sections ?? {}),
     content: doc.content ?? {},
     links: doc.links ?? [],
+    attachments: parseAttachments(doc.attachments),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
   };
 }
@@ -96,5 +136,6 @@ export const emptyStageProduction = (): StageProduction => ({
   sections: {},
   content: {},
   links: [],
+  attachments: [],
   updatedAt: null,
 });
