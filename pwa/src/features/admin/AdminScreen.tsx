@@ -6,6 +6,7 @@ import { EVENT_ROLES, type EventRole } from '@/lib/rbac/roles';
 import { listUsers } from '@/lib/users/users-service';
 import {
   assignEventMember,
+  listAllEvents,
   listEventMembers,
   removeEventMember,
   setUserOrganizer,
@@ -23,6 +24,7 @@ export function AdminScreen() {
   const queryClient = useQueryClient();
 
   const usersQuery = useQuery({ queryKey: ['admin', 'users'], queryFn: listUsers });
+  const eventsQuery = useQuery({ queryKey: ['admin', 'events'], queryFn: listAllEvents });
 
   const [eventId, setEventId] = useState('');
   const [selectedUid, setSelectedUid] = useState('');
@@ -133,13 +135,19 @@ export function AdminScreen() {
           }}
         >
           <label className="block text-sm sm:col-span-2">
-            <span className="mb-1 block font-semibold text-ink">Event ID</span>
-            <input
+            <span className="mb-1 block font-semibold text-ink">Event</span>
+            <select
               className="w-full rounded border border-line px-3 py-2 outline-none focus:border-brand"
               value={eventId}
               onChange={(event) => setEventId(event.target.value)}
-              placeholder="e.g. summerfest-2026"
-            />
+            >
+              <option value="">Select an event…</option>
+              {eventsQuery.data?.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="block text-sm">
@@ -190,7 +198,9 @@ export function AdminScreen() {
 
         {trimmedEventId && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-ink">Members of {trimmedEventId}</h3>
+            <h3 className="text-sm font-semibold text-ink">
+              Members of {eventsQuery.data?.find((e) => e.id === trimmedEventId)?.name ?? trimmedEventId}
+            </h3>
             {membersQuery.isLoading && <p className="text-sm text-ink-muted">Loading members…</p>}
             {membersQuery.data && membersQuery.data.length === 0 && (
               <p className="text-sm text-ink-muted">No members assigned.</p>
