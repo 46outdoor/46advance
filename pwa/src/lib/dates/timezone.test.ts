@@ -5,6 +5,9 @@ import {
   zonedInputToDate,
   dateToZonedInput,
   formatCentralDateTime,
+  formatCentralDate,
+  formatCentralTime,
+  centralDayKey,
 } from './timezone';
 
 const HOUR = 3_600_000;
@@ -45,5 +48,15 @@ describe('timezone — Central (America/Chicago) conversions', () => {
   it('formatCentralDateTime shows the Central zone label', () => {
     expect(formatCentralDateTime(new Date(Date.UTC(2026, 5, 24, 21, 0)))).toContain('CDT');
     expect(formatCentralDateTime(new Date(Date.UTC(2026, 0, 15, 15, 0)))).toContain('CST');
+  });
+
+  it('date / time / day-key helpers render in Central', () => {
+    const d = new Date(Date.UTC(2026, 5, 24, 21, 0)); // 4:00 PM CDT, Jun 24
+    expect(formatCentralDate(d)).toContain('Jun 24');
+    expect(formatCentralTime(d)).toBe('4:00 PM');
+    expect(centralDayKey(d)).toBe('2026-06-24');
+    // 1:00 AM UTC Jun 25 is still Jun 24 in Central (8:00 PM CDT)
+    expect(centralDayKey(new Date(Date.UTC(2026, 5, 25, 1, 0)))).toBe('2026-06-24');
+    expect(formatCentralTime(null)).toBe('');
   });
 });

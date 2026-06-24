@@ -1,10 +1,26 @@
-# Phase 12 — Schedules — plan (PROPOSED, awaiting approval)
+# Phase 12 — Schedules — plan
 
 ROADMAP §5 (Schedules) + §12 (push schedule items to the org-owned per-event calendar).
 This is the structured schedule model deferred from Phase 11 ("no schedule data exists yet").
 
-> **Status: PROPOSED — not started. Awaiting approval + a few decisions (below).** Build is
-> a Major feature; this doc is for sign-off before any code.
+> **Status: 12a BUILT** (authoring + master view) — decisions locked 2026-06-24, expected to be
+> refined repeatedly. **12b (calendar push) is next.**
+
+## Decisions (locked 2026-06-24)
+- **Granularity:** event-level items with an **optional stage tag**.
+- **Sections:** **all six** ship in 12a (production, show, travel, transportation, labor, custom).
+- **Fields:** **specialized per section** (registry in `src/lib/schedules/sections.ts`).
+- **Master output:** **screen-only** for 12a; PDF packet tie-in deferred.
+- **Calendar-push trigger (12b):** TBD when 12b starts.
+
+## 12a — as built
+- Model: `src/lib/schedules/scheduleItem.ts` (+ `sections.ts` registry). Items at
+  `events/{id}/scheduleItems/{id}`; common fields + per-section `fields` map; optional
+  `stageId`/`advanceId`; `includeInMaster`. Times UTC, rendered/entered Central.
+- Rules: member read, PM/admin write (+2 tests). Service: `schedule-service.ts`.
+- UI: `EventScheduleScreen` (`/events/:id/schedule`) — **Edit** (section-aware authoring grouped
+  by Central day) + **Master** (section toggles + per-item include/exclude). `ScheduleItemForm`
+  is section-aware. Linked from the event page.
 
 ## Why now
 - Phase 11b shipped the calendar/Meet plumbing (per-user OAuth, per-event Google calendar,

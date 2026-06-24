@@ -9,6 +9,7 @@ import {
   EventsListScreen,
   EventDetailScreen,
   EventProductionScreen,
+  EventScheduleScreen,
   StageDetailScreen,
   AdvanceDetailScreen,
 } from '@/features/events';
@@ -28,6 +29,7 @@ export function App() {
         <Route path="/events" element={<EventsListScreen />} />
         <Route path="/events/:eventId" element={<EventDetailScreen />} />
         <Route path="/events/:eventId/production" element={<EventProductionScreen />} />
+        <Route path="/events/:eventId/schedule" element={<EventScheduleScreen />} />
         <Route path="/tracker" element={<TrackerOverviewScreen />} />
         <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
         <Route path="/contacts" element={<ContactsDirectoryScreen />} />
