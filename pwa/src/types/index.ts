@@ -14,6 +14,8 @@ export interface UserProfile {
   isAdmin: boolean;
   /** Global organizer capability (may create events) — set by an admin. */
   organizer: boolean;
+  /** App access granted by an admin. New accounts start pending (false). */
+  approved: boolean;
   createdAt: Date | null;
   lastSeenAt: Date | null;
 }

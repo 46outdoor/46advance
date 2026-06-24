@@ -19,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [approved, setApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const syncedUid = useRef<string | null>(null);
 
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         syncedUid.current = null;
         setIsAdmin(false);
         setIsOrganizer(false);
+        setApproved(false);
         setLoading(false);
         return;
       }
@@ -37,19 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncedUid.current = nextUser.uid;
       void (async () => {
         try {
-          const { isAdmin: admin, isOrganizer: organizer } = await syncUserClaims();
+          const { isAdmin: admin, isOrganizer: organizer, approved: ok } = await syncUserClaims();
           await nextUser.getIdToken(true); // refresh so the token carries the new claim
           setIsAdmin(admin);
           setIsOrganizer(organizer);
+          setApproved(ok);
         } catch (err) {
           logger.error('Failed to sync user claims; falling back to cached claims', err);
           try {
             const token = await nextUser.getIdTokenResult();
             setIsAdmin(token.claims.admin === true);
             setIsOrganizer(token.claims.organizer === true);
+            setApproved(token.claims.approved === true);
           } catch {
             setIsAdmin(false);
             setIsOrganizer(false);
+            setApproved(false);
           }
         } finally {
           setLoading(false);
@@ -64,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin,
       isOrganizer,
+      approved,
       signIn: async (email, password) => {
         await signInWithEmail(email, password);
       },
@@ -73,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: () => signOutUser(),
       resetPassword: (email) => sendPasswordReset(email),
     }),
-    [user, loading, isAdmin, isOrganizer],
+    [user, loading, isAdmin, isOrganizer, approved],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

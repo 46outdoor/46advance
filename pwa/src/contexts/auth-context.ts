@@ -8,6 +8,8 @@ export interface AuthContextValue {
   isAdmin: boolean;
   /** Global organizer (custom claim `organizer`): may create events. Admin-grantable. */
   isOrganizer: boolean;
+  /** App access (custom claim `approved`). New accounts start pending until an admin approves. */
+  approved: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;

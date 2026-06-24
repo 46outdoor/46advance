@@ -9,6 +9,7 @@ import {
   listAllEvents,
   listEventMembers,
   removeEventMember,
+  setUserApproved,
   setUserOrganizer,
 } from './admin-service';
 import { DepartmentsAdmin } from './DepartmentsAdmin';
@@ -64,6 +65,12 @@ export function AdminScreen() {
     onError: (err) => logger.error('Failed to update organizer', err),
   });
 
+  const setApproved = useMutation({
+    mutationFn: ({ uid, approved }: { uid: string; approved: boolean }) => setUserApproved(uid, approved),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+    onError: (err) => logger.error('Failed to update approval', err),
+  });
+
   return (
     <section className="space-y-10">
       <header className="space-y-1">
@@ -87,6 +94,7 @@ export function AdminScreen() {
                 <th className="py-2 pr-4 font-semibold">Email</th>
                 <th className="py-2 pr-4 font-semibold">UID</th>
                 <th className="py-2 pr-4 font-semibold">Admin</th>
+                <th className="py-2 pr-4 font-semibold">Approved</th>
                 <th className="py-2 font-semibold">Organizer</th>
               </tr>
             </thead>
@@ -96,6 +104,23 @@ export function AdminScreen() {
                   <td className="py-2 pr-4">{u.email ?? '—'}</td>
                   <td className="py-2 pr-4 font-mono text-xs text-ink-muted">{u.uid}</td>
                   <td className="py-2 pr-4">{u.isAdmin ? 'Yes' : 'No'}</td>
+                  <td className="py-2 pr-4">
+                    {u.isAdmin ? (
+                      <span className="text-ink-muted">Yes</span>
+                    ) : (
+                      <>
+                        <span className="mr-2">{u.approved ? 'Yes' : 'No'}</span>
+                        <button
+                          type="button"
+                          disabled={setApproved.isPending}
+                          onClick={() => setApproved.mutate({ uid: u.uid, approved: !u.approved })}
+                          className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                        >
+                          {u.approved ? 'Revoke' : 'Approve'}
+                        </button>
+                      </>
+                    )}
+                  </td>
                   <td className="py-2">
                     <span className="mr-2">{u.organizer ? 'Yes' : 'No'}</span>
                     <button
@@ -111,7 +136,7 @@ export function AdminScreen() {
               ))}
               {usersQuery.data.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-3 text-ink-muted">
+                  <td colSpan={5} className="py-3 text-ink-muted">
                     No users yet.
                   </td>
                 </tr>

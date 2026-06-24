@@ -65,3 +65,16 @@ export async function setUserOrganizer(
   const result = await callable({ uid, organizer });
   return result.data;
 }
+
+/** Admin-only: approve/revoke a user's access to the app. */
+export async function setUserApproved(
+  uid: string,
+  approved: boolean,
+): Promise<{ uid: string; approved: boolean }> {
+  const callable = httpsCallable<{ uid: string; approved: boolean }, { uid: string; approved: boolean }>(
+    functions,
+    'setUserApproved',
+  );
+  const result = await callable({ uid, approved });
+  return result.data;
+}
