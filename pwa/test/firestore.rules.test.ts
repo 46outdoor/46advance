@@ -371,3 +371,15 @@ describe('firestore.rules — departments (app-wide config)', () => {
     );
   });
 });
+
+describe('firestore.rules — templates', () => {
+  it('any signed-in user can read; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'templates/tpl-1')));
+    await assertFails(getDoc(doc(dbAnon(), 'templates/tpl-1')));
+  });
+
+  it('only admin can write templates', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), 'templates/tpl-1'), { name: 'X' }));
+    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'templates/tpl-1'), { name: 'X' }));
+  });
+});

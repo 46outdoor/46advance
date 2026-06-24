@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
@@ -72,4 +72,102 @@ export const setUserOrganizer = onCall(async (request) => {
   await getFirestore().collection('users').doc(uid).set({ organizer }, { merge: true });
 
   return { uid, organizer };
+});
+
+/**
+ * Create a new event from a template (admin|organizer). Clones the full blueprint —
+ * enabled departments + stages + event production record + per-stage production
+ * (house package) + default roles — and adds the caller as production-manager. Artist
+ * Advances are NOT seeded. Runs with the Admin SDK so an organizer can seed members.
+ * Input: { templateId, name, startDate?: number|null, endDate?: number|null, venue?: string|null }
+ * (dates are epoch millis). Returns { eventId }.
+ */
+export const createEventFromTemplate = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  const { uid, token } = request.auth;
+  if (token.admin !== true && token.organizer !== true) {
+    throw new HttpsError('permission-denied', 'Admin or organizer only.');
+  }
+
+  const data = request.data ?? {};
+  const templateId = data.templateId;
+  const name = typeof data.name === 'string' ? data.name.trim() : '';
+  if (typeof templateId !== 'string' || templateId.length === 0 || name.length === 0) {
+    throw new HttpsError('invalid-argument', 'Expected { templateId: string, name: string }.');
+  }
+  const toTs = (v: unknown) => (typeof v === 'number' ? Timestamp.fromMillis(v) : null);
+  const startDate = toTs(data.startDate);
+  const endDate = toTs(data.endDate);
+  const venue = typeof data.venue === 'string' && data.venue.trim() ? data.venue.trim() : null;
+
+  const db = getFirestore();
+  const tplSnap = await db.collection('templates').doc(templateId).get();
+  if (!tplSnap.exists) {
+    throw new HttpsError('not-found', 'Template not found.');
+  }
+  const tpl = tplSnap.data() ?? {};
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  const eventRef = db.collection('events').doc();
+  batch.set(eventRef, {
+    name,
+    startDate,
+    endDate,
+    venue,
+    status: 'draft',
+    departmentIds: Array.isArray(tpl.departmentIds) ? tpl.departmentIds : [],
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Caller becomes PM; then template members (without clobbering the caller).
+  batch.set(eventRef.collection('members').doc(uid), {
+    role: 'production-manager',
+    addedBy: uid,
+    addedAt: now,
+    uid,
+  });
+  for (const m of Array.isArray(tpl.members) ? tpl.members : []) {
+    if (m && typeof m.uid === 'string' && m.uid !== uid && typeof m.role === 'string') {
+      batch.set(eventRef.collection('members').doc(m.uid), {
+        role: m.role,
+        addedBy: uid,
+        addedAt: now,
+        uid: m.uid,
+      });
+    }
+  }
+
+  // Event-level production record.
+  const ep = tpl.eventProduction ?? {};
+  batch.set(eventRef.collection('production').doc('record'), {
+    info: ep.info ?? {},
+    contacts: Array.isArray(ep.contacts) ? ep.contacts : [],
+    links: Array.isArray(ep.links) ? ep.links : [],
+    updatedAt: now,
+  });
+
+  // Stages + per-stage production records.
+  const stageProduction = tpl.stageProduction ?? {};
+  for (const s of Array.isArray(tpl.stages) ? tpl.stages : []) {
+    if (!s || typeof s.name !== 'string') continue;
+    const stageRef = eventRef.collection('stages').doc();
+    batch.set(stageRef, {
+      name: s.name,
+      order: typeof s.order === 'number' ? s.order : 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const content = stageProduction[s.id]?.content;
+    if (content && typeof content === 'object') {
+      batch.set(stageRef.collection('production').doc('record'), { content, updatedAt: now });
+    }
+  }
+
+  await batch.commit();
+  return { eventId: eventRef.id };
 });
