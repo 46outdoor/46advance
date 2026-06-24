@@ -3,15 +3,23 @@
 ROADMAP §5 (Schedules) + §12 (push schedule items to the org-owned per-event calendar).
 This is the structured schedule model deferred from Phase 11 ("no schedule data exists yet").
 
-> **Status: 12a BUILT** (authoring + master view) — decisions locked 2026-06-24, expected to be
-> refined repeatedly. **12b (calendar push) is next.**
+> **Status: 12a + 12b BUILT** — decisions locked 2026-06-24, expected to be refined repeatedly.
 
 ## Decisions (locked 2026-06-24)
 - **Granularity:** event-level items with an **optional stage tag**.
 - **Sections:** **all six** ship in 12a (production, show, travel, transportation, labor, custom).
 - **Fields:** **specialized per section** (registry in `src/lib/schedules/sections.ts`).
 - **Master output:** **screen-only** for 12a; PDF packet tie-in deferred.
-- **Calendar-push trigger (12b):** TBD when 12b starts.
+- **Calendar-push (12b):** **auto-push on save**, **master-schedule items only** (`includeInMaster` + a time).
+
+## 12b — as built
+- `functions/src/googleSchedule.ts`: **`pushScheduleItem`** (client-orchestrated, caller's OAuth)
+  reconciles one item with the event's Google calendar — create/update when in the master
+  schedule with a start time, else remove; stores `googleCalendarEventId` on the item. Reuses
+  11b's `ensureEventCalendar`/`authedClientForUser`. **`removeScheduleCalendarEvent`** for deletes.
+  Graceful no-op when the caller hasn't connected Google (the save still succeeds).
+- `EventScheduleScreen` fires the push after each create/update/master-toggle/delete; shows a
+  connect-Google banner + an "on calendar" marker on synced items.
 
 ## 12a — as built
 - Model: `src/lib/schedules/scheduleItem.ts` (+ `sections.ts` registry). Items at

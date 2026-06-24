@@ -22,6 +22,9 @@ export {
 // Phase 11b (sync) — match Appointment Schedule bookings to advances. ./googleBookings.ts.
 export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBookings.js';
 
+// Phase 12b — push schedule items to the event's Google calendar. ./googleSchedule.ts.
+export { pushScheduleItem, removeScheduleCalendarEvent } from './googleSchedule.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const fmtDate = (v: unknown): string | null => (v instanceof Timestamp ? PACKET_DATE_FMT.format(v.toDate()) : null);
