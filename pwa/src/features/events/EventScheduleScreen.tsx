@@ -26,9 +26,12 @@ import {
   createScheduleItem,
   deleteScheduleItem,
   listScheduleItems,
+  pushScheduleItem,
+  removeScheduleCalendarEvent,
   setScheduleItemMaster,
   updateScheduleItem,
 } from './schedule-service';
+import { useGoogleConnection } from '@/lib/google';
 import { ScheduleItemForm, type AdvanceOption, type StageOption } from './ScheduleItemForm';
 
 const logger = createLogger('Schedule');
@@ -77,26 +80,37 @@ export function EventScheduleScreen() {
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
 
+  const connection = useGoogleConnection();
+  const isConnected = connection.data?.connected === true;
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['schedule', eventId] });
+  /** Auto-push: reconcile the item with the event's Google calendar after a save (fire-and-forget). */
+  const syncItem = (itemId: string) => {
+    void pushScheduleItem(eventId!, itemId)
+      .then(() => invalidate())
+      .catch((e) => logger.error('Calendar sync failed', e));
+  };
 
   const create = useMutation({
     mutationFn: (input: ScheduleItemInput) => createScheduleItem(eventId!, input, user!.uid),
-    onSuccess: () => { invalidate(); setAdding(false); },
+    onSuccess: (id) => { invalidate(); setAdding(false); syncItem(id); },
     onError: (e) => logger.error('Failed to create schedule item', e),
   });
   const update = useMutation({
     mutationFn: ({ id, input }: { id: string; input: ScheduleItemInput }) => updateScheduleItem(eventId!, id, input),
-    onSuccess: () => { invalidate(); setEditingId(null); },
+    onSuccess: (_data, vars) => { invalidate(); setEditingId(null); syncItem(vars.id); },
     onError: (e) => logger.error('Failed to update schedule item', e),
   });
   const remove = useMutation({
-    mutationFn: (id: string) => deleteScheduleItem(eventId!, id),
+    mutationFn: async (item: ScheduleItem) => {
+      await deleteScheduleItem(eventId!, item.id);
+      if (item.googleCalendarEventId) await removeScheduleCalendarEvent(eventId!, item.googleCalendarEventId);
+    },
     onSuccess: invalidate,
     onError: (e) => logger.error('Failed to delete schedule item', e),
   });
   const toggleMaster = useMutation({
     mutationFn: ({ id, include }: { id: string; include: boolean }) => setScheduleItemMaster(eventId!, id, include),
-    onSuccess: invalidate,
+    onSuccess: (_data, vars) => { invalidate(); syncItem(vars.id); },
     onError: (e) => logger.error('Failed to toggle master', e),
   });
 
@@ -150,6 +164,21 @@ export function EventScheduleScreen() {
           ))}
         </div>
       </header>
+
+      {canEdit && (
+        <p className="text-xs text-ink-muted">
+          {isConnected ? (
+            'Master-schedule items auto-sync to your Google calendar on save.'
+          ) : (
+            <>
+              <Link to="/settings" className="text-accent hover:underline">
+                Connect Google
+              </Link>{' '}
+              to auto-sync the master schedule to a calendar.
+            </>
+          )}
+        </p>
+      )}
 
       {itemsQuery.isLoading && <p className="text-sm text-ink-muted">Loading schedule…</p>}
       {itemsQuery.isError && <p className="text-sm text-accent">Failed to load the schedule.</p>}
@@ -220,6 +249,9 @@ export function EventScheduleScreen() {
                           {!it.includeInMaster && (
                             <span className="text-[0.65rem] text-ink-muted">(hidden from master)</span>
                           )}
+                          {it.googleCalendarEventId && (
+                            <span className="text-[0.65rem] font-semibold text-status-complete">on calendar</span>
+                          )}
                         </div>
                         {canEdit && (
                           <div className="flex shrink-0 gap-2 text-xs">
@@ -229,7 +261,7 @@ export function EventScheduleScreen() {
                             <button type="button" onClick={() => setEditingId(it.id)} className="text-ink-muted hover:text-accent">
                               Edit
                             </button>
-                            <button type="button" disabled={remove.isPending} onClick={() => remove.mutate(it.id)} className="text-ink-muted hover:text-accent disabled:opacity-50">
+                            <button type="button" disabled={remove.isPending} onClick={() => remove.mutate(it)} className="text-ink-muted hover:text-accent disabled:opacity-50">
                               Delete
                             </button>
                           </div>

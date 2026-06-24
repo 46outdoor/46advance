@@ -29,6 +29,8 @@ export interface ScheduleItem {
   /** Section-specific field values (sections.ts). */
   fields: Record<string, string>;
   includeInMaster: boolean;
+  /** Calendar event created when pushed to the event's Google calendar (12b); null otherwise. */
+  googleCalendarEventId: string | null;
   order: number;
   createdBy: string;
   createdAt: Date | null;
@@ -47,6 +49,7 @@ const scheduleItemDocSchema = z.object({
   advanceId: z.string().nullable().optional(),
   fields: z.record(z.string(), z.string()).optional(),
   includeInMaster: z.boolean().optional(),
+  googleCalendarEventId: z.string().nullable().optional(),
   order: z.number().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
@@ -69,6 +72,7 @@ export function parseScheduleItem(id: string, data: unknown): ScheduleItem {
     advanceId: doc.advanceId ?? null,
     fields: doc.fields ?? {},
     includeInMaster: doc.includeInMaster ?? true,
+    googleCalendarEventId: doc.googleCalendarEventId ?? null,
     order: doc.order ?? 0,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),

@@ -230,7 +230,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron) |
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
 | Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) |
-| Schedules data access | `src/features/events/schedule-service.ts` (CRUD; `EventScheduleScreen` at `/events/:id/schedule`) |
+| Schedules data access | `src/features/events/schedule-service.ts` (CRUD + calendar push/remove; `EventScheduleScreen` at `/events/:id/schedule`) |
+| Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`pushScheduleItem` reconcile + `removeScheduleCalendarEvent`; reuses 11b) |
 
 ### Step 2: Resolve name variants before searching
 

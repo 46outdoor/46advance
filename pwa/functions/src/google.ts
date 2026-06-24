@@ -116,7 +116,7 @@ export async function authedClientForUser(db: Firestore, uid: string): Promise<A
 }
 
 /** Return the event's Google calendar id, creating one (owned by `uid`) if absent. */
-async function ensureEventCalendar(
+export async function ensureEventCalendar(
   db: Firestore,
   client: AuthClient,
   uid: string,

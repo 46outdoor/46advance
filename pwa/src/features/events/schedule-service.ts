@@ -12,7 +12,8 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseScheduleItem, type ScheduleItem, type ScheduleItemInput } from '@/lib/schedules/scheduleItem';
 
@@ -85,4 +86,29 @@ export async function setScheduleItemMaster(
   includeInMaster: boolean,
 ): Promise<void> {
   await updateDoc(itemDoc(eventId, itemId), { includeInMaster, updatedAt: serverTimestamp() });
+}
+
+export interface ScheduleSyncResult {
+  synced: boolean;
+  reason?: string;
+}
+
+/**
+ * Reconcile one item with the event's Google calendar (12b auto-push). Server-side: creates/
+ * updates the event when it's in the master schedule with a time, else removes it. Returns
+ * `{ synced:false, reason:'not_connected' }` (no-op) when the caller hasn't connected Google.
+ */
+export async function pushScheduleItem(eventId: string, itemId: string): Promise<ScheduleSyncResult> {
+  const callable = httpsCallable<{ eventId: string; itemId: string }, ScheduleSyncResult>(functions, 'pushScheduleItem');
+  const res = await callable({ eventId, itemId });
+  return res.data;
+}
+
+/** Remove a schedule item's calendar event (call before deleting the item). */
+export async function removeScheduleCalendarEvent(eventId: string, calendarEventId: string): Promise<void> {
+  const callable = httpsCallable<{ eventId: string; calendarEventId: string }, { removed: boolean }>(
+    functions,
+    'removeScheduleCalendarEvent',
+  );
+  await callable({ eventId, calendarEventId });
 }
