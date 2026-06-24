@@ -1,11 +1,23 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { renderPacket, type PacketData } from './lib/pdf/packet.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
+
+const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
+const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const fmtDate = (v: unknown): string | null => (v instanceof Timestamp ? PACKET_DATE_FMT.format(v.toDate()) : null);
+const fmtRange = (a: unknown, b: unknown): string | null => {
+  const x = fmtDate(a);
+  const y = fmtDate(b);
+  if (x && y) return `${x} – ${y}`;
+  return x ?? y ?? null;
+};
 
 /** Emails granted the global admin role (allowlist). */
 const ADMIN_EMAILS = ['jared@46entertainment.com'].map((email) => email.toLowerCase());
@@ -170,4 +182,88 @@ export const createEventFromTemplate = onCall(async (request) => {
 
   await batch.commit();
   return { eventId: eventRef.id };
+});
+
+/**
+ * Generate a 46-branded full-event PDF packet (production record + stages + artist
+ * advances) and store it in Storage. Authorized for admin or any member of the event.
+ * Returns the Storage `{ path }`; the client resolves a download URL (member-gated by
+ * storage.rules). Input: { eventId }.
+ */
+export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  const { uid, token } = request.auth;
+  const eventId = request.data?.eventId;
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
+  }
+
+  const db = getFirestore();
+  const eventSnap = await db.doc(`events/${eventId}`).get();
+  if (!eventSnap.exists) {
+    throw new HttpsError('not-found', 'Event not found.');
+  }
+  if (token.admin !== true) {
+    const member = await db.doc(`events/${eventId}/members/${uid}`).get();
+    if (!member.exists) {
+      throw new HttpsError('permission-denied', 'Not a member of this event.');
+    }
+  }
+  const ev = eventSnap.data() ?? {};
+
+  const deptSnap = await db.collection('departments').get();
+  const deptName = new Map(deptSnap.docs.map((d) => [d.id, (d.data().name as string) ?? d.id]));
+  const departmentIds: string[] = Array.isArray(ev.departmentIds) ? ev.departmentIds : [];
+  const departments = departmentIds.map((id) => ({ id, name: deptName.get(id) ?? id }));
+
+  const epSnap = await db.doc(`events/${eventId}/production/record`).get();
+  const ep = epSnap.exists ? (epSnap.data() ?? {}) : {};
+
+  const stageDocs = (await db.collection(`events/${eventId}/stages`).get()).docs.sort(
+    (a, b) => ((a.data().order as number) ?? 0) - ((b.data().order as number) ?? 0),
+  );
+  const stages = await Promise.all(
+    stageDocs.map(async (sd) => {
+      const spSnap = await db.doc(`events/${eventId}/stages/${sd.id}/production/record`).get();
+      const advSnap = await db.collection(`events/${eventId}/stages/${sd.id}/advances`).get();
+      const advances = advSnap.docs
+        .map((ad) => ad.data())
+        .sort((a, b) => String(a.artistName ?? '').localeCompare(String(b.artistName ?? '')))
+        .map((a) => ({
+          artistName: String(a.artistName ?? ''),
+          performanceDate: fmtDate(a.performanceDate),
+          stage: a.stage ?? null,
+          notes: a.notes ?? null,
+          additions: a.additions ?? null,
+          concerns: a.concerns ?? null,
+          pending: a.pending ?? null,
+          sections: a.sections ?? {},
+          content: a.content ?? {},
+        }));
+      return {
+        name: String(sd.data().name ?? 'Stage'),
+        production: spSnap.exists ? (spSnap.data()?.content ?? {}) : {},
+        advances,
+      };
+    }),
+  );
+
+  const data: PacketData = {
+    event: { name: String(ev.name ?? ''), venue: ev.venue ?? null, dateRange: fmtRange(ev.startDate, ev.endDate) },
+    departments,
+    eventProduction: {
+      info: ep.info ?? {},
+      contacts: ep.contacts ?? [],
+      links: ep.links ?? [],
+    },
+    stages,
+    generatedAt: PACKET_DATE_FMT.format(new Date()),
+  };
+
+  const buffer = await renderPacket(data);
+  const path = `events/${eventId}/packets/${Date.now()}.pdf`;
+  await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
+  return { path };
 });
