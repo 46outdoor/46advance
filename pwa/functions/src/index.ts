@@ -56,7 +56,8 @@ export const syncUserClaims = onCall(async (request) => {
     await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin });
   }
 
-  const ref = getFirestore().collection('users').doc(uid);
+  const db = getFirestore();
+  const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
   await ref.set(
     {
@@ -69,6 +70,25 @@ export const syncUserClaims = onCall(async (request) => {
     },
     { merge: true },
   );
+
+  // Mirror the account into the global contacts directory (contacts/{uid}). Create-only so
+  // an admin's later edits to the contact aren't overwritten on each sign-in.
+  const contactRef = db.collection('contacts').doc(uid);
+  if (!(await contactRef.get()).exists) {
+    const now = FieldValue.serverTimestamp();
+    await contactRef.set({
+      name: token.name ?? email ?? 'Team member',
+      email,
+      role: null,
+      company: null,
+      phone: null,
+      notes: null,
+      userId: uid,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
 
   return { isAdmin, isOrganizer };
 });

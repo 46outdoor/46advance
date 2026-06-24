@@ -16,6 +16,8 @@ export interface Contact {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  /** Set when this contact mirrors a user account (auto-populated on sign-in); null otherwise. */
+  userId: string | null;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -28,6 +30,7 @@ const contactDocSchema = z.object({
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  userId: z.string().nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -44,6 +47,7 @@ export function parseContact(id: string, data: unknown): Contact {
     phone: doc.phone ?? null,
     email: doc.email ?? null,
     notes: doc.notes ?? null,
+    userId: doc.userId ?? null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
