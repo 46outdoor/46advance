@@ -34,11 +34,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="transition-colors hover:text-accent" to="/">
               Home
             </Link>
+            <Link className="transition-colors hover:text-accent" to="/events">
+              Events
+            </Link>
             <Link className="transition-colors hover:text-accent" to="/__theme">
               Theme
             </Link>
             {user && (
               <>
+                {isAdmin && (
+                  <Link className="transition-colors hover:text-accent" to="/templates">
+                    Templates
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link
                     className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"

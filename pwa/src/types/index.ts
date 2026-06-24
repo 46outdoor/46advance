@@ -12,6 +12,8 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   isAdmin: boolean;
+  /** Global organizer capability (may create events) — set by an admin. */
+  organizer: boolean;
   createdAt: Date | null;
   lastSeenAt: Date | null;
 }

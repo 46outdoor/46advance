@@ -18,6 +18,7 @@ const logger = createLogger('Auth');
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOrganizer, setIsOrganizer] = useState(false);
   const [loading, setLoading] = useState(true);
   const syncedUid = useRef<string | null>(null);
 
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!nextUser) {
         syncedUid.current = null;
         setIsAdmin(false);
+        setIsOrganizer(false);
         setLoading(false);
         return;
       }
@@ -35,16 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncedUid.current = nextUser.uid;
       void (async () => {
         try {
-          const { isAdmin: admin } = await syncUserClaims();
+          const { isAdmin: admin, isOrganizer: organizer } = await syncUserClaims();
           await nextUser.getIdToken(true); // refresh so the token carries the new claim
           setIsAdmin(admin);
+          setIsOrganizer(organizer);
         } catch (err) {
-          logger.error('Failed to sync user claims; falling back to cached claim', err);
+          logger.error('Failed to sync user claims; falling back to cached claims', err);
           try {
             const token = await nextUser.getIdTokenResult();
             setIsAdmin(token.claims.admin === true);
+            setIsOrganizer(token.claims.organizer === true);
           } catch {
             setIsAdmin(false);
+            setIsOrganizer(false);
           }
         } finally {
           setLoading(false);
@@ -58,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       isAdmin,
+      isOrganizer,
       signIn: async (email, password) => {
         await signInWithEmail(email, password);
       },
@@ -67,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: () => signOutUser(),
       resetPassword: (email) => sendPasswordReset(email),
     }),
-    [user, loading, isAdmin],
+    [user, loading, isAdmin, isOrganizer],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -195,6 +195,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
 | Rate limiting (in-memory)   | `functions/src/lib/security/rateLimit.ts` (backend — low-stakes paths) |
 | Firestore timestamps  | `src/lib/firestore/timestamps.ts`                        |
+| File uploads (Storage) | `src/lib/storage/uploads.ts` (validate + upload/delete) |
 | Type definitions      | `src/types/`                                             |
 | Modal state           | `src/lib/hooks/useModalState.ts`                         |
 | Variants/styles       | `src/lib/styles/variants.ts`                             |
@@ -208,6 +209,15 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |
+| Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
+| Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
+| Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |
+| Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
+| Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
+| Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
+| Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
+| Users directory (read) | `src/lib/users/users-service.ts`                         |
+| Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 
 ### Step 2: Resolve name variants before searching
 

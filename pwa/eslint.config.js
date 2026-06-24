@@ -40,4 +40,11 @@ export default tseslint.config(
     files: ['*.config.{js,ts}', '*.cjs'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Cloud Functions are server-side Node; react-refresh (a client fast-refresh
+    // rule) doesn't apply, even to the @react-pdf/renderer packet components.
+    files: ['functions/**/*.{ts,tsx}'],
+    languageOptions: { globals: globals.node },
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 );

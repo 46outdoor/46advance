@@ -1,14 +1,16 @@
 rules_version = '2';
 
-// Per-event RBAC (Phase 1). Mirrors the predicates in
-// src/lib/rbac/permissions.ts — keep the two in sync.
+// Per-event RBAC (Phases 1–3). Mirrors src/lib/rbac/permissions.ts and
+// src/lib/advances/sections.ts — keep in sync.
 //
-//   global admin       (token.admin == true) -> all events
-//   production-manager (per-event role)       -> read + write + flag
-//   department-lead    (per-event role)       -> read + flag
-//   tech               (per-event role)       -> read
+//   global admin       (token.admin == true)     -> everything
+//   global organizer   (token.organizer == true) -> may create events
+//   production-manager (per-event role)           -> read + write stages/advances + flag
+//   department-lead    (per-event role)           -> read + flag
+//   tech               (per-event role)           -> read
 //
-// Anything not matched below is denied by default.
+// event → stages → advances. Per-event membership covers all of an event's stages.
+// Anything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -17,9 +19,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // `.get(..., false)` avoids an "undefined property" eval error for users
-      // who have no admin claim (most users).
       return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function isOrganizer() {
+      return isSignedIn() && request.auth.token.get('organizer', false) == true;
+    }
+
+    function canCreateEvents() {
+      return isAdmin() || isOrganizer();
     }
 
     function memberPath(eventId) {
@@ -44,8 +52,24 @@ service cloud.firestore {
         || hasEventRole(eventId, 'department-lead');
     }
 
-    // User profiles are server-managed (syncUserClaims via the Admin SDK).
-    // Clients may read their own profile; admins may read any (member admin UI).
+    function eventCreatedBy(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.createdBy;
+    }
+
+    // App-wide department list: any signed-in user reads; admin manages.
+    match /departments/{deptId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Event templates (blueprints): any signed-in user reads (event-create picker);
+    // admin authors. Cloning runs server-side (createEventFromTemplate, Admin SDK).
+    match /templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // User profiles are server-managed (Admin SDK). Self/admin read; no client write.
     match /users/{uid} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
       allow write: if false;
@@ -53,20 +77,56 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if isAdmin() || isMember(eventId);
-      allow create, delete: if isAdmin();
-      allow update: if canEditEvent(eventId);
+      allow create: if canCreateEvents()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status in ['draft', 'active', 'archived'];
+      allow update: if canEditEvent(eventId)
+        && request.resource.data.createdBy == resource.data.createdBy; // owner immutable
+      allow delete: if isAdmin();
 
-      // Membership is admin-managed in v1. Members may read their own row and
-      // the roster of an event they belong to.
+      // Membership: admin-managed, OR the event's creator bootstrapping as PM.
       match /members/{memberUid} {
         allow read: if isAdmin()
           || (isSignedIn() && request.auth.uid == memberUid)
           || isMember(eventId);
-        allow write: if isAdmin();
+        allow create: if isAdmin()
+          || (memberUid == request.auth.uid
+              && request.resource.data.role == 'production-manager'
+              && request.resource.data.uid == request.auth.uid
+              && exists(/databases/$(database)/documents/events/$(eventId))
+              && eventCreatedBy(eventId) == request.auth.uid);
+        allow update, delete: if isAdmin();
       }
 
-      // Flags/comments: production-manager + department-lead (and admin) may
-      // create; authors (or admin) may modify their own.
+      // Stages: members read; PM/admin write.
+      match /stages/{stageId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create, update, delete: if canEditEvent(eventId);
+
+        // Advances live under a stage. Member read; PM/admin write (section
+        // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
+        match /advances/{advanceId} {
+          allow read: if isAdmin() || isMember(eventId);
+          allow create: if canEditEvent(eventId)
+            && request.resource.data.createdBy == request.auth.uid;
+          allow update: if canEditEvent(eventId);
+          allow delete: if canEditEvent(eventId);
+        }
+
+        // Per-stage technical production record (house package): member read; PM/admin write.
+        match /production/{recordId} {
+          allow read: if isAdmin() || isMember(eventId);
+          allow write: if canEditEvent(eventId);
+        }
+      }
+
+      // Event-level production record (general/tech-operational): member read; PM/admin write.
+      match /production/{recordId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow write: if canEditEvent(eventId);
+      }
+
+      // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.
       match /flags/{flagId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create: if canFlagEvent(eventId)

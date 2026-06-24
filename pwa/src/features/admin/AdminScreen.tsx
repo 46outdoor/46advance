@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { EVENT_ROLES, type EventRole } from '@/lib/rbac/roles';
+import { listUsers } from '@/lib/users/users-service';
 import {
   assignEventMember,
   listEventMembers,
-  listUsers,
   removeEventMember,
+  setUserOrganizer,
 } from './admin-service';
+import { DepartmentsAdmin } from './DepartmentsAdmin';
 
 const logger = createLogger('Admin');
 
@@ -53,6 +55,13 @@ export function AdminScreen() {
     onError: (err) => logger.error('Failed to remove member', err),
   });
 
+  const setOrganizer = useMutation({
+    mutationFn: ({ uid, organizer }: { uid: string; organizer: boolean }) =>
+      setUserOrganizer(uid, organizer),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+    onError: (err) => logger.error('Failed to update organizer', err),
+  });
+
   return (
     <section className="space-y-10">
       <header className="space-y-1">
@@ -75,7 +84,8 @@ export function AdminScreen() {
               <tr className="border-b border-line text-left text-ink-muted">
                 <th className="py-2 pr-4 font-semibold">Email</th>
                 <th className="py-2 pr-4 font-semibold">UID</th>
-                <th className="py-2 font-semibold">Admin</th>
+                <th className="py-2 pr-4 font-semibold">Admin</th>
+                <th className="py-2 font-semibold">Organizer</th>
               </tr>
             </thead>
             <tbody>
@@ -83,12 +93,23 @@ export function AdminScreen() {
                 <tr key={u.uid} className="border-b border-line/60">
                   <td className="py-2 pr-4">{u.email ?? '—'}</td>
                   <td className="py-2 pr-4 font-mono text-xs text-ink-muted">{u.uid}</td>
-                  <td className="py-2">{u.isAdmin ? 'Yes' : 'No'}</td>
+                  <td className="py-2 pr-4">{u.isAdmin ? 'Yes' : 'No'}</td>
+                  <td className="py-2">
+                    <span className="mr-2">{u.organizer ? 'Yes' : 'No'}</span>
+                    <button
+                      type="button"
+                      disabled={setOrganizer.isPending}
+                      onClick={() => setOrganizer.mutate({ uid: u.uid, organizer: !u.organizer })}
+                      className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                    >
+                      {u.organizer ? 'Revoke' : 'Grant'}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {usersQuery.data.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-3 text-ink-muted">
+                  <td colSpan={4} className="py-3 text-ink-muted">
                     No users yet.
                   </td>
                 </tr>
@@ -97,6 +118,8 @@ export function AdminScreen() {
           </table>
         )}
       </div>
+
+      <DepartmentsAdmin />
 
       {/* Membership management */}
       <div className="space-y-4">

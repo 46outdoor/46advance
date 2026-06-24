@@ -11,15 +11,26 @@
  */
 import type { EventRole } from './roles';
 
-/** The acting user, with their resolved global-admin status. */
+/** The acting user, with their resolved global capabilities. */
 export interface Viewer {
   uid: string;
   isAdmin: boolean;
+  /** Global organizer claim — may create events. Optional; defaults to false. */
+  isOrganizer?: boolean;
 }
 
 /** Global admin = unrestricted across every event. */
 export function isAdmin(viewer: Viewer): boolean {
   return viewer.isAdmin;
+}
+
+/**
+ * May create new events. Gated by a *global* capability (admin or organizer) because
+ * per-event roles can't exist before the event does. On create the creator is added
+ * as the event's production-manager.
+ */
+export function canCreateEvents(viewer: Viewer): boolean {
+  return viewer.isAdmin || viewer.isOrganizer === true;
 }
 
 /** Any member (any role) can view an event; admins can view all. */

@@ -6,6 +6,8 @@ export interface AuthContextValue {
   loading: boolean;
   /** Global admin (Firebase custom claim `admin`), seeded from the config allowlist. */
   isAdmin: boolean;
+  /** Global organizer (custom claim `organizer`): may create events. Admin-grantable. */
+  isOrganizer: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;

@@ -4,33 +4,14 @@
  * (`AdminGate`) is UX, the rules are the enforcement.
  */
 import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { DocumentData } from 'firebase/firestore';
-import { db } from '@/services/firebase';
-import { timestampToDate } from '@/lib/firestore/timestamps';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/services/firebase';
 import {
   eventRoleSchema,
   parseEventMember,
   type EventMember,
   type EventRole,
 } from '@/lib/rbac/roles';
-import type { UserProfile } from '@/types';
-
-function toUserProfile(uid: string, data: DocumentData): UserProfile {
-  return {
-    uid,
-    email: data.email ?? null,
-    displayName: data.displayName ?? null,
-    isAdmin: data.isAdmin === true,
-    createdAt: timestampToDate(data.createdAt ?? null),
-    lastSeenAt: timestampToDate(data.lastSeenAt ?? null),
-  };
-}
-
-/** All user profiles (admin-only read). */
-export async function listUsers(): Promise<UserProfile[]> {
-  const snap = await getDocs(collection(db, 'users'));
-  return snap.docs.map((d) => toUserProfile(d.id, d.data()));
-}
 
 /** A membership row with its user id attached. */
 export interface EventMemberRow extends EventMember {
@@ -54,10 +35,24 @@ export async function assignEventMember(
     role: eventRoleSchema.parse(role),
     addedBy,
     addedAt: serverTimestamp(),
+    uid, // mirrors the doc id so collectionGroup("members").where("uid","==",me) can list events
   });
 }
 
 /** Remove a user from an event. */
 export async function removeEventMember(eventId: string, uid: string): Promise<void> {
   await deleteDoc(doc(db, 'events', eventId, 'members', uid));
+}
+
+/** Admin-only: grant/revoke a user's global `organizer` capability (event creation). */
+export async function setUserOrganizer(
+  uid: string,
+  organizer: boolean,
+): Promise<{ uid: string; organizer: boolean }> {
+  const callable = httpsCallable<
+    { uid: string; organizer: boolean },
+    { uid: string; organizer: boolean }
+  >(functions, 'setUserOrganizer');
+  const result = await callable({ uid, organizer });
+  return result.data;
 }
