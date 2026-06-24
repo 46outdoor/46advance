@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate, Outlet, Link } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { ThemeSpecimen } from '@/routes/ThemeSpecimen';
 import { PrivacyScreen } from '@/routes/PrivacyScreen';
+import { LandingScreen } from '@/routes/LandingScreen';
 import { SignInScreen, SignUpScreen, AuthGate } from '@/features/auth';
 import { AdminScreen, AdminGate } from '@/features/admin';
 import {
@@ -19,11 +20,11 @@ import { SettingsScreen } from '@/features/google';
 export function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingScreen />} />
       <Route path="/sign-in" element={<SignInScreen />} />
       <Route path="/sign-up" element={<SignUpScreen />} />
       <Route path="/privacy" element={<PrivacyScreen />} />
       <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<Home />} />
         <Route path="/events" element={<EventsListScreen />} />
         <Route path="/events/:eventId" element={<EventDetailScreen />} />
         <Route path="/events/:eventId/production" element={<EventProductionScreen />} />
@@ -77,25 +78,3 @@ function ProtectedLayout() {
   );
 }
 
-function Home() {
-  return (
-    <section className="space-y-3">
-      <h1 className="font-display text-4xl font-black tracking-tight text-brand">46 Advance</h1>
-      <p className="max-w-prose text-ink-muted">
-        Event-production advance management for 46 Entertainment — artist advances, production
-        details, quotes, contacts, and scheduling for live events.
-      </p>
-      <p className="text-sm text-ink-muted">
-        Jump to{' '}
-        <Link className="text-accent underline" to="/events">
-          Events
-        </Link>{' '}
-        or the{' '}
-        <Link className="text-accent underline" to="/tracker">
-          Tracker
-        </Link>
-        .
-      </p>
-    </section>
-  );
-}

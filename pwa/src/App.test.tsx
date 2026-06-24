@@ -18,17 +18,27 @@ vi.mock('@/features/auth/auth-service', () => ({
   syncUserClaims: vi.fn(() => Promise.resolve({ isAdmin: false, isOrganizer: false })),
 }));
 
+function renderAt(path: string) {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>,
+  );
+}
+
 describe('App', () => {
-  it('redirects unauthenticated users to the sign-in screen', () => {
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <AuthProvider>
-          <MemoryRouter initialEntries={['/']}>
-            <App />
-          </MemoryRouter>
-        </AuthProvider>
-      </QueryClientProvider>,
-    );
+  it('shows the public landing page (not a login wall) at the home page', () => {
+    renderAt('/');
+    expect(screen.getByRole('heading', { name: '46 Advance' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('redirects unauthenticated users away from protected routes to sign-in', () => {
+    renderAt('/events');
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
   });
 });
