@@ -402,6 +402,63 @@ describe('firestore.rules — production records', () => {
   });
 });
 
+describe('firestore.rules — global contacts directory', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'contacts/c-pm'), { name: 'By PM', createdBy: PM });
+    });
+  });
+
+  it('any signed-in user can read; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+    await assertFails(getDoc(doc(dbAnon(), 'contacts/c-pm')));
+  });
+
+  it('a signed-in user can create a contact they author', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(TECH), 'contacts/c-tech'), { name: 'New', createdBy: TECH }));
+  });
+
+  it('cannot forge another user as the contact creator', async () => {
+    await assertFails(setDoc(doc(dbFor(TECH), 'contacts/c-forge'), { name: 'X', createdBy: PM }));
+  });
+
+  it('the creator can edit/delete; a non-creator cannot', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), 'contacts/c-pm'), { name: 'Edited' }));
+    await assertFails(updateDoc(doc(dbFor(TECH), 'contacts/c-pm'), { name: 'Nope' }));
+    await assertFails(deleteDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+  });
+
+  it('admin can edit/delete any contact', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { name: 'Admin edit' }));
+  });
+});
+
+describe('firestore.rules — per-event contact attachments', () => {
+  const attachPath = (a: string) => `events/event-a/contacts/${a}`;
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), attachPath('att-seed')), { contactId: 'c-pm', roleLabel: 'SM', addedBy: PM });
+    });
+  });
+
+  it('members read attachments; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), attachPath('att-seed'))));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), attachPath('att-seed'))));
+  });
+
+  it('PM/admin can attach; tech/lead cannot', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(PM), attachPath('att-pm')), { contactId: 'c-pm', addedBy: PM }));
+    await assertFails(setDoc(doc(dbFor(TECH), attachPath('att-t')), { contactId: 'c-pm', addedBy: TECH }));
+    await assertFails(setDoc(doc(dbFor(LEAD), attachPath('att-l')), { contactId: 'c-pm', addedBy: LEAD }));
+  });
+
+  it('only PM/admin can detach', async () => {
+    await assertFails(deleteDoc(doc(dbFor(TECH), attachPath('att-seed'))));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), attachPath('att-seed'))));
+  });
+});
+
 describe('firestore.rules — departments (app-wide config)', () => {
   it('any signed-in user can read; anonymous cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'departments/audio')));

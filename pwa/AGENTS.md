@@ -221,6 +221,10 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |
 | Quote/estimate model | `src/lib/quotes/quote.ts` (type + Zod + totals/lifecycle helpers) |
 | Quotes data access | `src/features/events/quotes-service.ts` (CRUD, status, signed copy, PDF) |
+| Contact model | `src/lib/contacts/contact.ts` (type + Zod + tel/mailto helpers) |
+| Contacts directory (read/write) | `src/lib/contacts/contacts-service.ts` (global `contacts/{id}`) |
+| Event contact attachments | `src/features/events/event-contacts-service.ts` (per-event join) |
+| Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
 
 ### Step 2: Resolve name variants before searching
 

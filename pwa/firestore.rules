@@ -69,6 +69,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Global contact directory (ROADMAP §11): reference data, distinct from RBAC users.
+    // Any signed-in member of the team reads + adds; the creator (or admin) edits/deletes.
+    match /contacts/{contactId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isAdmin()
+        || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+    }
+
     // User profiles are server-managed (Admin SDK). Self/admin read; no client write.
     match /users/{uid} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
@@ -134,6 +143,12 @@ service cloud.firestore {
       match /production/{recordId} {
         allow read: if isAdmin() || isMember(eventId);
         allow write: if canEditEvent(eventId);
+      }
+
+      // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin write.
+      match /contacts/{attachId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create, update, delete: if canEditEvent(eventId);
       }
 
       // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.

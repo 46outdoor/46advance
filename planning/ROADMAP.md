@@ -347,6 +347,12 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 
 **Mobile:** contact lookup + tap-to-call/email is high-value day-of — prioritize mobile read access.
 
+- **Built — execution Phase 10 (2026-06-24):** global directory `contacts/{id}` (name, role,
+  company, phone, email, notes) — read by any signed-in user, **create by anyone (createdBy
+  self), edit/delete by creator or admin**; **per-event attachment** `events/{id}/contacts/{attachId}`
+  (join + role-on-event label, PM/admin write, member read) resolved against the directory.
+  Tap-to-call/email shared component. **User-account link deferred.** Model in `src/lib/contacts/`.
+
 ## 12. Integrations
 
 - **Flex:** not needed (MPA integrates Flex — exclude).
