@@ -1,19 +1,44 @@
 name: CI
 
+# The workflow runs on every PR/push so the required `CI Summary` check always
+# reports. The expensive jobs are gated behind `changes` and skip on doc-only
+# changes (`**.md`, `docs/**`, `planning/**`); `CI Summary` treats skipped gate
+# jobs as a pass so doc-only PRs satisfy branch protection without running CI.
+# (Do NOT add `paths-ignore` here — it suppresses the whole workflow, so the
+# required check never reports and doc-only PRs become unmergeable.)
 on:
   pull_request:
     branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'planning/**']
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'planning/**']
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Detect whether anything outside docs/planning changed. `code == 'true'` gates
+  # the expensive jobs below. Errs toward running CI: if no rule matches a doc
+  # path, `code` stays true and the full suite runs.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+              - '!planning/**'
+
   quality:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,6 +55,8 @@ jobs:
       - run: npm run typecheck
 
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -45,6 +72,8 @@ jobs:
       - run: npm run test:coverage
 
   build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,6 +89,8 @@ jobs:
       - run: npm run build
 
   rules-tests:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -86,6 +117,8 @@ jobs:
       - run: npm run test:rules
 
   functions:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -101,22 +134,41 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
-  # Required status check for branch protection on `main`. Runs at repo root
-  # (no working-directory) and just aggregates the gate jobs' results.
+  # Required status check for branch protection on `main`. Always runs so the
+  # check reports on every PR (incl. doc-only). Passes when each gate job either
+  # succeeded or was skipped (doc-only change); fails if any gate job failed or
+  # change detection itself failed.
   ci-summary:
     name: CI Summary
-    needs: [quality, test, build, rules-tests, functions]
+    needs: [changes, quality, test, build, rules-tests, functions]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Verify all gate jobs passed
+      - name: Verify gate jobs passed (or were skipped on doc-only changes)
         run: |
-          if [ "${{ needs.quality.result }}" != "success" ] \
-            || [ "${{ needs.test.result }}" != "success" ] \
-            || [ "${{ needs.build.result }}" != "success" ] \
-            || [ "${{ needs.rules-tests.result }}" != "success" ] \
-            || [ "${{ needs.functions.result }}" != "success" ]; then
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "Change detection failed."
+            exit 1
+          fi
+          ok=true
+          for entry in \
+            "quality:${{ needs.quality.result }}" \
+            "test:${{ needs.test.result }}" \
+            "build:${{ needs.build.result }}" \
+            "rules-tests:${{ needs.rules-tests.result }}" \
+            "functions:${{ needs.functions.result }}"; do
+            name="${entry%%:*}"; res="${entry##*:}"
+            if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
+              echo "::error::Gate job '$name' resulted in: $res"
+              ok=false
+            fi
+          done
+          if [ "$ok" != "true" ]; then
             echo "One or more CI jobs failed."
             exit 1
           fi
-          echo "All CI jobs passed."
+          if [ "${{ needs.changes.outputs.code }}" == "true" ]; then
+            echo "All CI gate jobs passed."
+          else
+            echo "Doc-only change — gate jobs skipped; CI Summary passes."
+          fi
