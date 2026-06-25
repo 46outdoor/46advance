@@ -7,8 +7,8 @@ filed by category.
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
-- **[PHASE_DRIVE_PLAN.md](PHASE_DRIVE_PLAN.md)** — Phase 13 (Google Drive), **proposed** — plan
-  only, not yet approved to build.
+- **[PHASE_DRIVE_PLAN.md](PHASE_DRIVE_PLAN.md)** — Phase 13 (Google Drive), **13a + 13b built**
+  (2026-06-25); 13c deferred. Pending operational setup (Picker API key + `drive.file` re-consent).
 
 Phases 0–12 are built and archived. When a phase ships, move its `PHASE_*_PLAN.md` to
 `archive/feature/`.

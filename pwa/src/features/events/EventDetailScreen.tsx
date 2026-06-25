@@ -8,6 +8,7 @@ import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
 import type { EventInput } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
+import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { generatePacket, getEvent, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
@@ -46,10 +47,24 @@ export function EventDetailScreen() {
     onError: (err) => logger.error('Failed to update event', err),
   });
 
+  const connectionQuery = useGoogleConnection();
+
   const packet = useMutation({
     mutationFn: () => generatePacket(eventId!),
-    onSuccess: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+    onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
     onError: (err) => logger.error('Failed to generate packet', err),
+  });
+
+  // Generate a fresh packet, then save it into the caller's Drive (Phase 13).
+  const saveToDrive = useMutation({
+    mutationFn: async () => {
+      const { path } = await generatePacket(eventId!);
+      return savePacketToDrive(eventId!, path);
+    },
+    onSuccess: (res) => {
+      if (res.saved && res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
+    },
+    onError: (err) => logger.error('Failed to save packet to Drive', err),
   });
 
   if (!user || !eventId) return null;
@@ -102,6 +117,16 @@ export function EventDetailScreen() {
               >
                 {packet.isPending ? 'Generating…' : 'Generate packet'}
               </button>
+              {connectionQuery.data?.hasDrive && (
+                <button
+                  type="button"
+                  onClick={() => saveToDrive.mutate()}
+                  disabled={saveToDrive.isPending}
+                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  {saveToDrive.isPending ? 'Saving…' : 'Save packet to Drive'}
+                </button>
+              )}
               {canEdit && (
                 <button
                   type="button"
@@ -116,6 +141,7 @@ export function EventDetailScreen() {
           <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
           {event.venue && <p className="text-ink-muted">{event.venue}</p>}
           {packet.isError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
+          {saveToDrive.isError && <p className="text-sm text-accent">Could not save the packet to Drive.</p>}
         </header>
       )}
 

@@ -5,8 +5,9 @@ files to advances**, **store generated packets in Drive**, **source template con
 from Drive**. (Sheets/Docs export explicitly out.) Builds directly on Phase 11b's
 per-user Google OAuth.
 
-> **Status: PROPOSED — plan only.** Scope + build decisions resolved 2026-06-25; awaiting
-> approval to implement. No code yet.
+> **Status: 13a + 13b BUILT (2026-06-25).** 13c deferred. Implemented on the feature branch.
+> Two operational follow-ups before it works in production: create a Picker **API key**
+> (`VITE_GOOGLE_PICKER_API_KEY`) and re-consent the OAuth app for the new `drive.file` scope.
 
 ## Decisions (locked 2026-06-25)
 - **Auth:** reuse 11b per-user OAuth — no new OAuth flow, token store, or refresh logic.

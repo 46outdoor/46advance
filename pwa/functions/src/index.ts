@@ -25,6 +25,9 @@ export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBooki
 // Phase 12b — push schedule items to the event's Google calendar. ./googleSchedule.ts.
 export { pushScheduleItem, removeScheduleCalendarEvent } from './googleSchedule.js';
 
+// Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
+export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive } from './googleDrive.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const fmtDate = (v: unknown): string | null => (v instanceof Timestamp ? PACKET_DATE_FMT.format(v.toDate()) : null);

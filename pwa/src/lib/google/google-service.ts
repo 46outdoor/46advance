@@ -10,9 +10,16 @@ import type { DocumentData } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
 
+/** The least-privilege Drive scope (Phase 13) — must match functions/src/google.ts. */
+export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
 export interface GoogleConnection {
   connected: boolean;
   email: string | null;
+  /** Scopes granted on the last connect (from googleConnections/{uid}). */
+  scopes: string[];
+  /** Whether the granted scopes include Drive file access. */
+  hasDrive: boolean;
 }
 
 /** Read the caller's connection status. Returns null when never connected. */
@@ -20,9 +27,12 @@ export async function getGoogleConnection(uid: string): Promise<GoogleConnection
   const snap = await getDoc(doc(db, 'googleConnections', uid));
   if (!snap.exists()) return null;
   const data: DocumentData = snap.data();
+  const scopes = Array.isArray(data.scopes) ? data.scopes.filter((s): s is string => typeof s === 'string') : [];
   return {
     connected: data.connected === true,
     email: typeof data.email === 'string' ? data.email : null,
+    scopes,
+    hasDrive: scopes.includes(DRIVE_FILE_SCOPE),
   };
 }
 

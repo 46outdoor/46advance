@@ -3,10 +3,20 @@ export {
   getGoogleAuthUrl,
   disconnectGoogle,
   createAdvanceCall,
+  DRIVE_FILE_SCOPE,
   type GoogleConnection,
   type AdvanceCallResult,
 } from './google-service';
 export { useGoogleConnection, googleConnectionKey } from './useGoogleConnection';
+export {
+  linkDriveFile,
+  removeDriveFile,
+  savePacketToDrive,
+  pickDriveFiles,
+  type AdvanceRef,
+  type SavePacketResult,
+} from './drive-service';
+export { parseDriveFile, parseDriveFiles, type DriveFileRef } from './driveFile';
 export {
   syncEventBookings,
   listNeedsReviewBookings,

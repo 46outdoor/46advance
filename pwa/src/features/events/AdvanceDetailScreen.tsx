@@ -27,6 +27,7 @@ import { AdvanceForm } from './AdvanceForm';
 import { AdvanceSection } from './AdvanceSection';
 import { AdvanceCallPanel } from './AdvanceCallPanel';
 import { QuotesPanel } from './QuotesPanel';
+import { DriveFilesPanel } from './DriveFilesPanel';
 
 const logger = createLogger('Advances');
 
@@ -207,6 +208,17 @@ export function AdvanceDetailScreen() {
             />
           ))}
         </div>
+      )}
+
+      {advance && (
+        <DriveFilesPanel
+          eventId={eventId}
+          stageId={stageId}
+          advanceId={advanceId}
+          files={advance.driveFiles}
+          canEdit={canEdit}
+          onChanged={invalidate}
+        />
       )}
 
       {advance && (

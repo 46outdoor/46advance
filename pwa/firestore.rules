@@ -132,10 +132,14 @@ service cloud.firestore {
         // Advances live under a stage. Member read; PM/admin write (section
         // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
         match /advances/{advanceId} {
+          // `driveFiles` is server-owned (Phase 13 link/removeDriveFile callables, Admin SDK);
+          // clients may read it but never set or change it.
           allow read: if isAdmin() || isMember(eventId);
           allow create: if canEditEvent(eventId)
-            && request.resource.data.createdBy == request.auth.uid;
-          allow update: if canEditEvent(eventId);
+            && request.resource.data.createdBy == request.auth.uid
+            && !('driveFiles' in request.resource.data);
+          allow update: if canEditEvent(eventId)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['driveFiles']);
           allow delete: if canEditEvent(eventId);
 
           // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
