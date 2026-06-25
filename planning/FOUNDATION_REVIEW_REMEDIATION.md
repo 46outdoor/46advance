@@ -506,6 +506,59 @@ const EventsListScreen = lazy(() => import('@/features/events').then((m) => ({ d
 3. Keep true open questions in the roadmap only.
 4. Update `planning/README.md` when this remediation plan is completed and archived.
 
+## Additional Findings — Phase-Completion Audit (2026-06-25)
+
+A per-phase audit of execution Phases 0–13 (does the code match each phase's claimed exit
+criteria?) confirmed several items above (PDF signed-link gap → P1; admin bootstrap → P0; empty
+callable contracts → P0; stale governance docs → P2; Sentry/coverage → P1) and surfaced these
+**net-new** items not otherwise covered here. (It also reconciled docs to reality: licensed
+**Nexa/Hikou** self-hosted fonts + `#0a0a0a` brand token across ROADMAP/BUILD_PLAN/`pwa/AGENTS.md`.)
+
+### P1. Rate-Limit External-API Callables  *(in progress — `fix/rate-limit-callables`, 2026-06-25)*
+
+**Problem:** No callable is rate-limited. `.claude/rules/security.md` mandates
+`checkFirestoreRateLimit()` on all external-API/abuse-sensitive callables, and `PHASE_13_PLAN.md`
+explicitly required it for the Drive callables — but the limiter utility was never created and no
+function calls it.
+
+**Evidence:**
+- No limiter: `pwa/functions/src/lib/security/` does not exist (only `lib/pdf/`).
+- Unprotected callables: `pwa/functions/src/google.ts`, `googleDrive.ts`, `googleBookings.ts`, `googleSchedule.ts`, and `index.ts` (`generatePacket`, `generateQuotePdf`, `createEventFromTemplate`).
+
+**Proposed patch:**
+1. Create the canonical distributed limiter `pwa/functions/src/lib/security/firestoreRateLimit.ts` (`checkFirestoreRateLimit(db, key, limit, windowMs)` — fixed-window counter in a `rateLimits/{key}` doc via transaction) + `rateLimit.ts` (`makeRateLimitKey`).
+2. Apply per-user limits to the OAuth/Calendar/Drive/Schedule/PDF callables **before** the external call.
+3. Unit-test the limiter; the two files are already listed in the `AGENTS.md` canonical-sources table as "create on first use".
+
+### P2. Complete the Phase-0 Scaffold Canon
+
+**Problem:** Several Phase-0 deliverables named in `PHASE_0_PLAN.md` + the `AGENTS.md`
+canonical-sources table were never created, so the table points at absent files.
+
+**Evidence / missing files (under `pwa/`):**
+- `src/config/endpoints.ts`, `src/config/featureFlags.ts`, `src/config/security.ts` (only `integrations.ts` exists).
+- `src/lib/styles/variants.ts` (the `lib/styles/` dir is absent).
+- `src/testing/firebaseMocks.ts`, `src/testing/mockFactories.ts` (only `setup.ts`).
+- `.editorconfig`.
+- `/__theme` specimen route ships to production — gate behind `import.meta.env.DEV` (`src/App.tsx`).
+- No **staging** deploy workflow (only `production-deploy.yml`).
+
+**Proposed patch:** Create the files on next real use (don't scaffold empty stubs), prune the
+canonical-sources table for anything intentionally dropped, dev-gate `/__theme`, and add a staging
+workflow (or note staging is folded into the manual hosting workflow).
+
+### P2. Small Feature/UX Gaps
+
+Low-severity gaps vs. plan/exit criteria:
+- **Password reset:** `sendPasswordReset` exists but has **no UI** (no forgot-password link/route).
+- **Departments admin:** UI is create+delete only — `updateDepartment` (rename) and order editing are unused; "CrD" not full CRUD.
+- **Events list:** status filter only — the planned **text search** is missing.
+- **Template stages:** no reorder control (order derived from list position).
+- **Default departments:** seeds **7** (adds `staging`) vs the locked **6** — amend the §4 decision or the seed.
+
+> Per-department/per-stage **PDF packet variants** (Phase 7 follow-up) are tracked as a product
+> backlog item in `BUILD_PLAN.md` (Later / backlog), distinct from the P1 PDF *link* fix above.
+
 ## Suggested Implementation Order
 
 1. Backend access gate: approved-user rules plus tests.
@@ -534,6 +587,7 @@ Use separate branches so each change is reviewable:
 | `fix/pdf-link-contract` | Signed URL or documentation alignment. |
 | `fix/file-array-concurrency` | Transactions/subcollections for attachments and Drive files. |
 | `chore/quality-ratchet` | Coverage gates, Sentry, lazy routes, audit workflow. |
+| `fix/rate-limit-callables` | Distributed rate limiter + apply to all callables. |
 
 ## Acceptance Criteria
 

@@ -7,11 +7,13 @@ native app inherits logic).
 
 **Status:** draft v1 (2026-06-21) — historical. The **executed** build re-sequenced and
 renumbered these phases as it went; this doc captures the original intent, not what shipped.
-**Phases 0–12 are built** (auth/RBAC, events/advances/sections, stages/departments, advance
-content, production records + attachments, templates, PDF packets, tracker, quotes, contacts,
-Google Calendar + Meet, Schedules). What actually shipped per phase lives in
-[`archive/feature/`](archive/feature/); **ROADMAP.md is the source of truth** for current scope.
-Remaining forward-looking items below (Drive, Lasso, artist portal, etc.) are **not yet built**.
+**Execution Phases 0–13 are built** (auth/RBAC, events/advances/sections, stages/departments,
+advance content, production records + attachments, templates, PDF packets, tracker, quotes,
+contacts, Google Calendar + Meet, Schedules, Google Drive). What actually shipped per phase
+lives in [`archive/feature/`](archive/feature/); **ROADMAP.md is the source of truth** for
+current scope. Remaining forward-looking items below — **artist portal, gear inventory /
+pull-sheet, Slack, Lasso, per-department/per-stage PDF variants, and the native mobile
+build-out** — are **not yet built** (Google Drive shipped as exec Phase 13, 2026-06-25).
 
 ## Principles
 
@@ -105,25 +107,26 @@ portal, and integrations are post-MVP fast-follows.
 - **MPA adapt:** `Contact` type + user/admin management.
 - **Exit:** maintain contacts; attach to an event; reach from mobile.
 
-## Phase 9 — Artist portal (external)
+## Phase 9 — Artist portal (external) — *low priority (deferred)*
 - Token/link external access; inbound preliminary info + uploads; outbound hosted files (DOS, tech packs); inbound feeds the advance/tracker.
 - **Security:** tightly scoped, expiring/revocable tokens; upload validation; portal perms separate from internal RBAC.
 - **MPA adapt:** token-access display pattern (meeting-display / logistics).
 - **Exit:** share a scoped link; external team submits info/files; data lands on the advance.
 
-## Phase 10 — Integrations: Google Calendar + Meet
+## Phase 10 — Integrations: Google Calendar + Meet — *built (exec Phase 11)*
 - **Per-user OAuth**; **org-owned, one calendar per event**; push schedule items; advance calls (create event + Meet link, or store link).
 - **MPA adapt:** calendar sync feature; per-user OAuth token storage/refresh.
 - **Mobile:** native OAuth (`expo-auth-session`); optional device-calendar UX.
 - **Exit:** connect a user's Google; schedule items appear on the event calendar; create a Meet for an advance call.
 
-## Phase 11 — Integrations: Google Drive
+## Phase 11 — Integrations: Google Drive — *built (exec Phase 13; 13c deferred indefinitely)*
 - Per-user OAuth; attach/link Drive files to advances; store generated packets in Drive; source template content from Drive.
 - **Exit:** link a Drive file to an advance; save a packet to Drive.
 
 ## Later / backlog
-- **Gear inventory & pull sheet** (new — from the audio advance reference): house-stock model library, per-advance quantities roll up to event totals + shortages. Own phase vs simplified vs defer — pending (ROADMAP §8b / §15).
-- **Slack** — notifications-first, per-user creds.
+- **Per-department / per-stage PDF packets** — exec Phase 7 shipped **full-event only**; the decided per-department + per-stage packet variants (ROADMAP §7) remain an unbuilt follow-up.
+- **Gear inventory & pull sheet** (new — from the audio advance reference) — *low priority*: house-stock model library, per-advance quantities roll up to event totals + shortages. Own phase vs simplified vs defer — pending (ROADMAP §8b / §15).
+- **Slack** — *low priority*: notifications-first, per-user creds.
 - **Lasso** — staffing; tie into the stagehand labor schedule.
 - **Native mobile build-out** (`mobile/`) — once PWA features stabilize, implement screens consuming the shared contracts; the per-phase **Mobile** notes pre-answer most decisions.
 
@@ -140,6 +143,6 @@ portal, and integrations are post-MVP fast-follows.
 ## Immediate next actions (to start Phase 0)
 
 1. **Firebase project** — `advancethat` (project # 518865772715), under `jared@yourstagemanager.com`. Configure the **46advance.com** custom domain + Auth authorized domains + OAuth redirect URIs (hosting/domain managed externally).
-2. **Brand tokens — captured** (from site CSS): fonts **Nexa** + **Hikou**; dark `#273449`, red `#f04040`, neutrals `#f2f2f2`/`#b3b3b3`/`#262626`, accents `#ff853c`/`#8dff1c`. Fonts: use OFL substitutes **Poppins** (Nexa role) + **Archivo** (Hikou/display role) — self-host woff2; build the Tailwind theme.
+2. **Brand tokens — captured** (from site CSS): fonts **Nexa** + **Hikou**; dark `#0a0a0a`, red `#f04040`, neutrals `#f2f2f2`/`#b3b3b3`/`#262626`, accents `#ff853c`/`#8dff1c`. Fonts: **self-host the licensed Nexa + Hikou woff2 directly** (the OFL Poppins/Archivo substitution was dropped — the org owns the licenses); build the Tailwind theme.
 3. **Decide CI specifics + code-review tool**; port MPA `.github/`.
 4. **Scaffold `pwa/`** and create `pwa/scripts/cli/` wrappers; then wire the deferred CLI hooks.
