@@ -12,8 +12,9 @@ import {
   type SectionKey,
   type SectionStatus,
 } from '@/lib/advances/sections';
-import type { AdvanceInput } from '@/lib/advances/advance';
+import type { Advance, AdvanceInput } from '@/lib/advances/advance';
 import type { SectionContent } from '@/lib/advances/fields';
+import type { DepartmentRecord } from '@/lib/departments/department';
 import { listDepartments } from '@/lib/departments/departments-service';
 import {
   deleteAdvance,
@@ -115,99 +116,49 @@ export function AdvanceDetailScreen() {
         ← Stage
       </Link>
 
-      {advanceQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
-      {advanceQuery.isError && <p className="text-sm text-accent">Failed to load this advance.</p>}
-      {advanceQuery.data === null && (
-        <p className="text-sm text-ink-muted">Artist advance not found, or you don’t have access.</p>
-      )}
+      <AdvanceLoadStatus
+        isLoading={advanceQuery.isLoading}
+        isError={advanceQuery.isError}
+        notFound={advanceQuery.data === null}
+      />
 
       {advance && !editing && (
-        <header className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-display text-3xl font-black tracking-tight text-brand">{advance.artistName}</h1>
-            {canEdit && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={remove.isPending}
-                  onClick={() => (confirmDelete ? remove.mutate() : setConfirmDelete(true))}
-                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  {confirmDelete ? 'Confirm delete' : 'Delete'}
-                </button>
-              </div>
-            )}
-          </div>
-          <p className="text-ink-muted">
-            {advance.stage && <span className="mr-3">{advance.stage}</span>}
-            {advance.performanceDate && <span>{formatDate(advance.performanceDate)}</span>}
-          </p>
-          {advance.notes && <p className="whitespace-pre-line text-sm text-ink">{advance.notes}</p>}
-          <div className="space-y-1 pt-1">
-            <SummaryField label="Additions" value={advance.additions} />
-            <SummaryField label="Concerns" value={advance.concerns} />
-            <SummaryField label="Pending" value={advance.pending} />
-          </div>
-          <AdvanceCallPanel
-            eventId={eventId}
-            stageId={stageId}
-            advanceId={advanceId}
-            artistName={advance.artistName}
-            at={advance.advanceCallAt}
-            link={advance.advanceCallLink}
-            viaGoogle={advance.googleCalendarEventId !== null}
-            canEdit={canEdit}
-            onCreated={invalidate}
-          />
-        </header>
+        <AdvanceHeader
+          advance={advance}
+          eventId={eventId}
+          stageId={stageId}
+          advanceId={advanceId}
+          canEdit={canEdit}
+          deletePending={remove.isPending}
+          confirmDelete={confirmDelete}
+          onEdit={() => setEditing(true)}
+          onDelete={() => (confirmDelete ? remove.mutate() : setConfirmDelete(true))}
+          onCreated={invalidate}
+        />
       )}
 
       {advance && editing && (
-        <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
-          <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit artist advance</h2>
-          <AdvanceForm
-            initial={advance}
-            submitLabel="Save changes"
-            pending={update.isPending}
-            error={update.isError ? 'Could not save changes.' : null}
-            onSubmit={(input) => update.mutate(input)}
-            onCancel={() => setEditing(false)}
-          />
-        </div>
+        <AdvanceEditPanel
+          advance={advance}
+          pending={update.isPending}
+          error={update.isError ? 'Could not save changes.' : null}
+          onSubmit={(input) => update.mutate(input)}
+          onCancel={() => setEditing(false)}
+        />
       )}
 
       {advance && (
-        <div className="space-y-1 border-t border-line pt-6">
-          <h2 className="mb-2 font-display text-xl font-bold text-brand">Sections</h2>
-          {sectionRows.length === 0 && (
-            <p className="text-sm text-ink-muted">No departments enabled for this event.</p>
-          )}
-          {sectionRows.map((dept) => (
-            <AdvanceSection
-              key={dept.id}
-              deptId={dept.id}
-              deptName={dept.name}
-              state={
-                advance.sections[dept.id] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null }
-              }
-              content={advance.content[dept.id] ?? {}}
-              canEdit={canEdit}
-              canFinalize={canFinalize}
-              canUnlock={canUnlock}
-              statusPending={setStatus.isPending}
-              contentPending={saveContent.isPending}
-              onSetStatus={(deptId, status) => setStatus.mutate({ key: deptId, status })}
-              onSaveContent={(deptId, content, bump) => saveContent.mutate({ deptId, content, bump })}
-            />
-          ))}
-        </div>
+        <AdvanceSectionsPanel
+          advance={advance}
+          sectionRows={sectionRows}
+          canEdit={canEdit}
+          canFinalize={canFinalize}
+          canUnlock={canUnlock}
+          statusPending={setStatus.isPending}
+          contentPending={saveContent.isPending}
+          onSetStatus={(deptId, status) => setStatus.mutate({ key: deptId, status })}
+          onSaveContent={(deptId, content, bump) => saveContent.mutate({ deptId, content, bump })}
+        />
       )}
 
       {advance && (
@@ -225,6 +176,173 @@ export function AdvanceDetailScreen() {
         <QuotesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} uid={user.uid} canEdit={canEdit} />
       )}
     </section>
+  );
+}
+
+function AdvanceLoadStatus({
+  isLoading,
+  isError,
+  notFound,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  notFound: boolean;
+}) {
+  return (
+    <>
+      {isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
+      {isError && <p className="text-sm text-accent">Failed to load this advance.</p>}
+      {notFound && (
+        <p className="text-sm text-ink-muted">Artist advance not found, or you don’t have access.</p>
+      )}
+    </>
+  );
+}
+
+function AdvanceHeader({
+  advance,
+  eventId,
+  stageId,
+  advanceId,
+  canEdit,
+  deletePending,
+  confirmDelete,
+  onEdit,
+  onDelete,
+  onCreated,
+}: {
+  advance: Advance;
+  eventId: string;
+  stageId: string;
+  advanceId: string;
+  canEdit: boolean;
+  deletePending: boolean;
+  confirmDelete: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onCreated: () => void;
+}) {
+  return (
+    <header className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-3xl font-black tracking-tight text-brand">{advance.artistName}</h1>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={deletePending}
+              onClick={onDelete}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              {confirmDelete ? 'Confirm delete' : 'Delete'}
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-ink-muted">
+        {advance.stage && <span className="mr-3">{advance.stage}</span>}
+        {advance.performanceDate && <span>{formatDate(advance.performanceDate)}</span>}
+      </p>
+      {advance.notes && <p className="whitespace-pre-line text-sm text-ink">{advance.notes}</p>}
+      <div className="space-y-1 pt-1">
+        <SummaryField label="Additions" value={advance.additions} />
+        <SummaryField label="Concerns" value={advance.concerns} />
+        <SummaryField label="Pending" value={advance.pending} />
+      </div>
+      <AdvanceCallPanel
+        eventId={eventId}
+        stageId={stageId}
+        advanceId={advanceId}
+        artistName={advance.artistName}
+        at={advance.advanceCallAt}
+        link={advance.advanceCallLink}
+        viaGoogle={advance.googleCalendarEventId !== null}
+        canEdit={canEdit}
+        onCreated={onCreated}
+      />
+    </header>
+  );
+}
+
+function AdvanceEditPanel({
+  advance,
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: {
+  advance: Advance;
+  pending: boolean;
+  error: string | null;
+  onSubmit: (input: AdvanceInput) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
+      <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit artist advance</h2>
+      <AdvanceForm
+        initial={advance}
+        submitLabel="Save changes"
+        pending={pending}
+        error={error}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+function AdvanceSectionsPanel({
+  advance,
+  sectionRows,
+  canEdit,
+  canFinalize,
+  canUnlock,
+  statusPending,
+  contentPending,
+  onSetStatus,
+  onSaveContent,
+}: {
+  advance: Advance;
+  sectionRows: DepartmentRecord[];
+  canEdit: boolean;
+  canFinalize: boolean;
+  canUnlock: boolean;
+  statusPending: boolean;
+  contentPending: boolean;
+  onSetStatus: (deptId: SectionKey, status: SectionStatus) => void;
+  onSaveContent: (deptId: string, content: SectionContent, bump: boolean) => void;
+}) {
+  return (
+    <div className="space-y-1 border-t border-line pt-6">
+      <h2 className="mb-2 font-display text-xl font-bold text-brand">Sections</h2>
+      {sectionRows.length === 0 && (
+        <p className="text-sm text-ink-muted">No departments enabled for this event.</p>
+      )}
+      {sectionRows.map((dept) => (
+        <AdvanceSection
+          key={dept.id}
+          deptId={dept.id}
+          deptName={dept.name}
+          state={advance.sections[dept.id] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null }}
+          content={advance.content[dept.id] ?? {}}
+          canEdit={canEdit}
+          canFinalize={canFinalize}
+          canUnlock={canUnlock}
+          statusPending={statusPending}
+          contentPending={contentPending}
+          onSetStatus={onSetStatus}
+          onSaveContent={onSaveContent}
+        />
+      ))}
+    </div>
   );
 }
 

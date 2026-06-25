@@ -147,21 +147,11 @@ export interface SyncResult {
   needsReview: number;
 }
 
-/**
- * Read the user's primary calendar, match advance bookings to this event's advances, and
- * auto-attach confident matches / queue the rest. Pure-ish: takes an authed client + db.
- */
-export async function syncEventBookings(
-  db: Firestore,
-  client: AuthClient,
-  eventId: string,
-): Promise<SyncResult> {
-  const eventSnap = await db.doc(`events/${eventId}`).get();
-  if (!eventSnap.exists) return { scanned: 0, attached: 0, needsReview: 0 };
-  const bookingLabel = String(eventSnap.data()?.bookingLabel ?? '').trim();
-  const labelKey = bookingLabel ? normalizeArtist(bookingLabel) : '';
+/** A Firestore server timestamp, or a value already persisted from a prior sync. */
+type SyncedAt = FieldValue | Timestamp;
 
-  // Index this event's advances by artist match-key.
+/** Index this event's advances by artist match-key (one row per advance, across all stages). */
+async function buildAdvanceIndex(db: Firestore, eventId: string): Promise<AdvanceRef[]> {
   const advances: AdvanceRef[] = [];
   const stagesSnap = await db.collection(`events/${eventId}/stages`).get();
   for (const stage of stagesSnap.docs) {
@@ -177,6 +167,115 @@ export async function syncEventBookings(
       });
     }
   }
+  return advances;
+}
+
+/**
+ * True when a booking is out of this event's festival scope and should be skipped.
+ * No label → never out-of-scope here (the artist-match check handles scoping instead).
+ */
+function isOutOfFestivalScope(labelKey: string, festival: string | null): boolean {
+  if (!labelKey) return false;
+  const fest = normalizeArtist(festival ?? '');
+  return !fest || (!fest.includes(labelKey) && !labelKey.includes(fest));
+}
+
+/** Re-sync a booking whose calendar event is already linked to an advance (counts as scanned only). */
+async function writeAlreadyLinked(
+  bookingRef: FirebaseFirestore.DocumentReference,
+  b: Booking,
+  linked: AdvanceRef | undefined,
+  syncedAt: SyncedAt,
+  nowTs: FieldValue,
+): Promise<void> {
+  await bookingRef.set(
+    {
+      ...bookingDoc(b),
+      status: 'attached',
+      matchedAdvanceId: linked?.advanceId ?? null,
+      matchedStageId: linked?.stageId ?? null,
+      reason: null,
+      syncedAt,
+      updatedAt: nowTs,
+    },
+    { merge: true },
+  );
+}
+
+/** Auto-attach a confident single match: write back to the advance, then mark the booking attached. */
+async function writeConfidentAttach(
+  db: Firestore,
+  eventId: string,
+  bookingRef: FirebaseFirestore.DocumentReference,
+  b: Booking,
+  m: AdvanceRef,
+  syncedAt: SyncedAt,
+  nowTs: FieldValue,
+): Promise<void> {
+  await db.doc(`events/${eventId}/stages/${m.stageId}/advances/${m.advanceId}`).set(
+    {
+      advanceCallAt: Timestamp.fromMillis(b.startMillis),
+      advanceCallLink: b.meetLink,
+      googleCalendarEventId: b.calendarEventId,
+      updatedAt: nowTs,
+    },
+    { merge: true },
+  );
+  await bookingRef.set(
+    {
+      ...bookingDoc(b),
+      status: 'attached',
+      matchedAdvanceId: m.advanceId,
+      matchedStageId: m.stageId,
+      reason: null,
+      syncedAt,
+      updatedAt: nowTs,
+    },
+    { merge: true },
+  );
+}
+
+/** Queue an ambiguous booking for manual review, recording why and the best suggestion. */
+async function writeNeedsReview(
+  bookingRef: FirebaseFirestore.DocumentReference,
+  b: Booking,
+  matches: AdvanceRef[],
+  syncedAt: SyncedAt,
+  nowTs: FieldValue,
+): Promise<void> {
+  const reason = matches.length === 0 ? 'no_match' : matches.length > 1 ? 'multiple_matches' : 'already_linked';
+  const suggestion = matches[0] ?? null;
+  await bookingRef.set(
+    {
+      ...bookingDoc(b),
+      status: 'needs_review',
+      reason,
+      suggestedAdvanceId: suggestion?.advanceId ?? null,
+      suggestedStageId: suggestion?.stageId ?? null,
+      matchedAdvanceId: null,
+      matchedStageId: null,
+      syncedAt,
+      updatedAt: nowTs,
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Read the user's primary calendar, match advance bookings to this event's advances, and
+ * auto-attach confident matches / queue the rest. Pure-ish: takes an authed client + db.
+ */
+export async function syncEventBookings(
+  db: Firestore,
+  client: AuthClient,
+  eventId: string,
+): Promise<SyncResult> {
+  const eventSnap = await db.doc(`events/${eventId}`).get();
+  if (!eventSnap.exists) return { scanned: 0, attached: 0, needsReview: 0 };
+  const bookingLabel = String(eventSnap.data()?.bookingLabel ?? '').trim();
+  const labelKey = bookingLabel ? normalizeArtist(bookingLabel) : '';
+
+  const advances = await buildAdvanceIndex(db, eventId);
   const linkedCalIds = new Set(advances.map((a) => a.linkedEventId).filter((id): id is string => Boolean(id)));
 
   const now = Date.now();
@@ -204,10 +303,7 @@ export async function syncEventBookings(
     if (!b) continue;
 
     // Scope to this event by booking label (festival segment), when set.
-    if (labelKey) {
-      const fest = normalizeArtist(b.festival ?? '');
-      if (!fest || (!fest.includes(labelKey) && !labelKey.includes(fest))) continue;
-    }
+    if (isOutOfFestivalScope(labelKey, b.festival)) continue;
 
     const key = normalizeArtist(b.artistName);
     const matches = advances.filter((a) => a.artistKey && a.artistKey === key);
@@ -218,66 +314,20 @@ export async function syncEventBookings(
     const bookingRef = db.doc(`events/${eventId}/callBookings/${b.calendarEventId}`);
     const prior = existing.get(b.calendarEventId);
     if (prior?.status === 'dismissed') continue;
+    const syncedAt: SyncedAt = prior?.syncedAt ?? nowTs;
 
     if (linkedCalIds.has(b.calendarEventId)) {
       const linked = advances.find((a) => a.linkedEventId === b.calendarEventId);
-      await bookingRef.set(
-        {
-          ...bookingDoc(b),
-          status: 'attached',
-          matchedAdvanceId: linked?.advanceId ?? null,
-          matchedStageId: linked?.stageId ?? null,
-          reason: null,
-          syncedAt: prior?.syncedAt ?? nowTs,
-          updatedAt: nowTs,
-        },
-        { merge: true },
-      );
+      await writeAlreadyLinked(bookingRef, b, linked, syncedAt, nowTs);
       continue;
     }
 
     const unlinked = matches.filter((a) => !a.hasCall && !a.linkedEventId);
     if (matches.length === 1 && unlinked.length === 1) {
-      const m = unlinked[0];
-      await db.doc(`events/${eventId}/stages/${m.stageId}/advances/${m.advanceId}`).set(
-        {
-          advanceCallAt: Timestamp.fromMillis(b.startMillis),
-          advanceCallLink: b.meetLink,
-          googleCalendarEventId: b.calendarEventId,
-          updatedAt: nowTs,
-        },
-        { merge: true },
-      );
-      await bookingRef.set(
-        {
-          ...bookingDoc(b),
-          status: 'attached',
-          matchedAdvanceId: m.advanceId,
-          matchedStageId: m.stageId,
-          reason: null,
-          syncedAt: prior?.syncedAt ?? nowTs,
-          updatedAt: nowTs,
-        },
-        { merge: true },
-      );
+      await writeConfidentAttach(db, eventId, bookingRef, b, unlinked[0], syncedAt, nowTs);
       attached++;
     } else {
-      const reason = matches.length === 0 ? 'no_match' : matches.length > 1 ? 'multiple_matches' : 'already_linked';
-      const suggestion = matches[0] ?? null;
-      await bookingRef.set(
-        {
-          ...bookingDoc(b),
-          status: 'needs_review',
-          reason,
-          suggestedAdvanceId: suggestion?.advanceId ?? null,
-          suggestedStageId: suggestion?.stageId ?? null,
-          matchedAdvanceId: null,
-          matchedStageId: null,
-          syncedAt: prior?.syncedAt ?? nowTs,
-          updatedAt: nowTs,
-        },
-        { merge: true },
-      );
+      await writeNeedsReview(bookingRef, b, matches, syncedAt, nowTs);
       needsReview++;
     }
   }

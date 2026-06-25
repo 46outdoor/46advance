@@ -1,6 +1,14 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import {
+  getFirestore,
+  FieldValue,
+  Timestamp,
+  type DocumentData,
+  type Firestore,
+  type WriteBatch,
+  type DocumentReference,
+} from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -158,6 +166,86 @@ export const setUserOrganizer = onCall(async (request) => {
   return { uid, organizer };
 });
 
+/** Coerce a candidate epoch-millis value into a Firestore Timestamp (or null). */
+const toTimestamp = (v: unknown): Timestamp | null => (typeof v === 'number' ? Timestamp.fromMillis(v) : null);
+
+/** Coerce a candidate to a non-empty trimmed string, else null. */
+const trimmedOrNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/** Read an array-typed field, defaulting to an empty array when absent/mismatched. */
+const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+interface NewEventInput {
+  templateId: string;
+  name: string;
+  startDate: Timestamp | null;
+  endDate: Timestamp | null;
+  venue: string | null;
+}
+
+/** Parse + validate the createEventFromTemplate payload. Throws on invalid input. */
+function parseNewEventInput(data: DocumentData): NewEventInput {
+  const templateId = data.templateId;
+  const name = typeof data.name === 'string' ? data.name.trim() : '';
+  if (typeof templateId !== 'string' || templateId.length === 0 || name.length === 0) {
+    throw new HttpsError('invalid-argument', 'Expected { templateId: string, name: string }.');
+  }
+  return {
+    templateId,
+    name,
+    startDate: toTimestamp(data.startDate),
+    endDate: toTimestamp(data.endDate),
+    venue: trimmedOrNull(data.venue),
+  };
+}
+
+/** Seed the caller as PM, then template members (without clobbering the caller). */
+function seedEventMembers(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, uid: string, now: FieldValue): void {
+  batch.set(eventRef.collection('members').doc(uid), { role: 'production-manager', addedBy: uid, addedAt: now, uid });
+  for (const m of asArray(tpl.members)) {
+    const member = m as DocumentData;
+    if (member && typeof member.uid === 'string' && member.uid !== uid && typeof member.role === 'string') {
+      batch.set(eventRef.collection('members').doc(member.uid), {
+        role: member.role,
+        addedBy: uid,
+        addedAt: now,
+        uid: member.uid,
+      });
+    }
+  }
+}
+
+/** Seed the event-level production record from the template blueprint. */
+function seedEventProduction(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
+  const ep = (tpl.eventProduction ?? {}) as DocumentData;
+  batch.set(eventRef.collection('production').doc('record'), {
+    info: ep.info ?? {},
+    contacts: asArray(ep.contacts),
+    links: asArray(ep.links),
+    updatedAt: now,
+  });
+}
+
+/** Seed stages and their per-stage production records from the template blueprint. */
+function seedEventStages(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
+  const stageProduction = (tpl.stageProduction ?? {}) as DocumentData;
+  for (const s of asArray(tpl.stages)) {
+    const stage = s as DocumentData;
+    if (!stage || typeof stage.name !== 'string') continue;
+    const stageRef = eventRef.collection('stages').doc();
+    batch.set(stageRef, {
+      name: stage.name,
+      order: typeof stage.order === 'number' ? stage.order : 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const content = (stageProduction[stage.id] as DocumentData | undefined)?.content;
+    if (content && typeof content === 'object') {
+      batch.set(stageRef.collection('production').doc('record'), { content, updatedAt: now });
+    }
+  }
+}
+
 /**
  * Create a new event from a template (admin|organizer). Clones the full blueprint —
  * enabled departments + stages + event production record + per-stage production
@@ -175,19 +263,10 @@ export const createEventFromTemplate = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
 
-  const data = request.data ?? {};
-  const templateId = data.templateId;
-  const name = typeof data.name === 'string' ? data.name.trim() : '';
-  if (typeof templateId !== 'string' || templateId.length === 0 || name.length === 0) {
-    throw new HttpsError('invalid-argument', 'Expected { templateId: string, name: string }.');
-  }
-  const toTs = (v: unknown) => (typeof v === 'number' ? Timestamp.fromMillis(v) : null);
-  const startDate = toTs(data.startDate);
-  const endDate = toTs(data.endDate);
-  const venue = typeof data.venue === 'string' && data.venue.trim() ? data.venue.trim() : null;
+  const input = parseNewEventInput(request.data ?? {});
 
   const db = getFirestore();
-  const tplSnap = await db.collection('templates').doc(templateId).get();
+  const tplSnap = await db.collection('templates').doc(input.templateId).get();
   if (!tplSnap.exists) {
     throw new HttpsError('not-found', 'Template not found.');
   }
@@ -197,64 +276,48 @@ export const createEventFromTemplate = onCall(async (request) => {
 
   const eventRef = db.collection('events').doc();
   batch.set(eventRef, {
-    name,
-    startDate,
-    endDate,
-    venue,
+    name: input.name,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    venue: input.venue,
     status: 'draft',
-    departmentIds: Array.isArray(tpl.departmentIds) ? tpl.departmentIds : [],
+    departmentIds: asArray(tpl.departmentIds),
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
   });
 
-  // Caller becomes PM; then template members (without clobbering the caller).
-  batch.set(eventRef.collection('members').doc(uid), {
-    role: 'production-manager',
-    addedBy: uid,
-    addedAt: now,
-    uid,
-  });
-  for (const m of Array.isArray(tpl.members) ? tpl.members : []) {
-    if (m && typeof m.uid === 'string' && m.uid !== uid && typeof m.role === 'string') {
-      batch.set(eventRef.collection('members').doc(m.uid), {
-        role: m.role,
-        addedBy: uid,
-        addedAt: now,
-        uid: m.uid,
-      });
-    }
-  }
-
-  // Event-level production record.
-  const ep = tpl.eventProduction ?? {};
-  batch.set(eventRef.collection('production').doc('record'), {
-    info: ep.info ?? {},
-    contacts: Array.isArray(ep.contacts) ? ep.contacts : [],
-    links: Array.isArray(ep.links) ? ep.links : [],
-    updatedAt: now,
-  });
-
-  // Stages + per-stage production records.
-  const stageProduction = tpl.stageProduction ?? {};
-  for (const s of Array.isArray(tpl.stages) ? tpl.stages : []) {
-    if (!s || typeof s.name !== 'string') continue;
-    const stageRef = eventRef.collection('stages').doc();
-    batch.set(stageRef, {
-      name: s.name,
-      order: typeof s.order === 'number' ? s.order : 0,
-      createdAt: now,
-      updatedAt: now,
-    });
-    const content = stageProduction[s.id]?.content;
-    if (content && typeof content === 'object') {
-      batch.set(stageRef.collection('production').doc('record'), { content, updatedAt: now });
-    }
-  }
+  seedEventMembers(batch, eventRef, tpl, uid, now);
+  seedEventProduction(batch, eventRef, tpl, now);
+  seedEventStages(batch, eventRef, tpl, now);
 
   await batch.commit();
   return { eventId: eventRef.id };
 });
+
+/**
+ * Load an event the caller is authorized to read (admin or a member). Performs the
+ * existence + membership checks (identical reads/throws for every PDF endpoint) and
+ * returns the event snapshot.
+ */
+async function loadAuthorizedEvent(
+  db: Firestore,
+  eventId: string,
+  uid: string,
+  isAdmin: boolean,
+): Promise<FirebaseFirestore.DocumentSnapshot> {
+  const eventSnap = await db.doc(`events/${eventId}`).get();
+  if (!eventSnap.exists) {
+    throw new HttpsError('not-found', 'Event not found.');
+  }
+  if (!isAdmin) {
+    const member = await db.doc(`events/${eventId}/members/${uid}`).get();
+    if (!member.exists) {
+      throw new HttpsError('permission-denied', 'Not a member of this event.');
+    }
+  }
+  return eventSnap;
+}
 
 /**
  * Generate a 46-branded full-event PDF packet (production record + stages + artist
@@ -273,16 +336,7 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
   }
 
   const db = getFirestore();
-  const eventSnap = await db.doc(`events/${eventId}`).get();
-  if (!eventSnap.exists) {
-    throw new HttpsError('not-found', 'Event not found.');
-  }
-  if (token.admin !== true) {
-    const member = await db.doc(`events/${eventId}/members/${uid}`).get();
-    if (!member.exists) {
-      throw new HttpsError('permission-denied', 'Not a member of this event.');
-    }
-  }
+  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
   const ev = eventSnap.data() ?? {};
 
   const deptSnap = await db.collection('departments').get();
@@ -340,17 +394,16 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
   return { path };
 });
 
-/**
- * Generate a 46-branded PDF for a single quote/estimate and store it in Storage. Authorized
- * for admin or any member of the event. Returns the Storage `{ path }`; the client resolves
- * a member-gated download URL. Input: { eventId, stageId, advanceId, quoteId }.
- */
-export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, quoteId } = request.data ?? {};
+interface QuotePdfRef {
+  eventId: string;
+  stageId: string;
+  advanceId: string;
+  quoteId: string;
+}
+
+/** Validate the generateQuotePdf payload. Throws on any missing/blank id. */
+function parseQuotePdfRef(data: DocumentData): QuotePdfRef {
+  const { eventId, stageId, advanceId, quoteId } = data;
   if (
     typeof eventId !== 'string' ||
     typeof stageId !== 'string' ||
@@ -363,18 +416,38 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
   ) {
     throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, quoteId }.');
   }
+  return { eventId, stageId, advanceId, quoteId };
+}
+
+/** Normalize a quote's line items into priced rows for the PDF. */
+function buildQuoteLines(q: DocumentData): QuotePdfData['quote']['lines'] {
+  return asArray(q.lineItems).map((raw) => {
+    const li = raw as DocumentData;
+    const quantity = typeof li.quantity === 'number' ? li.quantity : 0;
+    const unitPrice = typeof li.unitPrice === 'number' ? li.unitPrice : 0;
+    return {
+      description: String(li.description ?? ''),
+      quantity,
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+  });
+}
+
+/**
+ * Generate a 46-branded PDF for a single quote/estimate and store it in Storage. Authorized
+ * for admin or any member of the event. Returns the Storage `{ path }`; the client resolves
+ * a member-gated download URL. Input: { eventId, stageId, advanceId, quoteId }.
+ */
+export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  const { uid, token } = request.auth;
+  const { eventId, stageId, advanceId, quoteId } = parseQuotePdfRef(request.data ?? {});
 
   const db = getFirestore();
-  const eventSnap = await db.doc(`events/${eventId}`).get();
-  if (!eventSnap.exists) {
-    throw new HttpsError('not-found', 'Event not found.');
-  }
-  if (token.admin !== true) {
-    const member = await db.doc(`events/${eventId}/members/${uid}`).get();
-    if (!member.exists) {
-      throw new HttpsError('permission-denied', 'Not a member of this event.');
-    }
-  }
+  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
 
   const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
   const [advanceSnap, quoteSnap] = await Promise.all([
@@ -388,17 +461,7 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
   const adv = advanceSnap.data() ?? {};
   const q = quoteSnap.data() ?? {};
 
-  const rawLines = Array.isArray(q.lineItems) ? q.lineItems : [];
-  const lines = rawLines.map((li) => {
-    const quantity = typeof li.quantity === 'number' ? li.quantity : 0;
-    const unitPrice = typeof li.unitPrice === 'number' ? li.unitPrice : 0;
-    return {
-      description: String(li.description ?? ''),
-      quantity,
-      unitPrice,
-      total: quantity * unitPrice,
-    };
-  });
+  const lines = buildQuoteLines(q);
   const total = lines.reduce((sum, l) => sum + l.total, 0);
   const statusLabel = String(q.status ?? 'draft');
 
