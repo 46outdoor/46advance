@@ -94,12 +94,23 @@ export async function pickDriveFiles(): Promise<string[]> {
   if (!picker) throw new Error('Drive Picker is unavailable.');
 
   return new Promise<string[]>((resolve) => {
-    const view = new picker.DocsView(picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
+    // Browsable file views (folders shown, but only files are selectable). Company files are
+    // usually shared into the user's account or in a shared drive, so expose those tabs too.
+    const browsable = (view: PickerDocsView) => view.setIncludeFolders(true).setSelectFolderEnabled(false);
+    const myDrive = browsable(new picker.DocsView(picker.ViewId.DOCS));
+    const sharedWithMe = browsable(new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false));
+    const sharedDrives = browsable(new picker.DocsView(picker.ViewId.DOCS).setEnableDrives(true));
+    const starred = new picker.DocsView(picker.ViewId.DOCS).setStarred(true);
+
     const builder = new picker.PickerBuilder()
       .setOAuthToken(token)
       .setDeveloperKey(GOOGLE_PICKER_API_KEY)
-      .addView(view)
       .enableFeature(picker.Feature.MULTISELECT_ENABLED)
+      .enableFeature(picker.Feature.SUPPORT_DRIVES)
+      .addView(myDrive)
+      .addView(sharedWithMe)
+      .addView(sharedDrives)
+      .addView(starred)
       .setCallback((data) => {
         if (data.action === picker.Action.PICKED) resolve((data.docs ?? []).map((doc) => doc.id));
         else if (data.action === picker.Action.CANCEL) resolve([]);

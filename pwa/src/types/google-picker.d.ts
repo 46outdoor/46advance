@@ -11,6 +11,9 @@ interface PickerDocsView {
   setIncludeFolders(include: boolean): PickerDocsView;
   setSelectFolderEnabled(enabled: boolean): PickerDocsView;
   setMimeTypes(mimeTypes: string): PickerDocsView;
+  setOwnedByMe(ownedByMe: boolean): PickerDocsView;
+  setStarred(starred: boolean): PickerDocsView;
+  setEnableDrives(enable: boolean): PickerDocsView;
 }
 
 interface PickerResponseDoc {
@@ -42,7 +45,7 @@ interface GooglePickerNamespace {
   DocsView: new (viewId?: string) => PickerDocsView;
   PickerBuilder: new () => PickerBuilder;
   ViewId: { DOCS: string };
-  Feature: { MULTISELECT_ENABLED: string };
+  Feature: { MULTISELECT_ENABLED: string; SUPPORT_DRIVES: string };
   Action: { PICKED: string; CANCEL: string };
 }
 
