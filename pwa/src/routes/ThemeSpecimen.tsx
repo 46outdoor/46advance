@@ -8,7 +8,7 @@ export function ThemeSpecimen() {
       </header>
 
       <Group title="Brand &amp; accents">
-        <Swatch className="bg-brand text-white" label="brand #273449" />
+        <Swatch className="bg-brand text-white" label="brand #0a0a0a" />
         <Swatch className="bg-accent text-white" label="accent #f04040" />
         <Swatch className="bg-accent-orange text-white" label="orange #ff853c" />
         <Swatch className="bg-accent-lime text-black" label="lime #8dff1c" />

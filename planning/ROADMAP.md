@@ -55,8 +55,9 @@ questions.
   **letter-spaced uppercase** labels (per the logo); clean sans body for data. **Fonts (captured
   from site CSS):** primary **Nexa** (geometric sans — Black/Bold/Book; Nexa Black ≈ the logo
   numerals) + accent **Hikou**; fallback Helvetica/Arial/sans-serif. Self-host woff2 (as the site
-  does) for `pwa/` + `mobile/`. Nexa/Hikou are **licensed**, so the app + PDFs use **OFL
-  substitutes (decided): Poppins** (Nexa role) **+ Archivo** (Hikou/display role), self-hosted.
+  does) for `pwa/` + `mobile/`. Nexa/Hikou are the org's **licensed brand fonts** and are
+  **self-hosted directly** across app + PDF **(decided 2026-06-25 — supersedes the earlier
+  OFL-substitute plan; Poppins/Archivo dropped).**
 - **Motifs.** **Diagonal slash** — small in the logo *and* scaled up as a bold **red diagonal
   page-divider** (thin silver edges) on document covers — a signature device. Plus a
   **right-facing arrow** (CTAs / forward momentum). The slash is the hero brand accent.
@@ -80,7 +81,7 @@ questions.
   - **Dark/primary surface:** `#0a0a0a` (near-black — the site's black). White `#ffffff`. (Corrected from an earlier `#273449` misread — that hex was the most-frequent in the site CSS but was a component color, not the page background.)
   - **Neutrals:** light `#f2f2f2` / `#f7f7f7`; mid grey `#b3b3b3` / `#a2a2a2`; dark grey `#262626` / `#525763`.
   - **Accents:** **red `#f04040`** (signature) · orange `#ff853c` · lime `#8dff1c` (use sparingly).
-  - **Fonts:** brand source **Nexa** + **Hikou** (licensed) → **implemented as OFL substitutes: Poppins** (primary) **+ Archivo** (display accent), self-hosted across app + PDF. See Typography.
+  - **Fonts:** **Nexa** (primary) **+ Hikou** (display accent) — the org's licensed brand fonts, **self-hosted directly** across app + PDF (`pwa/public/fonts/`). See Typography. *(The earlier OFL-substitute plan — Poppins/Archivo — was dropped 2026-06-25.)*
   - Status colors stay distinct from brand red (neutral → amber → green; amber/green may harmonize with brand orange/lime).
   - *Notes:* the parent theme is Bootstrap defaults (ignore). The production-doc red reads more saturated
     than `#f04040` — report covers may use pure black + a punchier red slash; treat these **web tokens
@@ -113,6 +114,11 @@ Initial roles (extensible — more may be added later):
   user+role list from the selected named template (§6); manual additions/changes are always
   available on top of the defaults.
 
+> **Built — execution Phase 1:** per-event RBAC via Firebase custom claims — admin / production
+> manager / department lead / tech granted **per advance/event**, with the effective role
+> resolved per (user, event) and enforced in `firestore.rules` + rules tests; admin-managed
+> departments config. Model in `src/lib/rbac/`. (Department-lead write scopes still open — §15.)
+
 **Mobile:** enforce the *same* per-event roles via shared Firebase custom claims + callable contracts; the mobile app is primarily a consumer of these checks.
 
 ## 5. Advance Structure (content model)
@@ -122,6 +128,20 @@ advance work centers on **artist-specific details** that production managers col
 event.
 
 **Data model (decided):** an event/festival contains **many advances — one per artist/performance**; each advance is the per-artist record built below.
+
+> **Built — execution Phases 2–4:** the advance + section data model (`src/lib/advances/`),
+> **configurable per-department sections** (Phase 3) with the **section status state machine**
+> (not-started → in-progress → finalize/lock — see below), and the first **audio** content
+> field registry (Phase 4). **Stages are first-class** (`events/{id}/stages/{stageId}/advances`).
+> Further department field sets are added iteratively. See `archive/feature/` (Phases 2–4).
+
+> **▶ Current top priority (2026-06-25): build out the remaining departments' advance content
+> and refine audio.** The per-artist advance registry `ADVANCE_FIELDS`
+> (`src/lib/advances/fields.ts`) holds **audio only**; the other seeded departments —
+> **lighting, video-led, staging, logistics, labor, artist-relations** — render empty advance
+> forms and need field sets, and `AUDIO_FIELDS` needs refinement. (Per-stage *production* fields
+> are further along: staging/audio/lighting/video-led done; logistics/labor/artist-relations
+> still empty.) This ranks above all deferred items (portal, gear, Slack, Lasso — §8b/§10/§12).
 
 > Building this list with the user — capture in progress; expect more categories below.
 
@@ -239,6 +259,11 @@ the app needs **editable templates for creating new events**:
   already-created events **TBD**).
 - **Multiple named templates** (decided) for the few event variants.
 
+> **Built — execution Phase 6:** named templates that **seed content + the default user/role
+> list** on create-from-template, plus a template editor (admin/PM); edits apply to **new**
+> events (effect on existing still TBD). Model in `src/lib/templates/`. See
+> [`archive/feature/PHASE_6_PLAN.md`](archive/feature/PHASE_6_PLAN.md).
+
 > Related to but distinct from the RBAC **default role/permission template** in §4.
 > Both are "seed a new event from a reusable default" mechanisms — keep them coherent
 > **Decided:** a template seeds content *and* the default user/role list together (see §4).
@@ -260,6 +285,15 @@ the app needs **editable templates for creating new events**:
   46/event logos) and **content** pages (white, title-block header/footer with event/venue/dates +
   section/page numbers, black/white/**red** palette, slash accent). See UI § Design language.
 - **TBD:** exact packet composition (which sections/fields) and final letterhead layout.
+
+- **Built — execution Phase 7:** server-side **`generatePacket(eventId)`** Cloud Function
+  (@react-pdf/renderer) assembles the event production record + per-stage house packages +
+  artist advances into a branded **cover + white title-block content** PDF, uploaded to
+  `events/{id}/packets/**`. Renderer reused by §9 quotes (`generateQuotePdf`). **Two gaps vs the
+  locked spec:** (1) **per-department / per-stage variants not built** — the function takes
+  `eventId` only; (2) the **"signed, expiring link" was not implemented** — the client resolves a
+  **permanent, member-gated Firebase `getDownloadURL`** (access controlled by `storage.rules`, not
+  by link expiry). See [`archive/feature/PHASE_7_PLAN.md`](archive/feature/PHASE_7_PLAN.md).
 
 > Adapt from MPA. The report/PDF code isn't a top-level `features/` module name — locate
 > it in the MPA codebase during the import/adapt step (likely within the advance/report
@@ -286,6 +320,9 @@ A **grid/matrix-style tracker** for advances across events — at-a-glance statu
 mobile view rather than a 1:1 port.
 
 ## 8b. Gear inventory & pull sheet (new — from the audio advance reference)
+
+> **Priority: low (deferred 2026-06-25).** Not yet built; the own-phase/simplified/defer
+> decision below stays parked until it's prioritized.
 
 The audio advance's "DO NOT EDIT" tab maintains a **mic/DI/stand model library** with
 **on-site stock**, auto-sums each artist's requested quantities, and surfaces
@@ -322,6 +359,8 @@ Create **very simple quotes/estimates** for **artist-covered expenses** and rout
   the advance — member read, PM/admin write. Model in `src/lib/quotes/`.
 
 ## 10. Artist Portal (external shared-link access)
+
+> **Priority: low (deferred 2026-06-25).** Not yet built; revisit after higher-priority work.
 
 **Explore** a portal where a **shareable link** lets the **artist's production team** interact
 without a full app account.
@@ -383,6 +422,7 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 
 - **Slack (explore):** company heavily uses Slack — explore integration (e.g. advance
   updates / notifications to channels, reminders, approvals). Scope TBD. Likely new (not in MPA).
+  **Priority: low (deferred 2026-06-25).**
 - **Google Drive (explore):** company heavily uses Drive. Targeted (decided): **attach/link
   Drive files to advances**, **store generated packets in Drive**, **source template content
   from Drive**. (Sheets/Docs export not targeted.)
@@ -455,25 +495,33 @@ web redirect flow.
 **Q&A round 5 — design (2026-06-21, after reviewing 46entertainment.com + 46 production packets):**
 
 - **Brand palette:** **black / white / red** (red = signature accent, from the diagonal-slash band) + silver-grey; additional color via event photography.
-- **Fonts:** Nexa/Hikou are licensed → implement **OFL substitutes Poppins** (primary) **+ Archivo** (display accent), self-hosted across app + PDF.
+- **Fonts:** **self-host the licensed Nexa** (primary) **+ Hikou** (display accent) directly across app + PDF. *(Updated 2026-06-25: the org owns the licenses; the earlier OFL-substitute plan — Poppins/Archivo — was dropped.)*
 - **App base theme:** **dark, branded chrome (nav/header/sidebars) + light content areas** (readability for dense forms/tables).
 - **Status colors:** **neutral/grey → amber → green** (not started → in progress → complete). **Red is reserved for brand/primary, not status** — supersedes round 3's "red = not started".
 - **Photography:** dramatic event photography on **entry/landing, empty states, and PDF report covers**; work screens stay clean.
 - **PDF reports:** match 46's packet idiom — branded cover (photo + red diagonal slash + logos) + white title-block content pages (§7).
 
+**Q&A round 6 — resolved by implementation (2026-06-25):**
+
+- **Advance content breadth:** **department-configurable** — sections follow the event's enabled
+  departments (Phase 3), with the **audio** department built first (Phase 4).
+- **Stage as a first-class layer:** **yes** — event → **stages** → advances
+  (`events/{id}/stages/{stageId}/advances`, Phase 3); `stage` is not merely a field.
+- **Additions / Concerns / Pending:** **structured per-advance fields** (carried on the advance
+  and into the §7 packet), not the flags/comments mechanism.
+- **What an advance contains (multi-day festival):** sections × per-department fields with
+  status/finalize (Phases 2–4); field additions remain iterative.
+
 ## 15. Open questions (parked)
 
-**From the audio advance reference (2026-06-23) — asked:**
-- **Advance content breadth:** full multi-department taxonomy, audio-first, or
-  department-configurable (sections per the event's departments)?
-- **Gear inventory / pull-sheet / shortage engine:** own phase, simplified, or defer?
-- **Stage as a first-class layer** (event → stages → advances) vs `stage` as a field?
-- **Additions / Concerns / Pending:** structured per-advance fields (roll up to the
-  summary report) vs the flags/comments mechanism?
-- (Granular per-section field inclusion confirmed during Phase 4 as each is built.)
+**From the audio advance reference (2026-06-23):**
+- **Gear inventory / pull-sheet / shortage engine:** own phase, simplified, or defer? *(open)*
+- (Advance-content breadth, stage-as-first-class, and additions/concerns/pending are **resolved**
+  — see Decisions § Q&A round 6. Granular per-section field inclusion confirmed during Phase 4.)
 
 - Department lead: which specific write scopes?
-- What does an "advance" contain for a multi-day festival (sections/fields)? (Being built in §5.)
+- What does an "advance" contain for a multi-day festival (sections/fields)? **Resolved** —
+  built in §5 (configurable per-department sections, Phases 2–4; see Decisions § Q&A round 6).
 - Calendar: which dates/events flow to app-specific calendars; one calendar per
   event/festival or global?
 - Templates: what exactly is in the standard "stage and production package" (the template content)?
