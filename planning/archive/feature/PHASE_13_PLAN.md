@@ -5,9 +5,9 @@ files to advances**, **store generated packets in Drive**, **source template con
 from Drive**. (Sheets/Docs export explicitly out.) Builds directly on Phase 11b's
 per-user Google OAuth.
 
-> **Status: 13a + 13b BUILT (2026-06-25).** 13c deferred. Implemented on the feature branch.
-> Two operational follow-ups before it works in production: create a Picker **API key**
-> (`VITE_GOOGLE_PICKER_API_KEY`) and re-consent the OAuth app for the new `drive.file` scope.
+> **Status: 13a + 13b SHIPPED — merged (#41) + functions deployed, 2026-06-25.** 13c
+> (template Drive links) **deferred indefinitely**. Archived on completion of the shipped
+> slices. (Production hosting deploy is the user's manual workflow.)
 
 ## Decisions (locked 2026-06-25)
 - **Auth:** reuse 11b per-user OAuth — no new OAuth flow, token store, or refresh logic.
@@ -90,11 +90,12 @@ once to grant Drive. Gate Drive UI on the Drive scope being present in
 - **Graceful no-op** when the caller hasn't connected Google / granted Drive (mirrors the
   schedule-push pattern) — the Storage packet + signed link still work.
 
-## 13c — Source template content from Drive — DEFERRED
-**Deferred to a later phase** (decided 2026-06-25). Most complex; touches templates
-(`src/lib/templates/`, `templates-service.ts`), and without Docs/Sheets parsing (out of
-scope) it reduces to "link reference files on a template" — modest value. Revisit once
-13a/13b are proven.
+## 13c — Template Drive links — DEFERRED INDEFINITELY
+**Deferred indefinitely** (2026-06-25). Scope, if ever revisited (clarified with the user):
+a template holds explicit Drive file **links**, and those links **carry over** when an event
+is created from the template. **No** proactive attachment discovery and **no** Docs/Sheets
+content parsing — just the links propagating on create-from-template. Touches templates
+(`src/lib/templates/`, `templates-service.ts`). Low priority.
 
 ## Backend
 - New `functions/src/googleDrive.ts` (mirrors `googleSchedule.ts` / `googleBookings.ts`):

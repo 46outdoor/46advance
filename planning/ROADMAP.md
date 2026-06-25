@@ -386,6 +386,11 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 - **Google Drive (explore):** company heavily uses Drive. Targeted (decided): **attach/link
   Drive files to advances**, **store generated packets in Drive**, **source template content
   from Drive**. (Sheets/Docs export not targeted.)
+- **Built — Phase 13 (2026-06-25):** **13a** attach/link Drive files to advances (Google Picker +
+  least-privilege `drive.file`; server-validated, server-owned `driveFiles`) and **13b** save
+  generated packets to Drive. **13c deferred indefinitely** — reframed to *template Drive links*:
+  a template holds explicit Drive links that **carry over on create-from-template**, with **no**
+  proactive attachment discovery / Docs-Sheets parsing. See `archive/feature/PHASE_13_PLAN.md`.
 
 **Integration auth model:** all third-party access uses **each user's own credentials
 (per-user OAuth)** — *not* a shared app/service account. The app acts on behalf of the
