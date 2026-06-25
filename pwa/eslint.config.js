@@ -28,6 +28,41 @@ export default tseslint.config(
       ],
       // Project rule: use createLogger(), never console.* (see AGENTS.md).
       'no-console': 'error',
+      // Size & complexity guardrails (see .claude/rules/code-organization.md).
+      // Counts exclude blank lines and comments, matching the file-size-monitor
+      // agent. These encode the *hard* limits as merge gates; the *soft* limits
+      // (500-LOC files, 100-line functions) stay advisory via that agent.
+      //
+      // max-lines: 1000 = documented hard file limit (worst source today ≈ 263).
+      'max-lines': ['error', { max: 1000, skipBlankLines: true, skipComments: true }],
+      // max-lines-per-function: 200 for logic (.ts); .tsx is relaxed below since a
+      // React component is one long render function (worst .ts fn today ≈ 119).
+      'max-lines-per-function': ['error', { max: 200, skipBlankLines: true, skipComments: true }],
+      // complexity: 45 is a non-breaking ceiling — worst function today is 42
+      // (functions/src/googleBookings.ts). Ratchet this down toward ~20 as those
+      // functions are decomposed; it blocks regressions past today's worst now.
+      complexity: ['error', 45],
+    },
+  },
+  {
+    // React components are effectively one long render function; JSX makes them
+    // long by nature, so the file-level max-lines is the real control and the
+    // per-function limit is relaxed here (worst component render today ≈ 251).
+    files: ['**/*.tsx'],
+    rules: {
+      'max-lines-per-function': ['error', { max: 350, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    // Test files get the documented higher LOC budget (hard limit 2000); the
+    // per-function and complexity limits don't apply — a describe() block is a
+    // single large function. Covers colocated tests, the rules-test suite
+    // (test/), Playwright e2e (tests/), and shared test infra (src/testing/).
+    files: ['**/*.{test,spec}.{ts,tsx}', 'test/**', 'tests/**', 'src/testing/**'],
+    rules: {
+      'max-lines': ['error', { max: 2000, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': 'off',
+      complexity: 'off',
     },
   },
   {
