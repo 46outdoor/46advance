@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
-import type { EventInput } from '@/lib/events/event';
+import type { EventInput, EventRecord } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { generatePacket, getEvent, updateEvent } from './events-service';
@@ -84,65 +84,19 @@ export function EventDetailScreen() {
       {eventQuery.data === null && <p className="text-sm text-ink-muted">Event not found, or you don’t have access.</p>}
 
       {event && !editing && (
-        <header className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h1 className="font-display text-3xl font-black tracking-tight text-brand">{event.name}</h1>
-              <EventStatusBadge status={event.status} />
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                to={`/events/${eventId}/production`}
-                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-              >
-                Production
-              </Link>
-              <Link
-                to={`/events/${eventId}/schedule`}
-                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-              >
-                Schedule
-              </Link>
-              <Link
-                to={`/tracker/${eventId}`}
-                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-              >
-                Tracker
-              </Link>
-              <button
-                type="button"
-                onClick={() => packet.mutate()}
-                disabled={packet.isPending}
-                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-              >
-                {packet.isPending ? 'Generating…' : 'Generate packet'}
-              </button>
-              {connectionQuery.data?.hasDrive && (
-                <button
-                  type="button"
-                  onClick={() => saveToDrive.mutate()}
-                  disabled={saveToDrive.isPending}
-                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  {saveToDrive.isPending ? 'Saving…' : 'Save packet to Drive'}
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-                >
-                  Edit
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
-          {event.venue && <p className="text-ink-muted">{event.venue}</p>}
-          {packet.isError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
-          {saveToDrive.isError && <p className="text-sm text-accent">Could not save the packet to Drive.</p>}
-        </header>
+        <EventDetailHeader
+          event={event}
+          eventId={eventId}
+          canEdit={canEdit}
+          hasDrive={connectionQuery.data?.hasDrive ?? false}
+          packetPending={packet.isPending}
+          packetError={packet.isError}
+          saveToDrivePending={saveToDrive.isPending}
+          saveToDriveError={saveToDrive.isError}
+          onGeneratePacket={() => packet.mutate()}
+          onSaveToDrive={() => saveToDrive.mutate()}
+          onEdit={() => setEditing(true)}
+        />
       )}
 
       {event && editing && (
@@ -167,5 +121,95 @@ export function EventDetailScreen() {
 
       {event && <EventContactsPanel eventId={eventId} uid={user.uid} canEdit={canEdit} />}
     </section>
+  );
+}
+
+interface EventDetailHeaderProps {
+  event: EventRecord;
+  eventId: string;
+  canEdit: boolean;
+  hasDrive: boolean;
+  packetPending: boolean;
+  packetError: boolean;
+  saveToDrivePending: boolean;
+  saveToDriveError: boolean;
+  onGeneratePacket: () => void;
+  onSaveToDrive: () => void;
+  onEdit: () => void;
+}
+
+function EventDetailHeader({
+  event,
+  eventId,
+  canEdit,
+  hasDrive,
+  packetPending,
+  packetError,
+  saveToDrivePending,
+  saveToDriveError,
+  onGeneratePacket,
+  onSaveToDrive,
+  onEdit,
+}: EventDetailHeaderProps) {
+  return (
+    <header className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="font-display text-3xl font-black tracking-tight text-brand">{event.name}</h1>
+          <EventStatusBadge status={event.status} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/events/${eventId}/production`}
+            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+          >
+            Production
+          </Link>
+          <Link
+            to={`/events/${eventId}/schedule`}
+            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+          >
+            Schedule
+          </Link>
+          <Link
+            to={`/tracker/${eventId}`}
+            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+          >
+            Tracker
+          </Link>
+          <button
+            type="button"
+            onClick={onGeneratePacket}
+            disabled={packetPending}
+            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {packetPending ? 'Generating…' : 'Generate packet'}
+          </button>
+          {hasDrive && (
+            <button
+              type="button"
+              onClick={onSaveToDrive}
+              disabled={saveToDrivePending}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              {saveToDrivePending ? 'Saving…' : 'Save packet to Drive'}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
+      {event.venue && <p className="text-ink-muted">{event.venue}</p>}
+      {packetError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
+      {saveToDriveError && <p className="text-sm text-accent">Could not save the packet to Drive.</p>}
+    </header>
   );
 }

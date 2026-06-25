@@ -6,7 +6,7 @@
  * call `removeScheduleCalendarEvent`. Graceful when the caller hasn't connected Google.
  */
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import type { DocumentData } from 'firebase-admin/firestore';
+import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { google, type calendar_v3 } from 'googleapis';
 import {
@@ -37,6 +37,52 @@ function buildEventBody(item: DocumentData, startTs: Timestamp): calendar_v3.Sch
   };
 }
 
+/** Validate the callable input, throwing on a missing/invalid `{ eventId, itemId }`. */
+function parsePushInput(data: DocumentData): { eventId: string; itemId: string } {
+  const { eventId, itemId } = data;
+  const ok = typeof eventId === 'string' && eventId && typeof itemId === 'string' && itemId;
+  if (!ok) throw new HttpsError('invalid-argument', 'Expected { eventId, itemId }.');
+  return { eventId, itemId };
+}
+
+/** Read an event doc's stored `googleCalendarId`, or `null` when missing/blank. */
+async function readEventCalendarId(db: Firestore, eventId: string): Promise<string | null> {
+  const calendarId = (await db.doc(`events/${eventId}`).get()).data()?.googleCalendarId;
+  return typeof calendarId === 'string' && calendarId ? calendarId : null;
+}
+
+/** Best-effort delete of a calendar event; swallows "already gone" errors. */
+async function deleteCalendarEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string,
+): Promise<void> {
+  try {
+    await calendar.events.delete({ calendarId, eventId });
+  } catch {
+    // already gone
+  }
+}
+
+/** Create or update the calendar event for an item, returning the resulting event id. */
+async function upsertCalendarEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  body: calendar_v3.Schema$Event,
+  existing: string | null,
+): Promise<string | null> {
+  if (existing) {
+    try {
+      await calendar.events.update({ calendarId, eventId: existing, requestBody: body });
+      return existing;
+    } catch {
+      // fall through to (re)create below
+    }
+  }
+  const created = await calendar.events.insert({ calendarId, requestBody: body });
+  return created.data.id ?? null;
+}
+
 /**
  * Reconcile one schedule item with the event's Google calendar (admin or event PM). In the
  * master schedule with a time → create/update its event; otherwise remove any existing event.
@@ -46,10 +92,7 @@ function buildEventBody(item: DocumentData, startTs: Timestamp): calendar_v3.Sch
 export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, itemId } = request.data ?? {};
-  if (typeof eventId !== 'string' || !eventId || typeof itemId !== 'string' || !itemId) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, itemId }.');
-  }
+  const { eventId, itemId } = parsePushInput(request.data ?? {});
   const db = getFirestore();
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
@@ -73,14 +116,8 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   // Not (or no longer) in the master schedule — remove any existing calendar event.
   if (!shouldHave) {
     if (existing) {
-      const calendarId = (await db.doc(`events/${eventId}`).get()).data()?.googleCalendarId;
-      if (typeof calendarId === 'string' && calendarId) {
-        try {
-          await calendar.events.delete({ calendarId, eventId: existing });
-        } catch {
-          // already gone
-        }
-      }
+      const calendarId = await readEventCalendarId(db, eventId);
+      if (calendarId) await deleteCalendarEvent(calendar, calendarId, existing);
       await itemRef.set({ googleCalendarEventId: null, updatedAt: now }, { merge: true });
     }
     return { synced: true, removed: true };
@@ -92,18 +129,7 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventSnap.data()?.name ?? 'Event'));
   const body = buildEventBody(item, startTs!);
 
-  let calEventId = existing;
-  if (calEventId) {
-    try {
-      await calendar.events.update({ calendarId, eventId: calEventId, requestBody: body });
-    } catch {
-      const created = await calendar.events.insert({ calendarId, requestBody: body });
-      calEventId = created.data.id ?? null;
-    }
-  } else {
-    const created = await calendar.events.insert({ calendarId, requestBody: body });
-    calEventId = created.data.id ?? null;
-  }
+  const calEventId = await upsertCalendarEvent(calendar, calendarId, body, existing);
   await itemRef.set({ googleCalendarEventId: calEventId, updatedAt: now }, { merge: true });
   return { synced: true, calendarEventId: calEventId };
 });

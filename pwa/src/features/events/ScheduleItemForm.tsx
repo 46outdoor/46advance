@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react';
 import {
   SCHEDULE_SECTIONS,
   scheduleSectionDef,
+  type ScheduleFieldDef,
   type ScheduleSection,
 } from '@/lib/schedules/sections';
 import {
@@ -38,6 +39,160 @@ interface Props {
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand';
 
+/** Source fields the form reads from an existing item (nullable per `ScheduleItem`). */
+type ScheduleItemSource = Pick<
+  ScheduleItem,
+  | 'section'
+  | 'title'
+  | 'customLabel'
+  | 'startAt'
+  | 'endAt'
+  | 'location'
+  | 'notes'
+  | 'stageId'
+  | 'advanceId'
+  | 'fields'
+  | 'includeInMaster'
+>;
+
+/** Defaults for a brand-new item — matches the `?? <default>` fallbacks the form
+ * previously inlined, so `null` values from an existing item still coalesce. */
+const EMPTY_ITEM: ScheduleItemSource = {
+  section: 'production',
+  title: '',
+  customLabel: '',
+  startAt: null,
+  endAt: null,
+  location: '',
+  notes: '',
+  stageId: '',
+  advanceId: '',
+  fields: {},
+  includeInMaster: true,
+};
+
+/** Initial form state derived from an optional existing item — keeps the nullish
+ * defaults out of the component body where they each cost complexity. Merging onto
+ * `EMPTY_ITEM` drops `undefined` fields; the remaining `??` still coalesce `null`. */
+function initialFormState(initial?: ScheduleItem) {
+  const src: ScheduleItemSource = { ...EMPTY_ITEM, ...initial };
+  return {
+    section: src.section,
+    title: src.title,
+    customLabel: src.customLabel ?? '',
+    start: dateToZonedInput(src.startAt),
+    end: dateToZonedInput(src.endAt),
+    location: src.location ?? '',
+    notes: src.notes ?? '',
+    stageId: src.stageId ?? '',
+    advanceId: src.advanceId ?? '',
+    fields: src.fields,
+    includeInMaster: src.includeInMaster,
+  } as const;
+}
+
+/** A single section-specific field control (select or text/number input). */
+function SectionFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: ScheduleFieldDef;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (field.type === 'select') {
+    return (
+      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">—</option>
+        {field.options?.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      type={field.type === 'number' ? 'number' : 'text'}
+      className={inputClass}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+/** Right-column slot under Stage: either the advance/act link (Show) or Location. */
+function AdvanceOrLocationField({
+  linksAdvance,
+  advances,
+  advanceId,
+  setAdvanceId,
+  location,
+  setLocation,
+}: {
+  linksAdvance: boolean;
+  advances: AdvanceOption[];
+  advanceId: string;
+  setAdvanceId: (value: string) => void;
+  location: string;
+  setLocation: (value: string) => void;
+}) {
+  if (linksAdvance) {
+    return (
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Advance / act (optional)</span>
+        <select className={inputClass} value={advanceId} onChange={(e) => setAdvanceId(e.target.value)}>
+          <option value="">None</option>
+          {advances.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block font-semibold text-ink">Location (optional)</span>
+      <input className={inputClass} value={location} onChange={(e) => setLocation(e.target.value)} />
+    </label>
+  );
+}
+
+/** Submit row: save button, optional cancel, and the active error message. */
+function FormActions({
+  pending,
+  submitLabel,
+  onCancel,
+  message,
+}: {
+  pending?: boolean;
+  submitLabel: string;
+  onCancel?: () => void;
+  message: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3 sm:col-span-2">
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {pending ? 'Saving…' : submitLabel}
+      </button>
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          Cancel
+        </button>
+      )}
+      {message && <span className="text-sm text-accent">{message}</span>}
+    </div>
+  );
+}
+
 export function ScheduleItemForm({
   initial,
   stages,
@@ -48,20 +203,23 @@ export function ScheduleItemForm({
   onSubmit,
   onCancel,
 }: Props) {
-  const [section, setSection] = useState<ScheduleSection>(initial?.section ?? 'production');
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [customLabel, setCustomLabel] = useState(initial?.customLabel ?? '');
-  const [start, setStart] = useState(dateToZonedInput(initial?.startAt ?? null));
-  const [end, setEnd] = useState(dateToZonedInput(initial?.endAt ?? null));
-  const [location, setLocation] = useState(initial?.location ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
-  const [stageId, setStageId] = useState(initial?.stageId ?? '');
-  const [advanceId, setAdvanceId] = useState(initial?.advanceId ?? '');
-  const [fields, setFields] = useState<Record<string, string>>(initial?.fields ?? {});
-  const [includeInMaster, setIncludeInMaster] = useState(initial?.includeInMaster ?? true);
+  const [defaults] = useState(() => initialFormState(initial));
+  const [section, setSection] = useState<ScheduleSection>(defaults.section);
+  const [title, setTitle] = useState(defaults.title);
+  const [customLabel, setCustomLabel] = useState(defaults.customLabel);
+  const [start, setStart] = useState(defaults.start);
+  const [end, setEnd] = useState(defaults.end);
+  const [location, setLocation] = useState(defaults.location);
+  const [notes, setNotes] = useState(defaults.notes);
+  const [stageId, setStageId] = useState(defaults.stageId);
+  const [advanceId, setAdvanceId] = useState(defaults.advanceId);
+  const [fields, setFields] = useState<Record<string, string>>(defaults.fields);
+  const [includeInMaster, setIncludeInMaster] = useState(defaults.includeInMaster);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const def = scheduleSectionDef(section);
+  const linksAdvance = def.linksAdvance ?? false;
+  const message = localError ?? error ?? null;
   const setField = (key: string, value: string) => setFields((p) => ({ ...p, [key]: value }));
 
   const submit = (e: FormEvent) => {
@@ -138,26 +296,16 @@ export function ScheduleItemForm({
           ))}
         </select>
       </label>
-      {def.linksAdvance ? (
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Advance / act (optional)</span>
-          <select className={inputClass} value={advanceId} onChange={(e) => setAdvanceId(e.target.value)}>
-            <option value="">None</option>
-            {advances.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Location (optional)</span>
-          <input className={inputClass} value={location} onChange={(e) => setLocation(e.target.value)} />
-        </label>
-      )}
+      <AdvanceOrLocationField
+        linksAdvance={linksAdvance}
+        advances={advances}
+        advanceId={advanceId}
+        setAdvanceId={setAdvanceId}
+        location={location}
+        setLocation={setLocation}
+      />
 
-      {def.linksAdvance && (
+      {linksAdvance && (
         <label className="block text-sm sm:col-span-2">
           <span className="mb-1 block font-semibold text-ink">Location (optional)</span>
           <input className={inputClass} value={location} onChange={(e) => setLocation(e.target.value)} />
@@ -167,23 +315,7 @@ export function ScheduleItemForm({
       {def.fields.map((f) => (
         <label key={f.key} className="block text-sm">
           <span className="mb-1 block font-semibold text-ink">{f.label}</span>
-          {f.type === 'select' ? (
-            <select className={inputClass} value={fields[f.key] ?? ''} onChange={(e) => setField(f.key, e.target.value)}>
-              <option value="">—</option>
-              {f.options?.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type={f.type === 'number' ? 'number' : 'text'}
-              className={inputClass}
-              value={fields[f.key] ?? ''}
-              onChange={(e) => setField(f.key, e.target.value)}
-            />
-          )}
+          <SectionFieldInput field={f} value={fields[f.key] ?? ''} onChange={(v) => setField(f.key, v)} />
         </label>
       ))}
 
@@ -197,21 +329,7 @@ export function ScheduleItemForm({
         Show in master schedule
       </label>
 
-      <div className="flex items-center gap-3 sm:col-span-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? 'Saving…' : submitLabel}
-        </button>
-        {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
-            Cancel
-          </button>
-        )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
-      </div>
+      <FormActions pending={pending} submitLabel={submitLabel} onCancel={onCancel} message={message} />
     </form>
   );
 }

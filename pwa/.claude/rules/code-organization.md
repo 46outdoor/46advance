@@ -42,7 +42,7 @@ wrapper.
 | Test files | 1000 LOC | 2000 LOC | Split by concern or extract fixtures |
 | Function length (.ts logic) | 100 lines | 200 lines | Suggest decomposition |
 | Function length (.tsx component) | 100 lines | 350 lines | Extract subcomponents/hooks |
-| Cyclomatic complexity | 20 | 45 | Simplify branching |
+| Cyclomatic complexity | 20 | 25 | Simplify branching |
 
 **Enforcement split:** the **hard** limits are merge gates — ESLint (`max-lines`,
 `max-lines-per-function`, `complexity` in `eslint.config.js`) fails CI on any
@@ -51,10 +51,12 @@ files at 500/750, and the 100-line function flag and complexity-20 target are
 guidance, not gates. LOC counts exclude blank lines and comments (both the rule
 and the agent count the same way).
 
-> The complexity gate is currently set to **45** (a non-breaking ceiling above
-> today's worst function, ~42). Ratchet it down toward **20** as the high-complexity
-> functions (`functions/src/googleBookings.ts`, `functions/src/index.ts`,
-> `ScheduleItemForm.tsx`) are decomposed.
+> The complexity gate is **25** (ratcheted down from the original non-breaking 45
+> after decomposing the worst functions in `functions/src/googleBookings.ts`,
+> `functions/src/index.ts`, `functions/src/googleSchedule.ts`, and the
+> `ScheduleItemForm` / `AdvanceDetailScreen` / `EventDetailScreen` screens). Repo
+> max is now 24. Ratchet further toward **20** as the remaining 22–24 functions
+> (`AdvanceForm`, `EventScheduleScreen`, `parseBooking`) are simplified.
 
 When a file approaches 750 lines, proactively flag it. When it exceeds 1000 lines,
 stop and present a decomposition plan.
