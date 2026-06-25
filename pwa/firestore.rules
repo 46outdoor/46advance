@@ -3,12 +3,15 @@ rules_version = '2';
 // Per-event RBAC (Phases 1–3). Mirrors src/lib/rbac/permissions.ts and
 // src/lib/advances/sections.ts — keep in sync.
 //
+//   approved gate      (token.approved == true)   -> required for all app access (admins exempt)
 //   global admin       (token.admin == true)     -> everything
-//   global organizer   (token.organizer == true) -> may create events
+//   global organizer   (token.organizer == true) -> may create events (must also be approved)
 //   production-manager (per-event role)           -> read + write stages/advances + flag
 //   department-lead    (per-event role)           -> read + flag
 //   tech               (per-event role)           -> read
 //
+// Pending/revoked accounts (no `approved` claim) are blocked here, not just in the UI
+// (AuthGate). syncUserClaims grants `approved` once an admin approves the account.
 // event → stages → advances. Per-event membership covers all of an event's stages.
 // Anything not matched below is denied.
 service cloud.firestore {
@@ -26,8 +29,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('organizer', false) == true;
     }
 
+    // Approved-user gate: an account an admin has approved (or an admin itself).
+    // Mirrors the UI AuthGate + the `approved` custom claim set by syncUserClaims.
+    function isApproved() {
+      return isSignedIn() && request.auth.token.get('approved', false) == true;
+    }
+
+    function isActiveUser() {
+      return isAdmin() || isApproved();
+    }
+
     function canCreateEvents() {
-      return isAdmin() || isOrganizer();
+      return isActiveUser() && (isAdmin() || isOrganizer());
     }
 
     function memberPath(eventId) {
@@ -35,7 +48,7 @@ service cloud.firestore {
     }
 
     function isMember(eventId) {
-      return isSignedIn() && exists(memberPath(eventId));
+      return isActiveUser() && exists(memberPath(eventId));
     }
 
     function hasEventRole(eventId, role) {
@@ -56,26 +69,26 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/events/$(eventId)).data.createdBy;
     }
 
-    // App-wide department list: any signed-in user reads; admin manages.
+    // App-wide department list: any approved user reads; admin manages.
     match /departments/{deptId} {
-      allow read: if isSignedIn();
+      allow read: if isActiveUser();
       allow write: if isAdmin();
     }
 
-    // Event templates (blueprints): any signed-in user reads (event-create picker);
+    // Event templates (blueprints): any approved user reads (event-create picker);
     // admin authors. Cloning runs server-side (createEventFromTemplate, Admin SDK).
     match /templates/{templateId} {
-      allow read: if isSignedIn();
+      allow read: if isActiveUser();
       allow write: if isAdmin();
     }
 
     // Global contact directory (ROADMAP §11): reference data, distinct from RBAC users.
-    // Any signed-in member of the team reads + adds; the creator (or admin) edits/deletes.
+    // Any approved member of the team reads + adds; the creator (or admin) edits/deletes.
     match /contacts/{contactId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && request.resource.data.createdBy == request.auth.uid;
       allow update, delete: if isAdmin()
-        || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+        || (isActiveUser() && resource.data.createdBy == request.auth.uid);
     }
 
     // User profiles are server-managed (Admin SDK). Self/admin read; no client write.

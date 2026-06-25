@@ -15,11 +15,12 @@ let testEnv: RulesTestEnvironment;
 
 // Actors
 const ADMIN = { uid: 'admin-1', token: { admin: true } };
-const ORGANIZER = { uid: 'user-org', token: { organizer: true } }; // global event creator
+const ORGANIZER = { uid: 'user-org', token: { organizer: true, approved: true } }; // global event creator
 const PM = 'user-pm'; // production-manager on event A, tech on event B
 const LEAD = 'user-lead'; // department-lead on event A
 const TECH = 'user-tech'; // tech on event A
-const OUTSIDER = 'user-out'; // member of nothing
+const OUTSIDER = 'user-out'; // approved, but member of nothing
+const PENDING = 'user-pending'; // approved:false — a member awaiting approval / revoked
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -43,6 +44,9 @@ beforeEach(async () => {
     await setDoc(doc(db, 'events/event-b/members', PM), { role: 'tech', addedBy: 'admin-1', uid: PM });
     await setDoc(doc(db, 'events/event-a/members', LEAD), { role: 'department-lead', addedBy: 'admin-1', uid: LEAD });
     await setDoc(doc(db, 'events/event-a/members', TECH), { role: 'tech', addedBy: 'admin-1', uid: TECH });
+    // A member doc exists for a not-yet-approved (or revoked) user — approval, not
+    // membership, is what unlocks access (see the approved-user-gate suite).
+    await setDoc(doc(db, 'events/event-a/members', PENDING), { role: 'tech', addedBy: 'admin-1', uid: PENDING });
     await setDoc(doc(db, 'users', PM), { email: 'pm@x.com', isAdmin: false });
     await setDoc(doc(db, 'users', OUTSIDER), { email: 'out@x.com', isAdmin: false });
     await setDoc(doc(db, 'events/event-a/flags/seed'), { createdBy: LEAD, text: 'seed' });
@@ -72,8 +76,11 @@ beforeEach(async () => {
   });
 });
 
-// Convenience: a Firestore handle for a given actor.
-const dbFor = (uid: string, token?: Record<string, unknown>) =>
+// Convenience: a Firestore handle for a given actor. Real members are approved
+// users, so the token defaults to an approved claim — this keeps the role-based
+// suites modeling production. Pending/revoked actors pass an explicit
+// { approved: false } (or an empty token) to exercise the active-user gate.
+const dbFor = (uid: string, token: Record<string, unknown> = { approved: true }) =>
   testEnv.authenticatedContext(uid, token).firestore();
 const dbAnon = () => testEnv.unauthenticatedContext().firestore();
 
@@ -121,6 +128,60 @@ describe('firestore.rules — events read/write by role', () => {
     const db = dbFor(ADMIN.uid, ADMIN.token);
     await assertSucceeds(getDoc(doc(db, 'events/event-a')));
     await assertSucceeds(updateDoc(doc(db, 'events/event-a'), { name: 'admin-edit' }));
+  });
+});
+
+describe('firestore.rules — approved-user gate (pending/revoked lockout)', () => {
+  // A signed-in account an admin has not approved (or has revoked): approved:false.
+  // PENDING is seeded as a tech member of event A, so these tests prove that
+  // approval — not membership — is what unlocks access.
+  const dbPending = () => dbFor(PENDING, { approved: false });
+  // A signed-in account whose claims have never synced (no `approved` field at all).
+  const dbNoClaim = () => dbFor('user-noclaim', {});
+
+  it('a pending user cannot read app-wide config (departments/templates/contacts)', async () => {
+    await assertFails(getDoc(doc(dbPending(), 'departments/audio')));
+    await assertFails(getDoc(doc(dbPending(), 'templates/tpl-1')));
+    await assertFails(getDoc(doc(dbPending(), 'contacts/c-anything')));
+  });
+
+  it('a signed-in user with no approved claim at all is treated as pending', async () => {
+    await assertFails(getDoc(doc(dbNoClaim(), 'departments/audio')));
+  });
+
+  it('a pending event member cannot read event documents (event/stage/advance)', async () => {
+    await assertFails(getDoc(doc(dbPending(), 'events/event-a')));
+    await assertFails(getDoc(doc(dbPending(), 'events/event-a/stages/stg-a')));
+    await assertFails(getDoc(doc(dbPending(), 'events/event-a/stages/stg-a/advances/adv-1')));
+  });
+
+  it('a revoked (approved:false) member loses write access too', async () => {
+    await assertFails(
+      setDoc(doc(dbPending(), 'contacts/c-pending'), { name: 'X', createdBy: PENDING }),
+    );
+  });
+
+  it('an organizer who is not approved cannot create events', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(ORGANIZER.uid, { organizer: true, approved: false }), 'events/evt-pending'), {
+        name: 'Nope',
+        status: 'draft',
+        createdBy: ORGANIZER.uid,
+      }),
+    );
+  });
+
+  it('an approved user with no event membership reads app-wide config but not events', async () => {
+    // OUTSIDER is approved (default token) but a member of nothing.
+    await assertSucceeds(getDoc(doc(dbFor(OUTSIDER), 'departments/audio')));
+    await assertSucceeds(getDoc(doc(dbFor(OUTSIDER), 'templates/tpl-1')));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a')));
+  });
+
+  it('admin (no approved claim) is exempt from the gate', async () => {
+    const db = dbFor(ADMIN.uid, ADMIN.token);
+    await assertSucceeds(getDoc(doc(db, 'departments/audio')));
+    await assertSucceeds(getDoc(doc(db, 'events/event-a')));
   });
 });
 

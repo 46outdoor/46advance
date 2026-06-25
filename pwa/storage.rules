@@ -9,10 +9,19 @@ service firebase.storage {
       return request.auth != null;
     }
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+    // Approved-user gate — mirrors firestore.rules / the `approved` custom claim.
+    // Pending/revoked accounts (no `approved` claim) are blocked, not just in the UI.
+    // `.get(claim, false)` tolerates tokens that omit the claim (no eval warning).
+    function isApproved() {
+      return isSignedIn() && request.auth.token.get('approved', false) == true;
+    }
+    function isActiveUser() {
+      return isAdmin() || isApproved();
     }
     function isMember(eventId) {
-      return isSignedIn()
+      return isActiveUser()
         && firestore.exists(/databases/(default)/documents/events/$(eventId)/members/$(request.auth.uid));
     }
     function isPM(eventId) {
