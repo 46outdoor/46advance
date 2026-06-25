@@ -17,9 +17,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Detect whether anything outside docs/planning changed. `code == 'true'` gates
-  # the expensive jobs below. Errs toward running CI: if no rule matches a doc
-  # path, `code` stays true and the full suite runs.
+  # Detect whether anything outside docs/planning changed. `code == 'true'` gates the
+  # expensive jobs below, so doc-only PRs (`**.md`, `docs/**`, `planning/**`) skip them.
+  # `predicate-quantifier: every` makes a changed file count as code only if it matches
+  # ALL the negations (i.e. is none of those doc paths) — so doc-only diffs resolve false,
+  # while any real code file flips it true.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -29,9 +31,9 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          predicate-quantifier: 'every'
           filters: |
             code:
-              - '**'
               - '!**/*.md'
               - '!docs/**'
               - '!planning/**'
