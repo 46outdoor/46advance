@@ -20,6 +20,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { google, type drive_v3 } from 'googleapis';
 import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
+import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const APP_FOLDER = '46 Advance';
@@ -49,6 +50,7 @@ function existingFiles(data: DocumentData | undefined): Array<Record<string, unk
 export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const db = getFirestore();
+  await enforceRateLimit(db, ['getDriveAccessToken', request.auth.uid], 30);
   const client = await authedClientForUser(db, request.auth.uid); // throws failed-precondition if not connected
   const { token } = await client.getAccessToken();
   if (!token) throw new HttpsError('failed-precondition', 'Could not obtain a Drive access token.');
@@ -73,6 +75,7 @@ export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60
     throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, fileId }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['linkDriveFile', uid], 30);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   const ref = db.doc(advancePath(eventId, stageId, advanceId));
@@ -125,6 +128,7 @@ export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) =>
     throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, fileId }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['removeDriveFile', uid], 30);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   const ref = db.doc(advancePath(eventId, stageId, advanceId));
@@ -184,6 +188,7 @@ export const savePacketToDrive = onCall(
       throw new HttpsError('invalid-argument', 'Invalid packet path.');
     }
     const db = getFirestore();
+    await enforceRateLimit(db, ['savePacketToDrive', uid], 10);
     await assertEventMember(db, uid, token.admin === true, eventId);
 
     const eventSnap = await db.doc(`events/${eventId}`).get();

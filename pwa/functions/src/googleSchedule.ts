@@ -8,6 +8,7 @@
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { google, type calendar_v3 } from 'googleapis';
 import {
   OAUTH_SECRETS,
@@ -94,6 +95,7 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   const { uid, token } = request.auth;
   const { eventId, itemId } = parsePushInput(request.data ?? {});
   const db = getFirestore();
+  await enforceRateLimit(db, ['pushScheduleItem', uid], 60);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   const itemRef = db.doc(`events/${eventId}/scheduleItems/${itemId}`);
@@ -146,6 +148,7 @@ export const removeScheduleCalendarEvent = onCall({ secrets: OAUTH_SECRETS, time
     throw new HttpsError('invalid-argument', 'Expected { eventId, calendarEventId }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['removeScheduleCalendarEvent', uid], 60);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   let client: AuthClient;

@@ -100,6 +100,10 @@ service cloud.firestore {
     match /googleOAuthStates/{stateId} {
       allow read, write: if false;
     }
+    // Distributed rate-limit counters — written only by the Admin SDK (bypasses rules).
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
 
     match /events/{eventId} {
       allow read: if isAdmin() || isMember(eventId);
