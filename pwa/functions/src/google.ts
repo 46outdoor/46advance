@@ -31,9 +31,14 @@ const REGION = 'us-central1';
 export const TIME_ZONE = 'America/Chicago';
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+/** Per-file Drive access (Phase 13). `drive.file` only grants the app files the user
+ *  picks via the Google Picker or that the app creates — never the whole Drive. */
+export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/calendar.events',
+  DRIVE_FILE_SCOPE,
   'openid',
   'email',
 ];

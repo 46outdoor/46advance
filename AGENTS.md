@@ -318,7 +318,7 @@ minimal approvals, document technical debt for later.
 
 ### Parallel agents
 
-Use parallel agents aggressively for independent work — up to **6 parallel
+Use parallel agents aggressively for independent work — up to **10 parallel
 agents** autonomously when subtasks are independent. Good candidates:
 multi-directory searches, independent audits, bulk read-and-analyze, per-app
 verification. Not appropriate for: sequential or dependent steps, single-file

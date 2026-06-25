@@ -329,6 +329,32 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
   });
 });
 
+describe('firestore.rules — advances driveFiles (server-owned, Phase 13)', () => {
+  const driveFiles = [{ fileId: 'f1', name: 'Plot.pdf', webViewLink: 'https://drive.google.com/x', linkedByUid: PM }];
+
+  it('clients (even PM/admin) cannot add driveFiles via a direct write', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { driveFiles }));
+    await assertFails(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-1'), { driveFiles }),
+    );
+  });
+
+  it('cannot create an advance that carries driveFiles', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-drive'), {
+        artistName: 'Act',
+        createdBy: PM,
+        sections: {},
+        driveFiles,
+      }),
+    );
+  });
+
+  it('an update that does not touch driveFiles still succeeds', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { notes: 'hi' }));
+  });
+});
+
 describe('firestore.rules — quotes (under an advance)', () => {
   const quotePath = (q: string) => `events/event-a/stages/stg-a/advances/adv-1/quotes/${q}`;
   const newQuote = (createdBy: string) => ({ title: 'Backline', status: 'draft', createdBy });

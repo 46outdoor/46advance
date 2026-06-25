@@ -232,6 +232,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) |
 | Schedules data access | `src/features/events/schedule-service.ts` (CRUD + calendar push/remove; `EventScheduleScreen` at `/events/:id/schedule`) |
 | Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`pushScheduleItem` reconcile + `removeScheduleCalendarEvent`; reuses 11b) |
+| Google Drive (client) | `src/lib/google/drive-service.ts` (link/remove/savePacket callables + Picker), `driveFile.ts` (`DriveFileRef` type+Zod); Picker keys in `src/config/integrations.ts` |
+| Google Drive (backend) | `functions/src/googleDrive.ts` (`linkDriveFile`/`removeDriveFile`/`savePacketToDrive`/`getDriveAccessToken`; `drive.file` scope, reuses 11b) |
 
 ### Step 2: Resolve name variants before searching
 

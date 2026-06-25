@@ -91,15 +91,23 @@ export async function setEventStatus(eventId: string, status: EventStatus): Prom
   await updateDoc(doc(db, 'events', eventId), { status, updatedAt: serverTimestamp() });
 }
 
+export interface GeneratedPacket {
+  /** Member-gated download URL (storage.rules enforce read access). */
+  url: string;
+  /** Storage path — used to save the packet into the caller's Drive (Phase 13). */
+  path: string;
+}
+
 /**
  * Generate a 46-branded full-event PDF packet (server-side render). The callable
  * uploads to `events/{id}/packets/{ts}.pdf` and returns its Storage path; we resolve
- * a member-gated download URL (storage.rules enforce read access). Returns the URL.
+ * a member-gated download URL alongside it.
  */
-export async function generatePacket(eventId: string): Promise<string> {
+export async function generatePacket(eventId: string): Promise<GeneratedPacket> {
   const callable = httpsCallable<{ eventId: string }, { path: string }>(functions, 'generatePacket');
-  const result = await callable({ eventId });
-  return getDownloadURL(ref(storage, result.data.path));
+  const { path } = (await callable({ eventId })).data;
+  const url = await getDownloadURL(ref(storage, path));
+  return { url, path };
 }
 
 /** Create an event from a template (clones the blueprint server-side). Returns the new id. */
