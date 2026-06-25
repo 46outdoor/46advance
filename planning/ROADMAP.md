@@ -176,6 +176,11 @@ Basic info production managers collect (initial list — more coming):
 
 ### Schedules
 
+> **Built — Phase 12 (2026-06-24):** structured schedule items (all six sections, specialized
+> per-section fields, optional stage tag) + the **master schedule** (section toggles + per-item
+> overrides), and **auto-push of master-schedule items to the event's Google calendar**. Times
+> Central/UTC-safe. See `archive/feature/PHASE_12_PLAN.md`. Iterative — fields/layout will be refined.
+
 Schedulable items (including transportation) feed a set of schedule sections, aggregated
 into a master schedule.
 
@@ -365,13 +370,16 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   Meet links for advance calls. Meet links are created via Google Calendar events with
   conferencing, so this **builds on the Calendar integration**. Per-user creds (see auth model).
 
-- **Built — execution Phase 11a (2026-06-24):** the decided **"store an existing link"** path —
-  an **Advance Call** on each advance (`advanceCallAt` + `advanceCallLink`, rides the advance
-  write gate) with a Join link and an offline **"Add to calendar" (.ics)** download
-  (`src/lib/calendar/ics.ts`, pure). **11b (per-user Google OAuth + auto-create Meet on an
-  org-owned per-event calendar) is PAUSED on external OAuth-client setup** — see
-  `planning/archive/feature/PHASE_11_PLAN.md` for the setup checklist. **Schedule-item push deferred** (no
-  structured schedule model yet — needs a Schedules phase, §5).
+- **Built — Phases 11 + 12 (2026-06-24):**
+  - **11a** — the **"store an existing link"** path: an **Advance Call** (`advanceCallAt` +
+    `advanceCallLink`) with a Join link and an offline **.ics** download (`src/lib/calendar/ics.ts`).
+  - **11b** — per-user Google OAuth, an **org-owned per-event calendar**, **auto-create a Meet**
+    for advance calls, and **auto-sync Appointment-Schedule bookings** to advances (cron + manual).
+  - **12 (Schedules)** — the structured schedule model + master view, and **schedule items now
+    push to the event calendar** (auto, master-schedule items). So **"schedule items push to
+    calendars" is shipped** (previously deferred).
+  - See `archive/feature/PHASE_11_PLAN.md` + `archive/feature/PHASE_12_PLAN.md`. Only open
+    follow-up: OAuth-app **verification** to remove Google's "unverified app" warning.
 
 - **Slack (explore):** company heavily uses Slack — explore integration (e.g. advance
   updates / notifications to channels, reminders, approvals). Scope TBD. Likely new (not in MPA).

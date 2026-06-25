@@ -18,6 +18,7 @@ for active plans (see [`../README.md`](../README.md)).
 | 9 | [Quotes / Estimates](feature/PHASE_9_PLAN.md) |
 | 10 | [Contacts Manager](feature/PHASE_10_PLAN.md) |
 | 11 | [Google Calendar + Meet](feature/PHASE_11_PLAN.md) |
+| 12 | [Schedules — items + master view + calendar push](feature/PHASE_12_PLAN.md) |
 
 ## reference/ — source material
 - [AUDIO_ADVANCE_REFERENCE.md](reference/AUDIO_ADVANCE_REFERENCE.md) — the audio lead's working advance spec.
