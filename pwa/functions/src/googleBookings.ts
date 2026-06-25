@@ -19,6 +19,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { logger } from 'firebase-functions/v2';
 import { google, type calendar_v3 } from 'googleapis';
 import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
@@ -347,6 +348,7 @@ export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutS
     throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['syncAdvanceCallBookings', uid], 10);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
   const client = await authedClientForUser(db, uid);
   return syncEventBookings(db, client, eventId);

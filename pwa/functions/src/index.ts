@@ -14,6 +14,7 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { renderPacket, type PacketData } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
+import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -68,6 +69,7 @@ export const syncUserClaims = onCall(async (request) => {
   const isOrganizer = existing.organizer === true;
 
   const db = getFirestore();
+  await enforceRateLimit(db, ['syncUserClaims', uid], 60);
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
 
@@ -131,6 +133,7 @@ export const setUserApproved = onCall(async (request) => {
   if (typeof uid !== 'string' || uid.length === 0 || typeof approved !== 'boolean') {
     throw new HttpsError('invalid-argument', 'Expected { uid: string, approved: boolean }.');
   }
+  await enforceRateLimit(getFirestore(), ['setUserApproved', request.auth.uid], 30);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
@@ -157,6 +160,7 @@ export const setUserOrganizer = onCall(async (request) => {
   if (typeof uid !== 'string' || uid.length === 0 || typeof organizer !== 'boolean') {
     throw new HttpsError('invalid-argument', 'Expected { uid: string, organizer: boolean }.');
   }
+  await enforceRateLimit(getFirestore(), ['setUserOrganizer', request.auth.uid], 30);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
@@ -266,6 +270,7 @@ export const createEventFromTemplate = onCall(async (request) => {
   const input = parseNewEventInput(request.data ?? {});
 
   const db = getFirestore();
+  await enforceRateLimit(db, ['createEventFromTemplate', uid], 20);
   const tplSnap = await db.collection('templates').doc(input.templateId).get();
   if (!tplSnap.exists) {
     throw new HttpsError('not-found', 'Template not found.');
@@ -336,6 +341,7 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
   }
 
   const db = getFirestore();
+  await enforceRateLimit(db, ['generatePacket', uid], 10);
   const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
   const ev = eventSnap.data() ?? {};
 
@@ -447,6 +453,7 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
   const { eventId, stageId, advanceId, quoteId } = parseQuotePdfRef(request.data ?? {});
 
   const db = getFirestore();
+  await enforceRateLimit(db, ['generateQuotePdf', uid], 10);
   const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
 
   const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;

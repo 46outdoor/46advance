@@ -17,6 +17,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
+import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 
 /** OAuth2 client type, taken from googleapis' own auth bundle (avoids a duplicate-copy type clash). */
 export type AuthClient = InstanceType<typeof google.auth.OAuth2>;
@@ -156,6 +157,7 @@ export async function ensureEventCalendar(
 export const googleAuthUrl = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const db = getFirestore();
+  await enforceRateLimit(db, ['googleAuthUrl', request.auth.uid], 10);
   const stateRef = db.collection('googleOAuthStates').doc();
   await stateRef.set({ uid: request.auth.uid, createdAt: FieldValue.serverTimestamp() });
 
@@ -197,6 +199,12 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
     return fail('Link expired', 'Please start the connection again from 46 Advance.');
   }
   const uid = stateData.uid;
+
+  try {
+    await enforceRateLimit(db, ['googleAuthCallback', uid], 10);
+  } catch {
+    return fail('Too many attempts', 'Please wait a moment and try connecting again.', 429);
+  }
 
   try {
     const { tokens } = await oauthClient().getToken(code);
@@ -248,6 +256,7 @@ export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (reques
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const uid = request.auth.uid;
   const db = getFirestore();
+  await enforceRateLimit(db, ['googleDisconnect', uid], 10);
 
   const tokenSnap = await db.collection('googleTokens').doc(uid).get();
   const t = tokenSnap.data() as { refreshToken?: string | null; accessToken?: string | null } | undefined;
@@ -278,6 +287,7 @@ export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (req
     throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['createEventCalendar', uid], 20);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   const eventSnap = await db.doc(`events/${eventId}`).get();
@@ -309,6 +319,7 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
     throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, startMillis }.');
   }
   const db = getFirestore();
+  await enforceRateLimit(db, ['createAdvanceCall', uid], 20);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
 
   const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
