@@ -43,7 +43,18 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
           VITE_GOOGLE_PICKER_API_KEY: ${{ secrets.VITE_GOOGLE_PICKER_API_KEY }}
-      - name: Deploy to Firebase Hosting (live)
+      # Firebase's OAuth token endpoint intermittently returns a transient
+      # "Premature close" during service-account auth, failing the deploy even
+      # though the credential is valid (history shows ~1-in-4 runs flaking, with
+      # immediate re-runs succeeding). The action's own retry fires ~1s later —
+      # too fast to clear a multi-minute blip — so we add delayed retries: three
+      # attempts at 0s / +60s / +120s. firebaseToolsVersion is pinned to match the
+      # rules-tests job (firebase-tools@14) so a bad `latest` can't slip in here.
+      # The `with:` block is repeated per attempt because GitHub Actions does not
+      # support YAML anchors. Only the final attempt is allowed to fail the job.
+      - name: Deploy to Firebase Hosting (live) — attempt 1
+        id: deploy1
+        continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -51,5 +62,35 @@ jobs:
           projectId: advancethat
           channelId: live
           entryPoint: pwa
+          firebaseToolsVersion: "14"
+      - name: Back off before retry 1
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 60
+      - name: Deploy to Firebase Hosting (live) — attempt 2
+        id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: advancethat
+          channelId: live
+          entryPoint: pwa
+          firebaseToolsVersion: "14"
+      - name: Back off before retry 2
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 120
+      - name: Deploy to Firebase Hosting (live) — attempt 3 (final)
+        id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: advancethat
+          channelId: live
+          entryPoint: pwa
+          firebaseToolsVersion: "14"
 # TODO(Phase 0/U): set repo secrets VITE_FIREBASE_* + FIREBASE_SERVICE_ACCOUNT before first run.
 # Phase 13: also set VITE_GOOGLE_PICKER_API_KEY (Google Picker API key) so Drive attach works in prod.
