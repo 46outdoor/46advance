@@ -34,13 +34,27 @@ Do not create files that only re-export from another location. These are debt. I
 you find one, update consumers to import from the canonical source and delete the
 wrapper.
 
-## File Size Limits
+## File Size & Complexity Limits
 
 | Scope | Soft Limit | Hard Limit | Action |
 |-------|-----------|------------|--------|
 | Production source | 500 LOC | 1000 LOC | Decompose before merging |
 | Test files | 1000 LOC | 2000 LOC | Split by concern or extract fixtures |
-| Functions > 100 lines | Flag | — | Suggest decomposition |
+| Function length (.ts logic) | 100 lines | 200 lines | Suggest decomposition |
+| Function length (.tsx component) | 100 lines | 350 lines | Extract subcomponents/hooks |
+| Cyclomatic complexity | 20 | 45 | Simplify branching |
+
+**Enforcement split:** the **hard** limits are merge gates — ESLint (`max-lines`,
+`max-lines-per-function`, `complexity` in `eslint.config.js`) fails CI on any
+breach. The **soft** limits stay advisory: the `file-size-monitor` agent flags
+files at 500/750, and the 100-line function flag and complexity-20 target are
+guidance, not gates. LOC counts exclude blank lines and comments (both the rule
+and the agent count the same way).
+
+> The complexity gate is currently set to **45** (a non-breaking ceiling above
+> today's worst function, ~42). Ratchet it down toward **20** as the high-complexity
+> functions (`functions/src/googleBookings.ts`, `functions/src/index.ts`,
+> `ScheduleItemForm.tsx`) are decomposed.
 
 When a file approaches 750 lines, proactively flag it. When it exceeds 1000 lines,
 stop and present a decomposition plan.
