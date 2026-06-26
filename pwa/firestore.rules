@@ -69,6 +69,24 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/events/$(eventId)).data.createdBy;
     }
 
+    // ---- Document shape validators (mirror the client Zod parsers in src/lib/*) ----
+    // `.get(key, default)` keeps these absent-safe: a missing key yields the default
+    // (and fails the check) instead of raising an evaluation error.
+    // NOTE: rules can't iterate arrays/maps, so per-element shape — quote
+    // lineItems[].quantity/unitPrice >= 0 and advance sections.*.status — is NOT
+    // enforced here; the client Zod parsers (and, later, callable schemas) own it.
+    function nonEmptyStr(data, key) {
+      return data.get(key, '') is string && data.get(key, '').size() > 0;
+    }
+    function fieldIn(data, key, allowed) {
+      return data.get(key, '') in allowed;
+    }
+    // True if none of `keys` changed between the stored and incoming doc (immutable /
+    // server-owned fields). Update-only — there is no `resource` on create.
+    function keysUnchanged(keys) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+
     // App-wide department list: any approved user reads; admin manages.
     match /departments/{deptId} {
       allow read: if isActiveUser();
@@ -122,9 +140,14 @@ service cloud.firestore {
       allow read: if isAdmin() || isMember(eventId);
       allow create: if canCreateEvents()
         && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.status in ['draft', 'active', 'archived'];
+        && nonEmptyStr(request.resource.data, 'name')
+        && fieldIn(request.resource.data, 'status', ['draft', 'active', 'archived'])
+        && !('googleCalendarId' in request.resource.data); // server-owned (createEventCalendar)
       allow update: if canEditEvent(eventId)
-        && request.resource.data.createdBy == resource.data.createdBy; // owner immutable
+        && request.resource.data.createdBy == resource.data.createdBy // owner immutable
+        && nonEmptyStr(request.resource.data, 'name')
+        && fieldIn(request.resource.data, 'status', ['draft', 'active', 'archived'])
+        && keysUnchanged(['googleCalendarId']); // server-owned (createEventCalendar)
       allow delete: if isAdmin();
 
       // Membership: admin-managed, OR the event's creator bootstrapping as PM.
@@ -150,13 +173,17 @@ service cloud.firestore {
         // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
         match /advances/{advanceId} {
           // `driveFiles` is server-owned (Phase 13 link/removeDriveFile callables, Admin SDK);
-          // clients may read it but never set or change it.
+          // clients may read it but never set or change it. `googleCalendarEventId` is NOT
+          // locked: attachBooking() (bookings-service) writes it client-side on attach.
           allow read: if isAdmin() || isMember(eventId);
           allow create: if canEditEvent(eventId)
             && request.resource.data.createdBy == request.auth.uid
+            && nonEmptyStr(request.resource.data, 'artistName')
             && !('driveFiles' in request.resource.data);
           allow update: if canEditEvent(eventId)
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['driveFiles']);
+            && request.resource.data.createdBy == resource.data.createdBy // owner immutable
+            && nonEmptyStr(request.resource.data, 'artistName')
+            && keysUnchanged(['driveFiles']);
           allow delete: if canEditEvent(eventId);
 
           // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
@@ -164,8 +191,13 @@ service cloud.firestore {
           match /quotes/{quoteId} {
             allow read: if isAdmin() || isMember(eventId);
             allow create: if canEditEvent(eventId)
-              && request.resource.data.createdBy == request.auth.uid;
-            allow update: if canEditEvent(eventId);
+              && request.resource.data.createdBy == request.auth.uid
+              && nonEmptyStr(request.resource.data, 'title')
+              && fieldIn(request.resource.data, 'status', ['draft', 'sent', 'approved', 'rejected']);
+            allow update: if canEditEvent(eventId)
+              && request.resource.data.createdBy == resource.data.createdBy // owner immutable
+              && nonEmptyStr(request.resource.data, 'title')
+              && fieldIn(request.resource.data, 'status', ['draft', 'sent', 'approved', 'rejected']);
             allow delete: if canEditEvent(eventId);
           }
         }
@@ -190,9 +222,20 @@ service cloud.firestore {
       }
 
       // Schedule items (Phase 12a): member read; PM/admin write (mirrors advances).
+      // `googleCalendarEventId` is server-owned (pushScheduleItem); clients never set it.
       match /scheduleItems/{itemId} {
         allow read: if isAdmin() || isMember(eventId);
-        allow create, update, delete: if canEditEvent(eventId);
+        allow create: if canEditEvent(eventId)
+          && nonEmptyStr(request.resource.data, 'title')
+          && fieldIn(request.resource.data, 'section', ['production', 'show', 'travel', 'transportation', 'labor', 'custom'])
+          && request.resource.data.get('includeInMaster', false) is bool
+          && !('googleCalendarEventId' in request.resource.data);
+        allow update: if canEditEvent(eventId)
+          && nonEmptyStr(request.resource.data, 'title')
+          && fieldIn(request.resource.data, 'section', ['production', 'show', 'travel', 'transportation', 'labor', 'custom'])
+          && request.resource.data.get('includeInMaster', false) is bool
+          && keysUnchanged(['googleCalendarEventId']);
+        allow delete: if canEditEvent(eventId);
       }
 
       // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
