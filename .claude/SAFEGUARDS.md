@@ -22,7 +22,7 @@ deploys are managed externally by the user only. Additional enforcement hooks
 | `require-plan-approval.sh` | `pwa/.claude/hooks/` | **Active** | nothing (PostToolUse on ExitPlanMode) |
 | `guard-autofix-dirty-tree.sh` | `pwa/.claude/hooks/` | **Active** (no-op until git + src exist) | a git repo |
 | `enforce-cli-wrappers.sh` | `pwa/.claude/hooks/` | **Active** (Phase 0) | `pwa/scripts/cli/firebase-safe.sh` + `gcloud-safe.sh` (now present) |
-| `pre-functions-deploy-secrets-check.sh` | `pwa/.claude/hooks/` | **Active** (Phase 0) | `pwa/scripts/cli/verify-secrets-health.sh` (now present) |
+| `pre-functions-deploy-secrets-check.sh` | `pwa/.claude/hooks/` | **Active** | `pwa/scripts/cli/verify-secrets-health.sh` (real check: required-secret existence + ENABLED latest version + destroyed-pin scan; also wired as the functions predeploy in `firebase.json`) |
 
 **Activated in Phase 0.** `pwa/scripts/cli/` (`firebase-safe.sh`, `gcloud-safe.sh`,
 `verify-secrets-health.sh`) now exist, so both hooks are wired in
