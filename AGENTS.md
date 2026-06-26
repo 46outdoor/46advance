@@ -68,6 +68,7 @@ App-specific docs live under each app's directory.
 The chosen stack reuses Firebase. The project is provisioned:
 
 - **Project**: `advancethat` (display name "46 Advance", project number 518865772715; owned by the `jared@yourstagemanager.com` Google account)
+- **App admin**: the global `admin` claim is granted to emails in the `ADMIN_EMAILS` env var (comma-separated; parsed by `functions/src/lib/auth/adminAllowlist.ts`), default `jared@46entertainment.com`. This is the *application* admin identity — distinct from the GCP project-owner Google account above. Set `ADMIN_EMAILS` in `functions/.env.<project>` (uncommitted) to rotate without a code change.
 - **Region**: `us-central1` (default; change if planning decides otherwise)
 - **Services**: Auth, Firestore (with offline persistence), Functions, Storage
 - **Emulators**: started from `pwa/` via `npm run dev:emulator` (Auth 9099, Firestore 8080) or `npm run emulators` (full suite + Functions 5001, Storage 9199, Hosting 5000)

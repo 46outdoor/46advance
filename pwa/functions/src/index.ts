@@ -15,6 +15,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { renderPacket, type PacketData } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -47,8 +48,12 @@ const fmtRange = (a: unknown, b: unknown): string | null => {
   return x ?? y ?? null;
 };
 
-/** Emails granted the global admin role (allowlist). */
-const ADMIN_EMAILS = ['jared@46entertainment.com'].map((email) => email.toLowerCase());
+/**
+ * Emails granted the global admin role. Sourced from the `ADMIN_EMAILS` env var
+ * (comma-separated) so the owner can be rotated without a code change; defaults to
+ * the app-admin identity. Distinct from the GCP project owner (see AGENTS.md).
+ */
+const ADMIN_EMAILS = parseAdminEmails(process.env.ADMIN_EMAILS);
 
 /**
  * Called by the client after sign-in. Upserts the caller's `users/{uid}` profile,
@@ -62,7 +67,7 @@ export const syncUserClaims = onCall(async (request) => {
   }
   const { uid, token } = request.auth;
   const email = token.email ?? null;
-  const isAdmin = email !== null && ADMIN_EMAILS.includes(email.toLowerCase());
+  const isAdmin = isAdminEmail(email, ADMIN_EMAILS);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};

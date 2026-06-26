@@ -134,6 +134,7 @@ jobs:
           cache-dependency-path: pwa/functions/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test
       - run: npm run build
 
   # Required status check for branch protection on `main`. Always runs so the
