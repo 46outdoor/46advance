@@ -460,6 +460,106 @@ describe('firestore.rules — quotes (under an advance)', () => {
   });
 });
 
+describe('firestore.rules — document shape validation', () => {
+  const advPath = 'events/event-a/stages/stg-a/advances/adv-1';
+  const quotePath = (q: string) => `${advPath}/quotes/${q}`;
+  const schedPath = 'events/event-a/scheduleItems/sch-1';
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), quotePath('q-shape')), { title: 'Seed', status: 'sent', createdBy: PM });
+    });
+  });
+
+  // events
+  it('rejects an invalid event status on update; allows a valid one', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a'), { status: 'live' }));
+    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a'), { status: 'archived' }));
+  });
+
+  it('blocks client writes to the server-owned googleCalendarId (create + update)', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a'), { googleCalendarId: 'cal-x' }));
+    await assertFails(
+      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-cal'), {
+        name: 'X',
+        status: 'draft',
+        createdBy: ORGANIZER.uid,
+        googleCalendarId: 'cal-x',
+      }),
+    );
+  });
+
+  // advances
+  it('rejects an advance with a blank or missing artistName', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-blank'), { artistName: '', createdBy: PM, sections: {} }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-noname'), { createdBy: PM, sections: {} }),
+    );
+  });
+
+  it('keeps advance.createdBy immutable', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), advPath), { createdBy: 'someone-else' }));
+  });
+
+  it('still allows attachBooking-style writes (call fields, NOT driveFiles)', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), advPath), {
+        advanceCallAt: null,
+        advanceCallLink: 'https://meet.google.com/abc',
+        googleCalendarEventId: 'cal-evt-9',
+      }),
+    );
+  });
+
+  // quotes
+  it('rejects an arbitrary quote status (create + update) and a blank title', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), quotePath('q-bad')), { title: 'X', status: 'pending', createdBy: PM }));
+    await assertFails(updateDoc(doc(dbFor(PM), quotePath('q-shape')), { status: 'pending' }));
+    await assertFails(setDoc(doc(dbFor(PM), quotePath('q-blank')), { title: '', status: 'draft', createdBy: PM }));
+  });
+
+  it('keeps quote.createdBy immutable', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), quotePath('q-shape')), { createdBy: 'someone-else' }));
+  });
+
+  // schedule items
+  it('rejects an invalid schedule-item section (create + update)', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { section: 'bogus' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-bad'), { section: 'bogus', title: 'X', createdBy: PM }),
+    );
+  });
+
+  it('rejects a non-boolean includeInMaster', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { includeInMaster: 'yes' }));
+  });
+
+  it('blocks client writes to the server-owned googleCalendarEventId on schedule items', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { googleCalendarEventId: 'cal-evt-x' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-cal'), {
+        section: 'production',
+        title: 'X',
+        createdBy: PM,
+        googleCalendarEventId: 'cal-evt-x',
+      }),
+    );
+  });
+
+  it('allows a valid schedule-item create', async () => {
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-ok'), {
+        section: 'show',
+        title: 'Headliner',
+        createdBy: PM,
+        includeInMaster: true,
+      }),
+    );
+  });
+});
+
 describe('firestore.rules — stages', () => {
   it('any member can read a stage; outsiders cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a')));
