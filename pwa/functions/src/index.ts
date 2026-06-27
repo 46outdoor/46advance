@@ -10,7 +10,7 @@ import {
   type DocumentReference,
 } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { setGlobalOptions } from 'firebase-functions/v2';
+import { setGlobalOptions, logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { renderPacket, type PacketData } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
@@ -469,6 +469,19 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
 
   const buffer = await renderQuote(data);
   const path = `events/${eventId}/quotes/${quoteId}/quote-${Date.now()}.pdf`;
-  await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
-  return { path };
+  const file = getStorage().bucket(STORAGE_BUCKET).file(path);
+  await file.save(buffer, { contentType: 'application/pdf' });
+
+  // Quotes are shared with the artist (a non-member), so return a signed, expiring
+  // URL (7 days — the v4 maximum). Requires the runtime service account to hold
+  // roles/iam.serviceAccountTokenCreator on itself to sign; if that grant isn't in
+  // place yet, fall back to a member-gated download (the client resolves it).
+  try {
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const [url] = await file.getSignedUrl({ version: 'v4', action: 'read', expires: expiresAt });
+    return { path, url, expiresAt };
+  } catch (err) {
+    logger.warn('generateQuotePdf: signed-URL generation failed; using member-gated fallback', { err });
+    return { path };
+  }
 });

@@ -289,11 +289,12 @@ the app needs **editable templates for creating new events**:
 - **Built — execution Phase 7:** server-side **`generatePacket(eventId)`** Cloud Function
   (@react-pdf/renderer) assembles the event production record + per-stage house packages +
   artist advances into a branded **cover + white title-block content** PDF, uploaded to
-  `events/{id}/packets/**`. Renderer reused by §9 quotes (`generateQuotePdf`). **Two gaps vs the
-  locked spec:** (1) **per-department / per-stage variants not built** — the function takes
-  `eventId` only; (2) the **"signed, expiring link" was not implemented** — the client resolves a
-  **permanent, member-gated Firebase `getDownloadURL`** (access controlled by `storage.rules`, not
-  by link expiry). See [`archive/feature/PHASE_7_PLAN.md`](archive/feature/PHASE_7_PLAN.md).
+  `events/{id}/packets/**`. Renderer reused by §9 quotes (`generateQuotePdf`). **Link model
+  (resolved):** **quotes** return a **signed, expiring (7-day v4) URL** for sharing with the
+  artist (member-gated `getDownloadURL` fallback if the signing IAM isn't granted); **packets**
+  intentionally use a **member-gated Firebase `getDownloadURL`** (internal — access controlled by
+  `storage.rules`). **Remaining gap:** per-department / per-stage packet variants not built — the
+  function takes `eventId` only. See [`archive/feature/PHASE_7_PLAN.md`](archive/feature/PHASE_7_PLAN.md).
 
 > Adapt from MPA. The report/PDF code isn't a top-level `features/` module name — locate
 > it in the MPA codebase during the import/adapt step (likely within the advance/report
@@ -483,7 +484,7 @@ web redirect flow.
 - **Advance section status (drives the tracker):** hybrid, color-coded per section — **Not started (neutral)** → **In progress** (auto, once data is entered) → **Complete** (explicit **Finalize/lock** button per section). The tracker is a read-only roll-up colored by these statuses.
 - **Advance calls:** **both** — create a Calendar event + Meet link from the app, *or* store an existing link.
 - **Quote approval:** **in-app approve/reject with status + audit trail** (signed PDF uploaded for record).
-- **Hosted links:** **signed, expiring (revocable) links** for hosted files/PDFs.
+- **Hosted links:** **quote PDFs** use **signed, expiring (7-day) links** (shared with artists); **event packets** use **member-gated download links** (internal).
 
 **Q&A round 4 — 2026-06-21:**
 
@@ -540,6 +541,6 @@ web redirect flow.
 - Artist portal: what "preliminary information" fields? One link per event or per artist?
   Link expiry/revocation, upload validation/limits, and where hosted files live (Storage + rules)?
   Does inbound portal data flow into the advance and feed the tracker?
-- Hosted PDFs: regenerate-on-demand vs. store a fixed snapshot version? (Access = signed expiring links, decided.)
+- Hosted PDFs: regenerate-on-demand vs. store a fixed snapshot version? (Access decided: quotes = signed expiring links; packets = member-gated.)
 - Contacts: which fields (name, role, phone, email, company)? Link a contact to a user account?
   Global directory vs. per-event entries? Which roles are selectable per event for tech reference?
