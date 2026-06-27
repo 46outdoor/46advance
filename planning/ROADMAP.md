@@ -91,6 +91,12 @@ questions.
 
 - **Primary:** email / password.
 - **Secondary (optional):** Google, Apple.
+- **Password reset:** a forgot-password screen (`/forgot-password`) sends the Firebase reset email.
+
+**Account approval (decided + built):** new accounts start **pending** — they authenticate but are
+blocked from all app data by the UI `AuthGate` **and** by `firestore.rules` / `storage.rules` (the
+`approved` custom claim) until an **admin approves** them (`setUserApproved`). Admins are
+auto-approved; the claim is set by `syncUserClaims` (default pending).
 
 **Mobile:** same set — email/password, Google via native sign-in, Apple sign-in (native); see `mobile/AGENTS.md` auth patterns.
 
@@ -106,18 +112,23 @@ Initial roles (extensible — more may be added later):
 | ---- | --------------- |
 | **admin** | Top-level; likely a single person. Sets per-event assignments (who gets which role on which event). |
 | **production manager** | Full read/write on events they're assigned to (assignment set by admin). |
-| **department lead** | Limited write access — specific scopes **TBD (later)**. |
+| **department lead** | Read + **flag/comment** on assigned events; cannot finalize/unlock sections or edit content (decided — mirrors the `canFlagEvent` gate). |
 | **tech** | Read-only access to advance information. |
 
 - **Departments (decided):** a configurable, admin-managed list (app-wide), used by department-lead roles, schedules, and packets.
 - **Default role/permission template (decided):** creating an event auto-populates a default
   user+role list from the selected named template (§6); manual additions/changes are always
   available on top of the defaults.
+- **Admin identity (decided + built):** the global `admin` claim is granted to emails in the
+  `ADMIN_EMAILS` env var (default `jared@46entertainment.com`) — the *application* admin, distinct
+  from the GCP project-owner Google account (`jared@yourstagemanager.com`, §2). Parsed by
+  `functions/src/lib/auth/adminAllowlist.ts`.
 
 > **Built — execution Phase 1:** per-event RBAC via Firebase custom claims — admin / production
 > manager / department lead / tech granted **per advance/event**, with the effective role
 > resolved per (user, event) and enforced in `firestore.rules` + rules tests; admin-managed
-> departments config. Model in `src/lib/rbac/`. (Department-lead write scopes still open — §15.)
+> departments config (full CRUD incl. **rename**). Model in `src/lib/rbac/`. (Department-lead
+> scope resolved: read + flag — see the role table above.)
 
 **Mobile:** enforce the *same* per-event roles via shared Firebase custom claims + callable contracts; the mobile app is primarily a consumer of these checks.
 
@@ -223,7 +234,7 @@ Each advance section carries a status that drives the §8 tracker:
 - **Not started (neutral/grey)** — no data entered.
 - **In progress (amber)** — set automatically once data is entered in the section.
 - **Complete (green)** — set by an explicit **Finalize** button per section, which **locks** that
-  portion of the advance (editing after lock requires unlocking — who can unlock is TBD).
+  portion of the advance (editing after lock requires unlocking; **unlock = PM + admin**, same scope as edit — decided).
 
 (Red is reserved for brand/primary, not status — see UI § Design language.)
 
@@ -260,8 +271,8 @@ the app needs **editable templates for creating new events**:
 - **Multiple named templates** (decided) for the few event variants.
 
 > **Built — execution Phase 6:** named templates that **seed content + the default user/role
-> list** on create-from-template, plus a template editor (admin/PM); edits apply to **new**
-> events (effect on existing still TBD). Model in `src/lib/templates/`. See
+> list** on create-from-template, plus a template editor (admin/PM; stages reorderable via
+> up/down controls); edits apply to **new** events (effect on existing still TBD). Model in `src/lib/templates/`. See
 > [`archive/feature/PHASE_6_PLAN.md`](archive/feature/PHASE_6_PLAN.md).
 
 > Related to but distinct from the RBAC **default role/permission template** in §4.
@@ -428,7 +439,7 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   Drive files to advances**, **store generated packets in Drive**, **source template content
   from Drive**. (Sheets/Docs export not targeted.)
 - **Built — Phase 13 (2026-06-25):** **13a** attach/link Drive files to advances (Google Picker +
-  least-privilege `drive.file`; server-validated, server-owned `driveFiles`) and **13b** save
+  least-privilege `drive.file`; server-validated, server-owned `driveFiles` **subcollection**) and **13b** save
   generated packets to Drive. **13c deferred indefinitely** — reframed to *template Drive links*:
   a template holds explicit Drive links that **carry over on create-from-template**, with **no**
   proactive attachment discovery / Docs-Sheets parsing. See `archive/feature/PHASE_13_PLAN.md`.
@@ -513,6 +524,21 @@ web redirect flow.
 - **What an advance contains (multi-day festival):** sections × per-department fields with
   status/finalize (Phases 2–4); field additions remain iterative.
 
+**Q&A round 7 — resolved/shipped by implementation (2026-06-27):**
+
+- **Account approval gate (§3):** new accounts start **pending**; blocked by the UI + Firestore/Storage
+  rules until an **admin approves** (`setUserApproved`). Admins auto-approved.
+- **Unlock scope (§5):** a finalized section is unlocked by **PM + admin** (same scope as edit).
+- **Department-lead write scope (§4):** **read + flag** only — no finalize/unlock/edit.
+- **Admin identity (§4):** the app admin is the `ADMIN_EMAILS` env allowlist (default
+  `jared@46entertainment.com`), distinct from the GCP project owner.
+- **UX polish:** events-list **text search** (name/venue), department **rename**, template **stage
+  reorder**, and a **password-reset** screen.
+- **Foundation remediation (complete + archived):** the P0–P2 guardrail/architecture review shipped —
+  approved-access rules, shared callable contracts, secret-health gate, file-array → **subcollections**
+  (`driveFiles` + production `attachments`), coverage gates, Sentry, rate limiting, route lazy-loading.
+  See [`archive/fix/FOUNDATION_REVIEW_REMEDIATION.md`](archive/fix/FOUNDATION_REVIEW_REMEDIATION.md).
+
 ## 15. Open questions (parked)
 
 **From the audio advance reference (2026-06-23):**
@@ -520,7 +546,7 @@ web redirect flow.
 - (Advance-content breadth, stage-as-first-class, and additions/concerns/pending are **resolved**
   — see Decisions § Q&A round 6. Granular per-section field inclusion confirmed during Phase 4.)
 
-- Department lead: which specific write scopes?
+- Department lead: which specific write scopes? **Resolved** — read + flag only (see §4 + Decisions round 7).
 - What does an "advance" contain for a multi-day festival (sections/fields)? **Resolved** —
   built in §5 (configurable per-department sections, Phases 2–4; see Decisions § Q&A round 6).
 - Calendar: which dates/events flow to app-specific calendars; one calendar per
