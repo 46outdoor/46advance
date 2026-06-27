@@ -16,10 +16,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-46advance \"vitest run --config vitest.rules.config.ts\"",
+    "test:rules": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:exec --only firestore,storage \"vitest run --config vitest.rules.config.ts\"",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
-    "dev:emulator": "firebase emulators:start --only auth,firestore --project advancethat",
-    "emulators": "firebase emulators:start --project advancethat"
+    "dev:emulator": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start --only auth,firestore",
+    "emulators": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
