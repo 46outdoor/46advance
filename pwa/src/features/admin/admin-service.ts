@@ -6,6 +6,12 @@
 import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
+import type {
+  SetUserApprovedInput,
+  SetUserApprovedOutput,
+  SetUserOrganizerInput,
+  SetUserOrganizerOutput,
+} from '@contracts/callables/auth';
 import {
   eventRoleSchema,
   parseEventMember,
@@ -54,27 +60,15 @@ export async function removeEventMember(eventId: string, uid: string): Promise<v
 }
 
 /** Admin-only: grant/revoke a user's global `organizer` capability (event creation). */
-export async function setUserOrganizer(
-  uid: string,
-  organizer: boolean,
-): Promise<{ uid: string; organizer: boolean }> {
-  const callable = httpsCallable<
-    { uid: string; organizer: boolean },
-    { uid: string; organizer: boolean }
-  >(functions, 'setUserOrganizer');
+export async function setUserOrganizer(uid: string, organizer: boolean): Promise<SetUserOrganizerOutput> {
+  const callable = httpsCallable<SetUserOrganizerInput, SetUserOrganizerOutput>(functions, 'setUserOrganizer');
   const result = await callable({ uid, organizer });
   return result.data;
 }
 
 /** Admin-only: approve/revoke a user's access to the app. */
-export async function setUserApproved(
-  uid: string,
-  approved: boolean,
-): Promise<{ uid: string; approved: boolean }> {
-  const callable = httpsCallable<{ uid: string; approved: boolean }, { uid: string; approved: boolean }>(
-    functions,
-    'setUserApproved',
-  );
+export async function setUserApproved(uid: string, approved: boolean): Promise<SetUserApprovedOutput> {
+  const callable = httpsCallable<SetUserApprovedInput, SetUserApprovedOutput>(functions, 'setUserApproved');
   const result = await callable({ uid, approved });
   return result.data;
 }

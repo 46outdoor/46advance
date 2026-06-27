@@ -205,7 +205,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Config: security      | `src/config/security.ts`                                 |
 | Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
 | Test mocks: domain    | `src/testing/mockFactories.ts`                           |
-| Shared callable schemas | `contracts/schemas/callables/` (consumed by mobile too) |
+| Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |

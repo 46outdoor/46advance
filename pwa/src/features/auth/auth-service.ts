@@ -8,6 +8,7 @@ import {
 import type { User, UserCredential } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from '@/services/firebase';
+import type { SyncUserClaimsOutput } from '@contracts/callables/auth';
 
 export type { User };
 
@@ -33,11 +34,8 @@ export function sendPasswordReset(email: string): Promise<void> {
 }
 
 /** Upsert the caller's profile + resolve global claims (admin allowlist, organizer). Call after sign-in. */
-export async function syncUserClaims(): Promise<{ isAdmin: boolean; isOrganizer: boolean; approved: boolean }> {
-  const callable = httpsCallable<unknown, { isAdmin: boolean; isOrganizer: boolean; approved: boolean }>(
-    functions,
-    'syncUserClaims',
-  );
+export async function syncUserClaims(): Promise<SyncUserClaimsOutput> {
+  const callable = httpsCallable<unknown, SyncUserClaimsOutput>(functions, 'syncUserClaims');
   const result = await callable();
   return result.data;
 }
