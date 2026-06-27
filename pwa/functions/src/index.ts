@@ -16,6 +16,10 @@ import { renderPacket, type PacketData } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
+import { parseCallableData } from './lib/parseCallable.js';
+import { setUserApprovedInputSchema, setUserOrganizerInputSchema } from './contracts/callables/auth.js';
+import { createEventFromTemplateInputSchema } from './contracts/callables/events.js';
+import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -133,11 +137,7 @@ export const setUserApproved = onCall(async (request) => {
   if (request.auth.token.admin !== true) {
     throw new HttpsError('permission-denied', 'Admin only.');
   }
-  const uid = request.data?.uid;
-  const approved = request.data?.approved;
-  if (typeof uid !== 'string' || uid.length === 0 || typeof approved !== 'boolean') {
-    throw new HttpsError('invalid-argument', 'Expected { uid: string, approved: boolean }.');
-  }
+  const { uid, approved } = parseCallableData(setUserApprovedInputSchema, request.data);
   await enforceRateLimit(getFirestore(), ['setUserApproved', request.auth.uid], 30);
 
   const adminAuth = getAuth();
@@ -160,11 +160,7 @@ export const setUserOrganizer = onCall(async (request) => {
   if (request.auth.token.admin !== true) {
     throw new HttpsError('permission-denied', 'Admin only.');
   }
-  const uid = request.data?.uid;
-  const organizer = request.data?.organizer;
-  if (typeof uid !== 'string' || uid.length === 0 || typeof organizer !== 'boolean') {
-    throw new HttpsError('invalid-argument', 'Expected { uid: string, organizer: boolean }.');
-  }
+  const { uid, organizer } = parseCallableData(setUserOrganizerInputSchema, request.data);
   await enforceRateLimit(getFirestore(), ['setUserOrganizer', request.auth.uid], 30);
 
   const adminAuth = getAuth();
@@ -193,18 +189,14 @@ interface NewEventInput {
 }
 
 /** Parse + validate the createEventFromTemplate payload. Throws on invalid input. */
-function parseNewEventInput(data: DocumentData): NewEventInput {
-  const templateId = data.templateId;
-  const name = typeof data.name === 'string' ? data.name.trim() : '';
-  if (typeof templateId !== 'string' || templateId.length === 0 || name.length === 0) {
-    throw new HttpsError('invalid-argument', 'Expected { templateId: string, name: string }.');
-  }
+function parseNewEventInput(data: unknown): NewEventInput {
+  const input = parseCallableData(createEventFromTemplateInputSchema, data);
   return {
-    templateId,
-    name,
-    startDate: toTimestamp(data.startDate),
-    endDate: toTimestamp(data.endDate),
-    venue: trimmedOrNull(data.venue),
+    templateId: input.templateId,
+    name: input.name, // schema trims + requires non-empty
+    startDate: toTimestamp(input.startDate),
+    endDate: toTimestamp(input.endDate),
+    venue: trimmedOrNull(input.venue),
   };
 }
 
@@ -340,10 +332,7 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
     throw new HttpsError('unauthenticated', 'Sign in required.');
   }
   const { uid, token } = request.auth;
-  const eventId = request.data?.eventId;
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
-  }
+  const { eventId } = parseCallableData(generatePacketInputSchema, request.data);
 
   const db = getFirestore();
   await enforceRateLimit(db, ['generatePacket', uid], 10);
@@ -413,21 +402,8 @@ interface QuotePdfRef {
 }
 
 /** Validate the generateQuotePdf payload. Throws on any missing/blank id. */
-function parseQuotePdfRef(data: DocumentData): QuotePdfRef {
-  const { eventId, stageId, advanceId, quoteId } = data;
-  if (
-    typeof eventId !== 'string' ||
-    typeof stageId !== 'string' ||
-    typeof advanceId !== 'string' ||
-    typeof quoteId !== 'string' ||
-    !eventId ||
-    !stageId ||
-    !advanceId ||
-    !quoteId
-  ) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, quoteId }.');
-  }
-  return { eventId, stageId, advanceId, quoteId };
+function parseQuotePdfRef(data: unknown): QuotePdfRef {
+  return parseCallableData(generateQuotePdfInputSchema, data);
 }
 
 /** Normalize a quote's line items into priced rows for the PDF. */

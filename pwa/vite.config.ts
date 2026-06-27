@@ -27,7 +27,12 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Shared callable contracts (Zod schemas) — single source of truth consumed
+      // by the client (types) and the Functions handlers (runtime .parse).
+      '@contracts': fileURLToPath(new URL('./functions/src/contracts', import.meta.url)),
+    },
   },
   server: { port: 4646, strictPort: true },
   test: {

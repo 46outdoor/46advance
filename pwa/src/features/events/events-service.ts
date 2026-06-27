@@ -21,6 +21,11 @@ import { db, functions, storage } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
 import type { Viewer } from '@/lib/rbac/permissions';
+import type {
+  CreateEventFromTemplateInput,
+  CreateEventFromTemplateOutput,
+} from '@contracts/callables/events';
+import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pdf';
 
 /**
  * Create an event, then add the creator as its production-manager.
@@ -104,7 +109,7 @@ export interface GeneratedPacket {
  * a member-gated download URL alongside it.
  */
 export async function generatePacket(eventId: string): Promise<GeneratedPacket> {
-  const callable = httpsCallable<{ eventId: string }, { path: string }>(functions, 'generatePacket');
+  const callable = httpsCallable<GeneratePacketInput, PdfPathOutput>(functions, 'generatePacket');
   const { path } = (await callable({ eventId })).data;
   const url = await getDownloadURL(ref(storage, path));
   return { url, path };
@@ -112,10 +117,10 @@ export async function generatePacket(eventId: string): Promise<GeneratedPacket> 
 
 /** Create an event from a template (clones the blueprint server-side). Returns the new id. */
 export async function createEventFromTemplate(templateId: string, input: EventInput): Promise<string> {
-  const callable = httpsCallable<
-    { templateId: string; name: string; startDate: number | null; endDate: number | null; venue: string | null },
-    { eventId: string }
-  >(functions, 'createEventFromTemplate');
+  const callable = httpsCallable<CreateEventFromTemplateInput, CreateEventFromTemplateOutput>(
+    functions,
+    'createEventFromTemplate',
+  );
   const result = await callable({
     templateId,
     name: input.name,

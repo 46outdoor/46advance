@@ -17,6 +17,7 @@ import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
 import { parseQuote, isDecisionStatus, type Quote, type QuoteInput, type QuoteStatus } from '@/lib/quotes/quote';
 import { deleteFile, uploadFile } from '@/lib/storage/uploads';
+import type { GenerateQuotePdfInput, PdfPathOutput } from '@contracts/callables/pdf';
 
 function quotesCol(eventId: string, stageId: string, advanceId: string) {
   return collection(db, 'events', eventId, 'stages', stageId, 'advances', advanceId, 'quotes');
@@ -157,10 +158,7 @@ export async function generateQuotePdf(
   advanceId: string,
   quoteId: string,
 ): Promise<string> {
-  const callable = httpsCallable<
-    { eventId: string; stageId: string; advanceId: string; quoteId: string },
-    { path: string }
-  >(functions, 'generateQuotePdf');
+  const callable = httpsCallable<GenerateQuotePdfInput, PdfPathOutput>(functions, 'generateQuotePdf');
   const result = await callable({ eventId, stageId, advanceId, quoteId });
   return getDownloadURL(ref(storage, result.data.path));
 }
