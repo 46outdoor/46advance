@@ -9,6 +9,7 @@ import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listTemplates } from '@/lib/templates/templates-service';
 import { createEvent, createEventFromTemplate, listEvents } from './events-service';
+import { filterEvents } from './filter-events';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 
@@ -20,6 +21,7 @@ export function EventsListScreen() {
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | EventStatus>('all');
+  const [search, setSearch] = useState('');
   const [templateId, setTemplateId] = useState('');
 
   const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
@@ -47,9 +49,8 @@ export function EventsListScreen() {
 
   if (!viewer) return null;
 
-  const events = (eventsQuery.data ?? []).filter(
-    (e) => statusFilter === 'all' || e.status === statusFilter,
-  );
+  const events = filterEvents(eventsQuery.data ?? [], statusFilter, search);
+  const isFiltering = statusFilter !== 'all' || search.trim() !== '';
 
   return (
     <section className="space-y-6">
@@ -101,28 +102,40 @@ export function EventsListScreen() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-ink-muted">Filter:</span>
-        {(['all', ...EVENT_STATUSES] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`rounded px-2 py-0.5 capitalize transition-colors ${
-              statusFilter === s ? 'bg-brand text-brand-fg' : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="block w-full sm:w-72">
+          <span className="sr-only">Search events</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or venue…"
+            className="min-h-[44px] w-full rounded border border-line px-3 py-2 outline-none focus:border-brand"
+          />
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-ink-muted">Filter:</span>
+          {(['all', ...EVENT_STATUSES] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={`rounded px-2 py-0.5 capitalize transition-colors ${
+                statusFilter === s ? 'bg-brand text-brand-fg' : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {eventsQuery.isLoading && <p className="text-sm text-ink-muted">Loading events…</p>}
       {eventsQuery.isError && <p className="text-sm text-accent">Failed to load events.</p>}
       {eventsQuery.data &&
         events.length === 0 &&
-        (statusFilter !== 'all' ? (
-          <p className="text-sm text-ink-muted">No events with status “{statusFilter}”.</p>
+        (isFiltering ? (
+          <p className="text-sm text-ink-muted">No events match your search or filter.</p>
         ) : canCreateEvents(viewer) ? (
           <p className="text-sm text-ink-muted">No events yet. Use “New event” to create one.</p>
         ) : (
