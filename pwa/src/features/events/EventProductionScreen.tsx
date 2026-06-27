@@ -8,7 +8,9 @@ import { EVENT_PRODUCTION_FIELDS, type SectionContent } from '@/lib/advances/fie
 import type { ProductionAttachment, ProductionContact, ProductionLink } from '@/lib/production/production';
 import {
   addEventProductionAttachment,
+  eventAttachmentsKey,
   getEventProduction,
+  listEventProductionAttachments,
   removeEventProductionAttachment,
   setEventProductionContacts,
   setEventProductionInfo,
@@ -41,6 +43,14 @@ export function EventProductionScreen() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['production', eventId] });
 
+  const attachmentsQuery = useQuery({
+    queryKey: eventAttachmentsKey(eventId!),
+    queryFn: () => listEventProductionAttachments(eventId!),
+    enabled: !!eventId,
+  });
+  const invalidateAttachments = () =>
+    queryClient.invalidateQueries({ queryKey: eventAttachmentsKey(eventId!) });
+
   const saveInfo = useMutation({
     mutationFn: (info: SectionContent) => setEventProductionInfo(eventId!, info),
     onSuccess: invalidate,
@@ -58,12 +68,12 @@ export function EventProductionScreen() {
   });
   const uploadAttachment = useMutation({
     mutationFn: (file: File) => addEventProductionAttachment(eventId!, file, user!.uid),
-    onSuccess: invalidate,
+    onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to upload attachment', err),
   });
   const removeAttachment = useMutation({
     mutationFn: (a: ProductionAttachment) => removeEventProductionAttachment(eventId!, a),
-    onSuccess: invalidate,
+    onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
@@ -122,7 +132,7 @@ export function EventProductionScreen() {
           <div className="space-y-3 border-t border-line pt-5">
             <h2 className="font-display text-xl font-bold text-brand">Attachments (plots / CAD / maps)</h2>
             <AttachmentsEditor
-              attachments={production.attachments}
+              attachments={attachmentsQuery.data ?? []}
               readOnly={!canEdit}
               uploading={uploadAttachment.isPending}
               onUpload={(f) => uploadAttachment.mutate(f)}

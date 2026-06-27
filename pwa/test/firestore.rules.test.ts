@@ -605,6 +605,37 @@ describe('firestore.rules — production records', () => {
   });
 });
 
+describe('firestore.rules — production attachments subcollection', () => {
+  const evAtt = (a: string) => `events/event-a/production/record/attachments/${a}`;
+  const stAtt = (a: string) => `events/event-a/stages/stg-a/production/record/attachments/${a}`;
+  const file = { name: 'plot.pdf', path: 'events/event-a/production/event/plot.pdf', url: 'https://x', uploadedBy: PM };
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), evAtt('a1')), file);
+      await setDoc(doc(ctx.firestore(), stAtt('a1')), file);
+    });
+  });
+
+  it('event-level: members read, PM/admin write, tech cannot write, outsider cannot read', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), evAtt('a1'))));
+    await assertSucceeds(setDoc(doc(dbFor(PM), evAtt('a2')), file));
+    await assertFails(setDoc(doc(dbFor(TECH), evAtt('a3')), file));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), evAtt('a1'))));
+  });
+
+  it('stage-level: members read, PM/admin write, dept-lead cannot write', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(LEAD), stAtt('a1'))));
+    await assertSucceeds(setDoc(doc(dbFor(PM), stAtt('a2')), file));
+    await assertFails(setDoc(doc(dbFor(LEAD), stAtt('a3')), file));
+  });
+
+  it('PM can delete an attachment; tech cannot', async () => {
+    await assertFails(deleteDoc(doc(dbFor(TECH), evAtt('a1'))));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), evAtt('a1'))));
+  });
+});
+
 describe('firestore.rules — global contacts directory', () => {
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {

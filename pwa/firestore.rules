@@ -211,6 +211,12 @@ service cloud.firestore {
         match /production/{recordId} {
           allow read: if isAdmin() || isMember(eventId);
           allow write: if canEditEvent(eventId);
+
+          // Attachments (stage plots / CAD / maps) — one doc per file; member read, PM/admin write.
+          match /attachments/{attachId} {
+            allow read: if isAdmin() || isMember(eventId);
+            allow write: if canEditEvent(eventId);
+          }
         }
       }
 
@@ -218,6 +224,12 @@ service cloud.firestore {
       match /production/{recordId} {
         allow read: if isAdmin() || isMember(eventId);
         allow write: if canEditEvent(eventId);
+
+        // Attachments (plots / CAD / maps) — one doc per file; member read, PM/admin write.
+        match /attachments/{attachId} {
+          allow read: if isAdmin() || isMember(eventId);
+          allow write: if canEditEvent(eventId);
+        }
       }
 
       // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin write.
