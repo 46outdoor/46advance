@@ -1,0 +1,40 @@
+name: Dependency Audit
+
+# Scheduled, NON-blocking security audit. It is intentionally separate from PR CI
+# (ci.yml) so unavoidable transitive advisories in the Google/Firebase dependency
+# chain never gate a pull request. It runs on a weekly schedule and can be kicked
+# off manually. Accepted transitive advisories are tracked, with review dates, in
+# pwa/functions/SECURITY_EXCEPTIONS.md.
+on:
+  schedule:
+    # Mondays at 08:00 UTC.
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            pwa/package-lock.json
+            pwa/functions/package-lock.json
+      # Audits run against the committed lockfiles, so no install is needed.
+      # continue-on-error keeps the audit advisory-only: a finding is reported in
+      # the run summary but never fails the job (and this workflow never gates PRs).
+      - name: Audit pwa
+        working-directory: pwa
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+      - name: Audit pwa/functions
+        working-directory: pwa/functions
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
