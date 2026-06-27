@@ -121,7 +121,7 @@ export function EventsListScreen() {
               type="button"
               onClick={() => setStatusFilter(s)}
               className={`rounded px-2 py-0.5 capitalize transition-colors ${
-                statusFilter === s ? 'bg-brand text-brand-fg' : 'text-ink-muted hover:text-ink'
+                statusFilter === s ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
               }`}
             >
               {s}
