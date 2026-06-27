@@ -3,9 +3,12 @@
 Native iOS/Android client for 46 Entertainment, built with Expo + React Native.
 Shares the same Firebase backend as `pwa/`.
 
-> **Status:** Greenfield. The stack below is the chosen foundation (reused from a
-> mature sibling project); the product use case and screen set are **TBD** and
-> resolved during planning. Items marked `<!-- TBD -->` are placeholders.
+> **Status:** Planned — **not yet built**. This directory is documentation-only;
+> there is no Expo/RN application code yet. The stack below is the chosen foundation
+> (reused from a mature sibling project); the product use case and screen set are
+> **TBD** and resolved during planning. Items marked `<!-- TBD -->` are placeholders.
+> The shared callable contracts both apps will consume already exist, backend-owned,
+> at `pwa/functions/src/contracts/callables/` (see `../pwa/AGENTS.md`).
 
 > **See `../AGENTS.md` for shared/workspace rules**: cross-app coordination
 > (especially Firestore document shapes and Cloud Function callables that both
