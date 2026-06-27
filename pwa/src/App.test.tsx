@@ -31,14 +31,15 @@ function renderAt(path: string) {
 }
 
 describe('App', () => {
-  it('shows the public landing page (not a login wall) at the home page', () => {
+  it('shows the public landing page (not a login wall) at the home page', async () => {
     renderAt('/');
-    expect(screen.getByRole('heading', { name: '46 Advance' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+    // Screens are lazy-loaded, so await the Suspense boundary resolving.
+    expect(await screen.findByRole('heading', { name: '46 Advance' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toBeInTheDocument();
   });
 
-  it('redirects unauthenticated users away from protected routes to sign-in', () => {
+  it('redirects unauthenticated users away from protected routes to sign-in', async () => {
     renderAt('/events');
-    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
   });
 });

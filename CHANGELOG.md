@@ -17,3 +17,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Theme specimen:** the `/__theme` design-specimen route is now dev-only and no longer ships in production builds.
+- **Routing:** route screens are now lazy-loaded (code splitting), shrinking the initial JS download (~957 KB → ~729 KB main chunk); a brief loading indicator shows on first visit to each screen.
