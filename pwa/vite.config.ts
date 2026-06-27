@@ -57,10 +57,24 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      // Coverage thresholds not enforced yet (scaffold has minimal logic).
-      // TODO: restore target 75/75/70 as features land (Phase 1+).
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/testing/**', 'src/**/*.d.ts', 'src/main.tsx'],
+      // A low GLOBAL floor (locks overall coverage; ratchet up over time) plus HIGH
+      // per-directory bars that lock in the well-covered pure business-logic libs so
+      // they can't regress. Numbers track current coverage with a small margin — raise
+      // them as coverage improves. (rbac/schedules `functions` are genuinely lower, so
+      // their bars are set accordingly rather than aspirationally.)
+      thresholds: {
+        statements: 20,
+        branches: 75,
+        functions: 18,
+        lines: 20,
+        'src/lib/advances/**': { statements: 95, branches: 88, functions: 90, lines: 95 },
+        'src/lib/events/**': { statements: 95, branches: 78, functions: 90, lines: 95 },
+        'src/lib/quotes/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+        'src/lib/rbac/**': { statements: 78, branches: 90, functions: 70, lines: 78 },
+        'src/lib/schedules/**': { statements: 90, branches: 90, functions: 28, lines: 90 },
+      },
     },
   },
 });

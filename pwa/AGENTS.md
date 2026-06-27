@@ -314,7 +314,7 @@ node --import tsx scripts/<script>.ts
 
 ## Testing Requirements
 
-- Coverage thresholds: 75% lines/functions, 70% branches (adjust during planning)
+- Coverage thresholds: a ratchet — a low global floor + high per-dir bars on the pure libs, enforced in `vite.config.ts` and CI (see `.claude/rules/testing.md`)
 - Unit tests: `*.test.ts`, `*.test.tsx` (colocated)
 - E2E tests in `tests/` at project root
 - Run `npm run test` before pushing
