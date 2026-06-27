@@ -11,7 +11,9 @@ import { getEvent } from './events-service';
 import {
   addStageProductionAttachment,
   getStageProduction,
+  listStageProductionAttachments,
   removeStageProductionAttachment,
+  stageAttachmentsKey,
   updateStageProductionContent,
   updateStageProductionStatus,
 } from './production-service';
@@ -45,6 +47,13 @@ export function StageProductionPanel({
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stage-production', eventId, stageId] });
 
+  const attachmentsQuery = useQuery({
+    queryKey: stageAttachmentsKey(eventId, stageId),
+    queryFn: () => listStageProductionAttachments(eventId, stageId),
+  });
+  const invalidateAttachments = () =>
+    queryClient.invalidateQueries({ queryKey: stageAttachmentsKey(eventId, stageId) });
+
   const setStatus = useMutation({
     mutationFn: ({ key, status }: { key: string; status: SectionStatus }) =>
       updateStageProductionStatus(eventId, stageId, key, status, user!.uid),
@@ -59,12 +68,12 @@ export function StageProductionPanel({
   });
   const uploadAttachment = useMutation({
     mutationFn: (file: File) => addStageProductionAttachment(eventId, stageId, file, user!.uid),
-    onSuccess: invalidate,
+    onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to upload attachment', err),
   });
   const removeAttachment = useMutation({
     mutationFn: (a: ProductionAttachment) => removeStageProductionAttachment(eventId, stageId, a),
-    onSuccess: invalidate,
+    onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
@@ -108,7 +117,7 @@ export function StageProductionPanel({
         <div className="pt-3">
           <h3 className="mb-2 text-sm font-semibold text-ink">Attachments (plots / CAD)</h3>
           <AttachmentsEditor
-            attachments={production.attachments}
+            attachments={attachmentsQuery.data ?? []}
             readOnly={!canEdit}
             uploading={uploadAttachment.isPending}
             onUpload={(f) => uploadAttachment.mutate(f)}

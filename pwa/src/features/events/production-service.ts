@@ -3,7 +3,18 @@
  * stage-level added in 5.3. Reads/writes gated by firestore.rules (member read,
  * PM/admin write).
  */
-import { type DocumentReference, doc, getDoc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+import {
+  type DocumentReference,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+} from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import type { SectionContent } from '@/lib/advances/fields';
 import type { SectionKey, SectionStatus } from '@/lib/advances/sections';
@@ -12,6 +23,7 @@ import {
   emptyEventProduction,
   emptyStageProduction,
   parseEventProduction,
+  parseProductionAttachment,
   parseStageProduction,
   type EventProduction,
   type ProductionAttachment,
@@ -100,10 +112,15 @@ export async function setStageProductionLinks(
   await setDoc(stageProductionDoc(eventId, stageId), { links, updatedAt: serverTimestamp() }, { merge: true });
 }
 
-// ---- Attachments (Firebase Storage) ----
+// ---- Attachments: one doc per file in the production `attachments` subcollection ----
+// (concurrency-safe — no read-modify-write of a shared array). Files in Storage.
 
 function sanitize(name: string): string {
   return name.replace(/[^\w.-]+/g, '_');
+}
+
+function attachmentsCol(ref: DocumentReference) {
+  return collection(ref, 'attachments');
 }
 
 async function addAttachment(
@@ -115,10 +132,7 @@ async function addAttachment(
   const error = validateUpload(file);
   if (error) throw new Error(error);
   const uploaded = await uploadFile(`${pathPrefix}/${Date.now()}_${sanitize(file.name)}`, file);
-  const snap = await getDoc(ref);
-  const data = snap.exists() ? snap.data() : {};
-  const existing: Record<string, unknown>[] = Array.isArray(data.attachments) ? data.attachments : [];
-  const entry = {
+  await addDoc(attachmentsCol(ref), {
     name: file.name,
     path: uploaded.path,
     url: uploaded.url,
@@ -126,21 +140,35 @@ async function addAttachment(
     size: uploaded.size,
     uploadedBy: uid,
     uploadedAt: Timestamp.now(),
-  };
-  await setDoc(ref, { attachments: [...existing, entry], updatedAt: serverTimestamp() }, { merge: true });
+  });
 }
 
 async function removeAttachment(ref: DocumentReference, attachment: ProductionAttachment): Promise<void> {
-  const snap = await getDoc(ref);
-  const data = snap.exists() ? snap.data() : {};
-  const existing: Record<string, unknown>[] = Array.isArray(data.attachments) ? data.attachments : [];
-  await setDoc(
-    ref,
-    { attachments: existing.filter((a) => a.path !== attachment.path), updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+  await deleteDoc(doc(attachmentsCol(ref), attachment.id));
   await deleteFile(attachment.path);
 }
+
+async function listAttachments(ref: DocumentReference): Promise<ProductionAttachment[]> {
+  const snap = await getDocs(attachmentsCol(ref));
+  const out: ProductionAttachment[] = [];
+  for (const d of snap.docs) {
+    try {
+      out.push(parseProductionAttachment(d.id, d.data()));
+    } catch {
+      // skip malformed doc
+    }
+  }
+  return out.sort((a, b) => (a.uploadedAt?.getTime() ?? 0) - (b.uploadedAt?.getTime() ?? 0));
+}
+
+export const eventAttachmentsKey = (eventId: string) => ['production', 'attachments', eventId] as const;
+export const stageAttachmentsKey = (eventId: string, stageId: string) =>
+  ['production', 'attachments', eventId, stageId] as const;
+
+export const listEventProductionAttachments = (eventId: string) =>
+  listAttachments(eventProductionDoc(eventId));
+export const listStageProductionAttachments = (eventId: string, stageId: string) =>
+  listAttachments(stageProductionDoc(eventId, stageId));
 
 export const addEventProductionAttachment = (eventId: string, file: File, uid: string) =>
   addAttachment(eventProductionDoc(eventId), `events/${eventId}/production/event`, file, uid);
@@ -148,12 +176,8 @@ export const addEventProductionAttachment = (eventId: string, file: File, uid: s
 export const removeEventProductionAttachment = (eventId: string, attachment: ProductionAttachment) =>
   removeAttachment(eventProductionDoc(eventId), attachment);
 
-export const addStageProductionAttachment = (
-  eventId: string,
-  stageId: string,
-  file: File,
-  uid: string,
-) => addAttachment(stageProductionDoc(eventId, stageId), `events/${eventId}/production/stages/${stageId}`, file, uid);
+export const addStageProductionAttachment = (eventId: string, stageId: string, file: File, uid: string) =>
+  addAttachment(stageProductionDoc(eventId, stageId), `events/${eventId}/production/stages/${stageId}`, file, uid);
 
 export const removeStageProductionAttachment = (
   eventId: string,
