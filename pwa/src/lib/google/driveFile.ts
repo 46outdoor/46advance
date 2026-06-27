@@ -1,8 +1,9 @@
 /**
- * A Google Drive file linked to an advance (Phase 13). Written server-side only
- * (functions/src/googleDrive.ts `linkDriveFile` / `removeDriveFile`) — the client reads it
- * off the advance and renders the link. `webViewLink` is Google's canonical URL; whether a
- * given viewer can open it depends on their own Drive access (per-user OAuth).
+ * A Google Drive file linked to an advance (Phase 13). One doc per file in the
+ * `events/{e}/stages/{s}/advances/{a}/driveFiles/{fileId}` subcollection, written
+ * server-side only (functions/src/googleDrive.ts `linkDriveFile`/`removeDriveFile`)
+ * and read via advances-service `listDriveFiles`. `webViewLink` is Google's canonical
+ * URL; whether a given viewer can open it depends on their own Drive access.
  */
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
@@ -42,15 +43,4 @@ export function parseDriveFile(data: unknown): DriveFileRef {
     linkedByEmail: d.linkedByEmail ?? null,
     linkedAt: timestampToDate(d.linkedAt ?? null),
   };
-}
-
-/** Parse a raw `driveFiles` array, skipping any malformed entries. */
-export function parseDriveFiles(data: unknown): DriveFileRef[] {
-  if (!Array.isArray(data)) return [];
-  const out: DriveFileRef[] = [];
-  for (const item of data) {
-    const result = driveFileDocSchema.safeParse(item);
-    if (result.success) out.push(parseDriveFile(item));
-  }
-  return out;
 }

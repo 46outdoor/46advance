@@ -390,28 +390,28 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
   });
 });
 
-describe('firestore.rules — advances driveFiles (server-owned, Phase 13)', () => {
-  const driveFiles = [{ fileId: 'f1', name: 'Plot.pdf', webViewLink: 'https://drive.google.com/x', linkedByUid: PM }];
+describe('firestore.rules — advance driveFiles subcollection (server-owned, Phase 13)', () => {
+  const dfPath = (f: string) => `events/event-a/stages/stg-a/advances/adv-1/driveFiles/${f}`;
+  const entry = { fileId: 'f1', name: 'Plot.pdf', webViewLink: 'https://drive.google.com/x', linkedByUid: PM };
 
-  it('clients (even PM/admin) cannot add driveFiles via a direct write', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { driveFiles }));
-    await assertFails(
-      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-1'), { driveFiles }),
-    );
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), dfPath('f1')), entry);
+    });
   });
 
-  it('cannot create an advance that carries driveFiles', async () => {
-    await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-drive'), {
-        artistName: 'Act',
-        createdBy: PM,
-        sections: {},
-        driveFiles,
-      }),
-    );
+  it('members read linked Drive files; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), dfPath('f1'))));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), dfPath('f1'))));
   });
 
-  it('an update that does not touch driveFiles still succeeds', async () => {
+  it('clients (even PM/admin) cannot write/delete Drive file links — server-only', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), dfPath('f2')), { ...entry, fileId: 'f2' }));
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), dfPath('f2')), { ...entry, fileId: 'f2' }));
+    await assertFails(deleteDoc(doc(dbFor(PM), dfPath('f1'))));
+  });
+
+  it('an advance update still succeeds (driveFiles is no longer an advance field)', async () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { notes: 'hi' }));
   });
 });

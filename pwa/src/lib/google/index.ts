@@ -16,7 +16,7 @@ export {
   type AdvanceRef,
   type SavePacketResult,
 } from './drive-service';
-export { parseDriveFile, parseDriveFiles, type DriveFileRef } from './driveFile';
+export { parseDriveFile, type DriveFileRef } from './driveFile';
 export {
   syncEventBookings,
   listNeedsReviewBookings,
