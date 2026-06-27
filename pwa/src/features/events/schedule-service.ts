@@ -12,6 +12,12 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
+import type {
+  PushScheduleItemInput,
+  PushScheduleItemOutput,
+  RemoveScheduleCalendarEventInput,
+  RemoveScheduleCalendarEventOutput,
+} from '@contracts/callables/schedules';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
@@ -99,14 +105,14 @@ export interface ScheduleSyncResult {
  * `{ synced:false, reason:'not_connected' }` (no-op) when the caller hasn't connected Google.
  */
 export async function pushScheduleItem(eventId: string, itemId: string): Promise<ScheduleSyncResult> {
-  const callable = httpsCallable<{ eventId: string; itemId: string }, ScheduleSyncResult>(functions, 'pushScheduleItem');
+  const callable = httpsCallable<PushScheduleItemInput, PushScheduleItemOutput>(functions, 'pushScheduleItem');
   const res = await callable({ eventId, itemId });
   return res.data;
 }
 
 /** Remove a schedule item's calendar event (call before deleting the item). */
 export async function removeScheduleCalendarEvent(eventId: string, calendarEventId: string): Promise<void> {
-  const callable = httpsCallable<{ eventId: string; calendarEventId: string }, { removed: boolean }>(
+  const callable = httpsCallable<RemoveScheduleCalendarEventInput, RemoveScheduleCalendarEventOutput>(
     functions,
     'removeScheduleCalendarEvent',
   );

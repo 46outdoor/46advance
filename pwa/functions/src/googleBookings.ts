@@ -20,6 +20,8 @@ import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { parseCallableData } from './lib/parseCallable.js';
+import { syncAdvanceCallBookingsInputSchema } from './contracts/callables/google.js';
 import { logger } from 'firebase-functions/v2';
 import { google, type calendar_v3 } from 'googleapis';
 import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
@@ -343,10 +345,7 @@ export async function syncEventBookings(
 export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 120 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const eventId = request.data?.eventId;
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
-  }
+  const { eventId } = parseCallableData(syncAdvanceCallBookingsInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['syncAdvanceCallBookings', uid], 10);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);

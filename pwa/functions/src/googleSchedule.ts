@@ -9,6 +9,11 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { parseCallableData } from './lib/parseCallable.js';
+import {
+  pushScheduleItemInputSchema,
+  removeScheduleCalendarEventInputSchema,
+} from './contracts/callables/schedules.js';
 import { google, type calendar_v3 } from 'googleapis';
 import {
   OAUTH_SECRETS,
@@ -39,11 +44,8 @@ function buildEventBody(item: DocumentData, startTs: Timestamp): calendar_v3.Sch
 }
 
 /** Validate the callable input, throwing on a missing/invalid `{ eventId, itemId }`. */
-function parsePushInput(data: DocumentData): { eventId: string; itemId: string } {
-  const { eventId, itemId } = data;
-  const ok = typeof eventId === 'string' && eventId && typeof itemId === 'string' && itemId;
-  if (!ok) throw new HttpsError('invalid-argument', 'Expected { eventId, itemId }.');
-  return { eventId, itemId };
+function parsePushInput(data: unknown): { eventId: string; itemId: string } {
+  return parseCallableData(pushScheduleItemInputSchema, data);
 }
 
 /** Read an event doc's stored `googleCalendarId`, or `null` when missing/blank. */
@@ -143,10 +145,7 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
 export const removeScheduleCalendarEvent = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, calendarEventId } = request.data ?? {};
-  if (typeof eventId !== 'string' || !eventId || typeof calendarEventId !== 'string' || !calendarEventId) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, calendarEventId }.');
-  }
+  const { eventId, calendarEventId } = parseCallableData(removeScheduleCalendarEventInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['removeScheduleCalendarEvent', uid], 60);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);

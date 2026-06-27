@@ -9,6 +9,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
+import type {
+  GoogleAuthUrlOutput,
+  GoogleDisconnectOutput,
+  CreateAdvanceCallInput,
+  CreateAdvanceCallOutput,
+} from '@contracts/callables/google';
 
 /** The least-privilege Drive scope (Phase 13) — must match functions/src/google.ts. */
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -38,14 +44,14 @@ export async function getGoogleConnection(uid: string): Promise<GoogleConnection
 
 /** Build the OAuth consent URL (server creates a single-use state). */
 export async function getGoogleAuthUrl(): Promise<string> {
-  const callable = httpsCallable<Record<string, never>, { url: string }>(functions, 'googleAuthUrl');
+  const callable = httpsCallable<Record<string, never>, GoogleAuthUrlOutput>(functions, 'googleAuthUrl');
   const res = await callable({});
   return res.data.url;
 }
 
 /** Revoke + clear the caller's Google connection. */
 export async function disconnectGoogle(): Promise<void> {
-  const callable = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect');
+  const callable = httpsCallable<Record<string, never>, GoogleDisconnectOutput>(functions, 'googleDisconnect');
   await callable({});
 }
 
@@ -67,7 +73,7 @@ export async function createAdvanceCall(input: {
   startMillis: number;
   durationMinutes?: number;
 }): Promise<AdvanceCallResult> {
-  const callable = httpsCallable<typeof input, AdvanceCallResult>(functions, 'createAdvanceCall');
+  const callable = httpsCallable<CreateAdvanceCallInput, CreateAdvanceCallOutput>(functions, 'createAdvanceCall');
   const res = await callable(input);
   return res.data;
 }

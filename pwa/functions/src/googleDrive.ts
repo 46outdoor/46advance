@@ -21,6 +21,12 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { google, type drive_v3 } from 'googleapis';
 import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { parseCallableData } from './lib/parseCallable.js';
+import {
+  linkDriveFileInputSchema,
+  removeDriveFileInputSchema,
+  savePacketToDriveInputSchema,
+} from './contracts/callables/googleDrive.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const APP_FOLDER = '46 Advance';
@@ -65,15 +71,7 @@ export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSecon
 export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, fileId } = request.data ?? {};
-  if (
-    typeof eventId !== 'string' || !eventId ||
-    typeof stageId !== 'string' || !stageId ||
-    typeof advanceId !== 'string' || !advanceId ||
-    typeof fileId !== 'string' || !fileId
-  ) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, fileId }.');
-  }
+  const { eventId, stageId, advanceId, fileId } = parseCallableData(linkDriveFileInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['linkDriveFile', uid], 30);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
@@ -118,15 +116,7 @@ export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60
 export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, fileId } = request.data ?? {};
-  if (
-    typeof eventId !== 'string' || !eventId ||
-    typeof stageId !== 'string' || !stageId ||
-    typeof advanceId !== 'string' || !advanceId ||
-    typeof fileId !== 'string' || !fileId
-  ) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, fileId }.');
-  }
+  const { eventId, stageId, advanceId, fileId } = parseCallableData(removeDriveFileInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['removeDriveFile', uid], 30);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
@@ -179,10 +169,7 @@ export const savePacketToDrive = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
-    const { eventId, path } = request.data ?? {};
-    if (typeof eventId !== 'string' || !eventId || typeof path !== 'string' || !path) {
-      throw new HttpsError('invalid-argument', 'Expected { eventId, path }.');
-    }
+    const { eventId, path } = parseCallableData(savePacketToDriveInputSchema, request.data);
     // Confine to this event's packets — no traversal to other events or objects.
     if (!path.startsWith(`events/${eventId}/packets/`) || path.includes('..')) {
       throw new HttpsError('invalid-argument', 'Invalid packet path.');
