@@ -67,6 +67,14 @@
   --color-line: #34343b; /* borders */
 }
 
+/* `text-brand` is the near-black brand color used for heading TEXT; flip it to the
+   light ink on dark so headings stay legible (the brand background/chrome — bg-brand,
+   text-brand-fg — intentionally stays dark in both themes). */
+.dark .text-brand,
+.dark .hover\:text-brand:hover {
+  color: var(--color-ink);
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);
