@@ -17,11 +17,43 @@ export function StagesEditor({ initial, pending, onSave }: Props) {
   const rename = (id: string, name: string) =>
     setRows((p) => p.map((s) => (s.id === id ? { ...s, name } : s)));
   const remove = (id: string) => setRows((p) => p.filter((s) => s.id !== id));
+  // Order is derived from list position, so reordering is just swapping neighbors.
+  const move = (index: number, delta: -1 | 1) =>
+    setRows((p) => {
+      const target = index + delta;
+      if (target < 0 || target >= p.length) return p;
+      const next = [...p];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+
+  const arrowClass =
+    'flex h-11 w-11 items-center justify-center rounded border border-line text-ink-muted hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-line disabled:hover:text-ink-muted';
 
   return (
     <div className="space-y-2">
-      {rows.map((s) => (
+      {rows.map((s, i) => (
         <div key={s.id} className="flex items-center gap-2">
+          <div className="flex flex-col gap-0.5">
+            <button
+              type="button"
+              aria-label="Move stage up"
+              disabled={i === 0}
+              onClick={() => move(i, -1)}
+              className={arrowClass}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="Move stage down"
+              disabled={i === rows.length - 1}
+              onClick={() => move(i, 1)}
+              className={arrowClass}
+            >
+              ↓
+            </button>
+          </div>
           <input
             className={`${inputClass} w-64`}
             placeholder="Stage name (e.g. Main Stage)"
