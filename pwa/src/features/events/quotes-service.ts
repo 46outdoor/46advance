@@ -17,7 +17,7 @@ import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
 import { parseQuote, isDecisionStatus, type Quote, type QuoteInput, type QuoteStatus } from '@/lib/quotes/quote';
 import { deleteFile, uploadFile } from '@/lib/storage/uploads';
-import type { GenerateQuotePdfInput, PdfPathOutput } from '@contracts/callables/pdf';
+import type { GenerateQuotePdfInput, GenerateQuotePdfOutput } from '@contracts/callables/pdf';
 
 function quotesCol(eventId: string, stageId: string, advanceId: string) {
   return collection(db, 'events', eventId, 'stages', stageId, 'advances', advanceId, 'quotes');
@@ -149,8 +149,9 @@ export function getFileUrl(path: string): Promise<string> {
 }
 
 /**
- * Generate a branded PDF for a quote (server render). The callable uploads to Storage and
- * returns its path; we resolve a member-gated download URL. Returns the URL.
+ * Generate a branded PDF for a quote (server render). Returns a signed, expiring
+ * (7-day) URL for sharing with the artist; falls back to a member-gated download
+ * URL if URL signing isn't configured. Returns the URL.
  */
 export async function generateQuotePdf(
   eventId: string,
@@ -158,7 +159,9 @@ export async function generateQuotePdf(
   advanceId: string,
   quoteId: string,
 ): Promise<string> {
-  const callable = httpsCallable<GenerateQuotePdfInput, PdfPathOutput>(functions, 'generateQuotePdf');
-  const result = await callable({ eventId, stageId, advanceId, quoteId });
-  return getDownloadURL(ref(storage, result.data.path));
+  const callable = httpsCallable<GenerateQuotePdfInput, GenerateQuotePdfOutput>(functions, 'generateQuotePdf');
+  const { path, url } = (await callable({ eventId, stageId, advanceId, quoteId })).data;
+  // Prefer the server's signed, expiring URL (shareable with the artist); fall back
+  // to a member-gated download if signing isn't configured.
+  return url ?? getDownloadURL(ref(storage, path));
 }
