@@ -8,6 +8,14 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/services/firebase';
 import { GOOGLE_APP_ID, GOOGLE_PICKER_API_KEY, isPickerConfigured } from '@/config/integrations';
+import type {
+  GetDriveAccessTokenOutput,
+  LinkDriveFileInput,
+  RemoveDriveFileInput,
+  DriveOkOutput,
+  SavePacketToDriveInput,
+  SavePacketToDriveOutput,
+} from '@contracts/callables/googleDrive';
 
 export interface AdvanceRef {
   eventId: string;
@@ -17,13 +25,13 @@ export interface AdvanceRef {
 
 /** Link a Picker-selected Drive file to an advance (server validates access + metadata). */
 export async function linkDriveFile(ref: AdvanceRef, fileId: string): Promise<void> {
-  const callable = httpsCallable<AdvanceRef & { fileId: string }, { ok: boolean }>(functions, 'linkDriveFile');
+  const callable = httpsCallable<LinkDriveFileInput, DriveOkOutput>(functions, 'linkDriveFile');
   await callable({ ...ref, fileId });
 }
 
 /** Unlink a Drive file from an advance (does not delete it from Drive). */
 export async function removeDriveFile(ref: AdvanceRef, fileId: string): Promise<void> {
-  const callable = httpsCallable<AdvanceRef & { fileId: string }, { ok: boolean }>(functions, 'removeDriveFile');
+  const callable = httpsCallable<RemoveDriveFileInput, DriveOkOutput>(functions, 'removeDriveFile');
   await callable({ ...ref, fileId });
 }
 
@@ -35,12 +43,12 @@ export interface SavePacketResult {
 
 /** Copy an already-generated packet (Storage `path`) into the caller's Drive. */
 export async function savePacketToDrive(eventId: string, path: string): Promise<SavePacketResult> {
-  const callable = httpsCallable<{ eventId: string; path: string }, SavePacketResult>(functions, 'savePacketToDrive');
+  const callable = httpsCallable<SavePacketToDriveInput, SavePacketToDriveOutput>(functions, 'savePacketToDrive');
   return (await callable({ eventId, path })).data;
 }
 
 async function getDriveAccessToken(): Promise<string> {
-  const callable = httpsCallable<Record<string, never>, { accessToken: string }>(functions, 'getDriveAccessToken');
+  const callable = httpsCallable<Record<string, never>, GetDriveAccessTokenOutput>(functions, 'getDriveAccessToken');
   return (await callable({})).data.accessToken;
 }
 

@@ -18,6 +18,11 @@ import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { parseCallableData } from './lib/parseCallable.js';
+import {
+  createEventCalendarInputSchema,
+  createAdvanceCallInputSchema,
+} from './contracts/callables/google.js';
 
 /** OAuth2 client type, taken from googleapis' own auth bundle (avoids a duplicate-copy type clash). */
 export type AuthClient = InstanceType<typeof google.auth.OAuth2>;
@@ -282,10 +287,7 @@ export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (reques
 export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const eventId = request.data?.eventId;
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId: string }.');
-  }
+  const { eventId } = parseCallableData(createEventCalendarInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['createEventCalendar', uid], 20);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);
@@ -307,17 +309,9 @@ export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (req
 export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const data = request.data ?? {};
-  const { eventId, stageId, advanceId } = data;
-  const startMillis = data.startMillis;
-  const durationMinutes =
-    typeof data.durationMinutes === 'number' && data.durationMinutes > 0 ? data.durationMinutes : 30;
-  if (
-    [eventId, stageId, advanceId].some((v) => typeof v !== 'string' || v.length === 0) ||
-    typeof startMillis !== 'number'
-  ) {
-    throw new HttpsError('invalid-argument', 'Expected { eventId, stageId, advanceId, startMillis }.');
-  }
+  const input = parseCallableData(createAdvanceCallInputSchema, request.data);
+  const { eventId, stageId, advanceId, startMillis } = input;
+  const durationMinutes = input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : 30;
   const db = getFirestore();
   await enforceRateLimit(db, ['createAdvanceCall', uid], 20);
   await assertCanEditEvent(db, uid, token.admin === true, eventId);

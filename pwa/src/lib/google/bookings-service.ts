@@ -16,6 +16,10 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
 import { parseCallBooking, type CallBooking } from './callBooking';
+import type {
+  SyncAdvanceCallBookingsInput,
+  SyncAdvanceCallBookingsOutput,
+} from '@contracts/callables/google';
 
 export interface SyncResult {
   scanned: number;
@@ -25,7 +29,10 @@ export interface SyncResult {
 
 /** Trigger an immediate sync of booked calls for an event (reads the caller's calendar). */
 export async function syncEventBookings(eventId: string): Promise<SyncResult> {
-  const callable = httpsCallable<{ eventId: string }, SyncResult>(functions, 'syncAdvanceCallBookings');
+  const callable = httpsCallable<SyncAdvanceCallBookingsInput, SyncAdvanceCallBookingsOutput>(
+    functions,
+    'syncAdvanceCallBookings',
+  );
   const res = await callable({ eventId });
   return res.data;
 }
