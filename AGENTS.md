@@ -1,8 +1,9 @@
 # 46 Advance — Workspace Agent Rules
 
 > **Organization:** 46 Entertainment (`46entertainment.com`).
-> **Status:** Greenfield. Agent governance is in place; the application design and
-> use case are being planned. This file and the per-app rules were adapted from a
+> **Status:** PWA in active build — execution phases 0–13 shipped and the foundation
+> remediation is complete; the native (mobile) app is planned, not yet built. This
+> file and the per-app rules were adapted from a
 > mature sibling project — portable process governance was kept intact, and
 > stack/domain specifics are marked `<!-- TBD -->` to be resolved during planning.
 > **Do not invent product/use-case details.** Fill TBDs only from explicit
@@ -176,13 +177,17 @@ the `VITE_FIREBASE_*` values in `.env.local` for local dev. <!-- TBD: finalize s
 
 ## Staging Deployment
 
-A single shared staging environment for the web app, deployed via GitHub Actions.
-<!-- TBD: staging URL + workflow names once CI exists -->
+There is **no separate staging environment** — the project uses a single Firebase
+project (`advancethat`), so "staging" is folded into the **manual** deploy. Deploy
+functions/rules with explicit confirmation (never hosting — managed externally):
 
 ```bash
-gh workflow run "Staging Deployment" --repo <github-org>/<repo> --ref main -f environment=staging
-gh run watch --repo <github-org>/<repo>
+./pwa/scripts/cli/firebase-safe.sh deploy --only functions        # requires confirmation
+./pwa/scripts/cli/firebase-safe.sh deploy --only firestore:rules  # requires confirmation
 ```
+
+If a dedicated staging Firebase project is introduced later, add a `staging-deploy.yml`
+workflow + its config/secrets here.
 
 ## Git Workflow
 

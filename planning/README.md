@@ -7,8 +7,6 @@ filed by category.
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
-- **[FOUNDATION_REVIEW_REMEDIATION.md](FOUNDATION_REVIEW_REMEDIATION.md)** — codebase review
-  findings and proposed guardrail/architecture remediation patches.
 
 No phase plan is in flight — phases 0–13 are built and archived. When the next phase starts,
 add its `PHASE_*_PLAN.md` here, then move it to `archive/feature/` on completion.
@@ -20,4 +18,5 @@ the matching category and update any links:
 - `archive/feature/` — completed feature / build phase plans
 - `archive/reference/` — source reference material
 - `archive/governance/` — process / governance docs
-- `archive/fix/` — completed fix plans (added as they arise)
+- `archive/fix/` — completed fix plans (e.g. `FOUNDATION_REVIEW_REMEDIATION.md` — codebase
+  review + guardrail/architecture remediation; resolved 2026-06-27)

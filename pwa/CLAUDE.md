@@ -95,5 +95,5 @@ Parallel Agent File Safety for worktree rules.
 
 ## Project Status
 
-Greenfield. Agent governance is scaffolded; application design and feature set are
-pending planning. Update this section as work begins.
+PWA in active build — execution phases 0–13 shipped and the foundation remediation is
+complete; the native app is planned, not yet built. See `AGENTS.md` § Project Status.

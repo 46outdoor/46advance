@@ -2,10 +2,12 @@
 
 Primary web client for 46 Entertainment, running as a Progressive Web App.
 
-> **Status:** Greenfield. The stack below is the chosen foundation (reused from a
-> mature sibling project); the product use case, feature set, and concrete
-> backend identifiers are **TBD** and resolved during planning. Items marked
-> `<!-- TBD -->` are placeholders — do not invent details to fill them.
+> **Status:** Active build. The PWA is implemented through execution phases 0–13
+> (auth/RBAC, events, advances, production, templates, PDF packets, tracker, quotes,
+> contacts, Google Calendar/Meet/Drive, schedules) on the Firebase project
+> `advancethat`, and the foundation remediation is complete. The native app is
+> planned, not yet built. A few `<!-- TBD -->` placeholders remain for genuinely
+> open details — do not invent values to fill them.
 
 > **See `../AGENTS.md` for shared/workspace rules**: cross-app coordination,
 > Firebase backend, CLI tooling, secrets, staging deploys, git workflow,
@@ -352,6 +354,7 @@ Keep current: `../CHANGELOG.md`, `../AGENTS.md`, this `AGENTS.md`,
 
 ## Project Status
 
-Phase 0 (foundation & scaffold) implemented on `feature/phase-0-foundation`:
-Vite/React/TS/Tailwind PWA, 46 brand theme, infra canon, Firebase wiring (`advancethat`),
-and CI. Phase 1 (auth + per-event RBAC) is next — see `planning/BUILD_PLAN.md`.
+PWA in active build: execution phases 0–13 shipped (see `planning/ROADMAP.md` for what
+landed, `planning/BUILD_PLAN.md` for the original order) and the foundation remediation
+is complete (`planning/archive/fix/FOUNDATION_REVIEW_REMEDIATION.md`). The native app is
+planned, not yet built.

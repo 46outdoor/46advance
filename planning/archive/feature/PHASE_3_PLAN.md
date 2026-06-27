@@ -67,6 +67,8 @@ events/{eventId}/stages/{stageId}/advances/{advanceId}
 ### 3.2 Departments — config + per-event enablement  [A]
 - `config/departments` collection seeded with the 6 (Audio, Lighting, Video/LED,
   Logistics, Labor, Artist Relations); admin CRUD in the `/admin` tool (name, order).
+  <!-- Updated: **Staging** was added as a deliberate Phase-5 decision (ROADMAP §5),
+  so the shipped seed is **7** departments — see `src/lib/departments/department.ts`. -->
 - Event create/edit picks **enabled departments** (default = all 6).
 - Shared `departments-service` + React Query hooks; canonical registry note in AGENTS.
 
