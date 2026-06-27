@@ -8,6 +8,7 @@ import './index.css';
 import { App } from '@/App';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthProvider';
+import { ThemeProvider } from '@/contexts/ThemeProvider';
 import { initSentry } from '@/lib/sentry';
 
 initSentry();
@@ -20,13 +21,15 @@ if (!container) throw new Error('Root element #root not found');
 createRoot(container).render(
   <StrictMode>
     <AppErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </AuthProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </AppErrorBoundary>
   </StrictMode>,
 );

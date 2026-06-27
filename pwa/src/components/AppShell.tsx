@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { useScrolled } from '@/hooks/useScrolled';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { SystemDarkNudge } from '@/components/SystemDarkNudge';
 
 /** App frame: dark, branded chrome (sticky header that shrinks on scroll) + light content. */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -46,6 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="transition-colors hover:text-accent" to="/__theme">
               Theme
             </Link>
+            <ThemeToggle />
             {user && (
               <>
                 {isAdmin && (
@@ -79,6 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
+      <SystemDarkNudge />
       <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-ink-muted">
         <Link to="/privacy" className="hover:text-accent">

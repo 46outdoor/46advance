@@ -83,6 +83,9 @@ questions.
   - **Accents:** **red `#f04040`** (signature) · orange `#ff853c` · lime `#8dff1c` (use sparingly).
   - **Fonts:** **Nexa** (primary) **+ Hikou** (display accent) — the org's licensed brand fonts, **self-hosted directly** across app + PDF (`pwa/public/fonts/`). See Typography. *(The earlier OFL-substitute plan — Poppins/Archivo — was dropped 2026-06-25.)*
   - Status colors stay distinct from brand red (neutral → amber → green; amber/green may harmonize with brand orange/lime).
+  - **Themes (built):** light (default) **+ an opt-in dark theme** on these tokens — the dark chrome
+    (`brand`) and red `accent` carry across both; only content surfaces/text/lines flip. A header
+    toggle persists the choice; a one-time nudge offers dark when the OS prefers it.
   - *Notes:* the parent theme is Bootstrap defaults (ignore). The production-doc red reads more saturated
     than `#f04040` — report covers may use pure black + a punchier red slash; treat these **web tokens
     as the system source of truth**. Apply them in the Tailwind theme and update the `pwa/AGENTS.md` styling note (Phase 0).

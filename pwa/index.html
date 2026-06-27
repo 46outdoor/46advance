@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -8,6 +8,18 @@
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="description" content="Event-production advance management for 46 Entertainment — artist advances, production details, quotes, contacts, and Google Calendar/Meet advance calls for live events." />
     <title>46 Advance</title>
+    <style>
+      html { color-scheme: light; }
+      html.dark { color-scheme: dark; }
+    </style>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash (default: light).
+      (function () {
+        try {
+          if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root">
