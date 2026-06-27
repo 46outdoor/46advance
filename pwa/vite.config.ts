@@ -35,6 +35,21 @@ export default defineConfig({
     },
   },
   server: { port: 4646, strictPort: true },
+  build: {
+    rollupOptions: {
+      output: {
+        // Route code is already lazy-loaded; split the heavy vendor deps into their
+        // own long-cached chunks so no single chunk trips the 500 KB warning and a
+        // deploy doesn't invalidate vendor caches.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
+          if (id.includes('@sentry')) return 'vendor-sentry';
+          return 'vendor';
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
