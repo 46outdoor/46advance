@@ -56,6 +56,25 @@
   --font-accent: 'Hikou', 'Nexa', sans-serif;
 }
 
+/* Dark theme — redefine the *content* tokens under `.dark` on <html>. The signature
+   dark chrome (`brand`) and the red `accent` carry across both themes (the complement);
+   only the content surfaces / text / lines flip. Status colors read fine on dark. */
+.dark {
+  --color-surface: #131316; /* page background (near-black) */
+  --color-surface-muted: #1d1d21; /* elevated cards / inputs */
+  --color-ink: #ececee; /* primary text */
+  --color-ink-muted: #a0a3ac; /* secondary text */
+  --color-line: #34343b; /* borders */
+}
+
+/* `text-brand` is the near-black brand color used for heading TEXT; flip it to the
+   light ink on dark so headings stay legible (the brand background/chrome — bg-brand,
+   text-brand-fg — intentionally stays dark in both themes). */
+.dark .text-brand,
+.dark .hover\:text-brand:hover {
+  color: var(--color-ink);
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);

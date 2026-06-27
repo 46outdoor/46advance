@@ -157,7 +157,7 @@ export function EventScheduleScreen() {
               key={v}
               type="button"
               onClick={() => setView(v)}
-              className={`rounded px-3 py-1 capitalize transition-colors ${view === v ? 'bg-brand text-brand-fg' : 'text-ink-muted hover:text-ink'}`}
+              className={`rounded px-3 py-1 capitalize transition-colors ${view === v ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'}`}
             >
               {v === 'master' ? 'Master' : 'Edit'}
             </button>

@@ -20,6 +20,7 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Departments admin:** rename a department inline; previously the admin UI was create/delete only.
 - **Password reset:** a forgot-password screen and public `/forgot-password` route, linked from the sign-in screen, that sends a reset email without revealing whether an account exists.
 - **Template editor:** reorder stages with up/down controls; the new order persists through the existing template save.
+- **Dark theme:** an opt-in dark theme that complements the light one, toggled from the app header. Defaults to light, remembers your choice, and shows a one-time prompt to switch if your system prefers dark.
 
 ### Changed
 
