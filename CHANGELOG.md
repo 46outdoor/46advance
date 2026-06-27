@@ -9,4 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Events list:** text search that filters by event name and venue, composing with the existing status filter (filters the already-loaded list — no extra fetch).
+- **Departments admin:** rename a department inline; previously the admin UI was create/delete only.
+- **Password reset:** a forgot-password screen and public `/forgot-password` route, linked from the sign-in screen, that sends a reset email without revealing whether an account exists.
 - **Template editor:** reorder stages with up/down controls; the new order persists through the existing template save.
+
+### Changed
+
+- **Theme specimen:** the `/__theme` design-specimen route is now dev-only and no longer ships in production builds.

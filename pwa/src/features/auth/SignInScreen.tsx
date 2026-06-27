@@ -47,6 +47,11 @@ export function SignInScreen() {
         </button>
       </form>
       <p className="mt-4 text-sm text-ink-muted">
+        <Link className="text-accent underline" to="/forgot-password">
+          Forgot password?
+        </Link>
+      </p>
+      <p className="mt-2 text-sm text-ink-muted">
         No account?{' '}
         <Link className="text-accent underline" to="/sign-up">
           Create one
