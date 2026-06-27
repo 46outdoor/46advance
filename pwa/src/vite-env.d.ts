@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
   readonly VITE_USE_EMULATORS?: string;
   readonly VITE_SENTRY_DSN?: string;
+  /** Optional release identifier (e.g. git sha) tagged on Sentry events. */
+  readonly VITE_APP_RELEASE?: string;
 }
 
 interface ImportMeta {
