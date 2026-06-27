@@ -8,7 +8,6 @@ import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 import { parseSectionsMap, sectionsMapSchema, type AdvanceSections } from './sections';
 import { advanceContentSchema, type AdvanceContent } from './fields';
-import { parseDriveFiles, type DriveFileRef } from '@/lib/google/driveFile';
 
 export interface Advance {
   id: string;
@@ -25,8 +24,8 @@ export interface Advance {
   advanceCallLink: string | null;
   /** Calendar event id when the Meet was created via Google (Phase 11b); null otherwise. */
   googleCalendarEventId: string | null;
-  /** Linked Google Drive files (Phase 13). Server-written only (link/removeDriveFile callables). */
-  driveFiles: DriveFileRef[];
+  // Linked Google Drive files live in the `driveFiles/{fileId}` subcollection
+  // (server-written; read via advances-service `listDriveFiles`), not on this doc.
   sections: AdvanceSections;
   /** Per-department field values: content[deptId][fieldKey]. */
   content: AdvanceContent;
@@ -46,7 +45,6 @@ const advanceDocSchema = z.object({
   advanceCallAt: z.instanceof(Timestamp).nullable().optional(),
   advanceCallLink: z.string().nullable().optional(),
   googleCalendarEventId: z.string().nullable().optional(),
-  driveFiles: z.array(z.unknown()).optional(),
   sections: sectionsMapSchema.optional(),
   content: advanceContentSchema.optional(),
   createdBy: z.string().min(1),
@@ -71,7 +69,6 @@ export function parseAdvance(id: string, data: unknown): Advance {
     advanceCallAt: timestampToDate(doc.advanceCallAt ?? null),
     advanceCallLink: doc.advanceCallLink ?? null,
     googleCalendarEventId: doc.googleCalendarEventId ?? null,
-    driveFiles: parseDriveFiles(doc.driveFiles ?? []),
     sections,
     content: doc.content ?? {},
     createdBy: doc.createdBy,

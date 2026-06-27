@@ -172,19 +172,24 @@ service cloud.firestore {
         // Advances live under a stage. Member read; PM/admin write (section
         // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
         match /advances/{advanceId} {
-          // `driveFiles` is server-owned (Phase 13 link/removeDriveFile callables, Admin SDK);
-          // clients may read it but never set or change it. `googleCalendarEventId` is NOT
-          // locked: attachBooking() (bookings-service) writes it client-side on attach.
+          // `googleCalendarEventId` is NOT locked: attachBooking() (bookings-service)
+          // writes it client-side on attach. Linked Drive files live in the `driveFiles`
+          // subcollection below (server-owned), not on this doc.
           allow read: if isAdmin() || isMember(eventId);
           allow create: if canEditEvent(eventId)
             && request.resource.data.createdBy == request.auth.uid
-            && nonEmptyStr(request.resource.data, 'artistName')
-            && !('driveFiles' in request.resource.data);
+            && nonEmptyStr(request.resource.data, 'artistName');
           allow update: if canEditEvent(eventId)
             && request.resource.data.createdBy == resource.data.createdBy // owner immutable
-            && nonEmptyStr(request.resource.data, 'artistName')
-            && keysUnchanged(['driveFiles']);
+            && nonEmptyStr(request.resource.data, 'artistName');
           allow delete: if canEditEvent(eventId);
+
+          // Linked Google Drive files — server-written only (link/removeDriveFile
+          // callables; the Admin SDK bypasses rules). Members read; no client write.
+          match /driveFiles/{fileId} {
+            allow read: if isAdmin() || isMember(eventId);
+            allow write: if false;
+          }
 
           // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
           // Status changes (approve/reject) ride the update gate, so tech/dept-lead can't decide.

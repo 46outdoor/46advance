@@ -5,8 +5,9 @@
  * so and nudge toward shared drives.
  */
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
+import { driveFilesKey, listDriveFiles } from './advances-service';
 import { createLogger } from '@/lib/logger';
 import { formatDate } from '@/lib/dates/formatting';
 import { isPickerConfigured } from '@/config/integrations';
@@ -18,7 +19,6 @@ import {
   removeDriveFile,
   useGoogleConnection,
   type AdvanceRef,
-  type DriveFileRef,
 } from '@/lib/google';
 
 const logger = createLogger('DriveFiles');
@@ -27,18 +27,23 @@ interface Props {
   eventId: string;
   stageId: string;
   advanceId: string;
-  files: DriveFileRef[];
   canEdit: boolean;
-  onChanged: () => void;
 }
 
-export function DriveFilesPanel({ eventId, stageId, advanceId, files, canEdit, onChanged }: Props) {
+export function DriveFilesPanel({ eventId, stageId, advanceId, canEdit }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const connectionQuery = useGoogleConnection();
   const [error, setError] = useState<string | null>(null);
 
   const ref: AdvanceRef = { eventId, stageId, advanceId };
+  const filesQuery = useQuery({
+    queryKey: driveFilesKey(eventId, stageId, advanceId),
+    queryFn: () => listDriveFiles(eventId, stageId, advanceId),
+  });
+  const files = filesQuery.data ?? [];
+  const invalidateFiles = () =>
+    queryClient.invalidateQueries({ queryKey: driveFilesKey(eventId, stageId, advanceId) });
   const connection = connectionQuery.data;
   const hasDrive = connection?.hasDrive === true;
 
@@ -61,7 +66,7 @@ export function DriveFilesPanel({ eventId, stageId, advanceId, files, canEdit, o
     },
     onSuccess: (count) => {
       setError(null);
-      if (count > 0) onChanged();
+      if (count > 0) void invalidateFiles();
     },
     onError: (e) => {
       logger.error('Failed to attach Drive file', e);
@@ -71,7 +76,7 @@ export function DriveFilesPanel({ eventId, stageId, advanceId, files, canEdit, o
 
   const remove = useMutation({
     mutationFn: (fileId: string) => removeDriveFile(ref, fileId),
-    onSuccess: () => onChanged(),
+    onSuccess: () => void invalidateFiles(),
     onError: (e) => logger.error('Failed to remove Drive file', e),
   });
 

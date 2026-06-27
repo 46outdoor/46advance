@@ -162,14 +162,7 @@ export function AdvanceDetailScreen() {
       )}
 
       {advance && (
-        <DriveFilesPanel
-          eventId={eventId}
-          stageId={stageId}
-          advanceId={advanceId}
-          files={advance.driveFiles}
-          canEdit={canEdit}
-          onChanged={invalidate}
-        />
+        <DriveFilesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} canEdit={canEdit} />
       )}
 
       {advance && (

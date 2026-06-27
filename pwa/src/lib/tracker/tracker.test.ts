@@ -27,7 +27,6 @@ function advance(id: string, artistName: string, statuses: Record<string, Sectio
     advanceCallAt: null,
     advanceCallLink: null,
     googleCalendarEventId: null,
-    driveFiles: [],
     sections: Object.fromEntries(
       Object.entries(statuses).map(([k, status]) => [k, { status, finalizedAt: null, finalizedBy: null }]),
     ),

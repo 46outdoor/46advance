@@ -5,17 +5,17 @@
  * signed-in user (their stored refresh token), gated to event members / PMs.
  *
  *   - getDriveAccessToken : mint a short-lived access token for the client-side Picker.
- *   - linkDriveFile       : validate access + capture canonical metadata, append to the advance.
- *   - removeDriveFile     : drop a linked file from the advance (does NOT delete it from Drive).
+ *   - linkDriveFile       : validate access + capture canonical metadata into the advance's driveFiles subcollection.
+ *   - removeDriveFile     : drop a linked file (does NOT delete it from Drive).
  *   - savePacketToDrive   : copy a generated packet (Storage) into the caller's Drive.
  *
- * `driveFiles` on the advance is written ONLY here (Admin SDK) — firestore.rules rejects
- * client writes — so a stored link is always a real, server-validated `drive.google.com`
- * URL (no spoofing).
+ * The `driveFiles/{fileId}` subcollection is written ONLY here (Admin SDK) — firestore.rules
+ * rejects client writes — so a stored link is always a real, server-validated
+ * `drive.google.com` URL (no spoofing).
  */
 import { Readable } from 'node:stream';
-import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import type { DocumentData, Firestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import type { Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { google, type drive_v3 } from 'googleapis';
@@ -41,12 +41,6 @@ async function assertEventMember(db: Firestore, uid: string, isAdmin: boolean, e
   if (isAdmin) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
-}
-
-/** Existing driveFiles array on an advance snapshot (or []). */
-function existingFiles(data: DocumentData | undefined): Array<Record<string, unknown>> {
-  const v = data?.driveFiles;
-  return Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
 }
 
 /**
@@ -101,11 +95,11 @@ export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60
     webViewLink: file.webViewLink,
     linkedByUid: uid,
     linkedByEmail: token.email ?? null,
-    linkedAt: Timestamp.now(), // serverTimestamp() is not allowed inside an array element
+    linkedAt: Timestamp.now(),
   };
-  const next = existingFiles(snap.data()).filter((e) => e.fileId !== file.id);
-  next.push(entry);
-  await ref.set({ driveFiles: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  // One doc per file in the driveFiles subcollection (doc id = Drive file id, so
+  // re-linking the same file is idempotent) — no read-modify-write of a shared array.
+  await ref.collection('driveFiles').doc(file.id).set(entry);
   return { ok: true };
 });
 
@@ -124,8 +118,7 @@ export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) =>
   const ref = db.doc(advancePath(eventId, stageId, advanceId));
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'Advance not found.');
-  const next = existingFiles(snap.data()).filter((e) => e.fileId !== fileId);
-  await ref.set({ driveFiles: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await ref.collection('driveFiles').doc(fileId).delete();
   return { ok: true };
 });
 

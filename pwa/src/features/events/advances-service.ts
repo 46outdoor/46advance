@@ -18,6 +18,7 @@ import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseAdvance, type Advance, type AdvanceInput } from '@/lib/advances/advance';
 import { initialSections, type SectionKey, type SectionStatus } from '@/lib/advances/sections';
 import type { SectionContent } from '@/lib/advances/fields';
+import { parseDriveFile, type DriveFileRef } from '@/lib/google/driveFile';
 
 function advancesCol(eventId: string, stageId: string) {
   return collection(db, 'events', eventId, 'stages', stageId, 'advances');
@@ -67,6 +68,33 @@ export async function getAdvance(
 ): Promise<Advance | null> {
   const snap = await getDoc(advanceDoc(eventId, stageId, advanceId));
   return snap.exists() ? parseAdvance(snap.id, snap.data()) : null;
+}
+
+/** React Query key for an advance's linked Drive files (subcollection). */
+export function driveFilesKey(eventId: string, stageId: string, advanceId: string) {
+  return ['driveFiles', eventId, stageId, advanceId] as const;
+}
+
+/**
+ * Linked Drive files for an advance, oldest first. Read from the
+ * `.../advances/{id}/driveFiles/{fileId}` subcollection (server-written by the
+ * link/removeDriveFile callables), skipping any malformed docs.
+ */
+export async function listDriveFiles(
+  eventId: string,
+  stageId: string,
+  advanceId: string,
+): Promise<DriveFileRef[]> {
+  const snap = await getDocs(collection(advanceDoc(eventId, stageId, advanceId), 'driveFiles'));
+  const files: DriveFileRef[] = [];
+  for (const d of snap.docs) {
+    try {
+      files.push(parseDriveFile(d.data()));
+    } catch {
+      // skip malformed doc
+    }
+  }
+  return files.sort((a, b) => (a.linkedAt?.getTime() ?? 0) - (b.linkedAt?.getTime() ?? 0));
 }
 
 export async function updateAdvance(
