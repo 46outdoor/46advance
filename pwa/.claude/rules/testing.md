@@ -18,11 +18,17 @@ paths:
 
 ## Coverage Thresholds
 
-- Lines: 75%
-- Functions: 75%
-- Branches: 70%
+Enforced by `vite.config.ts` (`test.coverage.thresholds`) and gated in CI (the `test`
+job runs `npm run test:coverage`). A **ratchet** model, not a flat target:
 
-(Adjust these during planning if the project calls for different targets.)
+- **Global floor** (whole app): statements/lines 20%, functions 18%, branches 75% —
+  locks overall coverage; raise as it improves.
+- **High per-directory bars** lock in the well-covered pure business-logic libs so they
+  can't regress: `src/lib/{advances,events,quotes}` ≈95%+ lines/functions; `src/lib/rbac`
+  and `src/lib/schedules` are set to their (lower) current `functions` coverage rather
+  than an aspirational number.
+
+Raise the bars as coverage grows; never lower one to make a change pass — add the test.
 
 ## File Naming
 
