@@ -2,7 +2,29 @@
 
 **Date:** 2026-06-25  
 **Scope:** Current repo foundation, guardrails, organization, Firebase backend, PWA implementation, and mobile-readiness contracts.  
-**Status:** Active remediation plan. Move to `planning/archive/fix/` once the fixes below are implemented or consciously deferred.
+**Status:** ✅ **RESOLVED (2026-06-27).** All P0/P1 items shipped; the P2 batch shipped; the few deferrals are conscious (see table). Archived to `planning/archive/fix/`. The detailed plans below are kept as the historical record.
+
+## Completion Status (2026-06-27)
+
+| Item | Resolution |
+| --- | --- |
+| P0 Approved-user access | ✅ PR #49 — Firestore + Storage `isActiveUser()` gate + tests |
+| P0 Admin bootstrap | ✅ PR #50 — `ADMIN_EMAILS` env; canonical `jared@46entertainment.com` (the *app* admin, distinct from the GCP project owner `jared@yourstagemanager.com`) |
+| P0 Secret health check | ✅ PR #51 — real `verify-secrets-health.sh` wired into the functions predeploy |
+| P0 Callable contract schemas | ✅ PR #54 + #55 — backend-owned Zod contracts for all domains; server `.parse` + client types |
+| P0 Firestore shape validation | ✅ PR #52 — shape/enum/immutability/server-owned-field rules + tests. Array/map-element checks (negative line items, `sections.*.status`) stay in client Zod (not expressible in rules). |
+| P1 CLI wrappers | ✅ PR #56 — sandbox-safe wrappers; emulator scripts on `demo-46advance`. Config-redirect scoped to emulator subcommands to preserve deploy/secret-health auth. |
+| P1 PDF link contract | ✅ PR #58 — quotes = signed expiring 7-day URLs (member-gated fallback); packets = member-gated. Signing needs the runtime SA to hold `roles/iam.serviceAccountTokenCreator`. |
+| P1 Attachment/Drive concurrency | ✅ PR #59 (driveFiles) + #60 (attachments) → subcollections; migration scripts in `pwa/scripts/`. |
+| P1 Mobile-readiness contracts | ✅ Contracts exist (backend-owned, #54/#55); `mobile/` relabeled "planned, not built" (#56). |
+| P1 Coverage gates | ✅ PR #61 — ratchet (low global floor + high per-lib bars), CI-enforced. |
+| P1 Sentry | ✅ PR #57 — activates when `VITE_SENTRY_DSN` set. Source-map upload deferred until a Sentry org/token exists. |
+| P1 Rate-limit callables | ✅ Shipped #47; unit tests #53. |
+| P2 Lazy routing | ✅ PR #67 (route `React.lazy`) + #69 (vendor chunk split). |
+| P2 Dependency audit | ✅ PR #62 — scheduled non-blocking audit + `functions/SECURITY_EXCEPTIONS.md` + `.editorconfig`. |
+| P2 Stale governance docs | ✅ This PR — statuses + staging + finding annotations reconciled. |
+| P2 Small feature/UX gaps | ✅ password reset #65, departments rename #64, events search #63, stage reorder #66. **7-vs-6 departments: KEEP 7** — Staging was a deliberate Phase-5 decision. |
+| P2 Phase-0 scaffold files | Conscious deferral — the missing `config/`/`testing/` files are **create-on-first-use** (the `pwa/AGENTS.md` canonical table marks them so). `/__theme` dev-gated (#65). **Staging:** no separate staging project; folded into the manual deploy (see `AGENTS.md`). |
 
 ## Review Summary
 
