@@ -3,7 +3,7 @@ import { AppShell } from '@/components/AppShell';
 import { ThemeSpecimen } from '@/routes/ThemeSpecimen';
 import { PrivacyScreen } from '@/routes/PrivacyScreen';
 import { LandingScreen } from '@/routes/LandingScreen';
-import { SignInScreen, SignUpScreen, AuthGate } from '@/features/auth';
+import { SignInScreen, SignUpScreen, ForgotPasswordScreen, AuthGate } from '@/features/auth';
 import { AdminScreen, AdminGate } from '@/features/admin';
 import {
   EventsListScreen,
@@ -24,6 +24,7 @@ export function App() {
       <Route path="/" element={<LandingScreen />} />
       <Route path="/sign-in" element={<SignInScreen />} />
       <Route path="/sign-up" element={<SignUpScreen />} />
+      <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
       <Route path="/privacy" element={<PrivacyScreen />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/events" element={<EventsListScreen />} />
@@ -63,7 +64,8 @@ export function App() {
             </AdminGate>
           }
         />
-        <Route path="/__theme" element={<ThemeSpecimen />} />
+        {/* Dev-only specimen route; never registered in production bundles. */}
+        {import.meta.env.DEV && <Route path="/__theme" element={<ThemeSpecimen />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
