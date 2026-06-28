@@ -19,6 +19,7 @@ import {
   type ScheduleSection,
 } from '@/lib/schedules/sections';
 import type { ScheduleItem, ScheduleItemInput } from '@/lib/schedules/scheduleItem';
+import { slotLabel } from '@/lib/advances/advance';
 import { listStages } from './stages-service';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
 import { getEvent } from './events-service';
@@ -32,7 +33,7 @@ import {
   updateScheduleItem,
 } from './schedule-service';
 import { useGoogleConnection } from '@/lib/google';
-import { ScheduleItemForm, type AdvanceOption, type StageOption } from './ScheduleItemForm';
+import { ScheduleItemForm, type StageOption } from './ScheduleItemForm';
 
 const logger = createLogger('Schedule');
 
@@ -57,6 +58,29 @@ function groupByDay(items: ScheduleItem[]): DayGroup[] {
       label: key === 'no-time' ? 'No time set' : formatCentralDate(map.get(key)![0].startAt),
       items: map.get(key)!,
     }));
+}
+
+/** One-line detail under an item: stage · act/slot · location · section fields.
+ * A Show slot resolves to the artist holding that slot on the stage (else "unassigned"). */
+function summarizeItem(
+  it: ScheduleItem,
+  stageName: Map<string, string>,
+  advanceLabel: Map<string, string>,
+  slotArtist: Map<string, string>,
+): string {
+  const parts: string[] = [];
+  if (it.stageId) parts.push(stageName.get(it.stageId) ?? 'Stage');
+  if (it.slot != null) {
+    const who = (it.stageId && slotArtist.get(`${it.stageId}:${it.slot}`)) || 'unassigned';
+    parts.push(`${slotLabel(it.slot)} — ${who}`);
+  } else if (it.advanceId) {
+    parts.push(advanceLabel.get(it.advanceId) ?? 'Act');
+  }
+  if (it.location) parts.push(it.location);
+  for (const f of scheduleSectionDef(it.section).fields) {
+    if (it.fields[f.key]) parts.push(`${f.label}: ${it.fields[f.key]}`);
+  }
+  return parts.join(' · ');
 }
 
 export function EventScheduleScreen() {
@@ -115,12 +139,22 @@ export function EventScheduleScreen() {
   });
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
-  const advances: AdvanceOption[] = (advancesQuery.data ?? []).map((a) => ({
-    id: a.advance.id,
-    label: `${a.advance.artistName} · ${a.stageName}`,
-  }));
   const stageName = useMemo(() => new Map(stages.map((s) => [s.id, s.name])), [stages]);
-  const advanceLabel = useMemo(() => new Map(advances.map((a) => [a.id, a.label])), [advances]);
+  const advanceLabel = useMemo(
+    () =>
+      new Map(
+        (advancesQuery.data ?? []).map((a) => [a.advance.id, `${a.advance.artistName} · ${a.stageName}`]),
+      ),
+    [advancesQuery.data],
+  );
+  /** (stageId:slot) → artist, for resolving Show slot placeholders to the assigned act. */
+  const slotArtist = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of advancesQuery.data ?? []) {
+      if (a.advance.slot != null) m.set(`${a.stageId}:${a.advance.slot}`, a.advance.artistName);
+    }
+    return m;
+  }, [advancesQuery.data]);
 
   if (!user || !eventId) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
@@ -130,16 +164,7 @@ export function EventScheduleScreen() {
   const editGroups = groupByDay(items);
   const masterGroups = groupByDay(masterItems);
 
-  const summarize = (it: ScheduleItem): string => {
-    const parts: string[] = [];
-    if (it.stageId) parts.push(stageName.get(it.stageId) ?? 'Stage');
-    if (it.advanceId) parts.push(advanceLabel.get(it.advanceId) ?? 'Act');
-    if (it.location) parts.push(it.location);
-    for (const f of scheduleSectionDef(it.section).fields) {
-      if (it.fields[f.key]) parts.push(`${f.label}: ${it.fields[f.key]}`);
-    }
-    return parts.join(' · ');
-  };
+  const summarize = (it: ScheduleItem): string => summarizeItem(it, stageName, advanceLabel, slotArtist);
 
   return (
     <section className="space-y-6">
@@ -192,7 +217,6 @@ export function EventScheduleScreen() {
                   <h2 className="mb-3 font-display text-lg font-bold text-brand">New schedule item</h2>
                   <ScheduleItemForm
                     stages={stages}
-                    advances={advances}
                     submitLabel="Add item"
                     pending={create.isPending}
                     error={create.isError ? 'Could not add the item.' : null}
@@ -226,7 +250,6 @@ export function EventScheduleScreen() {
                       <ScheduleItemForm
                         initial={it}
                         stages={stages}
-                        advances={advances}
                         submitLabel="Save changes"
                         pending={update.isPending}
                         error={update.isError ? 'Could not save.' : null}

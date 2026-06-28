@@ -11,6 +11,7 @@ describe('scheduleItem', () => {
     expect(item.fields).toEqual({});
     expect(item.startAt).toBeNull();
     expect(item.stageId).toBeNull();
+    expect(item.slot).toBeNull();
   });
 
   it('parses times (UTC) + section fields', () => {
@@ -36,5 +37,10 @@ describe('scheduleItem', () => {
     expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set' }).success).toBe(true);
     expect(scheduleItemInputSchema.safeParse({ section: 'show', title: '' }).success).toBe(false);
     expect(scheduleItemInputSchema.safeParse({ section: 'bogus', title: 'x' }).success).toBe(false);
+  });
+
+  it('carries a Show lineup slot (placeholder that resolves to the assigned artist)', () => {
+    expect(parseScheduleItem('s5', { section: 'show', title: 'Headliner', createdBy: 'u1', slot: 1 }).slot).toBe(1);
+    expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', slot: 3 }).success).toBe(true);
   });
 });

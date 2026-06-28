@@ -24,8 +24,10 @@ export interface ScheduleItem {
   notes: string | null;
   /** Optional stage tag (stage-specific items like soundcheck/set); null = event-wide. */
   stageId: string | null;
-  /** Optional advance/act link (Show section). */
+  /** Optional advance/act link (Show section) — legacy; superseded by `slot`. */
   advanceId: string | null;
+  /** Lineup slot for a Show item: resolves to the artist holding that slot on `stageId`. */
+  slot: number | null;
   /** Section-specific field values (sections.ts). */
   fields: Record<string, string>;
   includeInMaster: boolean;
@@ -47,6 +49,7 @@ const scheduleItemDocSchema = z.object({
   notes: z.string().nullable().optional(),
   stageId: z.string().nullable().optional(),
   advanceId: z.string().nullable().optional(),
+  slot: z.number().nullable().optional(),
   fields: z.record(z.string(), z.string()).optional(),
   includeInMaster: z.boolean().optional(),
   googleCalendarEventId: z.string().nullable().optional(),
@@ -70,6 +73,7 @@ export function parseScheduleItem(id: string, data: unknown): ScheduleItem {
     notes: doc.notes ?? null,
     stageId: doc.stageId ?? null,
     advanceId: doc.advanceId ?? null,
+    slot: doc.slot ?? null,
     fields: doc.fields ?? {},
     includeInMaster: doc.includeInMaster ?? true,
     googleCalendarEventId: doc.googleCalendarEventId ?? null,
@@ -91,6 +95,7 @@ export const scheduleItemInputSchema = z.object({
   notes: z.string().trim().optional(),
   stageId: z.string().trim().optional(),
   advanceId: z.string().trim().optional(),
+  slot: z.number().int().positive().nullable().optional(),
   fields: z.record(z.string(), z.string()).optional(),
   includeInMaster: z.boolean().optional(),
 });

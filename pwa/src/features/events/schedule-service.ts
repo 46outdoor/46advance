@@ -53,6 +53,7 @@ function toDoc(input: ScheduleItemInput) {
     notes: input.notes?.trim() || null,
     stageId: input.stageId?.trim() || null,
     advanceId: input.advanceId?.trim() || null,
+    slot: input.slot ?? null,
     fields: input.fields ?? {},
     includeInMaster: input.includeInMaster ?? true,
   };
