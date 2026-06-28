@@ -25,6 +25,7 @@ import {
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
 import { createEventFromTemplateInputSchema } from './contracts/callables/events.js';
+import { slugify, uniqueSlug } from './lib/events/slug.js';
 import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
 
 initializeApp();
@@ -304,6 +305,7 @@ interface NewEventInput {
   startDate: Timestamp | null;
   endDate: Timestamp | null;
   venue: string | null;
+  slug: string | null;
 }
 
 /** Parse + validate the createEventFromTemplate payload. Throws on invalid input. */
@@ -315,6 +317,7 @@ function parseNewEventInput(data: unknown): NewEventInput {
     startDate: toTimestamp(input.startDate),
     endDate: toTimestamp(input.endDate),
     venue: trimmedOrNull(input.venue),
+    slug: trimmedOrNull(input.slug),
   };
 }
 
@@ -394,6 +397,15 @@ export const createEventFromTemplate = onCall(async (request) => {
   const now = FieldValue.serverTimestamp();
   const batch = db.batch();
 
+  // Readable URL slug: prefer the client-computed one (booking label/name + year), else the
+  // name; enforce uniqueness across events.
+  const existingSlugs = new Set(
+    (await db.collection('events').get()).docs
+      .map((d) => d.data().slug)
+      .filter((s): s is string => typeof s === 'string'),
+  );
+  const slug = uniqueSlug(slugify(input.slug || input.name), existingSlugs);
+
   const eventRef = db.collection('events').doc();
   batch.set(eventRef, {
     name: input.name,
@@ -402,6 +414,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     venue: input.venue,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),
+    slug,
     eventLogo: tpl.eventLogo ?? null,
     createdBy: uid,
     createdAt: now,

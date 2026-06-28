@@ -160,7 +160,7 @@ export function EventsListScreen() {
         {events.map((e) => (
           <li key={e.id}>
             <Link
-              to={`/events/${e.id}`}
+              to={`/events/${e.slug ?? e.id}`}
               className="block rounded-lg border border-line p-4 transition-colors hover:border-accent"
             >
               <div className="flex items-center justify-between gap-2">

@@ -16,6 +16,11 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Event & template logos:** templates and events now carry a show-specific logo, plus an admin-managed set of shared default marks (e.g. 46, Peachtree) that auto-apply to every event. Each logo holds two variants — one for dark backgrounds, one for light — so it renders correctly on the packet's dark cover, its white content pages, and the in-app event/advance headers (in both themes). Authored in the template editor and **Admin → Branding**, with a per-event override; the template's logo is cloned onto new events created from it.
 - **Admin user management:** in **Admin → Users** you can now set a member's **display name** (shown in role pickers and member lists), **send a password-reset email**, and **delete an account**.
 - **Contact auto-linking:** add a contact ahead of time, and when that person signs up with the same email their account links to the existing contact — inheriting its name — instead of creating a duplicate.
+- **Readable event URLs:** events now live at a slug like `/events/rtc-ashland-26` (derived from the booking label or name + the 2-digit year, and editable at creation) instead of a random id. Old id links still work, and id-based links auto-upgrade to the slug.
+
+### Changed
+
+- **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
 
 ### Fixed
 

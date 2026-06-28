@@ -30,6 +30,8 @@ export interface EventRecord {
    * by artist name only.
    */
   bookingLabel: string | null;
+  /** Readable URL slug (e.g. rtc-ashland-26); the doc id is the fallback. */
+  slug: string | null;
   /** Show-specific logo (cloned from the template; overridable per event). */
   eventLogo: Logo | null;
   createdBy: string;
@@ -46,6 +48,7 @@ const eventDocSchema = z.object({
   departmentIds: z.array(z.string()).optional(),
   googleCalendarId: z.string().nullable().optional(),
   bookingLabel: z.string().nullable().optional(),
+  slug: z.string().nullable().optional(),
   eventLogo: logoSchema.nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
@@ -65,6 +68,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     departmentIds: doc.departmentIds ?? [],
     googleCalendarId: doc.googleCalendarId ?? null,
     bookingLabel: doc.bookingLabel ?? null,
+    slug: doc.slug ?? null,
     eventLogo: doc.eventLogo ? parseLogo(doc.eventLogo) : null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
@@ -82,6 +86,7 @@ export const eventInputSchema = z
     status: eventStatusSchema.optional(),
     departmentIds: z.array(z.string()).optional(),
     bookingLabel: z.string().trim().optional(),
+    slug: z.string().trim().optional(),
   })
   .refine(
     (v) => !v.startDate || !v.endDate || v.endDate >= v.startDate,
