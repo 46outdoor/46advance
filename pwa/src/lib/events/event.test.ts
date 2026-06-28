@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { eventDays, eventInputSchema, parseEvent } from './event';
+import { eventDays, eventScheduleDays, eventInputSchema, parseEvent } from './event';
 
 describe('parseEvent', () => {
   it('normalizes timestamps and passes through fields', () => {
@@ -50,5 +50,18 @@ describe('eventDays', () => {
   it('returns [] when there is no start', () => {
     expect(eventDays(null, null)).toEqual([]);
     expect(eventDays()).toEqual([]);
+  });
+});
+
+describe('eventScheduleDays', () => {
+  it('spans load-in → show → load-out, tagged by kind', () => {
+    const days = eventScheduleDays(new Date(2026, 5, 26), new Date(2026, 5, 28), 1, 1); // Fri–Sun show
+    expect(days.map((d) => d.kind)).toEqual(['load-in', 'show', 'show', 'show', 'load-out']);
+    expect(days.map((d) => d.date.getDate())).toEqual([25, 26, 27, 28, 29]);
+  });
+
+  it('is just the show days with no load-in/out, and empty without a start', () => {
+    expect(eventScheduleDays(new Date(2026, 5, 26), new Date(2026, 5, 26)).map((d) => d.kind)).toEqual(['show']);
+    expect(eventScheduleDays(null)).toEqual([]);
   });
 });

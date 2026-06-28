@@ -304,6 +304,8 @@ interface NewEventInput {
   name: string;
   startDate: Timestamp | null;
   endDate: Timestamp | null;
+  loadInDays: number;
+  loadOutDays: number;
   venue: string | null;
   slug: string | null;
 }
@@ -316,6 +318,8 @@ function parseNewEventInput(data: unknown): NewEventInput {
     name: input.name, // schema trims + requires non-empty
     startDate: toTimestamp(input.startDate),
     endDate: toTimestamp(input.endDate),
+    loadInDays: input.loadInDays ?? 0,
+    loadOutDays: input.loadOutDays ?? 0,
     venue: trimmedOrNull(input.venue),
     slug: trimmedOrNull(input.slug),
   };
@@ -411,6 +415,8 @@ export const createEventFromTemplate = onCall(async (request) => {
     name: input.name,
     startDate: input.startDate,
     endDate: input.endDate,
+    loadInDays: input.loadInDays,
+    loadOutDays: input.loadOutDays,
     venue: input.venue,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),
