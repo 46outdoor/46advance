@@ -4,7 +4,7 @@
  * headless browser). Field labels are humanized from keys (shared registry sharing is a
  * follow-up).
  */
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import { createElement } from 'react';
 
 const BRAND = '#0a0a0a';
@@ -33,6 +33,16 @@ export interface PacketStage {
   advances: PacketAdvance[];
 }
 
+/**
+ * A resolved logo for the packet: each variant is a base64 data URI (or null when that
+ * variant couldn't be resolved). `coverDataUri` is the mark for the dark cover; `headerDataUri`
+ * is the mark for the white content header. They may reference the same image.
+ */
+export interface PacketLogo {
+  coverDataUri: string | null;
+  headerDataUri: string | null;
+}
+
 export interface PacketData {
   event: { name: string; venue?: string | null; dateRange?: string | null };
   departments: { id: string; name: string }[];
@@ -42,6 +52,8 @@ export interface PacketData {
     links: { label: string; url: string }[];
   };
   stages: PacketStage[];
+  /** Effective logo row (event mark + shared defaults, ≤ 3), pre-resolved to data URIs. */
+  logos: PacketLogo[];
   generatedAt: string;
 }
 
@@ -83,6 +95,8 @@ const s = StyleSheet.create({
   brandMark: { fontSize: 28, fontWeight: 'bold', letterSpacing: 2 },
   coverTitle: { fontSize: 34, fontWeight: 'bold', marginTop: 16 },
   coverSub: { fontSize: 12, color: '#cfcfcf', marginTop: 8 },
+  coverLogos: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
+  coverLogo: { height: 28, marginRight: 18, objectFit: 'contain' },
   page: { padding: 40, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   header: {
     flexDirection: 'row',
@@ -94,6 +108,9 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 11, fontWeight: 'bold', color: BRAND },
   headerMeta: { fontSize: 8, color: MUTED },
+  headerText: { flex: 1 },
+  headerLogos: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
+  headerLogo: { height: 14, marginLeft: 8, objectFit: 'contain' },
   h1: { fontSize: 16, fontWeight: 'bold', color: BRAND, marginBottom: 8 },
   h2: { fontSize: 12, fontWeight: 'bold', color: BRAND, marginTop: 12, marginBottom: 4 },
   h3: { fontSize: 10, fontWeight: 'bold', color: ACCENT, marginTop: 8, marginBottom: 2 },
@@ -121,9 +138,19 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
 
 function PageHeader({ data }: { data: PacketData }) {
   const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join(' · ');
+  const headerUris = data.logos.map((l) => l.headerDataUri).filter((u): u is string => u !== null);
   return createElement(View, { style: s.header, fixed: true }, [
-    createElement(Text, { style: s.headerTitle, key: 't' }, `${data.event.name} — Production Packet`),
-    createElement(Text, { style: s.headerMeta, key: 'm' }, meta),
+    createElement(View, { style: s.headerText, key: 'tx' }, [
+      createElement(Text, { style: s.headerTitle, key: 't' }, `${data.event.name} — Production Packet`),
+      createElement(Text, { style: s.headerMeta, key: 'm' }, meta),
+    ]),
+    headerUris.length > 0
+      ? createElement(
+          View,
+          { style: s.headerLogos, key: 'logos' },
+          ...headerUris.map((src, i) => createElement(Image, { src, style: s.headerLogo, key: i })),
+        )
+      : null,
   ]);
 }
 
@@ -141,6 +168,7 @@ function Footer() {
 function buildPacketDocument(data: PacketData) {
   const deptName = new Map(data.departments.map((d) => [d.id, d.name]));
 
+  const coverUris = data.logos.map((l) => l.coverDataUri).filter((u): u is string => u !== null);
   const cover = createElement(Page, { size: 'LETTER', key: 'cover' }, [
     createElement(View, { style: s.cover, key: 'c' }, [
       createElement(View, { style: s.coverSlash, key: 'slash' }),
@@ -153,6 +181,13 @@ function buildPacketDocument(data: PacketData) {
           [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  '),
         ),
         createElement(Text, { style: s.coverSub, key: 'g' }, `Production packet · generated ${data.generatedAt}`),
+        coverUris.length > 0
+          ? createElement(
+              View,
+              { style: s.coverLogos, key: 'logos' },
+              ...coverUris.map((src, i) => createElement(Image, { src, style: s.coverLogo, key: i })),
+            )
+          : null,
       ]),
     ]),
   ]);

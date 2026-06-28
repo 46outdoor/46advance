@@ -7,6 +7,8 @@ import { listDepartments } from '@/lib/departments/departments-service';
 import { listUsers } from '@/lib/users/users-service';
 import { getTemplate, patchTemplate } from '@/lib/templates/templates-service';
 import type { DepartmentRecord } from '@/lib/departments/department';
+import { emptyLogo, type Logo } from '@/lib/branding/logo';
+import { LogoUploader } from '@/components/branding/LogoUploader';
 import { SectionContentForm } from '@/components/production/SectionContentForm';
 import { ProductionContactsEditor } from '@/components/production/ProductionContactsEditor';
 import { ProductionLinksEditor } from '@/components/production/ProductionLinksEditor';
@@ -51,6 +53,16 @@ export function TemplateEditorScreen() {
       {t && (
         <>
           <NameField key={t.id} initial={t.name} pending={patch.isPending} onSave={(name) => patch.mutate({ name })} />
+
+          <Block title="Event logo">
+            <EventLogoField
+              key={`logo-${t.id}`}
+              templateId={t.id}
+              initial={t.eventLogo}
+              pending={patch.isPending}
+              onSave={(eventLogo) => patch.mutate({ eventLogo })}
+            />
+          </Block>
 
           <Block title="Departments">
             <DepartmentsField
@@ -209,6 +221,42 @@ function DepartmentsField({
         className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         Save departments
+      </button>
+    </div>
+  );
+}
+
+function EventLogoField({
+  templateId,
+  initial,
+  pending,
+  onSave,
+}: {
+  templateId: string;
+  initial: Logo | null;
+  pending?: boolean;
+  onSave: (logo: Logo | null) => void;
+}) {
+  const [logo, setLogo] = useState<Logo>(initial ?? emptyLogo());
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink-muted">
+        Show-specific mark, cloned onto events created from this template. Provide a variant for
+        dark backgrounds, light backgrounds, or both.
+      </p>
+      <LogoUploader
+        logo={logo}
+        pathPrefix={`templates/${templateId}/logo`}
+        onChange={setLogo}
+        disabled={pending}
+      />
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => onSave(logo)}
+        className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        Save logo
       </button>
     </div>
   );

@@ -15,6 +15,9 @@ import {
 import type { Advance, AdvanceInput } from '@/lib/advances/advance';
 import type { SectionContent } from '@/lib/advances/fields';
 import type { DepartmentRecord } from '@/lib/departments/department';
+import type { Logo } from '@/lib/branding/logo';
+import { brandingKey, getBranding } from '@/lib/branding/branding-service';
+import { LogoRow } from '@/components/branding/LogoRow';
 import { listDepartments } from '@/lib/departments/departments-service';
 import {
   deleteAdvance,
@@ -59,6 +62,8 @@ export function AdvanceDetailScreen() {
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
+
+  const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['advances', eventId, stageId] });
@@ -109,6 +114,8 @@ export function AdvanceDetailScreen() {
   const departments = departmentsQuery.data ?? [];
   const enabledIds = new Set(eventQuery.data?.departmentIds ?? []);
   const sectionRows = departments.filter((d) => enabledIds.has(d.id));
+  const parentEventLogo = eventQuery.data?.eventLogo ?? null;
+  const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
     <section className="space-y-6">
@@ -129,6 +136,8 @@ export function AdvanceDetailScreen() {
           stageId={stageId}
           advanceId={advanceId}
           canEdit={canEdit}
+          eventLogo={parentEventLogo}
+          defaultLogos={defaultLogos}
           deletePending={remove.isPending}
           confirmDelete={confirmDelete}
           onEdit={() => setEditing(true)}
@@ -198,6 +207,8 @@ function AdvanceHeader({
   stageId,
   advanceId,
   canEdit,
+  eventLogo,
+  defaultLogos,
   deletePending,
   confirmDelete,
   onEdit,
@@ -209,6 +220,8 @@ function AdvanceHeader({
   stageId: string;
   advanceId: string;
   canEdit: boolean;
+  eventLogo: Logo | null;
+  defaultLogos: Logo[];
   deletePending: boolean;
   confirmDelete: boolean;
   onEdit: () => void;
@@ -217,6 +230,7 @@ function AdvanceHeader({
 }) {
   return (
     <header className="space-y-2">
+      <LogoRow eventLogo={eventLogo} defaults={defaultLogos} imgClassName="h-6" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl font-black tracking-tight text-brand">{advance.artistName}</h1>
         {canEdit && (

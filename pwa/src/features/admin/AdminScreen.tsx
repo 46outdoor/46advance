@@ -15,6 +15,7 @@ import {
   setUserOrganizer,
 } from './admin-service';
 import { DepartmentsAdmin } from './DepartmentsAdmin';
+import { BrandingAdmin } from './BrandingAdmin';
 
 const logger = createLogger('Admin');
 
@@ -149,6 +150,8 @@ export function AdminScreen() {
       </div>
 
       <DepartmentsAdmin />
+
+      <BrandingAdmin />
 
       {/* Templates */}
       <div className="space-y-3">

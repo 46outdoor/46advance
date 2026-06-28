@@ -21,6 +21,7 @@ import {
   type ProductionContact,
   type ProductionLink,
 } from '@/lib/production/production';
+import { logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
 
 export interface TemplateStage {
   id: string;
@@ -50,6 +51,8 @@ export interface TemplateRecord {
   eventProduction: TemplateEventProduction;
   stageProduction: TemplateStageProduction;
   members: TemplateMember[];
+  /** Show-specific logo (cloned onto events created from this template). */
+  eventLogo: Logo | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -62,6 +65,7 @@ export interface TemplateInput {
   eventProduction: TemplateEventProduction;
   stageProduction: TemplateStageProduction;
   members: TemplateMember[];
+  eventLogo: Logo | null;
 }
 
 const templateStageSchema = z.object({
@@ -91,6 +95,7 @@ const templateDocSchema = z.object({
   eventProduction: eventProductionSchema,
   stageProduction: stageProductionSchema,
   members: z.array(templateMemberSchema).optional(),
+  eventLogo: logoSchema.nullable().optional(),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
@@ -113,6 +118,7 @@ export function parseTemplate(id: string, data: unknown): TemplateRecord {
     },
     stageProduction,
     members: doc.members ?? [],
+    eventLogo: doc.eventLogo ? parseLogo(doc.eventLogo) : null,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
   };
@@ -128,5 +134,6 @@ export function emptyTemplateInput(): TemplateInput {
     eventProduction: { info: {}, contacts: [], links: [] },
     stageProduction: {},
     members: [],
+    eventLogo: null,
   };
 }

@@ -100,6 +100,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // App-level branding config (config/branding): shared default logo marks. Any approved user reads; admin manages.
+    match /config/{configId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     // Global contact directory (ROADMAP §11): reference data, distinct from RBAC users.
     // Any approved member of the team reads + adds; the creator (or admin) edits/deletes.
     match /contacts/{contactId} {

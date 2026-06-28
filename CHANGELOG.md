@@ -9,6 +9,12 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-06-28
+
+### Added
+
+- **Event & template logos:** templates and events now carry a show-specific logo, plus an admin-managed set of shared default marks (e.g. 46, Peachtree) that auto-apply to every event. Each logo holds two variants — one for dark backgrounds, one for light — so it renders correctly on the packet's dark cover, its white content pages, and the in-app event/advance headers (in both themes). Authored in the template editor and **Admin → Branding**, with a per-event override; the template's logo is cloned onto new events created from it.
+
 ## 2026-06-27
 
 ### Added
