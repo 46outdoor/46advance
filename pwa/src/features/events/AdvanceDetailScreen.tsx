@@ -12,7 +12,8 @@ import {
   type SectionKey,
   type SectionStatus,
 } from '@/lib/advances/sections';
-import type { Advance, AdvanceInput } from '@/lib/advances/advance';
+import { slotLabel, type Advance, type AdvanceInput } from '@/lib/advances/advance';
+import { eventDays, type EventRecord } from '@/lib/events/event';
 import type { SectionContent } from '@/lib/advances/fields';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import type { Logo } from '@/lib/branding/logo';
@@ -149,6 +150,7 @@ export function AdvanceDetailScreen() {
       {advance && editing && (
         <AdvanceEditPanel
           advance={advance}
+          event={eventQuery.data}
           pending={update.isPending}
           error={update.isError ? 'Could not save changes.' : null}
           onSubmit={(input) => update.mutate(input)}
@@ -254,7 +256,7 @@ function AdvanceHeader({
         )}
       </div>
       <p className="text-ink-muted">
-        {advance.stage && <span className="mr-3">{advance.stage}</span>}
+        {advance.slot && <span className="mr-3">{slotLabel(advance.slot)}</span>}
         {advance.performanceDate && <span>{formatDate(advance.performanceDate)}</span>}
       </p>
       {advance.notes && <p className="whitespace-pre-line text-sm text-ink">{advance.notes}</p>}
@@ -280,22 +282,26 @@ function AdvanceHeader({
 
 function AdvanceEditPanel({
   advance,
+  event,
   pending,
   error,
   onSubmit,
   onCancel,
 }: {
   advance: Advance;
+  event: EventRecord | null | undefined;
   pending: boolean;
   error: string | null;
   onSubmit: (input: AdvanceInput) => void;
   onCancel: () => void;
 }) {
+  const days = eventDays(event?.startDate, event?.endDate);
   return (
     <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
       <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit artist advance</h2>
       <AdvanceForm
         initial={advance}
+        days={days}
         submitLabel="Save changes"
         pending={pending}
         error={error}

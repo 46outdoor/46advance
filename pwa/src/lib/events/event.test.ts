@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { eventInputSchema, parseEvent } from './event';
+import { eventDays, eventInputSchema, parseEvent } from './event';
 
 describe('parseEvent', () => {
   it('normalizes timestamps and passes through fields', () => {
@@ -34,5 +34,21 @@ describe('eventInputSchema', () => {
     const end = new Date('2026-07-01');
     expect(() => eventInputSchema.parse({ name: 'E', startDate: start, endDate: end })).toThrow();
     expect(eventInputSchema.parse({ name: 'E', startDate: end, endDate: start })).toBeTruthy();
+  });
+});
+
+describe('eventDays', () => {
+  it('lists each calendar day from start to end inclusive', () => {
+    const days = eventDays(new Date(2026, 5, 26), new Date(2026, 5, 28)); // Fri–Sun
+    expect(days.map((d) => d.getDate())).toEqual([26, 27, 28]);
+  });
+
+  it('returns a single day when end is null', () => {
+    expect(eventDays(new Date(2026, 5, 26), null)).toHaveLength(1);
+  });
+
+  it('returns [] when there is no start', () => {
+    expect(eventDays(null, null)).toEqual([]);
+    expect(eventDays()).toEqual([]);
   });
 });

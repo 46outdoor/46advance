@@ -93,3 +93,17 @@ export const eventInputSchema = z
     { message: 'End date must be on or after the start date.', path: ['endDate'] },
   );
 export type EventInput = z.infer<typeof eventInputSchema>;
+
+/** The event's calendar days, start→end inclusive (local-midnight Dates; capped at 31). */
+export function eventDays(start?: Date | null, end?: Date | null): Date[] {
+  if (!start) return [];
+  const days: Date[] = [];
+  const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = end ?? start;
+  const stop = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+  while (d <= stop && days.length < 31) {
+    days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}

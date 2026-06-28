@@ -19,7 +19,7 @@ function advance(id: string, artistName: string, statuses: Record<string, Sectio
     id,
     artistName,
     performanceDate: null,
-    stage: null,
+    slot: null,
     notes: null,
     additions: null,
     concerns: null,

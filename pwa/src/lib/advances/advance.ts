@@ -13,7 +13,8 @@ export interface Advance {
   id: string;
   artistName: string;
   performanceDate: Date | null;
-  stage: string | null;
+  /** Lineup position on the stage: 1 = Headliner, 2 = Direct Support, 3+ = Artist N. */
+  slot: number | null;
   notes: string | null;
   /** Structured summary fields (roll up to the per-day report). */
   additions: string | null;
@@ -37,7 +38,7 @@ export interface Advance {
 const advanceDocSchema = z.object({
   artistName: z.string().min(1),
   performanceDate: z.instanceof(Timestamp).nullable().optional(),
-  stage: z.string().nullable().optional(),
+  slot: z.number().nullable().optional(),
   notes: z.string().nullable().optional(),
   additions: z.string().nullable().optional(),
   concerns: z.string().nullable().optional(),
@@ -61,7 +62,7 @@ export function parseAdvance(id: string, data: unknown): Advance {
     id,
     artistName: doc.artistName,
     performanceDate: timestampToDate(doc.performanceDate ?? null),
-    stage: doc.stage ?? null,
+    slot: doc.slot ?? null,
     notes: doc.notes ?? null,
     additions: doc.additions ?? null,
     concerns: doc.concerns ?? null,
@@ -77,11 +78,18 @@ export function parseAdvance(id: string, data: unknown): Advance {
   };
 }
 
+/** Lineup slot label: 1 → Headliner, 2 → Direct Support, 3+ → Artist N. */
+export function slotLabel(slot: number): string {
+  if (slot === 1) return 'Headliner';
+  if (slot === 2) return 'Direct Support';
+  return `Artist ${slot}`;
+}
+
 /** Client-supplied fields when creating/editing an advance. */
 export const advanceInputSchema = z.object({
   artistName: z.string().trim().min(1, 'Artist name is required.'),
   performanceDate: z.date().nullable().optional(),
-  stage: z.string().trim().optional(),
+  slot: z.number().int().positive().nullable().optional(),
   notes: z.string().trim().optional(),
   additions: z.string().trim().optional(),
   concerns: z.string().trim().optional(),

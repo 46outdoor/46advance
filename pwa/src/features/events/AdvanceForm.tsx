@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { advanceInputSchema, type AdvanceInput } from '@/lib/advances/advance';
+import { advanceInputSchema, slotLabel, type AdvanceInput } from '@/lib/advances/advance';
 import { dateInputValue, dateTimeInputValue, parseDateInput, parseDateTimeInput } from '@/lib/dates/parsing';
 
 interface AdvanceFormProps {
   initial?: {
     artistName: string;
     performanceDate: Date | null;
-    stage: string | null;
+    slot: number | null;
     notes: string | null;
     additions: string | null;
     concerns: string | null;
@@ -14,6 +14,8 @@ interface AdvanceFormProps {
     advanceCallAt: Date | null;
     advanceCallLink: string | null;
   };
+  /** The event's performance days; when present, the date becomes a day dropdown. */
+  days?: Date[];
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -23,11 +25,63 @@ interface AdvanceFormProps {
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
+/** Performance day: a dropdown of the event's days when known, else a free date input. */
+function DaySelect({ days, value, onChange }: { days?: Date[]; value: string; onChange: (v: string) => void }) {
+  if (days && days.length > 0) {
+    return (
+      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">— Select a day —</option>
+        {days.map((day) => {
+          const v = dateInputValue(day);
+          return (
+            <option key={v} value={v}>
+              {day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </option>
+          );
+        })}
+      </select>
+    );
+  }
+  return <input type="date" className={inputClass} value={value} onChange={(e) => onChange(e.target.value)} />;
+}
+
+/** Lineup slot dropdown (Headliner / Direct Support / Artist N) with an "add another" option. */
+function SlotSelect({ slot, onChange }: { slot: number | null; onChange: (slot: number | null) => void }) {
+  const [maxSlot, setMaxSlot] = useState(Math.max(5, slot ?? 0));
+  return (
+    <div className="flex gap-2">
+      <select
+        className={inputClass}
+        value={slot ?? ''}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      >
+        <option value="">— No slot —</option>
+        {Array.from({ length: maxSlot }, (_, i) => i + 1).map((n) => (
+          <option key={n} value={n}>
+            {slotLabel(n)}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => {
+          const next = maxSlot + 1;
+          setMaxSlot(next);
+          onChange(next);
+        }}
+        className="shrink-0 rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent"
+      >
+        + Add
+      </button>
+    </div>
+  );
+}
+
 /** Create/edit form for an advance. Validates with advanceInputSchema. */
-export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: AdvanceFormProps) {
+export function AdvanceForm({ initial, days, submitLabel, pending, error, onSubmit, onCancel }: AdvanceFormProps) {
   const [artistName, setArtistName] = useState(initial?.artistName ?? '');
   const [performanceDate, setPerformanceDate] = useState(dateInputValue(initial?.performanceDate ?? null));
-  const [stage, setStage] = useState(initial?.stage ?? '');
+  const [slot, setSlot] = useState<number | null>(initial?.slot ?? null);
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [additions, setAdditions] = useState(initial?.additions ?? '');
   const [concerns, setConcerns] = useState(initial?.concerns ?? '');
@@ -41,7 +95,7 @@ export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, on
     const parsed = advanceInputSchema.safeParse({
       artistName,
       performanceDate: parseDateInput(performanceDate),
-      stage: stage.trim() || undefined,
+      slot,
       notes: notes.trim() || undefined,
       additions: additions.trim() || undefined,
       concerns: concerns.trim() || undefined,
@@ -64,12 +118,12 @@ export function AdvanceForm({ initial, submitLabel, pending, error, onSubmit, on
         <input className={inputClass} value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Headliner" />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Performance date</span>
-        <input type="date" className={inputClass} value={performanceDate} onChange={(e) => setPerformanceDate(e.target.value)} />
+        <span className="mb-1 block font-semibold text-ink">Performance day</span>
+        <DaySelect days={days} value={performanceDate} onChange={setPerformanceDate} />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Stage</span>
-        <input className={inputClass} value={stage} onChange={(e) => setStage(e.target.value)} placeholder="Main Stage" />
+        <span className="mb-1 block font-semibold text-ink">Slot</span>
+        <SlotSelect slot={slot} onChange={setSlot} />
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Notes</span>
