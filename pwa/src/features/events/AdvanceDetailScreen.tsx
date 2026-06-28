@@ -230,7 +230,7 @@ function AdvanceHeader({
 }) {
   return (
     <header className="space-y-2">
-      <LogoRow eventLogo={eventLogo} defaults={defaultLogos} imgClassName="h-6" />
+      <LogoRow eventLogo={eventLogo} defaults={defaultLogos} eventClassName="h-8" markClassName="h-5" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl font-black tracking-tight text-brand">{advance.artistName}</h1>
         {canEdit && (

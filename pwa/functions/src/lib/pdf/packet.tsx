@@ -52,8 +52,9 @@ export interface PacketData {
     links: { label: string; url: string }[];
   };
   stages: PacketStage[];
-  /** Effective logo row (event mark + shared defaults, ≤ 3), pre-resolved to data URIs. */
-  logos: PacketLogo[];
+  /** Branding logos pre-resolved to data URIs: the event mark (rendered centered + larger)
+   *  and the shared company marks (flanking, smaller). */
+  logos: { eventLogo: PacketLogo | null; markLogos: PacketLogo[] };
   generatedAt: string;
 }
 
@@ -96,7 +97,8 @@ const s = StyleSheet.create({
   coverTitle: { fontSize: 34, fontWeight: 'bold', marginTop: 16 },
   coverSub: { fontSize: 12, color: '#cfcfcf', marginTop: 8 },
   coverLogos: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
-  coverLogo: { height: 28, marginRight: 18, objectFit: 'contain' },
+  coverEventLogo: { height: 46, marginHorizontal: 14, objectFit: 'contain' },
+  coverMarkLogo: { height: 26, marginHorizontal: 14, objectFit: 'contain' },
   page: { padding: 40, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   header: {
     flexDirection: 'row',
@@ -110,7 +112,8 @@ const s = StyleSheet.create({
   headerMeta: { fontSize: 8, color: MUTED },
   headerText: { flex: 1 },
   headerLogos: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
-  headerLogo: { height: 14, marginLeft: 8, objectFit: 'contain' },
+  headerEventLogo: { height: 22, marginHorizontal: 6, objectFit: 'contain' },
+  headerMarkLogo: { height: 13, marginHorizontal: 6, objectFit: 'contain' },
   h1: { fontSize: 16, fontWeight: 'bold', color: BRAND, marginBottom: 8 },
   h2: { fontSize: 12, fontWeight: 'bold', color: BRAND, marginTop: 12, marginBottom: 4 },
   h3: { fontSize: 10, fontWeight: 'bold', color: ACCENT, marginTop: 8, marginBottom: 2 },
@@ -136,19 +139,35 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
   );
 }
 
+/** Order the branding row: company marks split to each side of the larger, centered event mark. */
+function arrangeLogos(eventUri: string | null, markUris: string[]): { src: string; isEvent: boolean }[] {
+  if (!eventUri && markUris.length === 0) return [];
+  const split = Math.ceil(markUris.length / 2);
+  return [
+    ...markUris.slice(0, split).map((src) => ({ src, isEvent: false })),
+    ...(eventUri ? [{ src: eventUri, isEvent: true }] : []),
+    ...markUris.slice(split).map((src) => ({ src, isEvent: false })),
+  ];
+}
+
 function PageHeader({ data }: { data: PacketData }) {
   const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join(' · ');
-  const headerUris = data.logos.map((l) => l.headerDataUri).filter((u): u is string => u !== null);
+  const items = arrangeLogos(
+    data.logos.eventLogo?.headerDataUri ?? null,
+    data.logos.markLogos.map((l) => l.headerDataUri).filter((u): u is string => u !== null),
+  );
   return createElement(View, { style: s.header, fixed: true }, [
     createElement(View, { style: s.headerText, key: 'tx' }, [
       createElement(Text, { style: s.headerTitle, key: 't' }, `${data.event.name} — Production Packet`),
       createElement(Text, { style: s.headerMeta, key: 'm' }, meta),
     ]),
-    headerUris.length > 0
+    items.length > 0
       ? createElement(
           View,
           { style: s.headerLogos, key: 'logos' },
-          ...headerUris.map((src, i) => createElement(Image, { src, style: s.headerLogo, key: i })),
+          ...items.map((it, i) =>
+            createElement(Image, { src: it.src, style: it.isEvent ? s.headerEventLogo : s.headerMarkLogo, key: i }),
+          ),
         )
       : null,
   ]);
@@ -168,7 +187,10 @@ function Footer() {
 function buildPacketDocument(data: PacketData) {
   const deptName = new Map(data.departments.map((d) => [d.id, d.name]));
 
-  const coverUris = data.logos.map((l) => l.coverDataUri).filter((u): u is string => u !== null);
+  const coverItems = arrangeLogos(
+    data.logos.eventLogo?.coverDataUri ?? null,
+    data.logos.markLogos.map((l) => l.coverDataUri).filter((u): u is string => u !== null),
+  );
   const cover = createElement(Page, { size: 'LETTER', key: 'cover' }, [
     createElement(View, { style: s.cover, key: 'c' }, [
       createElement(View, { style: s.coverSlash, key: 'slash' }),
@@ -181,11 +203,13 @@ function buildPacketDocument(data: PacketData) {
           [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  '),
         ),
         createElement(Text, { style: s.coverSub, key: 'g' }, `Production packet · generated ${data.generatedAt}`),
-        coverUris.length > 0
+        coverItems.length > 0
           ? createElement(
               View,
               { style: s.coverLogos, key: 'logos' },
-              ...coverUris.map((src, i) => createElement(Image, { src, style: s.coverLogo, key: i })),
+              ...coverItems.map((it, i) =>
+                createElement(Image, { src: it.src, style: it.isEvent ? s.coverEventLogo : s.coverMarkLogo, key: i }),
+              ),
             )
           : null,
       ]),
