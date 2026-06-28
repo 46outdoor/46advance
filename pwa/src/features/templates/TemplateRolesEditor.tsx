@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { EVENT_ROLES, type EventRole } from '@/lib/rbac/roles';
+import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
+import { userFullName, userShortName } from '@/lib/users/userName';
 import type { TemplateMember } from '@/lib/templates/template';
 import type { UserProfile } from '@/types';
 
@@ -18,7 +19,10 @@ export function TemplateRolesEditor({ users, initial, pending, onSave }: Props) 
   const [uid, setUid] = useState('');
   const [role, setRole] = useState<EventRole>('tech');
 
-  const label = (id: string) => users.find((u) => u.uid === id)?.email ?? id;
+  const label = (id: string) => {
+    const u = users.find((x) => x.uid === id);
+    return u ? userShortName(u) : id;
+  };
 
   return (
     <div className="space-y-2">
@@ -27,7 +31,7 @@ export function TemplateRolesEditor({ users, initial, pending, onSave }: Props) 
           <li key={m.uid} className="flex items-center justify-between py-2">
             <span>
               <span className="font-medium text-ink">{label(m.uid)}</span>
-              <span className="ml-3 text-ink-muted">{m.role}</span>
+              <span className="ml-3 text-ink-muted">{formatEventRole(m.role)}</span>
             </span>
             <button
               type="button"
@@ -46,14 +50,14 @@ export function TemplateRolesEditor({ users, initial, pending, onSave }: Props) 
           <option value="">Select user…</option>
           {users.map((u) => (
             <option key={u.uid} value={u.uid}>
-              {u.email ?? u.uid}
+              {userFullName(u)}
             </option>
           ))}
         </select>
         <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as EventRole)}>
           {EVENT_ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {formatEventRole(r)}
             </option>
           ))}
         </select>

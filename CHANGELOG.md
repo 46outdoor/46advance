@@ -20,10 +20,14 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Departments admin:** rename a department inline; previously the admin UI was create/delete only.
 - **Password reset:** a forgot-password screen and public `/forgot-password` route, linked from the sign-in screen, that sends a reset email without revealing whether an account exists.
 - **Template editor:** reorder stages with up/down controls; the new order persists through the existing template save.
-- **Dark theme:** an opt-in dark theme that complements the light one, toggled from the app header. Defaults to light, remembers your choice, and shows a one-time prompt to switch if your system prefers dark.
+- **Dark theme:** an opt-in dark theme that complements the light one, toggled from **Settings → Appearance**. Defaults to light, remembers your choice, and shows a one-time prompt to switch if your system prefers dark.
 
 ### Changed
 
+- **Navigation cleanup:** simplified the header nav to **Events · Contacts · Admin · Settings** — removed the redundant "Home" link (the logo still returns to the start), moved the advance **Tracker** to a button on the Events list, relocated **Templates** into the Admin area, and dropped the dev theme-specimen link.
+- **Header logo:** tightened the "46 Advance" lockup spacing to better match the 46 Entertainment mark.
+- **Footer:** the Privacy Policy now stays pinned to the bottom of the viewport on short pages.
+- **Member display:** member/role lists show people by name — "First L." inline, full name in the pickers — and render roles in plain form (e.g. "Production Manager" instead of "production-manager").
 - **Hosted PDFs:** quote PDFs now use signed, 7-day-expiring URLs; packets remain member-gated.
 - **Concurrency-safe files:** advance Drive files and production attachments moved from arrays to subcollections so concurrent writes can't clobber each other.
 - **Theme specimen:** the `/__theme` design-specimen route is now dev-only and no longer ships in production builds.

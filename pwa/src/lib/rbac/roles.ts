@@ -24,6 +24,18 @@ export type EventRole = (typeof EVENT_ROLES)[number];
 
 export const eventRoleSchema = z.enum(EVENT_ROLES);
 
+/** Human-readable labels for the per-event roles (UI display). */
+export const EVENT_ROLE_LABELS: Record<EventRole, string> = {
+  'production-manager': 'Production Manager',
+  'department-lead': 'Department Lead',
+  tech: 'Tech',
+};
+
+/** Format a per-event role for display (e.g. `production-manager` → `Production Manager`). */
+export function formatEventRole(role: EventRole): string {
+  return EVENT_ROLE_LABELS[role];
+}
+
 /**
  * Member document shape: `events/{eventId}/members/{uid}`.
  * `addedAt` is a server timestamp on write; converted to `Date` on read.
