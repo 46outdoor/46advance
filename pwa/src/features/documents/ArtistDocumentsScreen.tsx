@@ -7,9 +7,10 @@ import {
   deleteArtistDocument,
   listDocumentsForArtist,
   setArtistDocumentCategory,
+  setArtistDocumentVerified,
   updateArtistDocument,
 } from '@/lib/documents/artist-documents-service';
-import { documentTitle, type ArtistDocument } from '@/lib/documents/artistDocument';
+import { documentTitle, isVerifiedCurrent, type ArtistDocument } from '@/lib/documents/artistDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
 
@@ -26,15 +27,17 @@ interface RowProps {
   pending: boolean;
   onSetCategory: (categoryId: string | null) => void;
   onUpdate: (fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean }) => void;
+  onSetVerified: (verified: boolean) => void;
   onRemove: () => void;
 }
 
 /** One document row: in-app title (overrides the Drive name), category, notes, obsolete tag. */
-function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpdate, onRemove }: RowProps) {
+function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpdate, onSetVerified, onRemove }: RowProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(doc.displayName ?? '');
   const [notes, setNotes] = useState(doc.notes ?? '');
   const categoryName = categories.find((c) => c.id === doc.categoryId)?.name ?? 'Unclassified';
+  const verified = isVerifiedCurrent(doc.verifiedAt, new Date());
 
   const save = () => {
     onUpdate({ displayName: title.trim() || null, notes: notes.trim() || null });
@@ -58,6 +61,11 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
               Obsolete
             </span>
           )}
+          <span
+            className={`shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide ${verified ? 'text-status-complete' : 'text-ink-muted'}`}
+          >
+            {verified ? 'Verified' : 'Unverified'}
+          </span>
         </div>
         {canManage ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -77,6 +85,9 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
             <button type="button" onClick={() => setEditing((v) => !v)} className={chipButton}>
               Edit
             </button>
+            <button type="button" disabled={pending} onClick={() => onSetVerified(!verified)} className={chipButton}>
+              {verified ? 'Unverify' : 'Verify current'}
+            </button>
             <button type="button" disabled={pending} onClick={() => onUpdate({ obsolete: !doc.obsolete })} className={chipButton}>
               {doc.obsolete ? 'Mark current' : 'Mark obsolete'}
             </button>
@@ -88,6 +99,12 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
           <span className="shrink-0 text-sm text-ink-muted">{categoryName}</span>
         )}
       </div>
+
+      {doc.verifiedAt && (
+        <p className="mt-1 text-xs text-ink-muted">
+          {verified ? 'Verified' : 'Last verified'} {doc.verifiedAt.toLocaleDateString()}
+        </p>
+      )}
 
       {editing && canManage && (
         <div className="mt-3 space-y-2">
@@ -150,6 +167,12 @@ export function ArtistDocumentsScreen() {
     onError: (err) => logger.error('Failed to update document', err),
   });
 
+  const setVerified = useMutation({
+    mutationFn: ({ id, verified }: { id: string; verified: boolean }) => setArtistDocumentVerified(id, verified),
+    onSuccess: () => void invalidate(),
+    onError: (err) => logger.error('Failed to set verification', err),
+  });
+
   const remove = useMutation({
     mutationFn: (id: string) => deleteArtistDocument(id),
     onSuccess: () => void invalidate(),
@@ -186,9 +209,10 @@ export function ArtistDocumentsScreen() {
             doc={doc}
             categories={categories}
             canManage={canManage}
-            pending={update.isPending || remove.isPending}
+            pending={update.isPending || remove.isPending || setVerified.isPending}
             onSetCategory={(categoryId) => setCategory.mutate({ id: doc.id, categoryId })}
             onUpdate={(fields) => update.mutate({ id: doc.id, fields })}
+            onSetVerified={(verified) => setVerified.mutate({ id: doc.id, verified })}
             onRemove={() => remove.mutate(doc.id)}
           />
         ))}

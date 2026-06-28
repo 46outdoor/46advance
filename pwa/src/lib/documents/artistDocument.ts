@@ -20,6 +20,8 @@ export interface ArtistDocument {
   notes: string | null;
   /** Flagged outdated/obsolete in the app (the Drive file is untouched). */
   obsolete: boolean;
+  /** When a manager last marked it "verified current"; null = never. Expires after 6 months. */
+  verifiedAt: Date | null;
   mimeType: string;
   iconLink: string | null;
   webViewLink: string;
@@ -44,6 +46,7 @@ const artistDocumentDocSchema = z.object({
   displayName: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   obsolete: z.boolean().optional(),
+  verifiedAt: z.instanceof(Timestamp).nullable().optional(),
   mimeType: z.string().optional(),
   iconLink: z.string().nullable().optional(),
   webViewLink: z.string().min(1),
@@ -64,6 +67,7 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     displayName: d.displayName ?? null,
     notes: d.notes ?? null,
     obsolete: d.obsolete === true,
+    verifiedAt: timestampToDate(d.verifiedAt ?? null),
     mimeType: d.mimeType ?? 'application/octet-stream',
     iconLink: d.iconLink ?? null,
     webViewLink: d.webViewLink,
@@ -79,6 +83,17 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
 /** Title shown in the app: the in-app override if set, else the Drive filename. */
 export function documentTitle(doc: Pick<ArtistDocument, 'displayName' | 'name'>): string {
   return doc.displayName?.trim() || doc.name;
+}
+
+/** How long a "verified current" status lasts before it auto-resets to unverified. */
+export const VERIFICATION_VALID_MONTHS = 6;
+
+/** True if `verifiedAt` is set and still within the validity window (derived at read time). */
+export function isVerifiedCurrent(verifiedAt: Date | null, now: Date): boolean {
+  if (!verifiedAt) return false;
+  const expires = new Date(verifiedAt);
+  expires.setMonth(expires.getMonth() + VERIFICATION_VALID_MONTHS);
+  return now < expires;
 }
 
 /** A distinct artist with a document count, derived from the library. */
