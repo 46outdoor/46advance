@@ -19,6 +19,7 @@ import {
   setUserOrganizer,
 } from './admin-service';
 import { DepartmentsAdmin } from './DepartmentsAdmin';
+import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
 
 const logger = createLogger('Admin');
@@ -269,6 +270,8 @@ export function AdminScreen() {
       </div>
 
       <DepartmentsAdmin />
+
+      <DocumentCategoriesAdmin />
 
       <BrandingAdmin />
 
