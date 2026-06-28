@@ -4,6 +4,7 @@
  * user can reach this; the actions only affect their own account.
  */
 import { ThemeSetting } from '@/components/ThemeSetting';
+import { ProfilePhotoSection } from './ProfilePhotoSection';
 import { GoogleConnectCard } from './GoogleConnectCard';
 
 export function SettingsScreen() {
@@ -13,6 +14,8 @@ export function SettingsScreen() {
         <h1 className="font-display text-3xl font-black tracking-tight text-brand">Settings</h1>
         <p className="text-sm text-ink-muted">Preferences and integrations for your account.</p>
       </header>
+
+      <ProfilePhotoSection />
 
       <div className="space-y-4">
         <h2 className="font-display text-xl font-bold text-brand">Appearance</h2>

@@ -57,5 +57,11 @@ service firebase.storage {
       allow write: if isAdmin() && validUpload();
       allow delete: if isAdmin();
     }
+    // Contact directory photos — any approved user manages (mirrors the open contacts create rule).
+    match /contacts/{allPaths=**} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && validUpload();
+      allow delete: if isActiveUser();
+    }
   }
 }

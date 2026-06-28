@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { contactInputSchema, type Contact, type ContactInput } from '@/lib/contacts/contact';
+import {
+  contactInputSchema,
+  type Contact,
+  type ContactInput,
+  type ContactPhoto,
+} from '@/lib/contacts/contact';
+import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
+import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 
 interface ContactFormProps {
   initial?: Contact;
@@ -12,6 +19,45 @@ interface ContactFormProps {
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
+/** Avatar preview + upload/replace/remove controls for the contact's photo. */
+function ContactPhotoField({
+  name,
+  photo,
+  busy,
+  onPick,
+  onRemove,
+}: {
+  name: string;
+  photo: ContactPhoto | null;
+  busy: boolean;
+  onPick: (file: File | undefined) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 sm:col-span-2">
+      <ContactAvatar name={name || '?'} photoUrl={photo?.url ?? null} className="h-14 w-14" />
+      <div className="text-sm">
+        <label className="cursor-pointer font-semibold text-accent hover:underline">
+          {photo ? 'Replace photo' : 'Upload photo'}
+          <input
+            type="file"
+            accept=".png,.jpg,.jpeg"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => onPick(e.target.files?.[0])}
+          />
+        </label>
+        {photo && (
+          <button type="button" onClick={onRemove} className="ml-3 text-ink-muted hover:text-accent">
+            Remove
+          </button>
+        )}
+        {busy && <span className="ml-3 text-ink-muted">Uploading…</span>}
+      </div>
+    </div>
+  );
+}
+
 /** Create/edit form for a directory contact. Validates with contactInputSchema. */
 export function ContactForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: ContactFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
@@ -20,7 +66,37 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [email, setEmail] = useState(initial?.email ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [photo, setPhoto] = useState<ContactPhoto | null>(initial?.photo ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const pickPhoto = async (file: File | undefined): Promise<void> => {
+    if (!file) return;
+    const err = validateUpload(file);
+    if (err) {
+      setLocalError(err);
+      return;
+    }
+    setLocalError(null);
+    setPhotoBusy(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const prev = photo;
+      const uploaded = await uploadFile(`contacts/photos/${Date.now()}.${ext}`, file);
+      setPhoto({ path: uploaded.path, url: uploaded.url });
+      if (prev) await deleteFile(prev.path).catch(() => undefined);
+    } catch {
+      setLocalError('Photo upload failed. Please try again.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async (): Promise<void> => {
+    const prev = photo;
+    setPhoto(null);
+    if (prev) await deleteFile(prev.path).catch(() => undefined);
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -31,6 +107,7 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
       notes: notes.trim() || undefined,
+      photo,
     });
     if (!parsed.success) {
       setLocalError(parsed.error.issues[0]?.message ?? 'Invalid input.');
@@ -42,6 +119,13 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
 
   return (
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={submit}>
+      <ContactPhotoField
+        name={name}
+        photo={photo}
+        busy={photoBusy}
+        onPick={(file) => void pickPhoto(file)}
+        onRemove={() => void removePhoto()}
+      />
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Name</span>
         <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Pat Lee" />

@@ -640,6 +640,8 @@ describe('firestore.rules — global contacts directory', () => {
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'contacts/c-pm'), { name: 'By PM', createdBy: PM });
+      // A directory entry an admin created but linked to TECH's account (userId).
+      await setDoc(doc(ctx.firestore(), 'contacts/c-linked'), { name: 'Tech', createdBy: 'admin-1', userId: TECH });
     });
   });
 
@@ -664,6 +666,15 @@ describe('firestore.rules — global contacts directory', () => {
 
   it('admin can edit/delete any contact', async () => {
     await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { name: 'Admin edit' }));
+  });
+
+  it('a user can update the entry linked to their own account, but not delete it or others', async () => {
+    // TECH owns the linked entry via userId — may update (e.g. their profile photo)…
+    await assertSucceeds(updateDoc(doc(dbFor(TECH), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }));
+    // …but not delete it (delete stays creator/admin)…
+    await assertFails(deleteDoc(doc(dbFor(TECH), 'contacts/c-linked')));
+    // …and a non-linked, non-creator user cannot update it.
+    await assertFails(updateDoc(doc(dbFor(OUTSIDER), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }));
   });
 });
 
