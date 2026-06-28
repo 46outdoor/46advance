@@ -284,6 +284,32 @@ the app needs **editable templates for creating new events**:
 
 **Mobile:** template *authoring* is likely PWA/admin-first; mobile may be create-from-template + view only — TBD.
 
+### Per-template logos (planned — not built)
+
+Each template carries **1–3 logos** that flow onto the generated report and (optionally) into the
+working-advance UI. Typical arrangement: **main event logo → 46 logo → Peachtree Entertainment logo**
+(the 46 and Peachtree marks are near-constant; the event mark varies per show).
+
+- **Authoring:** upload/manage the logos in the template editor — reuse `src/lib/storage/uploads.ts`
+  (png/jpg already whitelisted). Add a `logos` field to the template model (`src/lib/templates/template.ts`)
+  + Zod, plus a logos block in `TemplateEditorScreen`.
+- **Report (primary):** render the logos on the packet **cover / title-block header** (§7) — server-side
+  via `@react-pdf/renderer` `<Image>` in `functions/src/lib/pdf/packet.tsx`. The Cloud Function fetches
+  each logo from Storage and inlines it as base64; pass the refs through `PacketData`.
+- **Working advance (possibly):** show the logos as a header/icon on the event/advance screens
+  (`EventDetailScreen` / `AdvanceDetailScreen` headers) — **TBD** whether in-scope or report-only.
+- **Propagation:** `createEventFromTemplate` clones the logos onto the new event like other template
+  content; per-event override **TBD**.
+
+**Open questions:**
+- Should **46 + Peachtree** be **shared/default marks** (managed once, auto-applied) rather than
+  re-uploaded per template — with only the event logo authored per-template? (Leaning yes; they rarely change.)
+- Fixed slot order vs. free ordering; enforce the **max of 3**.
+- Cover layout/sizing vs. an in-app header treatment.
+
+Assets today: `pwa/public/brand/46-mark-white.png`, `46-entertainment-white.png`. A **Peachtree** mark
+would need to be added.
+
 ## 7. PDF Advance Packets (Reports)
 
 **High priority — explicitly required ("absolutely need").** Port/adapt MPA's
@@ -299,6 +325,7 @@ the app needs **editable templates for creating new events**:
   46/event logos) and **content** pages (white, title-block header/footer with event/venue/dates +
   section/page numbers, black/white/**red** palette, slash accent). See UI § Design language.
 - **TBD:** exact packet composition (which sections/fields) and final letterhead layout.
+- **Logos:** the cover/header logos are **authored per template (1–3)** — see §6 *Per-template logos (planned)*.
 
 - **Built — execution Phase 7:** server-side **`generatePacket(eventId)`** Cloud Function
   (@react-pdf/renderer) assembles the event production record + per-stage house packages +
