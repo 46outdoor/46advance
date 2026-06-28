@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
-import { formatCentralDate, formatCentralTime, centralDayKey } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, formatCentralDate, formatCentralTime, centralDayKey } from '@/lib/dates/timezone';
 import {
   SCHEDULE_SECTIONS,
   SCHEDULE_SECTION_KEYS,
@@ -24,6 +24,7 @@ import { listStages } from './stages-service';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
 import { getEvent } from './events-service';
 import {
+  applyScheduleTemplate,
   createScheduleItem,
   deleteScheduleItem,
   listScheduleItems,
@@ -32,6 +33,8 @@ import {
   setScheduleItemMaster,
   updateScheduleItem,
 } from './schedule-service';
+import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
+import { scheduleTemplateCategoryLabel, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
 import { useGoogleConnection } from '@/lib/google';
 import { ScheduleItemForm, type StageOption } from './ScheduleItemForm';
 
@@ -60,27 +63,78 @@ function groupByDay(items: ScheduleItem[]): DayGroup[] {
     }));
 }
 
-/** One-line detail under an item: stage · act/slot · location · section fields.
- * A Show slot resolves to the artist holding that slot on the stage (else "unassigned"). */
+/** The item's heading. A Show slot shows the artist holding it (slot label as a tooltip),
+ * falling back to the slot label as a placeholder until one is assigned; else the typed title. */
+function itemHeading(it: ScheduleItem, slotArtist: Map<string, string>): { name: string; tip?: string } {
+  if (it.slot == null) return { name: it.title };
+  const artist = (it.stageId && slotArtist.get(`${it.stageId}:${it.slot}`)) || null;
+  return artist ? { name: artist, tip: slotLabel(it.slot) } : { name: slotLabel(it.slot) };
+}
+
+/** One-line detail under an item: stage · act (legacy advance link) · location · section fields. */
 function summarizeItem(
   it: ScheduleItem,
   stageName: Map<string, string>,
   advanceLabel: Map<string, string>,
-  slotArtist: Map<string, string>,
 ): string {
   const parts: string[] = [];
   if (it.stageId) parts.push(stageName.get(it.stageId) ?? 'Stage');
-  if (it.slot != null) {
-    const who = (it.stageId && slotArtist.get(`${it.stageId}:${it.slot}`)) || 'unassigned';
-    parts.push(`${slotLabel(it.slot)} — ${who}`);
-  } else if (it.advanceId) {
-    parts.push(advanceLabel.get(it.advanceId) ?? 'Act');
-  }
+  if (it.slot == null && it.advanceId) parts.push(advanceLabel.get(it.advanceId) ?? 'Act');
   if (it.location) parts.push(it.location);
   for (const f of scheduleSectionDef(it.section).fields) {
     if (it.fields[f.key]) parts.push(`${f.label}: ${it.fields[f.key]}`);
   }
   return parts.join(' · ');
+}
+
+/** "Import from schedule template" control — applies a saved blueprint to this event's schedule. */
+function ImportTemplatePanel({
+  templates,
+  importId,
+  onSelect,
+  onImport,
+  pending,
+  succeeded,
+  failed,
+}: {
+  templates: ScheduleTemplate[];
+  importId: string;
+  onSelect: (id: string) => void;
+  onImport: () => void;
+  pending: boolean;
+  succeeded: boolean;
+  failed: boolean;
+}) {
+  if (templates.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line p-3">
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Import from schedule template</span>
+        <select
+          className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+          value={importId}
+          onChange={(e) => onSelect(e.target.value)}
+        >
+          <option value="">Select a template…</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} · {scheduleTemplateCategoryLabel(t.category)} · {t.items.length} item{t.items.length === 1 ? '' : 's'}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={!importId || pending}
+        onClick={onImport}
+        className="rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        {pending ? 'Importing…' : 'Import'}
+      </button>
+      {succeeded && <span className="text-sm text-status-complete">Imported.</span>}
+      {failed && <span className="text-sm text-accent">Could not import.</span>}
+    </div>
+  );
 }
 
 export function EventScheduleScreen() {
@@ -90,6 +144,7 @@ export function EventScheduleScreen() {
   const [view, setView] = useState<'edit' | 'master'>('edit');
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importId, setImportId] = useState('');
   const [enabledSections, setEnabledSections] = useState<Set<ScheduleSection>>(
     () => new Set(SCHEDULE_SECTION_KEYS),
   );
@@ -103,6 +158,7 @@ export function EventScheduleScreen() {
   const itemsQuery = useQuery({ queryKey: ['schedule', eventId], queryFn: () => listScheduleItems(eventId!), enabled: !!eventId });
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
+  const scheduleTemplatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates, enabled: !!eventId });
 
   const connection = useGoogleConnection();
   const isConnected = connection.data?.connected === true;
@@ -156,6 +212,19 @@ export function EventScheduleScreen() {
     return m;
   }, [advancesQuery.data]);
 
+  const importTemplate = useMutation({
+    mutationFn: () => {
+      const tpl = scheduleTemplatesQuery.data?.find((t) => t.id === importId);
+      if (!tpl) throw new Error('No template selected.');
+      return applyScheduleTemplate(eventId!, eventQuery.data?.startDate ?? null, APP_TIME_ZONE, tpl, stages, user!.uid);
+    },
+    onSuccess: () => {
+      invalidate();
+      setImportId('');
+    },
+    onError: (e) => logger.error('Failed to import schedule template', e),
+  });
+
   if (!user || !eventId) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
 
@@ -164,7 +233,7 @@ export function EventScheduleScreen() {
   const editGroups = groupByDay(items);
   const masterGroups = groupByDay(masterItems);
 
-  const summarize = (it: ScheduleItem): string => summarizeItem(it, stageName, advanceLabel, slotArtist);
+  const summarize = (it: ScheduleItem): string => summarizeItem(it, stageName, advanceLabel);
 
   return (
     <section className="space-y-6">
@@ -236,6 +305,18 @@ export function EventScheduleScreen() {
             </div>
           )}
 
+          {canEdit && (
+            <ImportTemplatePanel
+              templates={scheduleTemplatesQuery.data ?? []}
+              importId={importId}
+              onSelect={setImportId}
+              onImport={() => importTemplate.mutate()}
+              pending={importTemplate.isPending}
+              succeeded={importTemplate.isSuccess}
+              failed={importTemplate.isError}
+            />
+          )}
+
           {itemsQuery.data && items.length === 0 && !adding && (
             <p className="text-sm text-ink-muted">No schedule items yet.</p>
           )}
@@ -268,7 +349,9 @@ export function EventScheduleScreen() {
                           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
                             {scheduleSectionLabel(it.section, it.customLabel)}
                           </span>
-                          <span className="font-semibold text-ink">{it.title}</span>
+                          <span className="font-semibold text-ink" title={itemHeading(it, slotArtist).tip}>
+                            {itemHeading(it, slotArtist).name}
+                          </span>
                           {!it.includeInMaster && (
                             <span className="text-[0.65rem] text-ink-muted">(hidden from master)</span>
                           )}
@@ -335,7 +418,9 @@ export function EventScheduleScreen() {
                         {formatCentralTime(it.startAt) || '—'}
                         {it.endAt ? `–${formatCentralTime(it.endAt)}` : ''}
                       </span>
-                      <span className="font-medium text-ink">{it.title}</span>
+                      <span className="font-medium text-ink" title={itemHeading(it, slotArtist).tip}>
+                        {itemHeading(it, slotArtist).name}
+                      </span>
                       <span className="text-xs text-ink-muted">{scheduleSectionLabel(it.section, it.customLabel)}</span>
                       {summarize(it) && <span className="basis-full pl-28 text-xs text-ink-muted">{summarize(it)}</span>}
                     </li>

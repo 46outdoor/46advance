@@ -53,6 +53,13 @@ const TemplateEditorScreen = lazy(() =>
   import('@/features/templates').then((m) => ({ default: m.TemplateEditorScreen })),
 );
 
+const ScheduleTemplatesListScreen = lazy(() =>
+  import('@/features/scheduleTemplates').then((m) => ({ default: m.ScheduleTemplatesListScreen })),
+);
+const ScheduleTemplateEditorScreen = lazy(() =>
+  import('@/features/scheduleTemplates').then((m) => ({ default: m.ScheduleTemplateEditorScreen })),
+);
+
 const TrackerOverviewScreen = lazy(() =>
   import('@/features/tracker').then((m) => ({ default: m.TrackerOverviewScreen })),
 );
@@ -130,6 +137,22 @@ export function App() {
             element={
               <AdminGate>
                 <TemplateEditorScreen />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/schedule-templates"
+            element={
+              <AdminGate>
+                <ScheduleTemplatesListScreen />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/schedule-templates/:id"
+            element={
+              <AdminGate>
+                <ScheduleTemplateEditorScreen />
               </AdminGate>
             }
           />
