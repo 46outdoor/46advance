@@ -22,6 +22,8 @@ export interface EventContactAttachment {
   id: string;
   contactId: string;
   roleLabel: string | null;
+  /** Event-specific note about this crew member; not stored on the global contact. */
+  notes: string | null;
 }
 
 /** A resolved attachment: the join row + its directory contact (null if it was deleted). */
@@ -33,6 +35,7 @@ export interface ResolvedEventContact {
 const attachmentDocSchema = z.object({
   contactId: z.string().min(1),
   roleLabel: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
 });
 
 function eventContactsCol(eventId: string) {
@@ -47,7 +50,12 @@ export async function listEventContacts(eventId: string): Promise<ResolvedEventC
     .map((d) => {
       const parsed = attachmentDocSchema.parse(d.data());
       return {
-        attachment: { id: d.id, contactId: parsed.contactId, roleLabel: parsed.roleLabel ?? null },
+        attachment: {
+          id: d.id,
+          contactId: parsed.contactId,
+          roleLabel: parsed.roleLabel ?? null,
+          notes: parsed.notes ?? null,
+        },
         contact: byId.get(parsed.contactId) ?? null,
       };
     })
@@ -76,6 +84,17 @@ export async function setEventContactRole(
 ): Promise<void> {
   await updateDoc(doc(db, 'events', eventId, 'contacts', attachId), {
     roleLabel: roleLabel?.trim() || null,
+  });
+}
+
+/** Set this crew member's event-specific note (stored on the join, not the directory contact). */
+export async function setEventContactNotes(
+  eventId: string,
+  attachId: string,
+  notes: string | null,
+): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId, 'contacts', attachId), {
+    notes: notes?.trim() || null,
   });
 }
 
