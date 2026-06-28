@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { advanceInputSchema, slotLabel, type AdvanceInput } from '@/lib/advances/advance';
+import { advanceInputSchema, type AdvanceInput } from '@/lib/advances/advance';
+import { SlotSelect } from '@/components/lineup/SlotSelect';
 import { dateInputValue, dateTimeInputValue, parseDateInput, parseDateTimeInput } from '@/lib/dates/parsing';
 
 interface AdvanceFormProps {
@@ -43,38 +44,6 @@ function DaySelect({ days, value, onChange }: { days?: Date[]; value: string; on
     );
   }
   return <input type="date" className={inputClass} value={value} onChange={(e) => onChange(e.target.value)} />;
-}
-
-/** Lineup slot dropdown (Headliner / Direct Support / Artist N) with an "add another" option. */
-function SlotSelect({ slot, onChange }: { slot: number | null; onChange: (slot: number | null) => void }) {
-  const [maxSlot, setMaxSlot] = useState(Math.max(5, slot ?? 0));
-  return (
-    <div className="flex gap-2">
-      <select
-        className={inputClass}
-        value={slot ?? ''}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">— No slot —</option>
-        {Array.from({ length: maxSlot }, (_, i) => i + 1).map((n) => (
-          <option key={n} value={n}>
-            {slotLabel(n)}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={() => {
-          const next = maxSlot + 1;
-          setMaxSlot(next);
-          onChange(next);
-        }}
-        className="shrink-0 rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent"
-      >
-        + Add
-      </button>
-    </div>
-  );
 }
 
 /** Create/edit form for an advance. Validates with advanceInputSchema. */

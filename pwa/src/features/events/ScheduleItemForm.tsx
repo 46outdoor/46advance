@@ -16,20 +16,16 @@ import {
   type ScheduleItemInput,
 } from '@/lib/schedules/scheduleItem';
 import { dateToZonedInput, zonedInputToDate } from '@/lib/dates/timezone';
+import { SlotSelect } from '@/components/lineup/SlotSelect';
 
 export interface StageOption {
   id: string;
   name: string;
 }
-export interface AdvanceOption {
-  id: string;
-  label: string;
-}
 
 interface Props {
   initial?: ScheduleItem;
   stages: StageOption[];
-  advances: AdvanceOption[];
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -50,7 +46,7 @@ type ScheduleItemSource = Pick<
   | 'location'
   | 'notes'
   | 'stageId'
-  | 'advanceId'
+  | 'slot'
   | 'fields'
   | 'includeInMaster'
 >;
@@ -66,7 +62,7 @@ const EMPTY_ITEM: ScheduleItemSource = {
   location: '',
   notes: '',
   stageId: '',
-  advanceId: '',
+  slot: null,
   fields: {},
   includeInMaster: true,
 };
@@ -85,7 +81,7 @@ function initialFormState(initial?: ScheduleItem) {
     location: src.location ?? '',
     notes: src.notes ?? '',
     stageId: src.stageId ?? '',
-    advanceId: src.advanceId ?? '',
+    slot: src.slot,
     fields: src.fields,
     includeInMaster: src.includeInMaster,
   } as const;
@@ -123,34 +119,25 @@ function SectionFieldInput({
   );
 }
 
-/** Right-column slot under Stage: either the advance/act link (Show) or Location. */
-function AdvanceOrLocationField({
+/** Right-column slot under Stage: either the lineup slot (Show, auto-fills the artist) or Location. */
+function SlotOrLocationField({
   linksAdvance,
-  advances,
-  advanceId,
-  setAdvanceId,
+  slot,
+  setSlot,
   location,
   setLocation,
 }: {
   linksAdvance: boolean;
-  advances: AdvanceOption[];
-  advanceId: string;
-  setAdvanceId: (value: string) => void;
+  slot: number | null;
+  setSlot: (slot: number | null) => void;
   location: string;
   setLocation: (value: string) => void;
 }) {
   if (linksAdvance) {
     return (
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Advance / act (optional)</span>
-        <select className={inputClass} value={advanceId} onChange={(e) => setAdvanceId(e.target.value)}>
-          <option value="">None</option>
-          {advances.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
+        <span className="mb-1 block font-semibold text-ink">Act / slot (optional)</span>
+        <SlotSelect slot={slot} onChange={setSlot} selectClass={inputClass} />
       </label>
     );
   }
@@ -196,7 +183,6 @@ function FormActions({
 export function ScheduleItemForm({
   initial,
   stages,
-  advances,
   submitLabel,
   pending,
   error,
@@ -212,7 +198,7 @@ export function ScheduleItemForm({
   const [location, setLocation] = useState(defaults.location);
   const [notes, setNotes] = useState(defaults.notes);
   const [stageId, setStageId] = useState(defaults.stageId);
-  const [advanceId, setAdvanceId] = useState(defaults.advanceId);
+  const [slot, setSlot] = useState<number | null>(defaults.slot);
   const [fields, setFields] = useState<Record<string, string>>(defaults.fields);
   const [includeInMaster, setIncludeInMaster] = useState(defaults.includeInMaster);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -238,7 +224,7 @@ export function ScheduleItemForm({
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
       stageId: stageId || undefined,
-      advanceId: def.linksAdvance ? advanceId || undefined : undefined,
+      slot: def.linksAdvance ? slot : undefined,
       fields: sectionFields,
       includeInMaster,
     });
@@ -296,11 +282,10 @@ export function ScheduleItemForm({
           ))}
         </select>
       </label>
-      <AdvanceOrLocationField
+      <SlotOrLocationField
         linksAdvance={linksAdvance}
-        advances={advances}
-        advanceId={advanceId}
-        setAdvanceId={setAdvanceId}
+        slot={slot}
+        setSlot={setSlot}
         location={location}
         setLocation={setLocation}
       />
