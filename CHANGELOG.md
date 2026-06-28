@@ -21,6 +21,7 @@ dependency bumps, and planning-doc updates) are omitted.
 ### Changed
 
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
+- **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).
 
 ### Fixed
 

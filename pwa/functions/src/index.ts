@@ -527,25 +527,30 @@ async function loadLogoDataUri(path: string, cache: Map<string, string | null>):
  * variant and capping at 3. Each kept logo is resolved to cover (onDark→onLight) and header
  * (onLight→onDark) data URIs. Distinct Storage paths are downloaded once. Never throws.
  */
-async function resolvePacketLogos(db: Firestore, ev: DocumentData): Promise<PacketLogo[]> {
+async function resolvePacketLogos(
+  db: Firestore,
+  ev: DocumentData,
+): Promise<{ eventLogo: PacketLogo | null; markLogos: PacketLogo[] }> {
   const brandingSnap = await db.doc('config/branding').get();
   const defaults = asArray(brandingSnap.exists ? (brandingSnap.data()?.defaultLogos ?? []) : []);
-  const row = [ev.eventLogo, ...defaults]
+  const cache = new Map<string, string | null>();
+  const resolve = async (logo: LogoRef): Promise<PacketLogo> => {
+    const cover = variantForBackground(logo, 'dark');
+    const header = variantForBackground(logo, 'light');
+    return {
+      coverDataUri: cover ? await loadLogoDataUri(cover.path, cache) : null,
+      headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null,
+    };
+  };
+
+  const eventRef = parseLogoRef(ev.eventLogo);
+  const eventLogo = eventRef ? await resolve(eventRef) : null;
+  const markRefs = defaults
     .map(parseLogoRef)
     .filter((l): l is LogoRef => l !== null)
-    .slice(0, MAX_PACKET_LOGOS);
-
-  const cache = new Map<string, string | null>();
-  return Promise.all(
-    row.map(async (logo) => {
-      const cover = variantForBackground(logo, 'dark');
-      const header = variantForBackground(logo, 'light');
-      return {
-        coverDataUri: cover ? await loadLogoDataUri(cover.path, cache) : null,
-        headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null,
-      };
-    }),
-  );
+    .slice(0, MAX_PACKET_LOGOS - (eventLogo ? 1 : 0));
+  const markLogos = await Promise.all(markRefs.map(resolve));
+  return { eventLogo, markLogos };
 }
 
 /**
