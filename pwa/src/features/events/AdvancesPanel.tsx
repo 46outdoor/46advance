@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { formatDate } from '@/lib/dates/formatting';
-import type { Advance, AdvanceInput } from '@/lib/advances/advance';
+import { slotLabel, type Advance, type AdvanceInput } from '@/lib/advances/advance';
+import { eventDays } from '@/lib/events/event';
 import { createAdvance, listAdvances } from './advances-service';
 import { getEvent } from './events-service';
 import { AdvanceForm } from './AdvanceForm';
@@ -71,6 +72,7 @@ export function AdvancesPanel({
       {showCreate && canEdit && (
         <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
           <AdvanceForm
+            days={eventDays(eventQuery.data?.startDate, eventQuery.data?.endDate)}
             submitLabel="Add artist advance"
             pending={create.isPending}
             error={create.isError ? 'Could not add the advance.' : null}
@@ -95,7 +97,7 @@ export function AdvancesPanel({
             >
               <span>
                 <span className="font-semibold text-ink">{a.artistName}</span>
-                {a.stage && <span className="ml-2 text-sm text-ink-muted">{a.stage}</span>}
+                {a.slot && <span className="ml-2 text-sm text-ink-muted">{slotLabel(a.slot)}</span>}
                 {a.performanceDate && (
                   <span className="ml-2 text-sm text-ink-muted">{formatDate(a.performanceDate)}</span>
                 )}

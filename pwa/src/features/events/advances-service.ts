@@ -39,7 +39,7 @@ export async function createAdvance(
   const ref = await addDoc(advancesCol(eventId, stageId), {
     artistName: input.artistName,
     performanceDate: dateToTimestamp(input.performanceDate ?? null),
-    stage: input.stage ?? null,
+    slot: input.slot ?? null,
     notes: input.notes ?? null,
     additions: input.additions ?? null,
     concerns: input.concerns ?? null,
@@ -106,7 +106,7 @@ export async function updateAdvance(
   await updateDoc(advanceDoc(eventId, stageId, advanceId), {
     artistName: input.artistName,
     performanceDate: dateToTimestamp(input.performanceDate ?? null),
-    stage: input.stage ?? null,
+    slot: input.slot ?? null,
     notes: input.notes ?? null,
     additions: input.additions ?? null,
     concerns: input.concerns ?? null,

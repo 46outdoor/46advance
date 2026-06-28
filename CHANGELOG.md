@@ -23,6 +23,7 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Changed
 
+- **Artist advance lineup:** the advance form drops the free-text **Stage** field (an advance already belongs to the stage it's created under) and the free date picker. The performance date is now a **dropdown of the event's days** (Friday, Saturday…), and each advance carries a **lineup slot** — Headliner, Direct Support, then Artist 3, 4… with an "add another" option (Headliner = Artist 1, Direct Support = Artist 2).
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
 - **Event contacts** now show just the contact's **role on that event** (not their general job title/company).
 - **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).
