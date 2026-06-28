@@ -3,7 +3,7 @@
  * approved user; classify/delete are admin|organizer (firestore.rules); creation is server-only
  * (`importDriveFolder`). Shared lib.
  */
-import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { parseArtistDocument, type ArtistDocument } from './artistDocument';
 
@@ -26,6 +26,23 @@ export async function listDocumentsForArtist(artistKey: string): Promise<ArtistD
 /** Classify (or unclassify) a document. Admin|organizer per firestore.rules. */
 export async function setArtistDocumentCategory(id: string, categoryId: string | null): Promise<void> {
   await updateDoc(doc(db, 'artistDocuments', id), { categoryId });
+}
+
+/** Update app-side fields — in-app title, notes, obsolete flag (Drive file untouched). Admin|organizer. */
+export async function updateArtistDocument(
+  id: string,
+  fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean },
+): Promise<void> {
+  const update: Record<string, unknown> = {};
+  if (fields.displayName !== undefined) update.displayName = fields.displayName;
+  if (fields.notes !== undefined) update.notes = fields.notes;
+  if (fields.obsolete !== undefined) update.obsolete = fields.obsolete;
+  await updateDoc(doc(db, 'artistDocuments', id), update);
+}
+
+/** Mark "verified current" (stamps now) or clear it. The status expires 6 months later (derived). */
+export async function setArtistDocumentVerified(id: string, verified: boolean): Promise<void> {
+  await updateDoc(doc(db, 'artistDocuments', id), { verifiedAt: verified ? serverTimestamp() : null });
 }
 
 /** Remove the document from the library (the Drive file itself is untouched). */
