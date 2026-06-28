@@ -40,11 +40,15 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 /** Per-file Drive access (Phase 13). `drive.file` only grants the app files the user
  *  picks via the Google Picker or that the app creates — never the whole Drive. */
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+/** Read-only Drive access — required to enumerate a picked folder's contents for the
+ *  artist-document import (`drive.file` alone can't list files the app didn't create). */
+const DRIVE_READONLY_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/calendar.events',
   DRIVE_FILE_SCOPE,
+  DRIVE_READONLY_SCOPE,
   'openid',
   'email',
 ];
