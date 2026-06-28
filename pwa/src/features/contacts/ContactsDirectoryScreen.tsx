@@ -3,7 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
-import { contactSubtitle, type Contact, type ContactInput } from '@/lib/contacts/contact';
+import {
+  contactSubtitle,
+  matchesContactQuery,
+  sortContacts,
+  type Contact,
+  type ContactInput,
+  type ContactSort,
+} from '@/lib/contacts/contact';
 import {
   createContact,
   deleteContact,
@@ -20,6 +27,8 @@ export function ContactsDirectoryScreen() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<ContactSort>('first');
 
   const contactsQuery = useQuery({ queryKey: ['contacts'], queryFn: listContacts });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['contacts'] });
@@ -51,6 +60,10 @@ export function ContactsDirectoryScreen() {
   if (!user) return null;
   const contacts = contactsQuery.data ?? [];
   const canManage = (c: Contact) => isAdmin || c.createdBy === user.uid;
+  const visible = sortContacts(
+    contacts.filter((c) => matchesContactQuery(c, search)),
+    sortBy,
+  );
 
   return (
     <section className="space-y-6">
@@ -83,16 +96,43 @@ export function ContactsDirectoryScreen() {
         </div>
       )}
 
+      {contacts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, phone, email, or title…"
+            className="min-w-[14rem] flex-1 rounded border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="flex items-center gap-1 text-sm">
+            <span className="mr-1 text-ink-muted">Sort</span>
+            {(['first', 'last'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSortBy(key)}
+                className={`rounded px-2.5 py-1 transition-colors ${
+                  sortBy === key ? 'bg-ink text-surface' : 'border border-line text-ink-muted hover:text-accent'
+                }`}
+              >
+                {key === 'first' ? 'First name' : 'Last name'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {contactsQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {contactsQuery.isError && <p className="text-sm text-accent">Failed to load contacts.</p>}
       {!contactsQuery.isLoading && contacts.length === 0 && !creating && (
         <p className="text-sm text-ink-muted">No contacts yet.</p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {contacts.map((contact) =>
+      <div className="space-y-2">
+        {visible.map((contact) =>
           editingId === contact.id ? (
-            <div key={contact.id} className="rounded-lg border border-line bg-surface-muted/40 p-4 md:col-span-2">
+            <div key={contact.id} className="rounded-lg border border-line bg-surface-muted/40 p-4">
               <h2 className="mb-3 font-semibold text-brand">Edit contact</h2>
               <ContactForm
                 initial={contact}
@@ -104,9 +144,9 @@ export function ContactsDirectoryScreen() {
               />
             </div>
           ) : (
-            <article key={contact.id} className="rounded-lg border border-line p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
+            <article key={contact.id} className="rounded-lg border border-line px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <h2 className="flex items-center gap-2 font-semibold text-ink">
                     {contact.name}
                     {contact.userId && (
@@ -116,6 +156,12 @@ export function ContactsDirectoryScreen() {
                     )}
                   </h2>
                   {contactSubtitle(contact) && <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>}
+                  <div className="mt-1">
+                    <ContactLinks phone={contact.phone} email={contact.email} />
+                  </div>
+                  {contact.notes && (
+                    <p className="mt-1.5 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
+                  )}
                 </div>
                 {canManage(contact) && (
                   <div className="flex shrink-0 gap-2 text-xs">
@@ -133,12 +179,11 @@ export function ContactsDirectoryScreen() {
                   </div>
                 )}
               </div>
-              <div className="mt-2">
-                <ContactLinks phone={contact.phone} email={contact.email} />
-              </div>
-              {contact.notes && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>}
             </article>
           ),
+        )}
+        {!contactsQuery.isLoading && contacts.length > 0 && visible.length === 0 && (
+          <p className="text-sm text-ink-muted">No contacts match your search.</p>
         )}
       </div>
     </section>

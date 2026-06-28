@@ -81,3 +81,29 @@ export function mailtoHref(email: string | null): string | null {
 export function contactSubtitle(contact: Pick<Contact, 'role' | 'company'>): string {
   return [contact.role, contact.company].filter(Boolean).join(' · ');
 }
+
+/** Last word of the contact's name (used for last-name sorting). */
+export function contactLastName(contact: Pick<Contact, 'name'>): string {
+  const parts = contact.name.trim().split(/\s+/);
+  return parts.length > 1 ? (parts[parts.length - 1] ?? '') : (parts[0] ?? '');
+}
+
+/** True if the query (case-insensitive) matches the contact's name, phone, email, or role/title. */
+export function matchesContactQuery(contact: Contact, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [contact.name, contact.phone, contact.email, contact.role].some((field) =>
+    field ? field.toLowerCase().includes(q) : false,
+  );
+}
+
+export type ContactSort = 'first' | 'last';
+
+/** Sort contacts by first name (full name) or last name (ties fall back to full name). */
+export function sortContacts(contacts: readonly Contact[], by: ContactSort): Contact[] {
+  return [...contacts].sort((a, b) =>
+    by === 'last'
+      ? contactLastName(a).localeCompare(contactLastName(b)) || a.name.localeCompare(b.name)
+      : a.name.localeCompare(b.name),
+  );
+}

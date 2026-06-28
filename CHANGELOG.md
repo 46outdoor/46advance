@@ -22,6 +22,7 @@ dependency bumps, and planning-doc updates) are omitted.
 
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
 - **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).
+- **Contacts directory:** a single-column list with **search** (by name, phone, email, or title) and **sort by first or last name**; the contact cards are more vertically compact.
 
 ### Fixed
 
