@@ -22,6 +22,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseScheduleItem, type ScheduleItem, type ScheduleItemInput } from '@/lib/schedules/scheduleItem';
+import { templateItemInstant, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
 
 function itemsCol(eventId: string) {
   return collection(db, 'events', eventId, 'scheduleItems');
@@ -72,6 +73,44 @@ export async function createScheduleItem(
     updatedAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export interface ApplyStage {
+  id: string;
+  name: string;
+}
+
+/**
+ * Seed an event's schedule from a schedule template: each blueprint becomes a `scheduleItems`
+ * doc, its day/time resolved (in `timeZone`) against `eventStart` and its stage matched to the
+ * event's stages by name. Returns the number of items created.
+ */
+export async function applyScheduleTemplate(
+  eventId: string,
+  eventStart: Date | null,
+  timeZone: string,
+  template: ScheduleTemplate,
+  stages: ApplyStage[],
+  creatorUid: string,
+): Promise<number> {
+  const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
+  const inputs = template.items.map(
+    (item): ScheduleItemInput => ({
+      section: item.section,
+      customLabel: item.customLabel ?? undefined,
+      title: item.title,
+      startAt: templateItemInstant(eventStart, item.dayOffset, item.timeOfDay, timeZone),
+      endAt: templateItemInstant(eventStart, item.dayOffset, item.endTimeOfDay, timeZone),
+      location: item.location ?? undefined,
+      notes: item.notes ?? undefined,
+      stageId: (item.stageName && stageByName.get(item.stageName.trim().toLowerCase())) || undefined,
+      slot: item.slot ?? undefined,
+      fields: item.fields,
+      includeInMaster: item.includeInMaster,
+    }),
+  );
+  await Promise.all(inputs.map((input) => createScheduleItem(eventId, input, creatorUid)));
+  return inputs.length;
 }
 
 export async function updateScheduleItem(

@@ -114,6 +114,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Reusable schedule templates ("sub-templates"): any approved user reads (import picker);
+    // admin/organizer author. Applying one seeds events/{e}/scheduleItems (gated there).
+    match /scheduleTemplates/{templateId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isOrganizer());
+    }
+
     // App-level branding config (config/branding): shared default logo marks. Any approved user reads; admin manages.
     match /config/{configId} {
       allow read: if isActiveUser();
