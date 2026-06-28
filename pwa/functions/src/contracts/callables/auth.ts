@@ -34,3 +34,23 @@ export const setUserOrganizerInputSchema = z.object({
 export type SetUserOrganizerInput = z.infer<typeof setUserOrganizerInputSchema>;
 export const setUserOrganizerOutputSchema = setUserOrganizerInputSchema;
 export type SetUserOrganizerOutput = z.infer<typeof setUserOrganizerOutputSchema>;
+
+// setUserDisplayName — admin sets a user's display name (shown in pickers/member lists).
+// An empty string clears it (falls back to email). Echoes the stored value (null when cleared).
+export const setUserDisplayNameInputSchema = z.object({
+  uid: z.string().min(1),
+  displayName: z.string().trim().max(120),
+});
+export type SetUserDisplayNameInput = z.infer<typeof setUserDisplayNameInputSchema>;
+export const setUserDisplayNameOutputSchema = z.object({
+  uid: z.string().min(1),
+  displayName: z.string().nullable(),
+});
+export type SetUserDisplayNameOutput = z.infer<typeof setUserDisplayNameOutputSchema>;
+
+// deleteUser — admin permanently removes an account (Auth + users doc). The person's
+// contact is kept (unlinked) as reference data, and their event memberships are cleared.
+export const deleteUserInputSchema = z.object({ uid: z.string().min(1) });
+export type DeleteUserInput = z.infer<typeof deleteUserInputSchema>;
+export const deleteUserOutputSchema = z.object({ uid: z.string().min(1), deleted: z.boolean() });
+export type DeleteUserOutput = z.infer<typeof deleteUserOutputSchema>;
