@@ -17,6 +17,7 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Admin user management:** in **Admin → Users** you can now set a member's **display name** (shown in role pickers and member lists), **send a password-reset email**, and **delete an account**.
 - **Contact auto-linking:** add a contact ahead of time, and when that person signs up with the same email their account links to the existing contact — inheriting its name — instead of creating a duplicate.
 - **Readable event URLs:** events now live at a slug like `/events/rtc-ashland-26` (derived from the booking label or name + the 2-digit year, and editable at creation) instead of a random id. Old id links still work, and id-based links auto-upgrade to the slug.
+- **Contact photos:** upload a profile picture for a contact (or your own account's contact via its card), shown as an avatar beside the name in the directory; a name-initials circle stands in when there's no photo.
 
 ### Changed
 

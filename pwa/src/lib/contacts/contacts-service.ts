@@ -34,6 +34,7 @@ function toDoc(input: ContactInput) {
     phone: input.phone ?? null,
     email: input.email ? input.email : null,
     notes: input.notes ?? null,
+    photo: input.photo ?? null,
   };
 }
 

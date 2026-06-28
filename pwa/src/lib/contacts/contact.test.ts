@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  contactInitials,
   contactInputSchema,
   contactLastName,
   contactSubtitle,
@@ -84,6 +85,18 @@ describe('contactLastName', () => {
     expect(contactLastName({ name: 'Andrue Yanez' })).toBe('Yanez');
     expect(contactLastName({ name: 'Mary Jo Smith' })).toBe('Smith');
     expect(contactLastName({ name: 'Cher' })).toBe('Cher');
+  });
+});
+
+describe('contactInitials', () => {
+  it('takes the first + last initials, uppercased', () => {
+    expect(contactInitials('Andrue Yanez')).toBe('AY');
+    expect(contactInitials('mary jo smith')).toBe('MS');
+    expect(contactInitials('Cher')).toBe('C');
+  });
+
+  it('falls back to ? for a blank name', () => {
+    expect(contactInitials('   ')).toBe('?');
   });
 });
 

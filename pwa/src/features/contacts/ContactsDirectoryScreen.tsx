@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
+import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import {
   contactSubtitle,
   matchesContactQuery,
@@ -146,7 +147,9 @@ export function ContactsDirectoryScreen() {
           ) : (
             <article key={contact.id} className="rounded-lg border border-line px-4 py-3">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 gap-3">
+                  <ContactAvatar name={contact.name} photoUrl={contact.photo?.url ?? null} className="h-11 w-11" />
+                  <div className="min-w-0">
                   <h2 className="flex items-center gap-2 font-semibold text-ink">
                     {contact.name}
                     {contact.userId && (
@@ -162,6 +165,7 @@ export function ContactsDirectoryScreen() {
                   {contact.notes && (
                     <p className="mt-1.5 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
                   )}
+                  </div>
                 </div>
                 {canManage(contact) && (
                   <div className="flex shrink-0 gap-2 text-xs">

@@ -8,6 +8,10 @@ import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 
+/** Profile picture: a Storage path (for deletion) + its download URL. */
+const contactPhotoSchema = z.object({ path: z.string().min(1), url: z.string().min(1) });
+export type ContactPhoto = z.infer<typeof contactPhotoSchema>;
+
 export interface Contact {
   id: string;
   name: string;
@@ -16,6 +20,8 @@ export interface Contact {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  /** Profile picture, shown beside the name; null when none uploaded. */
+  photo: ContactPhoto | null;
   /** Set when this contact mirrors a user account (auto-populated on sign-in); null otherwise. */
   userId: string | null;
   createdBy: string;
@@ -30,6 +36,7 @@ const contactDocSchema = z.object({
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  photo: contactPhotoSchema.nullable().optional(),
   userId: z.string().nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
@@ -47,6 +54,7 @@ export function parseContact(id: string, data: unknown): Contact {
     phone: doc.phone ?? null,
     email: doc.email ?? null,
     notes: doc.notes ?? null,
+    photo: doc.photo ?? null,
     userId: doc.userId ?? null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
@@ -62,6 +70,7 @@ export const contactInputSchema = z.object({
   phone: z.string().trim().optional(),
   email: z.union([z.string().trim().email('Enter a valid email.'), z.literal('')]).optional(),
   notes: z.string().trim().optional(),
+  photo: contactPhotoSchema.nullable().optional(),
 });
 export type ContactInput = z.infer<typeof contactInputSchema>;
 
@@ -86,6 +95,15 @@ export function contactSubtitle(contact: Pick<Contact, 'role' | 'company'>): str
 export function contactLastName(contact: Pick<Contact, 'name'>): string {
   const parts = contact.name.trim().split(/\s+/);
   return parts.length > 1 ? (parts[parts.length - 1] ?? '') : (parts[0] ?? '');
+}
+
+/** Up to two initials from the name, for the avatar placeholder. */
+export function contactInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  const first = parts[0][0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
+  return (first + last).toUpperCase() || '?';
 }
 
 /** True if the query (case-insensitive) matches the contact's name, phone, email, or role/title. */
