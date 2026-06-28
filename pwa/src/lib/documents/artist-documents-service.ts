@@ -28,6 +28,18 @@ export async function setArtistDocumentCategory(id: string, categoryId: string |
   await updateDoc(doc(db, 'artistDocuments', id), { categoryId });
 }
 
+/** Update app-side fields — in-app title, notes, obsolete flag (Drive file untouched). Admin|organizer. */
+export async function updateArtistDocument(
+  id: string,
+  fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean },
+): Promise<void> {
+  const update: Record<string, unknown> = {};
+  if (fields.displayName !== undefined) update.displayName = fields.displayName;
+  if (fields.notes !== undefined) update.notes = fields.notes;
+  if (fields.obsolete !== undefined) update.obsolete = fields.obsolete;
+  await updateDoc(doc(db, 'artistDocuments', id), update);
+}
+
 /** Remove the document from the library (the Drive file itself is untouched). */
 export async function deleteArtistDocument(id: string): Promise<void> {
   await deleteDoc(doc(db, 'artistDocuments', id));

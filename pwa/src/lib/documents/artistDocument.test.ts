@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { artistKey, artistsFromDocuments, parseArtistDocument, type ArtistDocument } from './artistDocument';
+import {
+  artistKey,
+  artistsFromDocuments,
+  documentTitle,
+  parseArtistDocument,
+  type ArtistDocument,
+} from './artistDocument';
+
+describe('documentTitle', () => {
+  it('uses the in-app override, else the Drive filename', () => {
+    expect(documentTitle({ displayName: 'Rider (final)', name: 'TR_v3.pdf' })).toBe('Rider (final)');
+    expect(documentTitle({ displayName: null, name: 'TR_v3.pdf' })).toBe('TR_v3.pdf');
+    expect(documentTitle({ displayName: '   ', name: 'TR_v3.pdf' })).toBe('TR_v3.pdf');
+  });
+});
 
 describe('artistKey', () => {
   it('normalizes to a lowercase, whitespace-collapsed key', () => {
@@ -30,6 +44,9 @@ describe('artistsFromDocuments', () => {
     id: fileId,
     fileId,
     name: 'x',
+    displayName: null,
+    notes: null,
+    obsolete: false,
     mimeType: 'application/pdf',
     iconLink: null,
     webViewLink: 'https://drive/x',

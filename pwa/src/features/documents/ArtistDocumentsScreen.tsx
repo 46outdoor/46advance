@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
@@ -6,12 +7,120 @@ import {
   deleteArtistDocument,
   listDocumentsForArtist,
   setArtistDocumentCategory,
+  updateArtistDocument,
 } from '@/lib/documents/artist-documents-service';
+import { documentTitle, type ArtistDocument } from '@/lib/documents/artistDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
+import type { DocumentCategory } from '@/lib/documents/documentCategory';
 
 const logger = createLogger('Documents');
 
-/** One artist's documents: links out to Drive; managers classify + remove. */
+const inputClass = 'w-full rounded border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
+const chipButton =
+  'min-h-[44px] rounded border border-line px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
+
+interface RowProps {
+  doc: ArtistDocument;
+  categories: DocumentCategory[];
+  canManage: boolean;
+  pending: boolean;
+  onSetCategory: (categoryId: string | null) => void;
+  onUpdate: (fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean }) => void;
+  onRemove: () => void;
+}
+
+/** One document row: in-app title (overrides the Drive name), category, notes, obsolete tag. */
+function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpdate, onRemove }: RowProps) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(doc.displayName ?? '');
+  const [notes, setNotes] = useState(doc.notes ?? '');
+  const categoryName = categories.find((c) => c.id === doc.categoryId)?.name ?? 'Unclassified';
+
+  const save = () => {
+    onUpdate({ displayName: title.trim() || null, notes: notes.trim() || null });
+    setEditing(false);
+  };
+
+  return (
+    <article className={`rounded-lg border px-4 py-3 ${doc.obsolete ? 'border-line/60 bg-surface-muted/30' : 'border-line'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <a
+            href={doc.webViewLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`min-w-0 truncate font-semibold transition-colors hover:text-accent ${doc.obsolete ? 'text-ink-muted line-through' : 'text-ink'}`}
+          >
+            {documentTitle(doc)}
+          </a>
+          {doc.obsolete && (
+            <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-accent">
+              Obsolete
+            </span>
+          )}
+        </div>
+        {canManage ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <select
+              value={doc.categoryId ?? ''}
+              onChange={(e) => onSetCategory(e.target.value || null)}
+              className="min-h-[44px] rounded border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand"
+              aria-label="Category"
+            >
+              <option value="">Unclassified</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={() => setEditing((v) => !v)} className={chipButton}>
+              Edit
+            </button>
+            <button type="button" disabled={pending} onClick={() => onUpdate({ obsolete: !doc.obsolete })} className={chipButton}>
+              {doc.obsolete ? 'Mark current' : 'Mark obsolete'}
+            </button>
+            <button type="button" disabled={pending} onClick={onRemove} className={chipButton}>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <span className="shrink-0 text-sm text-ink-muted">{categoryName}</span>
+        )}
+      </div>
+
+      {editing && canManage && (
+        <div className="mt-3 space-y-2">
+          <label className="block text-sm">
+            <span className="mb-1 block text-ink-muted">In-app title (blank = Drive name “{doc.name}”)</span>
+            <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={doc.name} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-ink-muted">Notes</span>
+            <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={save}
+              className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="text-sm text-ink-muted hover:text-ink">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!editing && doc.notes && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{doc.notes}</p>}
+    </article>
+  );
+}
+
+/** One artist's documents: links out to Drive; managers classify, retitle (in-app), note, flag obsolete. */
 export function ArtistDocumentsScreen() {
   const { isAdmin, isOrganizer } = useAuth();
   const canManage = isAdmin || isOrganizer;
@@ -25,14 +134,20 @@ export function ArtistDocumentsScreen() {
   });
   const categoriesQuery = useQuery({ queryKey: ['documentCategories'], queryFn: listDocumentCategories });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['artistDocuments', 'artist', decodedKey] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['artistDocuments', 'artist', decodedKey] });
 
   const setCategory = useMutation({
     mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) =>
       setArtistDocumentCategory(id, categoryId),
     onSuccess: () => void invalidate(),
     onError: (err) => logger.error('Failed to set document category', err),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean } }) =>
+      updateArtistDocument(id, fields),
+    onSuccess: () => void invalidate(),
+    onError: (err) => logger.error('Failed to update document', err),
   });
 
   const remove = useMutation({
@@ -43,9 +158,7 @@ export function ArtistDocumentsScreen() {
 
   const documents = documentsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
-  const displayName = documents[0]?.artist ?? decodedKey;
-  const categoryName = (categoryId: string | null) =>
-    categories.find((c) => c.id === categoryId)?.name ?? 'Unclassified';
+  const artistName = documents[0]?.artist ?? decodedKey;
 
   return (
     <section className="space-y-6">
@@ -56,7 +169,7 @@ export function ArtistDocumentsScreen() {
       </div>
 
       <header>
-        <h1 className="font-display text-3xl font-black tracking-tight text-brand">{displayName}</h1>
+        <h1 className="font-display text-3xl font-black tracking-tight text-brand">{artistName}</h1>
         <p className="text-ink-muted">Documents for this artist.</p>
       </header>
 
@@ -68,46 +181,16 @@ export function ArtistDocumentsScreen() {
 
       <div className="space-y-2">
         {documents.map((doc) => (
-          <article
+          <DocumentRow
             key={doc.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-4 py-3"
-          >
-            <a
-              href={doc.webViewLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="min-w-0 flex-1 truncate font-semibold text-ink transition-colors hover:text-accent"
-            >
-              {doc.name}
-            </a>
-            {canManage ? (
-              <div className="flex shrink-0 items-center gap-2">
-                <select
-                  value={doc.categoryId ?? ''}
-                  onChange={(e) => setCategory.mutate({ id: doc.id, categoryId: e.target.value || null })}
-                  className="min-h-[44px] rounded border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand"
-                  aria-label="Category"
-                >
-                  <option value="">Unclassified</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate(doc.id)}
-                  className="min-h-[44px] rounded border border-line px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <span className="shrink-0 text-sm text-ink-muted">{categoryName(doc.categoryId)}</span>
-            )}
-          </article>
+            doc={doc}
+            categories={categories}
+            canManage={canManage}
+            pending={update.isPending || remove.isPending}
+            onSetCategory={(categoryId) => setCategory.mutate({ id: doc.id, categoryId })}
+            onUpdate={(fields) => update.mutate({ id: doc.id, fields })}
+            onRemove={() => remove.mutate(doc.id)}
+          />
         ))}
       </div>
     </section>

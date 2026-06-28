@@ -12,7 +12,14 @@ import { timestampToDate } from '@/lib/firestore/timestamps';
 export interface ArtistDocument {
   id: string;
   fileId: string;
+  /** The Drive filename (unchanged in Drive). */
   name: string;
+  /** In-app display title that overrides `name` for display — never renames the Drive file. */
+  displayName: string | null;
+  /** App-side notes about the document. */
+  notes: string | null;
+  /** Flagged outdated/obsolete in the app (the Drive file is untouched). */
+  obsolete: boolean;
   mimeType: string;
   iconLink: string | null;
   webViewLink: string;
@@ -34,6 +41,9 @@ export function artistKey(name: string): string {
 const artistDocumentDocSchema = z.object({
   fileId: z.string().min(1),
   name: z.string().min(1),
+  displayName: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  obsolete: z.boolean().optional(),
   mimeType: z.string().optional(),
   iconLink: z.string().nullable().optional(),
   webViewLink: z.string().min(1),
@@ -51,6 +61,9 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     id,
     fileId: d.fileId,
     name: d.name,
+    displayName: d.displayName ?? null,
+    notes: d.notes ?? null,
+    obsolete: d.obsolete === true,
     mimeType: d.mimeType ?? 'application/octet-stream',
     iconLink: d.iconLink ?? null,
     webViewLink: d.webViewLink,
@@ -61,6 +74,11 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     importedByEmail: d.importedByEmail ?? null,
     importedAt: timestampToDate(d.importedAt ?? null),
   };
+}
+
+/** Title shown in the app: the in-app override if set, else the Drive filename. */
+export function documentTitle(doc: Pick<ArtistDocument, 'displayName' | 'name'>): string {
+  return doc.displayName?.trim() || doc.name;
 }
 
 /** A distinct artist with a document count, derived from the library. */
