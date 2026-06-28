@@ -8,8 +8,24 @@ import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 
-/** Profile picture: a Storage path (for deletion) + its download URL. */
-const contactPhotoSchema = z.object({ path: z.string().min(1), url: z.string().min(1) });
+/** Crop rectangle (natural pixels) + the original image's natural size, so a square avatar
+ *  can show the chosen region via CSS — letting the user reframe without re-uploading. */
+const cropRectSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  natW: z.number(),
+  natH: z.number(),
+});
+export type CropRect = z.infer<typeof cropRectSchema>;
+
+/** Profile picture: a Storage path (for deletion), its download URL, and an optional crop. */
+const contactPhotoSchema = z.object({
+  path: z.string().min(1),
+  url: z.string().min(1),
+  crop: cropRectSchema.nullable().optional(),
+});
 export type ContactPhoto = z.infer<typeof contactPhotoSchema>;
 
 export interface Contact {
@@ -104,6 +120,20 @@ export function contactInitials(name: string): string {
   const first = parts[0][0] ?? '';
   const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
   return (first + last).toUpperCase() || '?';
+}
+
+/**
+ * CSS box (percentages) that scales+offsets the original image inside a square, overflow-hidden
+ * avatar so the crop rectangle fills it exactly. Lets the avatar show a reframable crop with no
+ * canvas/re-upload.
+ */
+export function photoCropStyle(crop: CropRect): { width: string; height: string; left: string; top: string } {
+  return {
+    width: `${(crop.natW / crop.width) * 100}%`,
+    height: `${(crop.natH / crop.height) * 100}%`,
+    left: `${(-crop.x / crop.width) * 100}%`,
+    top: `${(-crop.y / crop.height) * 100}%`,
+  };
 }
 
 /** True if the query (case-insensitive) matches the contact's name, phone, email, or role/title. */

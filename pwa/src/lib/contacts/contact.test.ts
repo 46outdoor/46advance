@@ -7,6 +7,7 @@ import {
   mailtoHref,
   matchesContactQuery,
   parseContact,
+  photoCropStyle,
   sortContacts,
   telHref,
 } from './contact';
@@ -97,6 +98,17 @@ describe('contactInitials', () => {
 
   it('falls back to ? for a blank name', () => {
     expect(contactInitials('   ')).toBe('?');
+  });
+});
+
+describe('photoCropStyle', () => {
+  it('scales + offsets the original so the crop region fills a square', () => {
+    expect(photoCropStyle({ x: 300, y: 100, width: 400, height: 400, natW: 1000, natH: 600 })).toEqual({
+      width: '250%',
+      height: '150%',
+      left: '-75%',
+      top: '-25%',
+    });
   });
 });
 
