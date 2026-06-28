@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { EVENT_ROLES, type EventRole } from '@/lib/rbac/roles';
+import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
 import { listUsers } from '@/lib/users/users-service';
+import { userFullName, userShortName } from '@/lib/users/userName';
 import {
   assignEventMember,
   listAllEvents,
@@ -148,6 +150,22 @@ export function AdminScreen() {
 
       <DepartmentsAdmin />
 
+      {/* Templates */}
+      <div className="space-y-3">
+        <h2 className="font-display text-xl font-bold text-brand">Templates</h2>
+        <div className="rounded-lg border border-line p-4">
+          <p className="text-sm text-ink-muted">
+            Blueprints for new events — seed departments, stages, production defaults, and roles.
+          </p>
+          <Link
+            to="/templates"
+            className="mt-3 inline-block rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
+          >
+            Manage templates
+          </Link>
+        </div>
+      </div>
+
       {/* Membership management */}
       <div className="space-y-4">
         <h2 className="font-display text-xl font-bold text-brand">Event membership</h2>
@@ -185,7 +203,7 @@ export function AdminScreen() {
               <option value="">Select…</option>
               {usersQuery.data?.map((u) => (
                 <option key={u.uid} value={u.uid}>
-                  {u.email ?? u.uid}
+                  {userFullName(u)}
                 </option>
               ))}
             </select>
@@ -200,7 +218,7 @@ export function AdminScreen() {
             >
               {EVENT_ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {formatEventRole(r)}
                 </option>
               ))}
             </select>
@@ -232,22 +250,27 @@ export function AdminScreen() {
             )}
             {membersQuery.data && membersQuery.data.length > 0 && (
               <ul className="divide-y divide-line/60 text-sm">
-                {membersQuery.data.map((m) => (
-                  <li key={m.uid} className="flex items-center justify-between py-2">
-                    <span>
-                      <span className="font-mono text-xs text-ink-muted">{m.uid}</span>
-                      <span className="ml-3 font-semibold">{m.role}</span>
-                    </span>
-                    <button
-                      type="button"
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate(m.uid)}
-                      className="rounded border border-line px-2 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
+                {membersQuery.data.map((m) => {
+                  const memberUser = usersQuery.data?.find((u) => u.uid === m.uid);
+                  return (
+                    <li key={m.uid} className="flex items-center justify-between py-2">
+                      <span>
+                        <span className="font-medium text-ink">
+                          {memberUser ? userShortName(memberUser) : m.uid}
+                        </span>
+                        <span className="ml-3 text-ink-muted">{formatEventRole(m.role)}</span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(m.uid)}
+                        className="rounded border border-line px-2 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

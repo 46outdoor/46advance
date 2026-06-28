@@ -56,15 +56,23 @@ export function EventsListScreen() {
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl font-black tracking-tight text-brand">Events</h1>
-        {canCreateEvents(viewer) && (
-          <button
-            type="button"
-            onClick={() => setShowCreate((v) => !v)}
-            className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        <div className="flex items-center gap-2">
+          <Link
+            to="/tracker"
+            className="rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
           >
-            {showCreate ? 'Close' : 'New event'}
-          </button>
-        )}
+            Tracker
+          </Link>
+          {canCreateEvents(viewer) && (
+            <button
+              type="button"
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              {showCreate ? 'Close' : 'New event'}
+            </button>
+          )}
+        </div>
       </header>
 
       {showCreate && canCreateEvents(viewer) && (

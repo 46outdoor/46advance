@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { EVENT_ROLES, eventMemberInputSchema, eventRoleSchema, parseEventMember } from './roles';
+import {
+  EVENT_ROLES,
+  EVENT_ROLE_LABELS,
+  eventMemberInputSchema,
+  eventRoleSchema,
+  formatEventRole,
+  parseEventMember,
+} from './roles';
 
 describe('roles schema', () => {
   it('accepts every declared event role', () => {
@@ -38,5 +45,18 @@ describe('parseEventMember', () => {
   it('throws on a malformed doc', () => {
     expect(() => parseEventMember({ role: 'tech' })).toThrow(); // missing addedBy
     expect(() => parseEventMember({ role: 'wrong', addedBy: 'x' })).toThrow();
+  });
+});
+
+describe('formatEventRole', () => {
+  it('renders a human label for every role (no kebab-case leaks)', () => {
+    for (const role of EVENT_ROLES) {
+      expect(formatEventRole(role)).toBe(EVENT_ROLE_LABELS[role]);
+      expect(formatEventRole(role)).not.toContain('-');
+    }
+  });
+
+  it('maps production-manager to "Production Manager"', () => {
+    expect(formatEventRole('production-manager')).toBe('Production Manager');
   });
 });
