@@ -151,11 +151,24 @@ function artistKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+const MAX_FOLDER_DEPTH = 12;
+
+/** All files anywhere under a folder — recurses into nested subfolders (depth-capped). */
+async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: number): Promise<drive_v3.Schema$File[]> {
+  const files = await listChildren(drive, folderId, false);
+  if (depth >= MAX_FOLDER_DEPTH) return files;
+  const subfolders = await listChildren(drive, folderId, true);
+  const nested = await Promise.all(
+    subfolders.filter((f) => f.id).map((f) => collectAllFiles(drive, f.id as string, depth + 1)),
+  );
+  return [...files, ...nested.flat()];
+}
+
 /**
  * Import an artist-documents Drive folder into the `artistDocuments` library (admin|organizer).
- * Each immediate subfolder is an artist (subfolder name → artist); files directly in the root are
- * unsorted. Files are linked (metadata only), de-duped by Drive file id so re-import only adds new
- * files and preserves existing classifications. Input: { folderId }.
+ * Each immediate subfolder is an artist; its ENTIRE subtree (nested subfolders included) is imported
+ * under that artist. Files directly in the picked folder are unsorted. Files are linked (metadata
+ * only), de-duped by Drive file id so re-import only adds new files and preserves classifications.
  */
 export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
@@ -176,9 +189,16 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
   } catch {
     throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
   }
-  const groups: { artist: string | null; id: string }[] = [
-    { artist: null, id: folderId },
-    ...subfolders.filter((f) => f.id).map((f) => ({ artist: f.name ?? 'Unknown', id: f.id as string })),
+  // Files directly in the picked folder are "unsorted"; each subfolder is an artist whose
+  // ENTIRE subtree (nested subfolders included) is imported under that artist.
+  const rootFiles = await listChildren(drive, folderId, false);
+  const groups: { artist: string | null; files: drive_v3.Schema$File[] }[] = [
+    { artist: null, files: rootFiles },
+    ...(await Promise.all(
+      subfolders
+        .filter((f) => f.id)
+        .map(async (f) => ({ artist: f.name ?? 'Unknown', files: await collectAllFiles(drive, f.id as string, 0) })),
+    )),
   ];
 
   const existing = new Set((await db.collection('artistDocuments').get()).docs.map((d) => d.id));
@@ -187,8 +207,7 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
   let batch = db.batch();
   let ops = 0;
   for (const group of groups) {
-    const files = await listChildren(drive, group.id, false);
-    for (const file of files) {
+    for (const file of group.files) {
       if (!file.id || !file.name || !file.webViewLink) continue;
       if (existing.has(file.id)) {
         skipped += 1;
