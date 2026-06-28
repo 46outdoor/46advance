@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
@@ -13,7 +13,7 @@ import { LogoRow } from '@/components/branding/LogoRow';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
-import { generatePacket, getEvent, setEventLogo, updateEvent } from './events-service';
+import { generatePacket, getEventBySlugOrId, setEventLogo, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
@@ -26,18 +26,22 @@ export function EventDetailScreen() {
   const { eventId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
 
   const eventQuery = useQuery({
     queryKey: ['events', 'detail', eventId],
-    queryFn: () => getEvent(eventId!),
+    queryFn: () => getEventBySlugOrId(eventId!),
     enabled: !!eventId,
   });
+  const event = eventQuery.data;
+  // The route param may be a slug; resolve to the canonical doc id for writes + sub-links.
+  const id = event?.id;
 
   const roleQuery = useQuery({
-    queryKey: ['events', 'role', eventId, user?.uid],
-    queryFn: () => getEventRole(user!.uid, eventId!),
-    enabled: !!eventId && !!user,
+    queryKey: ['events', 'role', id, user?.uid],
+    queryFn: () => getEventRole(user!.uid, id!),
+    enabled: !!id && !!user,
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
@@ -45,7 +49,7 @@ export function EventDetailScreen() {
   const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
 
   const update = useMutation({
-    mutationFn: (input: EventInput) => updateEvent(eventId!, input),
+    mutationFn: (input: EventInput) => updateEvent(id!, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['events'] });
       setEditing(false);
@@ -54,7 +58,7 @@ export function EventDetailScreen() {
   });
 
   const saveLogo = useMutation({
-    mutationFn: (logo: Logo) => setEventLogo(eventId!, logo),
+    mutationFn: (logo: Logo) => setEventLogo(id!, logo),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
     },
@@ -64,7 +68,7 @@ export function EventDetailScreen() {
   const connectionQuery = useGoogleConnection();
 
   const packet = useMutation({
-    mutationFn: () => generatePacket(eventId!),
+    mutationFn: () => generatePacket(id!),
     onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
     onError: (err) => logger.error('Failed to generate packet', err),
   });
@@ -72,8 +76,8 @@ export function EventDetailScreen() {
   // Generate a fresh packet, then save it into the caller's Drive (Phase 13).
   const saveToDrive = useMutation({
     mutationFn: async () => {
-      const { path } = await generatePacket(eventId!);
-      return savePacketToDrive(eventId!, path);
+      const { path } = await generatePacket(id!);
+      return savePacketToDrive(id!, path);
     },
     onSuccess: (res) => {
       if (res.saved && res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
@@ -81,11 +85,17 @@ export function EventDetailScreen() {
     onError: (err) => logger.error('Failed to save packet to Drive', err),
   });
 
+  // Canonicalize the URL to the slug (upgrades id-based + just-created links).
+  useEffect(() => {
+    if (event?.slug && eventId && eventId !== event.slug) {
+      navigate(`/events/${event.slug}`, { replace: true });
+    }
+  }, [event?.slug, eventId, navigate]);
+
   if (!user || !eventId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
-  const event = eventQuery.data;
   const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
@@ -101,7 +111,7 @@ export function EventDetailScreen() {
       {event && !editing && (
         <EventDetailHeader
           event={event}
-          eventId={eventId}
+          eventId={event.id}
           canEdit={canEdit}
           defaultLogos={defaultLogos}
           hasDrive={connectionQuery.data?.hasDrive ?? false}
@@ -115,38 +125,37 @@ export function EventDetailScreen() {
         />
       )}
 
-      {event && canEdit && (
-        <EventLogoCard
-          logo={event.eventLogo ?? emptyLogo()}
-          defaultLogos={defaultLogos}
-          eventId={eventId}
-          pending={saveLogo.isPending}
-          error={saveLogo.isError}
-          onChange={(logo) => saveLogo.mutate(logo)}
-        />
-      )}
-
       {event && editing && (
-        <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
-          <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit event</h2>
-          <EventForm
-            initial={event}
-            departments={departmentsQuery.data ?? []}
-            submitLabel="Save changes"
-            showStatus
-            pending={update.isPending}
-            error={update.isError ? 'Could not save changes.' : null}
-            onSubmit={(input) => update.mutate(input)}
-            onCancel={() => setEditing(false)}
+        <div className="space-y-4">
+          <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
+            <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit event</h2>
+            <EventForm
+              initial={event}
+              departments={departmentsQuery.data ?? []}
+              submitLabel="Save changes"
+              showStatus
+              pending={update.isPending}
+              error={update.isError ? 'Could not save changes.' : null}
+              onSubmit={(input) => update.mutate(input)}
+              onCancel={() => setEditing(false)}
+            />
+          </div>
+          <EventLogoCard
+            logo={event.eventLogo ?? emptyLogo()}
+            defaultLogos={defaultLogos}
+            eventId={event.id}
+            pending={saveLogo.isPending}
+            error={saveLogo.isError}
+            onChange={(logo) => saveLogo.mutate(logo)}
           />
         </div>
       )}
 
-      {event && <BookedCallsPanel eventId={eventId} canEdit={canEdit} />}
+      {event && <BookedCallsPanel eventId={event.id} canEdit={canEdit} />}
 
-      {event && <StagesPanel eventId={eventId} canEdit={canEdit} />}
+      {event && <StagesPanel eventId={event.id} canEdit={canEdit} />}
 
-      {event && <EventContactsPanel eventId={eventId} uid={user.uid} canEdit={canEdit} />}
+      {event && <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />}
     </section>
   );
 }

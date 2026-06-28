@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } from '@/lib/events/event';
+import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
 
@@ -12,6 +13,7 @@ interface EventFormProps {
     status?: EventStatus;
     departmentIds?: string[];
     bookingLabel?: string | null;
+    slug?: string | null;
   };
   /** Available departments to enable. */
   departments: DepartmentRecord[];
@@ -25,6 +27,20 @@ interface EventFormProps {
 }
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
+
+/** Slug field state: tracks the booking label / name / year until the user edits it directly. */
+function useEventSlug(initialSlug: string | null | undefined, name: string, bookingLabel: string, start: string) {
+  const [slug, setSlug] = useState(initialSlug ?? '');
+  const [touched, setTouched] = useState(Boolean(initialSlug));
+  const value = touched ? slug : defaultEventSlug(bookingLabel.trim() || null, name, parseDateInput(start));
+  return {
+    value,
+    onChange: (next: string) => {
+      setSlug(next);
+      setTouched(true);
+    },
+  };
+}
 
 /** Create/edit form for an event. Validates with eventInputSchema before submitting. */
 export function EventForm({
@@ -57,6 +73,8 @@ export function EventForm({
       return next;
     });
 
+  const slugField = useEventSlug(initial?.slug, name, bookingLabel, start);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const parsed = eventInputSchema.safeParse({
@@ -66,6 +84,7 @@ export function EventForm({
       venue: venue.trim() || undefined,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
       bookingLabel: bookingLabel.trim() || undefined,
+      slug: slugField.value.trim() || undefined,
       ...(showStatus ? { status } : {}),
     });
     if (!parsed.success) {
@@ -105,6 +124,19 @@ export function EventForm({
         <span className="mt-1 block text-xs text-ink-muted">
           Optional. The festival name as it appears in your Appointment Schedule booking titles, so
           booked advance calls map to this event during sync.
+        </span>
+      </label>
+      <label className="block text-sm sm:col-span-2">
+        <span className="mb-1 block font-semibold text-ink">URL slug</span>
+        <input
+          className={inputClass}
+          value={slugField.value}
+          onChange={(e) => slugField.onChange(e.target.value)}
+          placeholder="rtc-ashland-26"
+        />
+        <span className="mt-1 block text-xs text-ink-muted">
+          Web address: <span className="font-mono">/events/{slugify(slugField.value) || '…'}</span>. Defaults from
+          the booking label (or name) + year — edit to customize.
         </span>
       </label>
       {showStatus && (

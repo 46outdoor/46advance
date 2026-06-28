@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
   setDoc,
@@ -20,6 +21,7 @@ import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
+import { defaultEventSlug, slugify, uniqueSlug } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
 import type { Viewer } from '@/lib/rbac/permissions';
 import type {
@@ -35,6 +37,10 @@ import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pd
  */
 export async function createEvent(input: EventInput, creatorUid: string): Promise<string> {
   const eventRef = doc(collection(db, 'events'));
+  const baseSlug = input.slug?.trim()
+    ? slugify(input.slug)
+    : defaultEventSlug(input.bookingLabel ?? null, input.name, input.startDate ?? null);
+  const slug = uniqueSlug(baseSlug, await takenSlugs());
   await setDoc(eventRef, {
     name: input.name,
     startDate: dateToTimestamp(input.startDate ?? null),
@@ -43,6 +49,7 @@ export async function createEvent(input: EventInput, creatorUid: string): Promis
     status: input.status ?? 'draft',
     departmentIds: input.departmentIds ?? [],
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
+    slug,
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -59,6 +66,33 @@ export async function createEvent(input: EventInput, creatorUid: string): Promis
 export async function getEvent(eventId: string): Promise<EventRecord | null> {
   const snap = await getDoc(doc(db, 'events', eventId));
   return snap.exists() ? parseEvent(snap.id, snap.data()) : null;
+}
+
+/**
+ * Resolve an event by its URL slug, falling back to a doc-id lookup (so old
+ * `/events/{id}` links and not-yet-slugged events keep working).
+ */
+export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord | null> {
+  try {
+    const snap = await getDocs(query(collection(db, 'events'), where('slug', '==', slugOrId), limit(1)));
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      return parseEvent(d.id, d.data());
+    }
+  } catch {
+    // Slug query denied (viewer isn't a member of the matching event) → try the id.
+  }
+  return getEvent(slugOrId);
+}
+
+/** Existing slugs for uniqueness (best-effort: non-admin creators can't list every event). */
+async function takenSlugs(): Promise<Set<string>> {
+  try {
+    const snap = await getDocs(collection(db, 'events'));
+    return new Set(snap.docs.map((d) => d.data().slug).filter((s): s is string => typeof s === 'string'));
+  } catch {
+    return new Set();
+  }
 }
 
 /** Events the viewer can see: all (admin) or those they're a member of. */
@@ -87,6 +121,7 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     endDate: dateToTimestamp(input.endDate ?? null),
     venue: input.venue ?? null,
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
+    ...(input.slug?.trim() ? { slug: slugify(input.slug) } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.departmentIds ? { departmentIds: input.departmentIds } : {}),
     updatedAt: serverTimestamp(),
@@ -136,6 +171,7 @@ export async function createEventFromTemplate(templateId: string, input: EventIn
     startDate: input.startDate ? input.startDate.getTime() : null,
     endDate: input.endDate ? input.endDate.getTime() : null,
     venue: input.venue ?? null,
+    slug: input.slug ?? null,
   });
   return result.data.eventId;
 }

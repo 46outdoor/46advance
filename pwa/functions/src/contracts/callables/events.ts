@@ -11,6 +11,7 @@ export const createEventFromTemplateInputSchema = z.object({
   startDate: z.number().nullable(),
   endDate: z.number().nullable(),
   venue: z.string().nullable(),
+  slug: z.string().nullable(),
 });
 export type CreateEventFromTemplateInput = z.infer<typeof createEventFromTemplateInputSchema>;
 
