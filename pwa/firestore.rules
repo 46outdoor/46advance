@@ -107,11 +107,15 @@ service cloud.firestore {
     }
 
     // Global contact directory (ROADMAP §11): reference data, distinct from RBAC users.
-    // Any approved member of the team reads + adds; the creator (or admin) edits/deletes.
+    // Any approved member reads + adds; the creator (or admin) edits/deletes. A user may also
+    // update the entry linked to their own account (userId == them) — e.g. their profile photo.
     match /contacts/{contactId} {
       allow read: if isActiveUser();
       allow create: if isActiveUser() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isAdmin()
+      allow update: if isAdmin()
+        || (isActiveUser() && resource.data.createdBy == request.auth.uid)
+        || (isActiveUser() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin()
         || (isActiveUser() && resource.data.createdBy == request.auth.uid);
     }
 

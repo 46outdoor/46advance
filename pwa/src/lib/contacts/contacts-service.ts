@@ -10,11 +10,14 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
-import { parseContact, type Contact, type ContactInput } from './contact';
+import { parseContact, type Contact, type ContactInput, type ContactPhoto } from './contact';
 
 function contactsCol() {
   return collection(db, 'contacts');
@@ -54,4 +57,17 @@ export async function updateContact(contactId: string, input: ContactInput): Pro
 
 export async function deleteContact(contactId: string): Promise<void> {
   await deleteDoc(doc(db, 'contacts', contactId));
+}
+
+/** The directory entry linked to this user's account (their own contact), or null. */
+export async function getMyContact(uid: string): Promise<Contact | null> {
+  const snap = await getDocs(query(contactsCol(), where('userId', '==', uid), limit(1)));
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return parseContact(d.id, d.data());
+}
+
+/** Set (or clear) just the photo on a contact. */
+export async function setContactPhoto(contactId: string, photo: ContactPhoto | null): Promise<void> {
+  await updateDoc(doc(db, 'contacts', contactId), { photo, updatedAt: serverTimestamp() });
 }
