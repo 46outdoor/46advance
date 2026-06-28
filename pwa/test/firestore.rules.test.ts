@@ -732,6 +732,45 @@ describe('firestore.rules — documentCategories (app-wide config)', () => {
   });
 });
 
+describe('firestore.rules — artistDocuments (library)', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'artistDocuments/doc-1'), {
+        fileId: 'doc-1',
+        name: 'Rider.pdf',
+        webViewLink: 'https://drive/x',
+        importedBy: 'admin-1',
+        artistKey: 'jelly roll',
+        categoryId: null,
+      });
+    });
+  });
+
+  it('any approved user reads; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'artistDocuments/doc-1')));
+    await assertFails(getDoc(doc(dbAnon(), 'artistDocuments/doc-1')));
+  });
+
+  it('admin + organizer classify; tech cannot; clients cannot create', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1'), { categoryId: 'tech-rider' }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/doc-1'), { categoryId: 'media' }),
+    );
+    await assertFails(updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }));
+    // Creation is server-only (importDriveFolder) — denied even for admin.
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-2'), {
+        fileId: 'doc-2',
+        name: 'x',
+        webViewLink: 'https://drive/y',
+        importedBy: 'admin-1',
+      }),
+    );
+  });
+});
+
 describe('firestore.rules — templates', () => {
   it('any signed-in user can read; anonymous cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'templates/tpl-1')));

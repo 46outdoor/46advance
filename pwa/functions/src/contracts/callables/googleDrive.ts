@@ -35,3 +35,9 @@ export const savePacketToDriveOutputSchema = z.object({
   fileId: z.string().nullable().optional(),
 });
 export type SavePacketToDriveOutput = z.infer<typeof savePacketToDriveOutputSchema>;
+
+// importDriveFolder — import an artist-docs folder (per-artist subfolders) into the library.
+export const importDriveFolderInputSchema = z.object({ folderId: z.string().min(1) });
+export type ImportDriveFolderInput = z.infer<typeof importDriveFolderInputSchema>;
+export const importDriveFolderOutputSchema = z.object({ imported: z.number(), skipped: z.number() });
+export type ImportDriveFolderOutput = z.infer<typeof importDriveFolderOutputSchema>;

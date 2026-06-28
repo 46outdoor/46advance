@@ -64,6 +64,13 @@ const ContactsDirectoryScreen = lazy(() =>
   import('@/features/contacts').then((m) => ({ default: m.ContactsDirectoryScreen })),
 );
 
+const DocumentsScreen = lazy(() =>
+  import('@/features/documents').then((m) => ({ default: m.DocumentsScreen })),
+);
+const ArtistDocumentsScreen = lazy(() =>
+  import('@/features/documents').then((m) => ({ default: m.ArtistDocumentsScreen })),
+);
+
 const SettingsScreen = lazy(() =>
   import('@/features/google').then((m) => ({ default: m.SettingsScreen })),
 );
@@ -94,6 +101,8 @@ export function App() {
           <Route path="/tracker" element={<TrackerOverviewScreen />} />
           <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
           <Route path="/contacts" element={<ContactsDirectoryScreen />} />
+          <Route path="/documents" element={<DocumentsScreen />} />
+          <Route path="/documents/artists/:artistKey" element={<ArtistDocumentsScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
           <Route

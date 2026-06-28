@@ -18,10 +18,13 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Contact auto-linking:** add a contact ahead of time, and when that person signs up with the same email their account links to the existing contact — inheriting its name — instead of creating a duplicate.
 - **Readable event URLs:** events now live at a slug like `/events/rtc-ashland-26` (derived from the booking label or name + the 2-digit year, and editable at creation) instead of a random id. Old id links still work, and id-based links auto-upgrade to the slug.
 - **Contact photos:** upload a profile picture — set your own in **Settings → Profile picture**, or any contact's from the contact form (e.g. external/non-account people) — shown as an avatar beside the name in the directory; a name-initials circle stands in when there's no photo. Pictures can be **cropped/reframed** (round) when uploaded and re-adjusted any time without re-uploading.
+- **Document categories** (admin): an admin-managed list of document types — seeded with Tech Rider, Stage Plot, Input List, Media, Hospitality Rider, Contract, Other; add/rename/remove in **Admin**.
+- **Artist documents:** a **Documents** library — **import an artist-docs Google Drive folder** (its per-artist subfolders tag the artist), then browse per artist and **classify** each file by type. Files link to Drive (least-privilege `drive.file`; you pick the folder). Admins/organizers import + classify.
 
 ### Changed
 
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
+- **Event contacts** now show just the contact's **role on that event** (not their general job title/company).
 - **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).
 - **Contacts directory:** a single-column list with **search** (by name, phone, email, or title) and **sort by first or last name**; the contact cards are more vertically compact, with **notes shown as a second column**.
 

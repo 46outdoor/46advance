@@ -66,9 +66,10 @@ subfolder names and `advance.artistName`.
 ## Phasing
 
 - **PR 1 — Categories** ✅ (#80): admin-managed category list (the 7 defaults + add/rename/remove).
-- **PR 2 — Artist library + Drive import:** `artistDocuments` model + service, folder-enabled
+- **PR 2 — Artist library + Drive import** ✅: `artistDocuments` model + service, folder-enabled
   Picker, `importDriveFolder` callable (per-artist subfolders → tagged docs), a top-level
-  **Artists** list + per-artist document screen (list, classify, upload-to-Drive). Rules.
+  **Documents/Artists** list + per-artist document screen (list + classify). Rules. (Upload new
+  files *to* Drive deferred to a follow-up.)
 - **PR 3 — Advance inclusion:** in an artist's advance, list the database files for that artist
   (matched by name) with checkboxes to include in the advance; show the included set on the
   advance + in the packet (TBD).

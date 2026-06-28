@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
-import { contactSubtitle } from '@/lib/contacts/contact';
 import { listContacts } from '@/lib/contacts/contacts-service';
 import { attachContact, detachContact, listEventContacts } from './event-contacts-service';
 
@@ -115,8 +114,7 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
                 <h3 className="font-semibold text-ink">{contact?.name ?? 'Unknown contact'}</h3>
                 <p className="text-sm text-ink-muted">
                   {attachment.roleLabel && <span className="font-medium text-accent">{attachment.roleLabel}</span>}
-                  {attachment.roleLabel && contact && contactSubtitle(contact) ? ' · ' : ''}
-                  {contact ? contactSubtitle(contact) : 'No longer in the directory'}
+                  {!contact && <span>No longer in the directory</span>}
                 </p>
               </div>
               {canEdit && (
