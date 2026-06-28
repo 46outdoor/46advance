@@ -23,6 +23,7 @@ import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
+  importDriveFolderInputSchema,
   linkDriveFileInputSchema,
   removeDriveFileInputSchema,
   savePacketToDriveInputSchema,
@@ -120,6 +121,104 @@ export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) =>
   if (!snap.exists) throw new HttpsError('not-found', 'Advance not found.');
   await ref.collection('driveFiles').doc(fileId).delete();
   return { ok: true };
+});
+
+/** List a folder's immediate children (folders, or non-folders), paging through all results. */
+async function listChildren(drive: drive_v3.Drive, parentId: string, foldersOnly: boolean): Promise<drive_v3.Schema$File[]> {
+  const folderType = "mimeType = 'application/vnd.google-apps.folder'";
+  const typeClause = foldersOnly ? folderType : `not ${folderType}`;
+  const q = `'${parentId}' in parents and ${typeClause} and trashed = false`;
+  const out: drive_v3.Schema$File[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await drive.files.list({
+      q,
+      fields: 'nextPageToken, files(id,name,mimeType,iconLink,webViewLink)',
+      spaces: 'drive',
+      pageSize: 200,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    out.push(...(res.data.files ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return out;
+}
+
+/** Normalize an artist name to a key (mirrors pwa src/lib/documents/artistDocument.ts). */
+function artistKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Import an artist-documents Drive folder into the `artistDocuments` library (admin|organizer).
+ * Each immediate subfolder is an artist (subfolder name → artist); files directly in the root are
+ * unsorted. Files are linked (metadata only), de-duped by Drive file id so re-import only adds new
+ * files and preserves existing classifications. Input: { folderId }.
+ */
+export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  if (token.admin !== true && token.organizer !== true) {
+    throw new HttpsError('permission-denied', 'Admin or organizer only.');
+  }
+  const { folderId } = parseCallableData(importDriveFolderInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['importDriveFolder', uid], 10);
+
+  const client = await authedClientForUser(db, uid);
+  const drive = google.drive({ version: 'v3', auth: client });
+
+  let subfolders: drive_v3.Schema$File[];
+  try {
+    subfolders = await listChildren(drive, folderId, true);
+  } catch {
+    throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
+  }
+  const groups: { artist: string | null; id: string }[] = [
+    { artist: null, id: folderId },
+    ...subfolders.filter((f) => f.id).map((f) => ({ artist: f.name ?? 'Unknown', id: f.id as string })),
+  ];
+
+  const existing = new Set((await db.collection('artistDocuments').get()).docs.map((d) => d.id));
+  let imported = 0;
+  let skipped = 0;
+  let batch = db.batch();
+  let ops = 0;
+  for (const group of groups) {
+    const files = await listChildren(drive, group.id, false);
+    for (const file of files) {
+      if (!file.id || !file.name || !file.webViewLink) continue;
+      if (existing.has(file.id)) {
+        skipped += 1;
+        continue;
+      }
+      existing.add(file.id);
+      batch.set(db.collection('artistDocuments').doc(file.id), {
+        fileId: file.id,
+        name: file.name,
+        mimeType: file.mimeType ?? 'application/octet-stream',
+        iconLink: file.iconLink ?? null,
+        webViewLink: file.webViewLink,
+        artist: group.artist,
+        artistKey: group.artist ? artistKey(group.artist) : null,
+        categoryId: null,
+        importedBy: uid,
+        importedByEmail: token.email ?? null,
+        importedAt: Timestamp.now(),
+      });
+      imported += 1;
+      ops += 1;
+      if (ops >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
+    }
+  }
+  if (ops > 0) await batch.commit();
+  return { imported, skipped };
 });
 
 /** Find-or-create an app-owned Drive folder. `drive.file` lists only files the app created,

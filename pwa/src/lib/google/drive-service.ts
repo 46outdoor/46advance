@@ -10,6 +10,8 @@ import { functions } from '@/services/firebase';
 import { GOOGLE_APP_ID, GOOGLE_PICKER_API_KEY, isPickerConfigured } from '@/config/integrations';
 import type {
   GetDriveAccessTokenOutput,
+  ImportDriveFolderInput,
+  ImportDriveFolderOutput,
   LinkDriveFileInput,
   RemoveDriveFileInput,
   DriveOkOutput,
@@ -45,6 +47,12 @@ export interface SavePacketResult {
 export async function savePacketToDrive(eventId: string, path: string): Promise<SavePacketResult> {
   const callable = httpsCallable<SavePacketToDriveInput, SavePacketToDriveOutput>(functions, 'savePacketToDrive');
   return (await callable({ eventId, path })).data;
+}
+
+/** Import an artist-docs Drive folder (per-artist subfolders) into the library. Server enumerates. */
+export async function importDriveFolder(folderId: string): Promise<ImportDriveFolderOutput> {
+  const callable = httpsCallable<ImportDriveFolderInput, ImportDriveFolderOutput>(functions, 'importDriveFolder');
+  return (await callable({ folderId })).data;
 }
 
 async function getDriveAccessToken(): Promise<string> {
@@ -122,6 +130,40 @@ export async function pickDriveFiles(): Promise<string[]> {
       .setCallback((data) => {
         if (data.action === picker.Action.PICKED) resolve((data.docs ?? []).map((doc) => doc.id));
         else if (data.action === picker.Action.CANCEL) resolve([]);
+      });
+    if (GOOGLE_APP_ID) builder.setAppId(GOOGLE_APP_ID);
+    builder.build().setVisible(true);
+  });
+}
+
+/**
+ * Open the Google Picker to select a single Drive FOLDER; resolves its id (or null on cancel).
+ * Selecting the folder grants our OAuth client `drive.file` access to it + its contents, which the
+ * server `importDriveFolder` callable then enumerates.
+ */
+export async function pickDriveFolder(): Promise<string | null> {
+  if (!isPickerConfigured()) throw new Error('Drive Picker is not configured.');
+  const token = await getDriveAccessToken();
+  await loadPicker();
+  const picker = window.google?.picker;
+  if (!picker) throw new Error('Drive Picker is unavailable.');
+
+  return new Promise<string | null>((resolve) => {
+    const folderView = (view: PickerDocsView) => view.setIncludeFolders(true).setSelectFolderEnabled(true);
+    const myDrive = folderView(new picker.DocsView(picker.ViewId.DOCS));
+    const sharedWithMe = folderView(new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false));
+    const sharedDrives = folderView(new picker.DocsView(picker.ViewId.DOCS).setEnableDrives(true));
+
+    const builder = new picker.PickerBuilder()
+      .setOAuthToken(token)
+      .setDeveloperKey(GOOGLE_PICKER_API_KEY)
+      .enableFeature(picker.Feature.SUPPORT_DRIVES)
+      .addView(myDrive)
+      .addView(sharedWithMe)
+      .addView(sharedDrives)
+      .setCallback((data) => {
+        if (data.action === picker.Action.PICKED) resolve(data.docs?.[0]?.id ?? null);
+        else if (data.action === picker.Action.CANCEL) resolve(null);
       });
     if (GOOGLE_APP_ID) builder.setAppId(GOOGLE_APP_ID);
     builder.build().setVisible(true);

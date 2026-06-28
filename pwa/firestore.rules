@@ -99,6 +99,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Artist document library: any approved user reads; admin/organizer classify + delete;
+    // creation is server-only (importDriveFolder, Admin SDK).
+    match /artistDocuments/{docId} {
+      allow read: if isActiveUser();
+      allow create: if false;
+      allow update, delete: if isActiveUser() && (isAdmin() || isOrganizer());
+    }
+
     // Event templates (blueprints): any approved user reads (event-create picker);
     // admin authors. Cloning runs server-side (createEventFromTemplate, Admin SDK).
     match /templates/{templateId} {

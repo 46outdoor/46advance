@@ -38,6 +38,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="transition-colors hover:text-accent" to="/contacts">
               Contacts
             </Link>
+            <Link className="transition-colors hover:text-accent" to="/documents">
+              Documents
+            </Link>
             {user && (
               <>
                 {isAdmin && (

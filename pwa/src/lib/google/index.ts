@@ -13,6 +13,8 @@ export {
   removeDriveFile,
   savePacketToDrive,
   pickDriveFiles,
+  pickDriveFolder,
+  importDriveFolder,
   type AdvanceRef,
   type SavePacketResult,
 } from './drive-service';
