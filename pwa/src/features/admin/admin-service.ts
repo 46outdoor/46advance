@@ -5,10 +5,15 @@
  */
 import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '@/services/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth, db, functions } from '@/services/firebase';
 import type {
+  DeleteUserInput,
+  DeleteUserOutput,
   SetUserApprovedInput,
   SetUserApprovedOutput,
+  SetUserDisplayNameInput,
+  SetUserDisplayNameOutput,
   SetUserOrganizerInput,
   SetUserOrganizerOutput,
 } from '@contracts/callables/auth';
@@ -71,4 +76,23 @@ export async function setUserApproved(uid: string, approved: boolean): Promise<S
   const callable = httpsCallable<SetUserApprovedInput, SetUserApprovedOutput>(functions, 'setUserApproved');
   const result = await callable({ uid, approved });
   return result.data;
+}
+
+/** Admin-only: set a user's display name (empty string clears it → falls back to email). */
+export async function setUserDisplayName(uid: string, displayName: string): Promise<SetUserDisplayNameOutput> {
+  const callable = httpsCallable<SetUserDisplayNameInput, SetUserDisplayNameOutput>(functions, 'setUserDisplayName');
+  const result = await callable({ uid, displayName });
+  return result.data;
+}
+
+/** Admin-only: permanently delete an account (Auth + profile). The contact is kept, unlinked. */
+export async function deleteUser(uid: string): Promise<DeleteUserOutput> {
+  const callable = httpsCallable<DeleteUserInput, DeleteUserOutput>(functions, 'deleteUser');
+  const result = await callable({ uid });
+  return result.data;
+}
+
+/** Email a password-reset link to a user (Firebase sends it; works for password accounts). */
+export async function sendUserPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }

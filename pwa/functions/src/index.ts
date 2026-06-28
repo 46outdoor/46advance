@@ -17,7 +17,13 @@ import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
 import { parseCallableData } from './lib/parseCallable.js';
-import { setUserApprovedInputSchema, setUserOrganizerInputSchema } from './contracts/callables/auth.js';
+import {
+  deleteUserInputSchema,
+  setUserApprovedInputSchema,
+  setUserDisplayNameInputSchema,
+  setUserOrganizerInputSchema,
+} from './contracts/callables/auth.js';
+import { resolveDisplayName } from './lib/auth/displayName.js';
 import { createEventFromTemplateInputSchema } from './contracts/callables/events.js';
 import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
 
@@ -60,6 +66,55 @@ const fmtRange = (a: unknown, b: unknown): string | null => {
 const ADMIN_EMAILS = parseAdminEmails(process.env.ADMIN_EMAILS);
 
 /**
+ * Link a signing-in account to the global contacts directory. Prefers a pre-added,
+ * still-unlinked contact matched by email (admins can add people ahead of time — the
+ * account links to that contact and inherits its name); otherwise creates the mirror
+ * contacts/{uid}. Returns the linked contact id + its name (for display-name backfill).
+ */
+async function linkOrCreateContact(
+  db: Firestore,
+  uid: string,
+  email: string | null,
+  fallbackName: string | null,
+): Promise<{ contactId: string; contactName: string | null }> {
+  const nameOrNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+  // Legacy mirror already present (accounts created before contactId tracking).
+  const mirrorRef = db.collection('contacts').doc(uid);
+  const mirror = await mirrorRef.get();
+  if (mirror.exists) return { contactId: uid, contactName: nameOrNull(mirror.data()?.name) };
+
+  // Pre-added, unlinked contact with this email → link it (no duplicate created).
+  if (email) {
+    const matches = await db.collection('contacts').where('email', '==', email).limit(10).get();
+    const match = matches.docs.find((d) => {
+      const linkedTo = d.data().userId;
+      return !linkedTo || linkedTo === uid;
+    });
+    if (match) {
+      await match.ref.set({ userId: uid, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return { contactId: match.id, contactName: nameOrNull(match.data().name) };
+    }
+  }
+
+  // No existing contact → create the mirror contacts/{uid}.
+  const now = FieldValue.serverTimestamp();
+  await mirrorRef.set({
+    name: fallbackName ?? email ?? 'Team member',
+    email,
+    role: null,
+    company: null,
+    phone: null,
+    notes: null,
+    userId: uid,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { contactId: uid, contactName: fallbackName };
+}
+
+/**
  * Called by the client after sign-in. Upserts the caller's `users/{uid}` profile,
  * sets/clears the global `admin` claim from the allowlist, and surfaces the global
  * `organizer` claim (set by an admin via setUserOrganizer). Returns
@@ -90,10 +145,24 @@ export const syncUserClaims = onCall(async (request) => {
     await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin, approved });
   }
 
+  // Reconcile the account with the global contacts directory (once, tracked via
+  // users/{uid}.contactId): prefer linking a pre-added contact matched by email so admins
+  // can add people ahead of time; otherwise create the mirror contacts/{uid}.
+  const userData = snap.data();
+  let contactId: string | null = typeof userData?.contactId === 'string' ? userData.contactId : null;
+  let contactName: string | null = null;
+  if (!contactId) {
+    const linked = await linkOrCreateContact(db, uid, email, token.name ?? null);
+    contactId = linked.contactId;
+    contactName = linked.contactName;
+  }
+
   await ref.set(
     {
       email,
-      displayName: token.name ?? null,
+      // Never clobber an existing/admin-set name; else the token name; else the contact's.
+      displayName: resolveDisplayName(userData?.displayName, token.name, contactName),
+      contactId,
       isAdmin,
       organizer: isOrganizer,
       approved,
@@ -102,25 +171,6 @@ export const syncUserClaims = onCall(async (request) => {
     },
     { merge: true },
   );
-
-  // Mirror the account into the global contacts directory (contacts/{uid}). Create-only so
-  // an admin's later edits to the contact aren't overwritten on each sign-in.
-  const contactRef = db.collection('contacts').doc(uid);
-  if (!(await contactRef.get()).exists) {
-    const now = FieldValue.serverTimestamp();
-    await contactRef.set({
-      name: token.name ?? email ?? 'Team member',
-      email,
-      role: null,
-      company: null,
-      phone: null,
-      notes: null,
-      userId: uid,
-      createdBy: uid,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
 
   return { isAdmin, isOrganizer, approved };
 });
@@ -169,6 +219,74 @@ export const setUserOrganizer = onCall(async (request) => {
   await getFirestore().collection('users').doc(uid).set({ organizer }, { merge: true });
 
   return { uid, organizer };
+});
+
+/**
+ * Admin-only. Sets a user's display name (shown in member pickers/lists). An empty string
+ * clears it (display falls back to email). Keeps the user's linked contact name in sync.
+ */
+export const setUserDisplayName = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError('permission-denied', 'Admin only.');
+  }
+  const { uid, displayName } = parseCallableData(setUserDisplayNameInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['setUserDisplayName', request.auth.uid], 30);
+
+  const name = displayName.trim() || null;
+  await db.collection('users').doc(uid).set({ displayName: name }, { merge: true });
+  // Keep this user's linked/mirrored contact name consistent.
+  if (name) {
+    const linked = await db.collection('contacts').where('userId', '==', uid).limit(1).get();
+    if (!linked.empty) {
+      await linked.docs[0].ref.set({ name, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+  }
+  return { uid, displayName: name };
+});
+
+/**
+ * Admin-only. Permanently deletes an account: the Firebase Auth user + `users/{uid}`,
+ * clears the person's event memberships, and unlinks (keeps) their contact as reference
+ * data. Cannot delete your own account.
+ */
+export const deleteUser = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.');
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError('permission-denied', 'Admin only.');
+  }
+  const { uid } = parseCallableData(deleteUserInputSchema, request.data);
+  if (uid === request.auth.uid) {
+    throw new HttpsError('failed-precondition', 'You cannot delete your own account.');
+  }
+  const db = getFirestore();
+  await enforceRateLimit(db, ['deleteUser', request.auth.uid], 30);
+
+  // Remove the Auth account (tolerate one that's already gone).
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (err) {
+    logger.warn('deleteUser: Auth account not deleted (may not exist)', { uid, err: String(err) });
+  }
+
+  // Clear event memberships (members docs mirror the uid field) + unlink their contact(s).
+  const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
+  const contacts = await db.collection('contacts').where('userId', '==', uid).get();
+
+  const batch = db.batch();
+  memberships.forEach((m) => batch.delete(m.ref));
+  contacts.forEach((c) =>
+    batch.set(c.ref, { userId: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true }),
+  );
+  batch.delete(db.collection('users').doc(uid));
+  await batch.commit();
+
+  return { uid, deleted: true };
 });
 
 /** Coerce a candidate epoch-millis value into a Firestore Timestamp (or null). */
