@@ -146,9 +146,9 @@ export function ContactsDirectoryScreen() {
             </div>
           ) : (
             <article key={contact.id} className="rounded-lg border border-line px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 gap-3">
-                  <ContactAvatar name={contact.name} photoUrl={contact.photo?.url ?? null} className="h-11 w-11" />
+              <div className="flex items-start gap-4">
+                <div className="flex min-w-0 flex-1 gap-3">
+                  <ContactAvatar name={contact.name} photo={contact.photo} className="h-11 w-11" />
                   <div className="min-w-0">
                   <h2 className="flex items-center gap-2 font-semibold text-ink">
                     {contact.name}
@@ -162,11 +162,11 @@ export function ContactsDirectoryScreen() {
                   <div className="mt-1">
                     <ContactLinks phone={contact.phone} email={contact.email} />
                   </div>
-                  {contact.notes && (
-                    <p className="mt-1.5 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
-                  )}
                   </div>
                 </div>
+                {contact.notes && (
+                  <p className="min-w-0 flex-1 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
+                )}
                 {canManage(contact) && (
                   <div className="flex shrink-0 gap-2 text-xs">
                     <button type="button" onClick={() => setEditingId(contact.id)} className="text-ink-muted hover:text-accent">

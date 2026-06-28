@@ -17,13 +17,13 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Admin user management:** in **Admin → Users** you can now set a member's **display name** (shown in role pickers and member lists), **send a password-reset email**, and **delete an account**.
 - **Contact auto-linking:** add a contact ahead of time, and when that person signs up with the same email their account links to the existing contact — inheriting its name — instead of creating a duplicate.
 - **Readable event URLs:** events now live at a slug like `/events/rtc-ashland-26` (derived from the booking label or name + the 2-digit year, and editable at creation) instead of a random id. Old id links still work, and id-based links auto-upgrade to the slug.
-- **Contact photos:** upload a profile picture — set your own in **Settings → Profile picture**, or any contact's from the contact form (e.g. external/non-account people) — shown as an avatar beside the name in the directory; a name-initials circle stands in when there's no photo.
+- **Contact photos:** upload a profile picture — set your own in **Settings → Profile picture**, or any contact's from the contact form (e.g. external/non-account people) — shown as an avatar beside the name in the directory; a name-initials circle stands in when there's no photo. Pictures can be **cropped/reframed** (round) when uploaded and re-adjusted any time without re-uploading.
 
 ### Changed
 
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
 - **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).
-- **Contacts directory:** a single-column list with **search** (by name, phone, email, or title) and **sort by first or last name**; the contact cards are more vertically compact.
+- **Contacts directory:** a single-column list with **search** (by name, phone, email, or title) and **sort by first or last name**; the contact cards are more vertically compact, with **notes shown as a second column**.
 
 ### Fixed
 
