@@ -40,11 +40,17 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 /** Per-file Drive access (Phase 13). `drive.file` only grants the app files the user
  *  picks via the Google Picker or that the app creates — never the whole Drive. */
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+/** Read file METADATA across Drive — required to enumerate a picked folder's contents for the
+ *  artist-document import (`drive.file` alone can't list files the app didn't create). Metadata
+ *  only (names + links, no content download), which keeps this a *sensitive*, not *restricted*,
+ *  scope — a much lower verification bar than `drive.readonly`. */
+const DRIVE_METADATA_SCOPE = 'https://www.googleapis.com/auth/drive.metadata.readonly';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/calendar.events',
   DRIVE_FILE_SCOPE,
+  DRIVE_METADATA_SCOPE,
   'openid',
   'email',
 ];
