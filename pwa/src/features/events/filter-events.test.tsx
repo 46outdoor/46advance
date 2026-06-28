@@ -8,6 +8,8 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     name: overrides.name ?? 'Event',
     startDate: overrides.startDate ?? null,
     endDate: overrides.endDate ?? null,
+    loadInDays: overrides.loadInDays ?? 0,
+    loadOutDays: overrides.loadOutDays ?? 0,
     venue: overrides.venue ?? null,
     status: overrides.status ?? 'active',
     departmentIds: overrides.departmentIds ?? [],

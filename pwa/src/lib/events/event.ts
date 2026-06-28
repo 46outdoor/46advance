@@ -18,6 +18,9 @@ export interface EventRecord {
   name: string;
   startDate: Date | null;
   endDate: Date | null;
+  /** Show days are [startDate, endDate]; the schedule also spans this many days before/after. */
+  loadInDays: number;
+  loadOutDays: number;
   venue: string | null;
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
@@ -43,6 +46,8 @@ const eventDocSchema = z.object({
   name: z.string().min(1),
   startDate: z.instanceof(Timestamp).nullable().optional(),
   endDate: z.instanceof(Timestamp).nullable().optional(),
+  loadInDays: z.number().int().min(0).optional(),
+  loadOutDays: z.number().int().min(0).optional(),
   venue: z.string().nullable().optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
@@ -63,6 +68,8 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     name: doc.name,
     startDate: timestampToDate(doc.startDate ?? null),
     endDate: timestampToDate(doc.endDate ?? null),
+    loadInDays: doc.loadInDays ?? 0,
+    loadOutDays: doc.loadOutDays ?? 0,
     venue: doc.venue ?? null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
@@ -82,6 +89,8 @@ export const eventInputSchema = z
     name: z.string().trim().min(1, 'Event name is required.'),
     startDate: z.date().nullable().optional(),
     endDate: z.date().nullable().optional(),
+    loadInDays: z.number().int().min(0).optional(),
+    loadOutDays: z.number().int().min(0).optional(),
     venue: z.string().trim().optional(),
     status: eventStatusSchema.optional(),
     departmentIds: z.array(z.string()).optional(),
@@ -103,6 +112,49 @@ export function eventDays(start?: Date | null, end?: Date | null): Date[] {
   const stop = new Date(last.getFullYear(), last.getMonth(), last.getDate());
   while (d <= stop && days.length < 31) {
     days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+export type EventDayKind = 'load-in' | 'show' | 'load-out';
+
+export interface EventScheduleDay {
+  /** Local-midnight Date for the calendar day. */
+  date: Date;
+  kind: EventDayKind;
+  /** e.g. "Mon 6/22". */
+  dateLabel: string;
+  /** e.g. "Mon 6/22 · Load-in". */
+  label: string;
+}
+
+const DAY_KIND_LABELS: Record<EventDayKind, string> = {
+  'load-in': 'Load-in',
+  show: 'Show',
+  'load-out': 'Load-out',
+};
+
+/** The event's full operational days — `loadInDays` before the show, the show days, then
+ * `loadOutDays` after — each tagged Load-in / Show / Load-out, for the schedule's day picker. */
+export function eventScheduleDays(
+  start?: Date | null,
+  end?: Date | null,
+  loadInDays = 0,
+  loadOutDays = 0,
+): EventScheduleDay[] {
+  if (!start) return [];
+  const showEnd = end ?? start;
+  const showStartMs = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const showEndMs = new Date(showEnd.getFullYear(), showEnd.getMonth(), showEnd.getDate()).getTime();
+  const days: EventScheduleDay[] = [];
+  const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() - loadInDays);
+  const stop = new Date(showEnd.getFullYear(), showEnd.getMonth(), showEnd.getDate() + loadOutDays);
+  while (d <= stop && days.length < 60) {
+    const ms = d.getTime();
+    const kind: EventDayKind = ms < showStartMs ? 'load-in' : ms > showEndMs ? 'load-out' : 'show';
+    const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+    days.push({ date: new Date(d), kind, dateLabel, label: `${dateLabel} · ${DAY_KIND_LABELS[kind]}` });
     d.setDate(d.getDate() + 1);
   }
   return days;

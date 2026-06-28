@@ -9,6 +9,8 @@ interface EventFormProps {
     name: string;
     startDate: Date | null;
     endDate: Date | null;
+    loadInDays?: number;
+    loadOutDays?: number;
     venue: string | null;
     status?: EventStatus;
     departmentIds?: string[];
@@ -56,6 +58,8 @@ export function EventForm({
   const [name, setName] = useState(initial?.name ?? '');
   const [start, setStart] = useState(dateInputValue(initial?.startDate ?? null));
   const [end, setEnd] = useState(dateInputValue(initial?.endDate ?? null));
+  const [loadInDays, setLoadInDays] = useState(() => initial?.loadInDays ?? 0);
+  const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
   const [venue, setVenue] = useState(initial?.venue ?? '');
   const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
@@ -81,6 +85,8 @@ export function EventForm({
       name,
       startDate: parseDateInput(start),
       endDate: parseDateInput(end),
+      loadInDays,
+      loadOutDays,
       venue: venue.trim() || undefined,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
       bookingLabel: bookingLabel.trim() || undefined,
@@ -102,12 +108,34 @@ export function EventForm({
         <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Summerfest 2026" />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Start date</span>
+        <span className="mb-1 block font-semibold text-ink">Show start date</span>
         <input type="date" className={inputClass} value={start} onChange={(e) => setStart(e.target.value)} />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">End date</span>
+        <span className="mb-1 block font-semibold text-ink">Show end date</span>
         <input type="date" className={inputClass} value={end} onChange={(e) => setEnd(e.target.value)} />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Load-in days</span>
+        <input
+          type="number"
+          min={0}
+          className={inputClass}
+          value={loadInDays}
+          onChange={(e) => setLoadInDays(Math.max(0, Number(e.target.value)))}
+        />
+        <span className="mt-1 block text-xs text-ink-muted">Days before the show — adds them to the schedule.</span>
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Load-out days</span>
+        <input
+          type="number"
+          min={0}
+          className={inputClass}
+          value={loadOutDays}
+          onChange={(e) => setLoadOutDays(Math.max(0, Number(e.target.value)))}
+        />
+        <span className="mt-1 block text-xs text-ink-muted">Days after the show — adds them to the schedule.</span>
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Venue</span>
