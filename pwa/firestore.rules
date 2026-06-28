@@ -93,6 +93,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // App-wide document category list: any approved user reads; admin manages.
+    match /documentCategories/{categoryId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     // Event templates (blueprints): any approved user reads (event-create picker);
     // admin authors. Cloning runs server-side (createEventFromTemplate, Admin SDK).
     match /templates/{templateId} {

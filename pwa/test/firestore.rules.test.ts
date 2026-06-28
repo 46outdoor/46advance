@@ -718,6 +718,20 @@ describe('firestore.rules — departments (app-wide config)', () => {
   });
 });
 
+describe('firestore.rules — documentCategories (app-wide config)', () => {
+  it('any signed-in user can read; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'documentCategories/tech-rider')));
+    await assertFails(getDoc(doc(dbAnon(), 'documentCategories/tech-rider')));
+  });
+
+  it('only admin can write document categories', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), 'documentCategories/tech-rider'), { name: 'Tech Rider', order: 0 }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'documentCategories/tech-rider'), { name: 'Tech Rider', order: 0 }),
+    );
+  });
+});
+
 describe('firestore.rules — templates', () => {
   it('any signed-in user can read; anonymous cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'templates/tpl-1')));
