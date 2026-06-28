@@ -218,6 +218,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
+| Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
+| Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
+| Logo UI (upload + display) | `src/components/branding/` (`LogoUploader` dual-variant, `LogoRow` theme-aware) |
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 | Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |

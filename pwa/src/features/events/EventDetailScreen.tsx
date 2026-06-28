@@ -7,9 +7,13 @@ import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
 import type { EventInput, EventRecord } from '@/lib/events/event';
+import { emptyLogo, type Logo } from '@/lib/branding/logo';
+import { brandingKey, getBranding } from '@/lib/branding/branding-service';
+import { LogoRow } from '@/components/branding/LogoRow';
+import { LogoUploader } from '@/components/branding/LogoUploader';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
-import { generatePacket, getEvent, updateEvent } from './events-service';
+import { generatePacket, getEvent, setEventLogo, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
@@ -38,6 +42,8 @@ export function EventDetailScreen() {
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
+  const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
+
   const update = useMutation({
     mutationFn: (input: EventInput) => updateEvent(eventId!, input),
     onSuccess: () => {
@@ -45,6 +51,14 @@ export function EventDetailScreen() {
       setEditing(false);
     },
     onError: (err) => logger.error('Failed to update event', err),
+  });
+
+  const saveLogo = useMutation({
+    mutationFn: (logo: Logo) => setEventLogo(eventId!, logo),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
+    },
+    onError: (err) => logger.error('Failed to update event logo', err),
   });
 
   const connectionQuery = useGoogleConnection();
@@ -72,6 +86,7 @@ export function EventDetailScreen() {
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
   const event = eventQuery.data;
+  const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
     <section className="space-y-6">
@@ -88,6 +103,7 @@ export function EventDetailScreen() {
           event={event}
           eventId={eventId}
           canEdit={canEdit}
+          defaultLogos={defaultLogos}
           hasDrive={connectionQuery.data?.hasDrive ?? false}
           packetPending={packet.isPending}
           packetError={packet.isError}
@@ -96,6 +112,17 @@ export function EventDetailScreen() {
           onGeneratePacket={() => packet.mutate()}
           onSaveToDrive={() => saveToDrive.mutate()}
           onEdit={() => setEditing(true)}
+        />
+      )}
+
+      {event && canEdit && (
+        <EventLogoCard
+          logo={event.eventLogo ?? emptyLogo()}
+          defaultLogos={defaultLogos}
+          eventId={eventId}
+          pending={saveLogo.isPending}
+          error={saveLogo.isError}
+          onChange={(logo) => saveLogo.mutate(logo)}
         />
       )}
 
@@ -128,6 +155,7 @@ interface EventDetailHeaderProps {
   event: EventRecord;
   eventId: string;
   canEdit: boolean;
+  defaultLogos: Logo[];
   hasDrive: boolean;
   packetPending: boolean;
   packetError: boolean;
@@ -142,6 +170,7 @@ function EventDetailHeader({
   event,
   eventId,
   canEdit,
+  defaultLogos,
   hasDrive,
   packetPending,
   packetError,
@@ -208,8 +237,41 @@ function EventDetailHeader({
       </div>
       <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
       {event.venue && <p className="text-ink-muted">{event.venue}</p>}
+      <LogoRow eventLogo={event.eventLogo} defaults={defaultLogos} className="pt-1" />
       {packetError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
       {saveToDriveError && <p className="text-sm text-accent">Could not save the packet to Drive.</p>}
     </header>
+  );
+}
+
+interface EventLogoCardProps {
+  logo: Logo;
+  defaultLogos: Logo[];
+  eventId: string;
+  pending: boolean;
+  error: boolean;
+  onChange: (logo: Logo) => void;
+}
+
+/** PM/admin-only per-event logo override. Falls back to the shared defaults when empty. */
+function EventLogoCard({ logo, defaultLogos, eventId, pending, error, onChange }: EventLogoCardProps) {
+  return (
+    <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-bold text-brand">Logo</h2>
+        {pending && <span className="text-xs text-ink-muted">Saving…</span>}
+      </div>
+      <p className="mb-3 text-sm text-ink-muted">
+        Override this show’s logo. Leave empty to use the shared default marks.
+      </p>
+      <LogoRow eventLogo={logo} defaults={defaultLogos} className="mb-4" />
+      <LogoUploader
+        logo={logo}
+        pathPrefix={`events/${eventId}/logo`}
+        onChange={onChange}
+        disabled={pending}
+      />
+      {error && <p className="mt-2 text-sm text-accent">Could not save the logo. Try again.</p>}
+    </div>
   );
 }

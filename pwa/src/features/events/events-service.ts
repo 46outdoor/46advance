@@ -20,6 +20,7 @@ import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
+import type { Logo } from '@/lib/branding/logo';
 import type { Viewer } from '@/lib/rbac/permissions';
 import type {
   CreateEventFromTemplateInput,
@@ -94,6 +95,14 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
 
 export async function setEventStatus(eventId: string, status: EventStatus): Promise<void> {
   await updateDoc(doc(db, 'events', eventId), { status, updatedAt: serverTimestamp() });
+}
+
+/**
+ * Set (or clear) the per-event logo override. Gated to PM|admin by firestore.rules,
+ * same as other event updates. Pass an empty logo to clear the override.
+ */
+export async function setEventLogo(eventId: string, eventLogo: Logo): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId), { eventLogo, updatedAt: serverTimestamp() });
 }
 
 export interface GeneratedPacket {

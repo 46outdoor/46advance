@@ -13,6 +13,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     departmentIds: overrides.departmentIds ?? [],
     googleCalendarId: overrides.googleCalendarId ?? null,
     bookingLabel: overrides.bookingLabel ?? null,
+    eventLogo: overrides.eventLogo ?? null,
     createdBy: overrides.createdBy ?? 'uid',
     createdAt: overrides.createdAt ?? null,
     updatedAt: overrides.updatedAt ?? null,

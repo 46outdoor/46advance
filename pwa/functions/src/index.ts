@@ -12,7 +12,7 @@ import {
 import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions, logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { renderPacket, type PacketData } from './lib/pdf/packet.js';
+import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
@@ -284,6 +284,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     venue: input.venue,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),
+    eventLogo: tpl.eventLogo ?? null,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -319,6 +320,101 @@ async function loadAuthorizedEvent(
     }
   }
   return eventSnap;
+}
+
+/** One image variant of a logo: a Storage object path + its download URL. */
+interface LogoImageRef {
+  path: string;
+}
+
+/** A brand logo: a pair of background-specific variants. Mirrors the client `Logo` shape. */
+interface LogoRef {
+  onDark: LogoImageRef | null;
+  onLight: LogoImageRef | null;
+}
+
+/** The max number of marks rendered in the packet logo row (matches the client). */
+const MAX_PACKET_LOGOS = 3;
+
+/** The largest logo image we'll embed; anything bigger is skipped (keeps the PDF small). */
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+/** Read a `{ path }` image variant from raw Firestore data, or null if absent/malformed. */
+function parseLogoImage(v: unknown): LogoImageRef | null {
+  if (!v || typeof v !== 'object') return null;
+  const path = (v as DocumentData).path;
+  return typeof path === 'string' && path.trim() ? { path } : null;
+}
+
+/** Read a logo (pair of variants) from raw Firestore data, or null if it has no usable variant. */
+function parseLogoRef(v: unknown): LogoRef | null {
+  if (!v || typeof v !== 'object') return null;
+  const onDark = parseLogoImage((v as DocumentData).onDark);
+  const onLight = parseLogoImage((v as DocumentData).onLight);
+  if (!onDark && !onLight) return null;
+  return { onDark, onLight };
+}
+
+/** Pick a logo's variant for a background, falling back to the other when missing. */
+function variantForBackground(logo: LogoRef, background: 'dark' | 'light'): LogoImageRef | null {
+  const primary = background === 'dark' ? logo.onDark : logo.onLight;
+  const fallback = background === 'dark' ? logo.onLight : logo.onDark;
+  return primary ?? fallback;
+}
+
+/**
+ * Download a Storage object once and base64-encode it to a data URI. Defensive: a missing,
+ * oversized, or failed download returns null (logged) rather than throwing, so a bad logo
+ * never breaks packet generation. Results are memoized per-path in `cache`.
+ */
+async function loadLogoDataUri(path: string, cache: Map<string, string | null>): Promise<string | null> {
+  const cached = cache.get(path);
+  if (cached !== undefined) return cached;
+
+  let dataUri: string | null = null;
+  try {
+    const file = getStorage().bucket(STORAGE_BUCKET).file(path);
+    const [metadata] = await file.getMetadata();
+    const size = typeof metadata.size === 'number' ? metadata.size : Number(metadata.size ?? 0);
+    if (size > MAX_LOGO_BYTES) {
+      logger.warn('generatePacket: logo too large; skipping', { path, size });
+    } else {
+      const [buffer] = await file.download();
+      const contentType = metadata.contentType ?? 'image/png';
+      dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+    }
+  } catch (err) {
+    logger.warn('generatePacket: logo download failed; skipping', { path, err });
+  }
+  cache.set(path, dataUri);
+  return dataUri;
+}
+
+/**
+ * Assemble the effective logo row for an event: the event's `eventLogo` first, then the
+ * app-level shared defaults (`config/branding.defaultLogos`), keeping only logos with a usable
+ * variant and capping at 3. Each kept logo is resolved to cover (onDark→onLight) and header
+ * (onLight→onDark) data URIs. Distinct Storage paths are downloaded once. Never throws.
+ */
+async function resolvePacketLogos(db: Firestore, ev: DocumentData): Promise<PacketLogo[]> {
+  const brandingSnap = await db.doc('config/branding').get();
+  const defaults = asArray(brandingSnap.exists ? (brandingSnap.data()?.defaultLogos ?? []) : []);
+  const row = [ev.eventLogo, ...defaults]
+    .map(parseLogoRef)
+    .filter((l): l is LogoRef => l !== null)
+    .slice(0, MAX_PACKET_LOGOS);
+
+  const cache = new Map<string, string | null>();
+  return Promise.all(
+    row.map(async (logo) => {
+      const cover = variantForBackground(logo, 'dark');
+      const header = variantForBackground(logo, 'light');
+      return {
+        coverDataUri: cover ? await loadLogoDataUri(cover.path, cache) : null,
+        headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null,
+      };
+    }),
+  );
 }
 
 /**
@@ -376,6 +472,8 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
     }),
   );
 
+  const logos = await resolvePacketLogos(db, ev);
+
   const data: PacketData = {
     event: { name: String(ev.name ?? ''), venue: ev.venue ?? null, dateRange: fmtRange(ev.startDate, ev.endDate) },
     departments,
@@ -385,6 +483,7 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
       links: ep.links ?? [],
     },
     stages,
+    logos,
     generatedAt: PACKET_DATE_FMT.format(new Date()),
   };
 

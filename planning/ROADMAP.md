@@ -284,31 +284,29 @@ the app needs **editable templates for creating new events**:
 
 **Mobile:** template *authoring* is likely PWA/admin-first; mobile may be create-from-template + view only — TBD.
 
-### Per-template logos (planned — not built)
+### Per-template logos (built)
 
-Each template carries **1–3 logos** that flow onto the generated report and (optionally) into the
-working-advance UI. Typical arrangement: **main event logo → 46 logo → Peachtree Entertainment logo**
-(the 46 and Peachtree marks are near-constant; the event mark varies per show).
+Each event shows **up to 3 logos**: a show-specific **event logo** first, then the **shared default
+marks** (typically 46 → Peachtree). The defaults are managed once (admin) and auto-apply; only the event
+logo varies per show. The effective row is `[eventLogo, …defaultLogos]`, capped at 3.
 
-- **Authoring:** upload/manage the logos in the template editor — reuse `src/lib/storage/uploads.ts`
-  (png/jpg already whitelisted). Add a `logos` field to the template model (`src/lib/templates/template.ts`)
-  + Zod, plus a logos block in `TemplateEditorScreen`.
-- **Report (primary):** render the logos on the packet **cover / title-block header** (§7) — server-side
-  via `@react-pdf/renderer` `<Image>` in `functions/src/lib/pdf/packet.tsx`. The Cloud Function fetches
-  each logo from Storage and inlines it as base64; pass the refs through `PacketData`.
-- **Working advance (possibly):** show the logos as a header/icon on the event/advance screens
-  (`EventDetailScreen` / `AdvanceDetailScreen` headers) — **TBD** whether in-scope or report-only.
-- **Propagation:** `createEventFromTemplate` clones the logos onto the new event like other template
-  content; per-event override **TBD**.
+- **Two variants per logo.** Every logo holds an `onDark` (white/light) and an `onLight` (dark/color)
+  image, so it reads on any background; render code picks the variant for the surface and falls back to
+  the other. Model + helpers: `src/lib/branding/logo.ts` (`Logo`, `effectiveLogos`, `logoForBackground`).
+- **Authoring.** The **event logo** is authored in `TemplateEditorScreen` (per template) and overridable
+  per event on `EventDetailScreen` (PM/admin). The **shared defaults** are managed in **Admin → Branding**
+  (`BrandingAdmin`, persisted to `config/branding`). Uploads reuse `src/lib/storage/uploads.ts` via the
+  shared `LogoUploader` (Storage paths `templates/<id>/logo`, `events/<id>/logo`, `branding/<i>`).
+- **Report.** The packet renders the row server-side via `@react-pdf/renderer` `<Image>` in
+  `functions/src/lib/pdf/packet.tsx` — **onDark** marks on the dark cover, **onLight** marks on the white
+  title-block header. `generatePacket` resolves the effective logos, downloads each from Storage, and
+  inlines them as base64 through `PacketData` (failures are skipped, never block generation).
+- **Working advance.** `LogoRow` (theme-aware) shows the row in the `EventDetailScreen` /
+  `AdvanceDetailScreen` headers.
+- **Propagation.** `createEventFromTemplate` clones the template's `eventLogo` onto the new event.
 
-**Open questions:**
-- Should **46 + Peachtree** be **shared/default marks** (managed once, auto-applied) rather than
-  re-uploaded per template — with only the event logo authored per-template? (Leaning yes; they rarely change.)
-- Fixed slot order vs. free ordering; enforce the **max of 3**.
-- Cover layout/sizing vs. an in-app header treatment.
-
-Assets today: `pwa/public/brand/46-mark-white.png`, `46-entertainment-white.png`. A **Peachtree** mark
-would need to be added.
+Brand assets: `pwa/public/brand/46-mark-white.png`, `46-entertainment-white.png`. The **Peachtree** mark
+is uploaded by an admin via **Admin → Branding** (no static asset shipped).
 
 ## 7. PDF Advance Packets (Reports)
 
@@ -325,7 +323,7 @@ would need to be added.
   46/event logos) and **content** pages (white, title-block header/footer with event/venue/dates +
   section/page numbers, black/white/**red** palette, slash accent). See UI § Design language.
 - **TBD:** exact packet composition (which sections/fields) and final letterhead layout.
-- **Logos:** the cover/header logos are **authored per template (1–3)** — see §6 *Per-template logos (planned)*.
+- **Logos:** the cover (onDark) + title-block-header (onLight) logos are rendered from the event's effective logo row — see §6 *Per-template logos (built)*.
 
 - **Built — execution Phase 7:** server-side **`generatePacket(eventId)`** Cloud Function
   (@react-pdf/renderer) assembles the event production record + per-stage house packages +

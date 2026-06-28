@@ -719,6 +719,23 @@ describe('firestore.rules — templates', () => {
   });
 });
 
+describe('firestore.rules — config/branding', () => {
+  it('any approved user can read; anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'config/branding')));
+    await assertFails(getDoc(doc(dbAnon(), 'config/branding')));
+  });
+
+  it('a non-admin approved user cannot write branding config', async () => {
+    await assertFails(setDoc(doc(dbFor(PM), 'config/branding'), { defaultLogos: [] }));
+  });
+
+  it('admin can write branding config', async () => {
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'config/branding'), { defaultLogos: [] }),
+    );
+  });
+});
+
 describe('firestore.rules — Google connection (Phase 11b)', () => {
   it('owner reads their own connection status; another user cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(PM), 'googleConnections', PM)));

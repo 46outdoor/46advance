@@ -44,5 +44,18 @@ service firebase.storage {
       allow write: if canEditEvent(eventId) && validUpload();
       allow delete: if canEditEvent(eventId);
     }
+
+    // Template logos — admin-authored; any approved user reads.
+    match /templates/{allPaths=**} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() && validUpload();
+      allow delete: if isAdmin();
+    }
+    // Shared default brand logos (config/branding) — admin-managed; any approved user reads.
+    match /branding/{allPaths=**} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() && validUpload();
+      allow delete: if isAdmin();
+    }
   }
 }
