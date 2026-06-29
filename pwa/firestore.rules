@@ -286,6 +286,13 @@ service cloud.firestore {
         allow delete: if canEditEvent(eventId);
       }
 
+      // Per-day schedule notes (master note + per-section notes, keyed by day): member read;
+      // PM/admin write. Free-form text fields; no shape constraints beyond the write gate.
+      match /scheduleNotes/{dayKey} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow write: if canEditEvent(eventId);
+      }
+
       // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
       // PM/admin resolve (attach/dismiss) from the review queue. Member read.
       match /callBookings/{bookingId} {

@@ -38,6 +38,8 @@ import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-servic
 import { scheduleTemplateCategoryLabel, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
 import { useGoogleConnection } from '@/lib/google';
 import { ScheduleItemForm, type StageOption } from './ScheduleItemForm';
+import { listScheduleNotes, setScheduleNote, type DayNoteField } from './schedule-notes-service';
+import { DayNotesEditor, DayNotesDisplay } from './ScheduleDayNotes';
 
 const logger = createLogger('Schedule');
 
@@ -160,6 +162,7 @@ export function EventScheduleScreen() {
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
   const scheduleTemplatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates, enabled: !!eventId });
+  const scheduleNotesQuery = useQuery({ queryKey: ['scheduleNotes', eventId], queryFn: () => listScheduleNotes(eventId!), enabled: !!eventId });
 
   const connection = useGoogleConnection();
   const isConnected = connection.data?.connected === true;
@@ -234,6 +237,13 @@ export function EventScheduleScreen() {
       setImportId('');
     },
     onError: (e) => logger.error('Failed to import schedule template', e),
+  });
+
+  const setNote = useMutation({
+    mutationFn: ({ dayKey, field, text }: { dayKey: string; field: DayNoteField; text: string }) =>
+      setScheduleNote(eventId!, dayKey, field, text),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['scheduleNotes', eventId] }),
+    onError: (e) => logger.error('Failed to save schedule note', e),
   });
 
   if (!user || !eventId) return null;
@@ -336,6 +346,12 @@ export function EventScheduleScreen() {
           {editGroups.map((day) => (
             <div key={day.key} className="space-y-2">
               <h2 className="font-display text-lg font-bold text-brand">{day.label}</h2>
+              {canEdit && (
+                <DayNotesEditor
+                  notes={scheduleNotesQuery.data?.get(day.key)}
+                  onSave={(field, text) => setNote.mutate({ dayKey: day.key, field, text })}
+                />
+              )}
               <ul className="space-y-2">
                 {day.items.map((it) =>
                   editingId === it.id ? (
@@ -424,6 +440,7 @@ export function EventScheduleScreen() {
             masterGroups.map((day) => (
               <div key={day.key} className="space-y-1">
                 <h2 className="font-display text-lg font-bold text-brand">{day.label}</h2>
+                <DayNotesDisplay notes={scheduleNotesQuery.data?.get(day.key)} />
                 <ul className="divide-y divide-line/60">
                   {day.items.map((it) => (
                     <li key={it.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
