@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseScheduleTemplate,
   scheduleTemplateCategoryLabel,
+  templateDayLabel,
   templateItemInstant,
 } from './scheduleTemplate';
 
@@ -33,6 +34,15 @@ describe('scheduleTemplateCategoryLabel', () => {
   it('labels each category', () => {
     expect(scheduleTemplateCategoryLabel('show')).toBe('Show');
     expect(scheduleTemplateCategoryLabel('stagehand')).toBe('Stagehand');
+  });
+});
+
+describe('templateDayLabel', () => {
+  it('labels load-in (negative) and show days', () => {
+    expect(templateDayLabel(-2)).toBe('Load-in 2');
+    expect(templateDayLabel(-1)).toBe('Load-in 1');
+    expect(templateDayLabel(0)).toBe('Show day 1');
+    expect(templateDayLabel(2)).toBe('Show day 3');
   });
 });
 

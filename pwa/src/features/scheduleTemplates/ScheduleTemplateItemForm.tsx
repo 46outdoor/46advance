@@ -5,10 +5,17 @@
  */
 import { useState, type FormEvent } from 'react';
 import { SCHEDULE_SECTIONS, scheduleSectionDef, type ScheduleSection } from '@/lib/schedules/sections';
-import type { ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
+import { templateDayLabel, type ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand';
+
+/** Relative-day offsets in the dropdown: Load-in 3 → Show day 7, always including the current value. */
+function dayOptions(current: number): number[] {
+  const set = new Set<number>([current]);
+  for (let o = -3; o <= 6; o += 1) set.add(o);
+  return [...set].sort((a, b) => a - b);
+}
 
 export type ScheduleTemplateItemDraft = Omit<ScheduleTemplateItem, 'id' | 'order'>;
 
@@ -144,13 +151,13 @@ export function ScheduleTemplateItemForm({
 
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Day</span>
-        <input
-          type="number"
-          min={1}
-          className={inputClass}
-          value={dayOffset + 1}
-          onChange={(e) => setDayOffset(Math.max(0, Number(e.target.value) - 1))}
-        />
+        <select className={inputClass} value={dayOffset} onChange={(e) => setDayOffset(Number(e.target.value))}>
+          {dayOptions(dayOffset).map((o) => (
+            <option key={o} value={o}>
+              {templateDayLabel(o)}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-sm">

@@ -12,6 +12,7 @@ import { scheduleSectionLabel } from '@/lib/schedules/sections';
 import {
   SCHEDULE_TEMPLATE_CATEGORIES,
   scheduleTemplateCategoryLabel,
+  templateDayLabel,
   type ScheduleTemplate,
   type ScheduleTemplateCategory,
   type ScheduleTemplateItem,
@@ -25,7 +26,7 @@ const arrowClass = 'rounded border border-line px-1.5 text-ink-muted hover:borde
 const chipButton = 'rounded border border-line px-2 py-1 text-xs text-ink-muted hover:border-accent hover:text-accent';
 
 function itemSummary(item: ScheduleTemplateItem): string {
-  const parts: string[] = [`Day ${item.dayOffset + 1}`];
+  const parts: string[] = [templateDayLabel(item.dayOffset)];
   if (item.timeOfDay) parts.push(item.endTimeOfDay ? `${item.timeOfDay}–${item.endTimeOfDay}` : item.timeOfDay);
   parts.push(scheduleSectionLabel(item.section, item.customLabel));
   if (item.stageName) parts.push(item.stageName);
