@@ -25,6 +25,12 @@ export function scheduleTemplateCategoryLabel(c: ScheduleTemplateCategory): stri
   return CATEGORY_LABELS[c];
 }
 
+/** Relative-day label for a template item: negative = load-in (before show), 0+ = a show day.
+ * (Templates have no real dates; the offset resolves against the event's show start on import.) */
+export function templateDayLabel(offset: number): string {
+  return offset < 0 ? `Load-in ${-offset}` : `Show day ${offset + 1}`;
+}
+
 /** One blueprint row: like a ScheduleItem but with a relative day + wall-clock time (resolved on
  * apply) and a stage referenced by name (the template doesn't know the event's stage ids). */
 export interface ScheduleTemplateItem {
@@ -63,7 +69,7 @@ const itemDocSchema = z.object({
   section: z.enum(SCHEDULE_SECTION_KEYS),
   customLabel: z.string().nullable().optional(),
   title: z.string().min(1),
-  dayOffset: z.number().int().min(0).optional(),
+  dayOffset: z.number().int().optional(),
   timeOfDay: z.string().nullable().optional(),
   endTimeOfDay: z.string().nullable().optional(),
   stageName: z.string().nullable().optional(),
@@ -122,7 +128,7 @@ export const scheduleTemplateItemInputSchema = z.object({
   section: z.enum(SCHEDULE_SECTION_KEYS),
   customLabel: z.string().nullable().optional(),
   title: z.string().trim().min(1),
-  dayOffset: z.number().int().min(0),
+  dayOffset: z.number().int(),
   timeOfDay: z.string().nullable().optional(),
   endTimeOfDay: z.string().nullable().optional(),
   stageName: z.string().nullable().optional(),
