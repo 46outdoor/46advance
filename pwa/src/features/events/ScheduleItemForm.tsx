@@ -16,7 +16,9 @@ import {
   type ScheduleItemInput,
 } from '@/lib/schedules/scheduleItem';
 import { dateToZonedInput, zonedInputToDate } from '@/lib/dates/timezone';
+import { dateInputValue } from '@/lib/dates/parsing';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
+import type { EventScheduleDay } from '@/lib/events/event';
 
 export interface StageOption {
   id: string;
@@ -26,6 +28,8 @@ export interface StageOption {
 interface Props {
   initial?: ScheduleItem;
   stages: StageOption[];
+  /** The event's operational days (load-in → show → load-out); when present, the day is a dropdown. */
+  scheduleDays: EventScheduleDay[];
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -72,12 +76,15 @@ const EMPTY_ITEM: ScheduleItemSource = {
  * `EMPTY_ITEM` drops `undefined` fields; the remaining `??` still coalesce `null`. */
 function initialFormState(initial?: ScheduleItem) {
   const src: ScheduleItemSource = { ...EMPTY_ITEM, ...initial };
+  const [startDay = '', startTime = ''] = dateToZonedInput(src.startAt).split('T');
+  const endTime = dateToZonedInput(src.endAt).split('T')[1] ?? '';
   return {
     section: src.section,
     title: src.title,
     customLabel: src.customLabel ?? '',
-    start: dateToZonedInput(src.startAt),
-    end: dateToZonedInput(src.endAt),
+    day: startDay,
+    startTime,
+    endTime,
     location: src.location ?? '',
     notes: src.notes ?? '',
     stageId: src.stageId ?? '',
@@ -180,9 +187,62 @@ function FormActions({
   );
 }
 
+/** Day picker (a dropdown of the event's operational days, else a free date) + start/end times. */
+function DayTimeFields({
+  scheduleDays,
+  day,
+  setDay,
+  startTime,
+  setStartTime,
+  endTime,
+  setEndTime,
+}: {
+  scheduleDays: EventScheduleDay[];
+  day: string;
+  setDay: (v: string) => void;
+  startTime: string;
+  setStartTime: (v: string) => void;
+  endTime: string;
+  setEndTime: (v: string) => void;
+}) {
+  return (
+    <>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Day</span>
+        {scheduleDays.length > 0 ? (
+          <select className={inputClass} value={day} onChange={(e) => setDay(e.target.value)}>
+            <option value="">— Select a day —</option>
+            {scheduleDays.map((d) => {
+              const value = dateInputValue(d.date);
+              return (
+                <option key={value} value={value}>
+                  {d.label}
+                </option>
+              );
+            })}
+          </select>
+        ) : (
+          <input type="date" className={inputClass} value={day} onChange={(e) => setDay(e.target.value)} />
+        )}
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-sm">
+          <span className="mb-1 block font-semibold text-ink">Start (Central)</span>
+          <input type="time" className={inputClass} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block font-semibold text-ink">End</span>
+          <input type="time" className={inputClass} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+        </label>
+      </div>
+    </>
+  );
+}
+
 export function ScheduleItemForm({
   initial,
   stages,
+  scheduleDays,
   submitLabel,
   pending,
   error,
@@ -193,8 +253,9 @@ export function ScheduleItemForm({
   const [section, setSection] = useState<ScheduleSection>(defaults.section);
   const [title, setTitle] = useState(defaults.title);
   const [customLabel, setCustomLabel] = useState(defaults.customLabel);
-  const [start, setStart] = useState(defaults.start);
-  const [end, setEnd] = useState(defaults.end);
+  const [day, setDay] = useState(defaults.day);
+  const [startTime, setStartTime] = useState(defaults.startTime);
+  const [endTime, setEndTime] = useState(defaults.endTime);
   const [location, setLocation] = useState(defaults.location);
   const [notes, setNotes] = useState(defaults.notes);
   const [stageId, setStageId] = useState(defaults.stageId);
@@ -219,8 +280,8 @@ export function ScheduleItemForm({
       section,
       customLabel: section === 'custom' ? customLabel.trim() || undefined : undefined,
       title,
-      startAt: zonedInputToDate(start),
-      endAt: zonedInputToDate(end),
+      startAt: day && startTime ? zonedInputToDate(`${day}T${startTime}`) : null,
+      endAt: day && endTime ? zonedInputToDate(`${day}T${endTime}`) : null,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
       stageId: stageId || undefined,
@@ -262,14 +323,15 @@ export function ScheduleItemForm({
         <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Load-in" />
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Start (Central)</span>
-        <input type="datetime-local" className={inputClass} value={start} onChange={(e) => setStart(e.target.value)} />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">End (Central, optional)</span>
-        <input type="datetime-local" className={inputClass} value={end} onChange={(e) => setEnd(e.target.value)} />
-      </label>
+      <DayTimeFields
+        scheduleDays={scheduleDays}
+        day={day}
+        setDay={setDay}
+        startTime={startTime}
+        setStartTime={setStartTime}
+        endTime={endTime}
+        setEndTime={setEndTime}
+      />
 
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Stage (optional)</span>
