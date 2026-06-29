@@ -20,6 +20,7 @@ import {
 } from '@/lib/schedules/sections';
 import type { ScheduleItem, ScheduleItemInput } from '@/lib/schedules/scheduleItem';
 import { slotLabel } from '@/lib/advances/advance';
+import { eventScheduleDays } from '@/lib/events/event';
 import { listStages } from './stages-service';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
 import { getEvent } from './events-service';
@@ -195,6 +196,16 @@ export function EventScheduleScreen() {
   });
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
+  const scheduleDays = useMemo(
+    () =>
+      eventScheduleDays(
+        eventQuery.data?.startDate,
+        eventQuery.data?.endDate,
+        eventQuery.data?.loadInDays,
+        eventQuery.data?.loadOutDays,
+      ),
+    [eventQuery.data],
+  );
   const stageName = useMemo(() => new Map(stages.map((s) => [s.id, s.name])), [stages]);
   const advanceLabel = useMemo(
     () =>
@@ -286,6 +297,7 @@ export function EventScheduleScreen() {
                   <h2 className="mb-3 font-display text-lg font-bold text-brand">New schedule item</h2>
                   <ScheduleItemForm
                     stages={stages}
+                    scheduleDays={scheduleDays}
                     submitLabel="Add item"
                     pending={create.isPending}
                     error={create.isError ? 'Could not add the item.' : null}
@@ -331,6 +343,7 @@ export function EventScheduleScreen() {
                       <ScheduleItemForm
                         initial={it}
                         stages={stages}
+                        scheduleDays={scheduleDays}
                         submitLabel="Save changes"
                         pending={update.isPending}
                         error={update.isError ? 'Could not save.' : null}
