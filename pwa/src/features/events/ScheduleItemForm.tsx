@@ -30,6 +30,8 @@ interface Props {
   stages: StageOption[];
   /** The event's operational days (load-in → show → load-out); when present, the day is a dropdown. */
   scheduleDays: EventScheduleDay[];
+  /** The event's timezone — wall-clock times are entered/displayed in it. */
+  timeZone: string;
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -74,10 +76,10 @@ const EMPTY_ITEM: ScheduleItemSource = {
 /** Initial form state derived from an optional existing item — keeps the nullish
  * defaults out of the component body where they each cost complexity. Merging onto
  * `EMPTY_ITEM` drops `undefined` fields; the remaining `??` still coalesce `null`. */
-function initialFormState(initial?: ScheduleItem) {
+function initialFormState(initial: ScheduleItem | undefined, timeZone: string) {
   const src: ScheduleItemSource = { ...EMPTY_ITEM, ...initial };
-  const [startDay = '', startTime = ''] = dateToZonedInput(src.startAt).split('T');
-  const endTime = dateToZonedInput(src.endAt).split('T')[1] ?? '';
+  const [startDay = '', startTime = ''] = dateToZonedInput(src.startAt, timeZone).split('T');
+  const endTime = dateToZonedInput(src.endAt, timeZone).split('T')[1] ?? '';
   return {
     section: src.section,
     title: src.title,
@@ -243,13 +245,14 @@ export function ScheduleItemForm({
   initial,
   stages,
   scheduleDays,
+  timeZone,
   submitLabel,
   pending,
   error,
   onSubmit,
   onCancel,
 }: Props) {
-  const [defaults] = useState(() => initialFormState(initial));
+  const [defaults] = useState(() => initialFormState(initial, timeZone));
   const [section, setSection] = useState<ScheduleSection>(defaults.section);
   const [title, setTitle] = useState(defaults.title);
   const [customLabel, setCustomLabel] = useState(defaults.customLabel);
@@ -280,8 +283,8 @@ export function ScheduleItemForm({
       section,
       customLabel: section === 'custom' ? customLabel.trim() || undefined : undefined,
       title,
-      startAt: day && startTime ? zonedInputToDate(`${day}T${startTime}`) : null,
-      endAt: day && endTime ? zonedInputToDate(`${day}T${endTime}`) : null,
+      startAt: day && startTime ? zonedInputToDate(`${day}T${startTime}`, timeZone) : null,
+      endAt: day && endTime ? zonedInputToDate(`${day}T${endTime}`, timeZone) : null,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
       stageId: stageId || undefined,

@@ -32,6 +32,7 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Stagehand labor item:** **Call type** is now a dropdown — Stagehands, Riggers, Fork Op, Spot Op, Cam Op, Other — alongside a **Quantity** field (replacing the free-text crew role + count).
 - **Schedule-template days:** template items label their day **relative to the show** — `Load-in 1/2…` and `Show day 1/2…` from a dropdown, instead of an abstract "Day N"; they resolve to real dates when the template is imported onto an event.
 - **Schedule day notes:** each day in the schedule can carry a **master note** plus a **note per section** (Production, Show, Stagehand…). The Edit view has a per-day "Day notes" editor; the Master view shows the master note and each section note labeled "<Section> Notes:".
+- **Per-event timezone:** an event now has an editable **timezone** (default Central), set in the event form. The schedule **enters and displays times in the event's zone**, groups days by it, applies schedule templates in it, and the Google Calendar push uses it too — so an event in another city reads in its own local time.
 - **Event logo editing** moved into the event's **Edit** view — it previously sat on the main event page for anyone who could edit it.
 - **Event contacts** now show just the contact's **role on that event** (not their general job title/company).
 - **Logo layout:** the event logo now renders **centered and larger**, flanked by the shared company marks (smaller) on each side — in the app event/advance headers and on the PDF packet (cover + title-block header).

@@ -27,7 +27,7 @@ import {
 const DEFAULT_DURATION_MIN = 30;
 
 /** Build the Calendar event body for a schedule item (start required). */
-function buildEventBody(item: DocumentData, startTs: Timestamp): calendar_v3.Schema$Event {
+function buildEventBody(item: DocumentData, startTs: Timestamp, timeZone: string): calendar_v3.Schema$Event {
   const start = startTs.toDate();
   const endTs = item.endAt instanceof Timestamp ? item.endAt : null;
   const end = endTs ? endTs.toDate() : new Date(start.getTime() + DEFAULT_DURATION_MIN * 60_000);
@@ -38,8 +38,8 @@ function buildEventBody(item: DocumentData, startTs: Timestamp): calendar_v3.Sch
     summary: String(item.title ?? 'Schedule item'),
     location: typeof item.location === 'string' && item.location ? item.location : undefined,
     description: lines.join('\n'),
-    start: { dateTime: start.toISOString(), timeZone: TIME_ZONE },
-    end: { dateTime: end.toISOString(), timeZone: TIME_ZONE },
+    start: { dateTime: start.toISOString(), timeZone },
+    end: { dateTime: end.toISOString(), timeZone },
   };
 }
 
@@ -130,8 +130,10 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   // In the master schedule — ensure the calendar exists, then create/update the event.
   const eventSnap = await db.doc(`events/${eventId}`).get();
   if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-  const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventSnap.data()?.name ?? 'Event'));
-  const body = buildEventBody(item, startTs!);
+  const eventData = eventSnap.data() ?? {};
+  const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventData.name ?? 'Event'));
+  const eventTz = typeof eventData.timeZone === 'string' && eventData.timeZone ? eventData.timeZone : TIME_ZONE;
+  const body = buildEventBody(item, startTs!, eventTz);
 
   const calEventId = await upsertCalendarEvent(calendar, calendarId, body, existing);
   await itemRef.set({ googleCalendarEventId: calEventId, updatedAt: now }, { merge: true });

@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
+import { APP_TIME_ZONE } from '@/lib/dates/timezone';
 import { logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
 
 export const EVENT_STATUSES = ['draft', 'active', 'archived'] as const;
@@ -21,6 +22,8 @@ export interface EventRecord {
   /** Show days are [startDate, endDate]; the schedule also spans this many days before/after. */
   loadInDays: number;
   loadOutDays: number;
+  /** IANA timezone for this event's schedule (default Central). */
+  timeZone: string;
   venue: string | null;
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
@@ -48,6 +51,7 @@ const eventDocSchema = z.object({
   endDate: z.instanceof(Timestamp).nullable().optional(),
   loadInDays: z.number().int().min(0).optional(),
   loadOutDays: z.number().int().min(0).optional(),
+  timeZone: z.string().optional(),
   venue: z.string().nullable().optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
@@ -70,6 +74,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     endDate: timestampToDate(doc.endDate ?? null),
     loadInDays: doc.loadInDays ?? 0,
     loadOutDays: doc.loadOutDays ?? 0,
+    timeZone: doc.timeZone ?? APP_TIME_ZONE,
     venue: doc.venue ?? null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
@@ -91,6 +96,7 @@ export const eventInputSchema = z
     endDate: z.date().nullable().optional(),
     loadInDays: z.number().int().min(0).optional(),
     loadOutDays: z.number().int().min(0).optional(),
+    timeZone: z.string().optional(),
     venue: z.string().trim().optional(),
     status: eventStatusSchema.optional(),
     departmentIds: z.array(z.string()).optional(),
