@@ -9,6 +9,22 @@
 
 export const APP_TIME_ZONE = 'America/Chicago';
 
+/** Common US timezones for the event timezone picker (IANA id + friendly label). */
+export const COMMON_TIME_ZONES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'America/New_York', label: 'Eastern' },
+  { id: 'America/Chicago', label: 'Central' },
+  { id: 'America/Denver', label: 'Mountain' },
+  { id: 'America/Phoenix', label: 'Arizona (no DST)' },
+  { id: 'America/Los_Angeles', label: 'Pacific' },
+  { id: 'America/Anchorage', label: 'Alaska' },
+  { id: 'Pacific/Honolulu', label: 'Hawaii' },
+];
+
+/** Friendly label for a timezone id (falls back to the raw id). */
+export function timeZoneLabel(id: string): string {
+  return COMMON_TIME_ZONES.find((z) => z.id === id)?.label ?? id;
+}
+
 /**
  * Offset (ms) of `timeZone` from UTC at the given instant — negative for zones west of
  * UTC (Central is −6h CST / −5h CDT). Computed by formatting the instant in the zone and
@@ -112,4 +128,21 @@ export function formatCentralTime(date: Date | null): string {
 /** Stable per-day key (`YYYY-MM-DD` in Central) for grouping items by day. */
 export function centralDayKey(date: Date | null): string {
   return date ? dateToZonedInput(date).slice(0, 10) : '';
+}
+
+/** Date only, in `timeZone`, e.g. "Wed, Jun 24". */
+export function formatZonedDate(date: Date | null, timeZone = APP_TIME_ZONE): string {
+  if (!date) return '—';
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric' }).format(date);
+}
+
+/** Time only, in `timeZone`, e.g. "4:00 PM" (empty string for null). */
+export function formatZonedTime(date: Date | null, timeZone = APP_TIME_ZONE): string {
+  if (!date) return '';
+  return new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+/** Stable per-day key (`YYYY-MM-DD` in `timeZone`) for grouping items by day. */
+export function zonedDayKey(date: Date | null, timeZone = APP_TIME_ZONE): string {
+  return date ? dateToZonedInput(date, timeZone).slice(0, 10) : '';
 }

@@ -17,10 +17,16 @@ describe('parseEvent', () => {
     expect(e.startDate?.toISOString()).toBe('2026-07-01T00:00:00.000Z');
     expect(e.endDate).toBeNull();
     expect(e.venue).toBe('Riverside Park');
+    expect(e.timeZone).toBe('America/Chicago'); // default
   });
 
   it('rejects an unknown status', () => {
     expect(() => parseEvent('x', { name: 'X', status: 'live', createdBy: 'a' })).toThrow();
+  });
+
+  it('uses an explicit timezone when set', () => {
+    const e = parseEvent('x', { name: 'X', status: 'active', createdBy: 'a', timeZone: 'America/Los_Angeles' });
+    expect(e.timeZone).toBe('America/Los_Angeles');
   });
 });
 

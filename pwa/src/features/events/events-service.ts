@@ -47,6 +47,7 @@ export async function createEvent(input: EventInput, creatorUid: string): Promis
     endDate: dateToTimestamp(input.endDate ?? null),
     loadInDays: input.loadInDays ?? 0,
     loadOutDays: input.loadOutDays ?? 0,
+    timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     status: input.status ?? 'draft',
     departmentIds: input.departmentIds ?? [],
@@ -123,6 +124,7 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     endDate: dateToTimestamp(input.endDate ?? null),
     loadInDays: input.loadInDays ?? 0,
     loadOutDays: input.loadOutDays ?? 0,
+    timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
     ...(input.slug?.trim() ? { slug: slugify(input.slug) } : {}),
@@ -176,6 +178,7 @@ export async function createEventFromTemplate(templateId: string, input: EventIn
     endDate: input.endDate ? input.endDate.getTime() : null,
     loadInDays: input.loadInDays ?? 0,
     loadOutDays: input.loadOutDays ?? 0,
+    timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     slug: input.slug ?? null,
   });

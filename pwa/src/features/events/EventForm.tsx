@@ -3,6 +3,7 @@ import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } f
 import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
+import { APP_TIME_ZONE, COMMON_TIME_ZONES } from '@/lib/dates/timezone';
 
 interface EventFormProps {
   initial?: {
@@ -11,6 +12,7 @@ interface EventFormProps {
     endDate: Date | null;
     loadInDays?: number;
     loadOutDays?: number;
+    timeZone?: string;
     venue: string | null;
     status?: EventStatus;
     departmentIds?: string[];
@@ -60,6 +62,7 @@ export function EventForm({
   const [end, setEnd] = useState(dateInputValue(initial?.endDate ?? null));
   const [loadInDays, setLoadInDays] = useState(() => initial?.loadInDays ?? 0);
   const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
+  const [timeZone, setTimeZone] = useState(() => initial?.timeZone ?? APP_TIME_ZONE);
   const [venue, setVenue] = useState(initial?.venue ?? '');
   const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
@@ -87,6 +90,7 @@ export function EventForm({
       endDate: parseDateInput(end),
       loadInDays,
       loadOutDays,
+      timeZone,
       venue: venue.trim() || undefined,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
       bookingLabel: bookingLabel.trim() || undefined,
@@ -136,6 +140,16 @@ export function EventForm({
           onChange={(e) => setLoadOutDays(Math.max(0, Number(e.target.value)))}
         />
         <span className="mt-1 block text-xs text-ink-muted">Days after the show — adds them to the schedule.</span>
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Timezone</span>
+        <select className={inputClass} value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+          {COMMON_TIME_ZONES.map((z) => (
+            <option key={z.id} value={z.id}>
+              {z.label}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Venue</span>

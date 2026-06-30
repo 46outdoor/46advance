@@ -306,6 +306,7 @@ interface NewEventInput {
   endDate: Timestamp | null;
   loadInDays: number;
   loadOutDays: number;
+  timeZone: string;
   venue: string | null;
   slug: string | null;
 }
@@ -320,6 +321,7 @@ function parseNewEventInput(data: unknown): NewEventInput {
     endDate: toTimestamp(input.endDate),
     loadInDays: input.loadInDays ?? 0,
     loadOutDays: input.loadOutDays ?? 0,
+    timeZone: input.timeZone ?? 'America/Chicago',
     venue: trimmedOrNull(input.venue),
     slug: trimmedOrNull(input.slug),
   };
@@ -417,6 +419,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     endDate: input.endDate,
     loadInDays: input.loadInDays,
     loadOutDays: input.loadOutDays,
+    timeZone: input.timeZone,
     venue: input.venue,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),

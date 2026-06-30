@@ -10,6 +10,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     endDate: overrides.endDate ?? null,
     loadInDays: overrides.loadInDays ?? 0,
     loadOutDays: overrides.loadOutDays ?? 0,
+    timeZone: overrides.timeZone ?? 'America/Chicago',
     venue: overrides.venue ?? null,
     status: overrides.status ?? 'active',
     departmentIds: overrides.departmentIds ?? [],

@@ -12,6 +12,7 @@ export const createEventFromTemplateInputSchema = z.object({
   endDate: z.number().nullable(),
   loadInDays: z.number().int().min(0).optional(),
   loadOutDays: z.number().int().min(0).optional(),
+  timeZone: z.string().optional(),
   venue: z.string().nullable(),
   slug: z.string().nullable(),
 });

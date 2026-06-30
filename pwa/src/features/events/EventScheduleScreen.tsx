@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
-import { APP_TIME_ZONE, formatCentralDate, formatCentralTime, centralDayKey } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, formatZonedDate, formatZonedTime, zonedDayKey } from '@/lib/dates/timezone';
 import {
   SCHEDULE_SECTIONS,
   SCHEDULE_SECTION_KEYS,
@@ -49,10 +49,15 @@ interface DayGroup {
   items: ScheduleItem[];
 }
 
-function groupByDay(items: ScheduleItem[]): DayGroup[] {
+/** The event's timezone, defaulting to Central. */
+function eventTimeZone(event: { timeZone?: string } | null | undefined): string {
+  return event?.timeZone ?? APP_TIME_ZONE;
+}
+
+function groupByDay(items: ScheduleItem[], timeZone: string): DayGroup[] {
   const map = new Map<string, ScheduleItem[]>();
   for (const it of items) {
-    const key = centralDayKey(it.startAt) || 'no-time';
+    const key = zonedDayKey(it.startAt, timeZone) || 'no-time';
     const arr = map.get(key);
     if (arr) arr.push(it);
     else map.set(key, [it]);
@@ -61,7 +66,7 @@ function groupByDay(items: ScheduleItem[]): DayGroup[] {
     .sort((a, b) => (a === 'no-time' ? 1 : b === 'no-time' ? -1 : a.localeCompare(b)))
     .map((key) => ({
       key,
-      label: key === 'no-time' ? 'No time set' : formatCentralDate(map.get(key)![0].startAt),
+      label: key === 'no-time' ? 'No time set' : formatZonedDate(map.get(key)![0].startAt, timeZone),
       items: map.get(key)!,
     }));
 }
@@ -158,6 +163,7 @@ export function EventScheduleScreen() {
     enabled: !!eventId && !!user,
   });
   const eventQuery = useQuery({ queryKey: ['events', 'detail', eventId], queryFn: () => getEvent(eventId!), enabled: !!eventId });
+  const timeZone = eventTimeZone(eventQuery.data);
   const itemsQuery = useQuery({ queryKey: ['schedule', eventId], queryFn: () => listScheduleItems(eventId!), enabled: !!eventId });
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
@@ -230,7 +236,7 @@ export function EventScheduleScreen() {
     mutationFn: () => {
       const tpl = scheduleTemplatesQuery.data?.find((t) => t.id === importId);
       if (!tpl) throw new Error('No template selected.');
-      return applyScheduleTemplate(eventId!, eventQuery.data?.startDate ?? null, APP_TIME_ZONE, tpl, stages, user!.uid);
+      return applyScheduleTemplate(eventId!, eventQuery.data?.startDate ?? null, timeZone, tpl, stages, user!.uid);
     },
     onSuccess: () => {
       invalidate();
@@ -251,8 +257,8 @@ export function EventScheduleScreen() {
 
   const items = itemsQuery.data ?? [];
   const masterItems = items.filter((it) => it.includeInMaster && enabledSections.has(it.section));
-  const editGroups = groupByDay(items);
-  const masterGroups = groupByDay(masterItems);
+  const editGroups = groupByDay(items, timeZone);
+  const masterGroups = groupByDay(masterItems, timeZone);
 
   const summarize = (it: ScheduleItem): string => summarizeItem(it, stageName, advanceLabel);
 
@@ -308,6 +314,7 @@ export function EventScheduleScreen() {
                   <ScheduleItemForm
                     stages={stages}
                     scheduleDays={scheduleDays}
+                    timeZone={timeZone}
                     submitLabel="Add item"
                     pending={create.isPending}
                     error={create.isError ? 'Could not add the item.' : null}
@@ -360,6 +367,7 @@ export function EventScheduleScreen() {
                         initial={it}
                         stages={stages}
                         scheduleDays={scheduleDays}
+                        timeZone={timeZone}
                         submitLabel="Save changes"
                         pending={update.isPending}
                         error={update.isError ? 'Could not save.' : null}
@@ -372,8 +380,8 @@ export function EventScheduleScreen() {
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-sm font-semibold text-ink-muted">
-                            {formatCentralTime(it.startAt) || '—'}
-                            {it.endAt ? `–${formatCentralTime(it.endAt)}` : ''}
+                            {formatZonedTime(it.startAt, timeZone) || '—'}
+                            {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}` : ''}
                           </span>
                           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
                             {scheduleSectionLabel(it.section, it.customLabel)}
@@ -445,8 +453,8 @@ export function EventScheduleScreen() {
                   {day.items.map((it) => (
                     <li key={it.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
                       <span className="w-28 shrink-0 font-semibold text-ink-muted">
-                        {formatCentralTime(it.startAt) || '—'}
-                        {it.endAt ? `–${formatCentralTime(it.endAt)}` : ''}
+                        {formatZonedTime(it.startAt, timeZone) || '—'}
+                        {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}` : ''}
                       </span>
                       <span className="font-medium text-ink" title={itemHeading(it, slotArtist).tip}>
                         {itemHeading(it, slotArtist).name}
