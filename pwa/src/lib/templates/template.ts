@@ -51,6 +51,8 @@ export interface TemplateRecord {
   eventProduction: TemplateEventProduction;
   stageProduction: TemplateStageProduction;
   members: TemplateMember[];
+  /** Schedule templates auto-applied onto events created from this template. */
+  scheduleTemplateIds: string[];
   /** Show-specific logo (cloned onto events created from this template). */
   eventLogo: Logo | null;
   createdAt: Date | null;
@@ -65,6 +67,7 @@ export interface TemplateInput {
   eventProduction: TemplateEventProduction;
   stageProduction: TemplateStageProduction;
   members: TemplateMember[];
+  scheduleTemplateIds: string[];
   eventLogo: Logo | null;
 }
 
@@ -95,6 +98,7 @@ const templateDocSchema = z.object({
   eventProduction: eventProductionSchema,
   stageProduction: stageProductionSchema,
   members: z.array(templateMemberSchema).optional(),
+  scheduleTemplateIds: z.array(z.string()).optional(),
   eventLogo: logoSchema.nullable().optional(),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -118,6 +122,7 @@ export function parseTemplate(id: string, data: unknown): TemplateRecord {
     },
     stageProduction,
     members: doc.members ?? [],
+    scheduleTemplateIds: doc.scheduleTemplateIds ?? [],
     eventLogo: doc.eventLogo ? parseLogo(doc.eventLogo) : null,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
@@ -134,6 +139,7 @@ export function emptyTemplateInput(): TemplateInput {
     eventProduction: { info: {}, contacts: [], links: [] },
     stageProduction: {},
     members: [],
+    scheduleTemplateIds: [],
     eventLogo: null,
   };
 }

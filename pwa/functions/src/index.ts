@@ -12,6 +12,7 @@ import {
 import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions, logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
@@ -354,9 +355,15 @@ function seedEventProduction(batch: WriteBatch, eventRef: DocumentReference, tpl
   });
 }
 
-/** Seed stages and their per-stage production records from the template blueprint. */
-function seedEventStages(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
+/** Seed stages + per-stage production records; returns a map of lowercased stage name → new id. */
+function seedEventStages(
+  batch: WriteBatch,
+  eventRef: DocumentReference,
+  tpl: DocumentData,
+  now: FieldValue,
+): Map<string, string> {
   const stageProduction = (tpl.stageProduction ?? {}) as DocumentData;
+  const stageIdByName = new Map<string, string>();
   for (const s of asArray(tpl.stages)) {
     const stage = s as DocumentData;
     if (!stage || typeof stage.name !== 'string') continue;
@@ -367,11 +374,13 @@ function seedEventStages(batch: WriteBatch, eventRef: DocumentReference, tpl: Do
       createdAt: now,
       updatedAt: now,
     });
+    stageIdByName.set(stage.name.trim().toLowerCase(), stageRef.id);
     const content = (stageProduction[stage.id] as DocumentData | undefined)?.content;
     if (content && typeof content === 'object') {
       batch.set(stageRef.collection('production').doc('record'), { content, updatedAt: now });
     }
   }
+  return stageIdByName;
 }
 
 /**
@@ -432,7 +441,24 @@ export const createEventFromTemplate = onCall(async (request) => {
 
   seedEventMembers(batch, eventRef, tpl, uid, now);
   seedEventProduction(batch, eventRef, tpl, now);
-  seedEventStages(batch, eventRef, tpl, now);
+  const stageIdByName = seedEventStages(batch, eventRef, tpl, now);
+
+  const scheduleTemplateIds = asArray(tpl.scheduleTemplateIds).filter(
+    (x): x is string => typeof x === 'string',
+  );
+  if (scheduleTemplateIds.length > 0 && input.startDate) {
+    await seedScheduleFromTemplates(
+      db,
+      batch,
+      eventRef,
+      scheduleTemplateIds,
+      input.startDate.toDate(),
+      input.timeZone,
+      stageIdByName,
+      uid,
+      now,
+    );
+  }
 
   await batch.commit();
   return { eventId: eventRef.id };

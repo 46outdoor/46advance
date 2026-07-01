@@ -6,6 +6,8 @@ import { EVENT_PRODUCTION_FIELDS, getDepartmentFields } from '@/lib/advances/fie
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listUsers } from '@/lib/users/users-service';
 import { getTemplate, patchTemplate } from '@/lib/templates/templates-service';
+import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
+import { scheduleTemplateCategoryLabel, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import { emptyLogo, type Logo } from '@/lib/branding/logo';
 import { LogoUploader } from '@/components/branding/LogoUploader';
@@ -28,6 +30,7 @@ export function TemplateEditorScreen() {
   });
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
   const usersQuery = useQuery({ queryKey: ['admin', 'users'], queryFn: listUsers });
+  const scheduleTemplatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates });
 
   const patch = useMutation({
     mutationFn: (data: Record<string, unknown>) => patchTemplate(templateId!, data),
@@ -85,6 +88,16 @@ export function TemplateEditorScreen() {
               initial={t.members}
               pending={patch.isPending}
               onSave={(members) => patch.mutate({ members })}
+            />
+          </Block>
+
+          <Block title="Schedule templates">
+            <ScheduleTemplatesField
+              key={`st-${t.id}`}
+              all={scheduleTemplatesQuery.data ?? []}
+              selected={t.scheduleTemplateIds}
+              pending={patch.isPending}
+              onSave={(scheduleTemplateIds) => patch.mutate({ scheduleTemplateIds })}
             />
           </Block>
 
@@ -221,6 +234,60 @@ function DepartmentsField({
         className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         Save departments
+      </button>
+    </div>
+  );
+}
+
+function ScheduleTemplatesField({
+  all,
+  selected,
+  pending,
+  onSave,
+}: {
+  all: ScheduleTemplate[];
+  selected: string[];
+  pending?: boolean;
+  onSave: (ids: string[]) => void;
+}) {
+  const [ids, setIds] = useState<Set<string>>(() => new Set(selected));
+  const toggle = (id: string) =>
+    setIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-ink-muted">
+        Auto-applied to the schedule when an event is created from this template (you can still import more later).
+      </p>
+      {all.length === 0 ? (
+        <p className="text-sm text-ink-muted">No schedule templates yet (create them in Admin → Schedule templates).</p>
+      ) : (
+        <div className="space-y-1 text-sm">
+          {all.map((st) => (
+            <label key={st.id} className="flex items-center gap-2">
+              <input type="checkbox" checked={ids.has(st.id)} onChange={() => toggle(st.id)} />
+              {st.name}
+              <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
+                {scheduleTemplateCategoryLabel(st.category)}
+              </span>
+              <span className="text-xs text-ink-muted">
+                {st.items.length} item{st.items.length === 1 ? '' : 's'}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => onSave(all.filter((st) => ids.has(st.id)).map((st) => st.id))}
+        className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        Save schedule templates
       </button>
     </div>
   );
