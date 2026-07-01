@@ -129,32 +129,37 @@ export const syncUserClaims = onCall(async (request) => {
   }
   const { uid, token } = request.auth;
   const email = token.email ?? null;
-  // Email verification is a prerequisite for ANY privileged claim. Federated (Google)
-  // sign-in sets this true automatically; email/password accounts must click the
-  // verification link first. Without it, an attacker could self-register the allowlisted
-  // admin address and be granted `admin` — so the allowlist is only honored once verified.
+  // Email verification is set automatically for federated (Google) sign-in; email/password
+  // accounts must click the verification link first.
   const emailVerified = token.email_verified === true;
-  const isAdmin = emailVerified && isAdminEmail(email, ADMIN_EMAILS);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
   const isOrganizer = existing.organizer === true;
+  const wasAdmin = existing.admin === true;
+  const wasApproved = existing.approved === true;
+
+  // Email verification gates *new* privilege GRANTS — an attacker who self-registers the
+  // allowlisted admin address can't be granted `admin` until they verify. It does NOT revoke
+  // an already-trusted account for lack of verification: downgrading a prior admin/approved
+  // would lock out an existing owner before the "verify your email" UI is live. So a matching
+  // allowlist email becomes admin only when verified OR already admin.
+  const isAdmin = isAdminEmail(email, ADMIN_EMAILS) && (emailVerified || wasAdmin);
 
   const db = getFirestore();
   await enforceRateLimit(db, ['syncUserClaims', uid], 60);
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
 
-  // Admin-approval gate, guarded by email verification: an unverified address gets no
-  // access. Otherwise admins are always approved; a brand-new account starts PENDING;
-  // pre-existing accounts are grandfathered approved (unless an admin explicitly revoked).
-  const approved = emailVerified
-    ? isAdmin
+  // Admins are always approved; an already-approved account is never revoked here; otherwise a
+  // verified pre-existing account is grandfathered, and a new/unverified account stays PENDING.
+  const approved = isAdmin
+    ? true
+    : wasApproved
       ? true
-      : snap.exists
+      : emailVerified && snap.exists
         ? existing.approved !== false
-        : false
-    : false;
+        : false;
 
   if (existing.admin !== isAdmin || existing.approved !== approved) {
     await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin, approved });
