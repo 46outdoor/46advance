@@ -73,14 +73,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.{ts,tsx}'],
-      // Firestore I/O services are thin SDK wrappers (no branching logic), exercised via the
-      // rules tests / emulator like the features/* services — not unit-covered in gated dirs.
+      // I/O + browser-integration glue with no unit-testable logic — Firestore SDK wrappers and
+      // the Drive/Picker/callable client — exercised via the emulator/E2E, not the unit suite.
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/testing/**',
         'src/**/*.d.ts',
         'src/main.tsx',
         'src/lib/schedules/schedule-templates-service.ts',
+        'src/lib/google/drive-service.ts',
       ],
       // A low GLOBAL floor (locks overall coverage; ratchet up over time) plus HIGH
       // per-directory bars that lock in the well-covered pure business-logic libs so

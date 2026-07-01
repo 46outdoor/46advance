@@ -9,6 +9,8 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/services/firebase';
 import { GOOGLE_APP_ID, GOOGLE_PICKER_API_KEY, isPickerConfigured } from '@/config/integrations';
 import type {
+  GetArtistDocumentContentInput,
+  GetArtistDocumentContentOutput,
   GetDriveAccessTokenOutput,
   ImportDriveFolderInput,
   ImportDriveFolderOutput,
@@ -53,6 +55,45 @@ export async function savePacketToDrive(eventId: string, path: string): Promise<
 export async function importDriveFolder(folderId: string): Promise<ImportDriveFolderOutput> {
   const callable = httpsCallable<ImportDriveFolderInput, ImportDriveFolderOutput>(functions, 'importDriveFolder');
   return (await callable({ folderId })).data;
+}
+
+/**
+ * Fetch an artist document's bytes via the service-account broker — for approved techs who can't
+ * open the file in Drive directly. Returns base64 + mime + name (the fileId must be a known
+ * artist document). See openArtistDocument() for the view/download flow.
+ */
+export async function getArtistDocumentContent(fileId: string): Promise<GetArtistDocumentContentOutput> {
+  const callable = httpsCallable<GetArtistDocumentContentInput, GetArtistDocumentContentOutput>(
+    functions,
+    'getArtistDocumentContent',
+  );
+  return (await callable({ fileId })).data;
+}
+
+/**
+ * View an artist document in-app via the broker: opens a blank tab synchronously (in the click
+ * gesture, to dodge popup blockers), fetches the bytes, then points the tab at a blob URL —
+ * falling back to a download if the tab was blocked.
+ */
+export async function openArtistDocument(fileId: string): Promise<void> {
+  const tab = window.open('', '_blank');
+  try {
+    const { base64, mimeType, name } = await getArtistDocumentContent(fileId);
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
 }
 
 async function getDriveAccessToken(): Promise<string> {

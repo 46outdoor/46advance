@@ -41,3 +41,14 @@ export const importDriveFolderInputSchema = z.object({ folderId: z.string().min(
 export type ImportDriveFolderInput = z.infer<typeof importDriveFolderInputSchema>;
 export const importDriveFolderOutputSchema = z.object({ imported: z.number(), skipped: z.number() });
 export type ImportDriveFolderOutput = z.infer<typeof importDriveFolderOutputSchema>;
+
+// getArtistDocumentContent — serve an artist document's bytes via the service-account broker, so
+// approved techs can view files in permission-gated Drive folders they can't open directly.
+export const getArtistDocumentContentInputSchema = z.object({ fileId: z.string().min(1) });
+export type GetArtistDocumentContentInput = z.infer<typeof getArtistDocumentContentInputSchema>;
+export const getArtistDocumentContentOutputSchema = z.object({
+  base64: z.string(),
+  mimeType: z.string(),
+  name: z.string(),
+});
+export type GetArtistDocumentContentOutput = z.infer<typeof getArtistDocumentContentOutputSchema>;
