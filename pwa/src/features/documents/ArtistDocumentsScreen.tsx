@@ -13,6 +13,7 @@ import {
 import { documentTitle, isVerifiedCurrent, type ArtistDocument } from '@/lib/documents/artistDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
+import { openArtistDocument } from '@/lib/google/drive-service';
 
 const logger = createLogger('Documents');
 
@@ -36,6 +37,20 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(doc.displayName ?? '');
   const [notes, setNotes] = useState(doc.notes ?? '');
+  const [viewing, setViewing] = useState(false);
+  const [viewError, setViewError] = useState(false);
+
+  const view = async () => {
+    setViewError(false);
+    setViewing(true);
+    try {
+      await openArtistDocument(doc.fileId);
+    } catch {
+      setViewError(true);
+    } finally {
+      setViewing(false);
+    }
+  };
   const categoryName = categories.find((c) => c.id === doc.categoryId)?.name ?? 'Unclassified';
   const verified = isVerifiedCurrent(doc.verifiedAt, new Date());
 
@@ -66,6 +81,16 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
           >
             {verified ? 'Verified' : 'Unverified'}
           </span>
+          <button
+            type="button"
+            disabled={viewing}
+            onClick={view}
+            title="View in-app (no Drive access needed)"
+            className="shrink-0 rounded border border-line px-2 py-0.5 text-xs text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {viewing ? 'Opening…' : 'View'}
+          </button>
+          {viewError && <span className="shrink-0 text-xs text-accent">Couldn't open</span>}
         </div>
         {canManage ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">

@@ -18,11 +18,13 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
 import { google, type drive_v3 } from 'googleapis';
 import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
+  getArtistDocumentContentInputSchema,
   importDriveFolderInputSchema,
   linkDriveFileInputSchema,
   removeDriveFileInputSchema,
@@ -42,6 +44,19 @@ async function assertEventMember(db: Firestore, uid: string, isAdmin: boolean, e
   if (isAdmin) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
+}
+
+const DRIVE_SA_KEY = defineSecret('DRIVE_SA_KEY');
+
+/** A read-only Drive client authenticated as the docs-broker service account (the artist-docs
+ * folder is shared with it). Lets approved techs view files they can't open in Drive directly. */
+function brokerDriveClient(): drive_v3.Drive {
+  const credentials = JSON.parse(DRIVE_SA_KEY.value()) as Record<string, unknown>;
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  });
+  return google.drive({ version: 'v3', auth });
 }
 
 /**
@@ -314,5 +329,37 @@ export const savePacketToDrive = onCall(
       fields: 'id,webViewLink',
     });
     return { saved: true, webViewLink: created.data.webViewLink ?? null, fileId: created.data.id ?? null };
+  },
+);
+
+/**
+ * Serve an artist document's bytes to an approved user via the docs-broker service account, so
+ * techs can view files in permission-gated Drive folders they can't open directly. The fileId
+ * must be a known artistDocument (its doc id = the Drive file id). Returns base64 + mime + name.
+ */
+export const getArtistDocumentContent = onCall(
+  { secrets: [DRIVE_SA_KEY], timeoutSeconds: 60, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    if (token.admin !== true && token.approved !== true) {
+      throw new HttpsError('permission-denied', 'Approved users only.');
+    }
+    const { fileId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
+    const snap = await db.collection('artistDocuments').doc(fileId).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Unknown document.');
+    const doc = snap.data() ?? {};
+
+    const res = await brokerDriveClient().files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'arraybuffer' },
+    );
+    return {
+      base64: Buffer.from(res.data as ArrayBuffer).toString('base64'),
+      mimeType: typeof doc.mimeType === 'string' ? doc.mimeType : 'application/octet-stream',
+      name: typeof doc.name === 'string' ? doc.name : 'document',
+    };
   },
 );
