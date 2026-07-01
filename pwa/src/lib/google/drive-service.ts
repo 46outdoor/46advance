@@ -75,8 +75,17 @@ export async function getArtistDocumentContent(fileId: string): Promise<GetArtis
  * gesture, to dodge popup blockers), fetches the bytes, then points the tab at a blob URL —
  * falling back to a download if the tab was blocked.
  */
+const DOC_LOADING_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Loading…</title><style>
+html,body{margin:0;height:100%}
+body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+.s{width:34px;height:34px;border:3px solid #2a2a2a;border-top-color:#f04040;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+p{margin-top:18px;color:#8a8a8a;font-size:14px;letter-spacing:.02em}
+</style></head><body><div style="text-align:center"><div class="s"></div><p>Loading document…</p></div></body></html>`;
+
 export async function openArtistDocument(fileId: string): Promise<void> {
   const tab = window.open('', '_blank');
+  if (tab) tab.document.write(DOC_LOADING_HTML); // show a spinner while the broker fetches the bytes
   try {
     const { base64, mimeType, name } = await getArtistDocumentContent(fileId);
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

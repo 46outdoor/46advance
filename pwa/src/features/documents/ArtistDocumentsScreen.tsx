@@ -63,14 +63,17 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
     <article className={`rounded-lg border px-4 py-3 ${doc.obsolete ? 'border-line/60 bg-surface-muted/30' : 'border-line'}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <a
-            href={doc.webViewLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`min-w-0 truncate font-semibold transition-colors hover:text-accent ${doc.obsolete ? 'text-ink-muted line-through' : 'text-ink'}`}
+          <button
+            type="button"
+            onClick={view}
+            disabled={viewing}
+            title="Open in-app (no Drive access needed)"
+            className={`min-w-0 truncate text-left font-semibold transition-colors hover:text-accent disabled:opacity-60 ${doc.obsolete ? 'text-ink-muted line-through' : 'text-ink'}`}
           >
             {documentTitle(doc)}
-          </a>
+          </button>
+          {viewing && <span className="shrink-0 text-xs text-ink-muted">opening…</span>}
+          {viewError && <span className="shrink-0 text-xs text-accent">Couldn't open</span>}
           {doc.obsolete && (
             <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-accent">
               Obsolete
@@ -81,16 +84,15 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
           >
             {verified ? 'Verified' : 'Unverified'}
           </span>
-          <button
-            type="button"
-            disabled={viewing}
-            onClick={view}
-            title="View in-app (no Drive access needed)"
-            className="shrink-0 rounded border border-line px-2 py-0.5 text-xs text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          <a
+            href={doc.webViewLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Google Drive (needs Drive access)"
+            className="shrink-0 text-xs text-ink-muted transition-colors hover:text-accent"
           >
-            {viewing ? 'Opening…' : 'View'}
-          </button>
-          {viewError && <span className="shrink-0 text-xs text-accent">Couldn't open</span>}
+            Drive ↗
+          </a>
         </div>
         {canManage ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
