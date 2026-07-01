@@ -14,10 +14,12 @@
  */
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
+import { assertApproved } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
   createEventCalendarInputSchema,
@@ -93,14 +95,16 @@ h1{font-size:1.15rem;margin:0 0 10px}p{color:rgba(255,255,255,.7);font-size:.92r
 <body><div class="card"><h1>${heading}</h1><p>${body}</p></div>${script}</body></html>`;
 }
 
-/** PM-or-admin gate (mirrors firestore.rules canEditEvent). */
+/** PM-or-admin gate (mirrors firestore.rules canEditEvent). Also requires an approved
+ *  account — the Admin SDK bypasses rules, so pending/revoked users must be denied here. */
 export async function assertCanEditEvent(
   db: Firestore,
+  token: DecodedIdToken,
   uid: string,
-  isAdmin: boolean,
   eventId: string,
 ): Promise<void> {
-  if (isAdmin) return;
+  assertApproved(token);
+  if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists || member.data()?.role !== 'production-manager') {
     throw new HttpsError('permission-denied', 'Only an admin or the event production manager can do this.');
@@ -167,6 +171,7 @@ export async function ensureEventCalendar(
  */
 export const googleAuthUrl = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  assertApproved(request.auth.token);
   const db = getFirestore();
   await enforceRateLimit(db, ['googleAuthUrl', request.auth.uid], 10);
   const stateRef = db.collection('googleOAuthStates').doc();
@@ -265,6 +270,7 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
  */
 export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  assertApproved(request.auth.token);
   const uid = request.auth.uid;
   const db = getFirestore();
   await enforceRateLimit(db, ['googleDisconnect', uid], 10);
@@ -296,7 +302,7 @@ export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (req
   const { eventId } = parseCallableData(createEventCalendarInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['createEventCalendar', uid], 20);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   const eventSnap = await db.doc(`events/${eventId}`).get();
   if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
@@ -320,7 +326,7 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
   const durationMinutes = input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : 30;
   const db = getFirestore();
   await enforceRateLimit(db, ['createAdvanceCall', uid], 20);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
   const [eventSnap, advanceSnap] = await Promise.all([db.doc(`events/${eventId}`).get(), advanceRef.get()]);

@@ -212,8 +212,9 @@ export function EventScheduleScreen() {
         eventQuery.data?.endDate,
         eventQuery.data?.loadInDays,
         eventQuery.data?.loadOutDays,
+        timeZone,
       ),
-    [eventQuery.data],
+    [eventQuery.data, timeZone],
   );
   const stageName = useMemo(() => new Map(stages.map((s) => [s.id, s.name])), [stages]);
   const advanceLabel = useMemo(

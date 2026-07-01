@@ -8,6 +8,7 @@ import {
   formatCentralDate,
   formatCentralTime,
   centralDayKey,
+  shiftDayKey,
 } from './timezone';
 
 const HOUR = 3_600_000;
@@ -58,5 +59,13 @@ describe('timezone — Central (America/Chicago) conversions', () => {
     // 1:00 AM UTC Jun 25 is still Jun 24 in Central (8:00 PM CDT)
     expect(centralDayKey(new Date(Date.UTC(2026, 5, 25, 1, 0)))).toBe('2026-06-24');
     expect(formatCentralTime(null)).toBe('');
+  });
+
+  it('shiftDayKey moves whole calendar days across month/DST boundaries', () => {
+    expect(shiftDayKey('2026-06-26', 1)).toBe('2026-06-27');
+    expect(shiftDayKey('2026-06-26', -1)).toBe('2026-06-25');
+    expect(shiftDayKey('2026-06-30', 1)).toBe('2026-07-01'); // month rollover
+    expect(shiftDayKey('2026-03-08', 1)).toBe('2026-03-09'); // spring-forward day: still +1 calendar day
+    expect(shiftDayKey('2026-06-26', 0)).toBe('2026-06-26');
   });
 });

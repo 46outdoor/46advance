@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { APP_TIME_ZONE, zonedInputToDate } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, shiftDayKey, zonedDayKey, zonedInputToDate } from '@/lib/dates/timezone';
 import { SCHEDULE_SECTION_KEYS, type ScheduleSection } from './sections';
 
 export const SCHEDULE_TEMPLATE_CATEGORIES = ['production', 'show', 'stagehand', 'other'] as const;
@@ -148,15 +148,11 @@ export const scheduleTemplateInputSchema = z.object({
 });
 export type ScheduleTemplateInput = z.infer<typeof scheduleTemplateInputSchema>;
 
-/** Pad a number to a 2-digit string. */
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
 /**
  * Resolve a blueprint's relative day + wall-clock time to a UTC instant against the event's
- * start date. `timeZone` defaults to Central; pass the event's zone once events carry one.
- * Returns null when there's no start date or no time-of-day.
+ * start date, in the event's `timeZone` (default Central). The event day is derived in that
+ * zone — NOT the browser's — so an imported item lands on the right calendar day regardless of
+ * the viewer's location. Returns null when there's no start date or no time-of-day.
  */
 export function templateItemInstant(
   eventStart: Date | null,
@@ -165,7 +161,6 @@ export function templateItemInstant(
   timeZone: string = APP_TIME_ZONE,
 ): Date | null {
   if (!eventStart || !timeOfDay) return null;
-  const day = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate() + dayOffset);
-  const dateStr = `${day.getFullYear()}-${pad2(day.getMonth() + 1)}-${pad2(day.getDate())}`;
-  return zonedInputToDate(`${dateStr}T${timeOfDay}`, timeZone);
+  const dayKey = shiftDayKey(zonedDayKey(eventStart, timeZone), dayOffset);
+  return zonedInputToDate(`${dayKey}T${timeOfDay}`, timeZone);
 }
