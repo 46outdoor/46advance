@@ -10,10 +10,13 @@
 import { z } from 'zod';
 
 // syncUserClaims — no input (reads the auth context); returns the claim summary.
+// `emailVerified` mirrors the token's email_verified: no `admin`/`approved` claim is
+// granted until the address is verified, so the client can show a "verify email" gate.
 export const syncUserClaimsOutputSchema = z.object({
   isAdmin: z.boolean(),
   isOrganizer: z.boolean(),
   approved: z.boolean(),
+  emailVerified: z.boolean(),
 });
 export type SyncUserClaimsOutput = z.infer<typeof syncUserClaimsOutputSchema>;
 

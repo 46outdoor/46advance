@@ -16,7 +16,6 @@ import {
   type ScheduleItemInput,
 } from '@/lib/schedules/scheduleItem';
 import { dateToZonedInput, zonedInputToDate } from '@/lib/dates/timezone';
-import { dateInputValue } from '@/lib/dates/parsing';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
 import type { EventScheduleDay } from '@/lib/events/event';
 
@@ -214,14 +213,11 @@ function DayTimeFields({
         {scheduleDays.length > 0 ? (
           <select className={inputClass} value={day} onChange={(e) => setDay(e.target.value)}>
             <option value="">— Select a day —</option>
-            {scheduleDays.map((d) => {
-              const value = dateInputValue(d.date);
-              return (
-                <option key={value} value={value}>
-                  {d.label}
-                </option>
-              );
-            })}
+            {scheduleDays.map((d) => (
+              <option key={d.key} value={d.key}>
+                {d.label}
+              </option>
+            ))}
           </select>
         ) : (
           <input type="date" className={inputClass} value={day} onChange={(e) => setDay(e.target.value)} />

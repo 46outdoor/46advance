@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
 import {
   getFirestore,
   FieldValue,
@@ -17,6 +17,7 @@ import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
+import { assertApproved } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
   deleteUserInputSchema,
@@ -128,7 +129,12 @@ export const syncUserClaims = onCall(async (request) => {
   }
   const { uid, token } = request.auth;
   const email = token.email ?? null;
-  const isAdmin = isAdminEmail(email, ADMIN_EMAILS);
+  // Email verification is a prerequisite for ANY privileged claim. Federated (Google)
+  // sign-in sets this true automatically; email/password accounts must click the
+  // verification link first. Without it, an attacker could self-register the allowlisted
+  // admin address and be granted `admin` — so the allowlist is only honored once verified.
+  const emailVerified = token.email_verified === true;
+  const isAdmin = emailVerified && isAdminEmail(email, ADMIN_EMAILS);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
@@ -139,9 +145,16 @@ export const syncUserClaims = onCall(async (request) => {
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
 
-  // Admin-approval gate: admins are always approved; a brand-new account starts PENDING;
+  // Admin-approval gate, guarded by email verification: an unverified address gets no
+  // access. Otherwise admins are always approved; a brand-new account starts PENDING;
   // pre-existing accounts are grandfathered approved (unless an admin explicitly revoked).
-  const approved = isAdmin ? true : snap.exists ? existing.approved !== false : false;
+  const approved = emailVerified
+    ? isAdmin
+      ? true
+      : snap.exists
+        ? existing.approved !== false
+        : false
+    : false;
 
   if (existing.admin !== isAdmin || existing.approved !== approved) {
     await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin, approved });
@@ -174,7 +187,7 @@ export const syncUserClaims = onCall(async (request) => {
     { merge: true },
   );
 
-  return { isAdmin, isOrganizer, approved };
+  return { isAdmin, isOrganizer, approved, emailVerified };
 });
 
 /**
@@ -396,6 +409,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Sign in required.');
   }
   const { uid, token } = request.auth;
+  assertApproved(token); // an organizer whose access was revoked can't create events
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
@@ -473,13 +487,14 @@ async function loadAuthorizedEvent(
   db: Firestore,
   eventId: string,
   uid: string,
-  isAdmin: boolean,
+  token: DecodedIdToken,
 ): Promise<FirebaseFirestore.DocumentSnapshot> {
+  assertApproved(token); // pending/revoked accounts can't act, mirroring firestore.rules
   const eventSnap = await db.doc(`events/${eventId}`).get();
   if (!eventSnap.exists) {
     throw new HttpsError('not-found', 'Event not found.');
   }
-  if (!isAdmin) {
+  if (token.admin !== true) {
     const member = await db.doc(`events/${eventId}/members/${uid}`).get();
     if (!member.exists) {
       throw new HttpsError('permission-denied', 'Not a member of this event.');
@@ -603,7 +618,7 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
 
   const db = getFirestore();
   await enforceRateLimit(db, ['generatePacket', uid], 10);
-  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
+  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
   const ev = eventSnap.data() ?? {};
 
   const deptSnap = await db.collection('departments').get();
@@ -705,7 +720,7 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
 
   const db = getFirestore();
   await enforceRateLimit(db, ['generateQuotePdf', uid], 10);
-  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token.admin === true);
+  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
 
   const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
   const [advanceSnap, quoteSnap] = await Promise.all([

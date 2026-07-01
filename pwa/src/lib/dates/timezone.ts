@@ -146,3 +146,11 @@ export function formatZonedTime(date: Date | null, timeZone = APP_TIME_ZONE): st
 export function zonedDayKey(date: Date | null, timeZone = APP_TIME_ZONE): string {
   return date ? dateToZonedInput(date, timeZone).slice(0, 10) : '';
 }
+
+/** Shift a `YYYY-MM-DD` day key by whole calendar days (UTC arithmetic — DST-safe). */
+export function shiftDayKey(dayKey: string, deltaDays: number): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+}

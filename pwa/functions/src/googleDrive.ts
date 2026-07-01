@@ -16,11 +16,13 @@
 import { Readable } from 'node:stream';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google, type drive_v3 } from 'googleapis';
 import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
+import { assertApproved } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
@@ -39,9 +41,11 @@ function advancePath(eventId: string, stageId: string, advanceId: string): strin
   return `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
 }
 
-/** Read-level gate (member or admin), mirroring firestore.rules `isMember`. */
-async function assertEventMember(db: Firestore, uid: string, isAdmin: boolean, eventId: string): Promise<void> {
-  if (isAdmin) return;
+/** Read-level gate (member or admin), mirroring firestore.rules `isMember` — including the
+ *  `approved` account requirement, since the Admin SDK bypasses rules. */
+async function assertEventMember(db: Firestore, token: DecodedIdToken, uid: string, eventId: string): Promise<void> {
+  assertApproved(token);
+  if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
 }
@@ -65,6 +69,7 @@ function brokerDriveClient(): drive_v3.Drive {
  */
 export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  assertApproved(request.auth.token);
   const db = getFirestore();
   await enforceRateLimit(db, ['getDriveAccessToken', request.auth.uid], 30);
   const client = await authedClientForUser(db, request.auth.uid); // throws failed-precondition if not connected
@@ -84,7 +89,7 @@ export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60
   const { eventId, stageId, advanceId, fileId } = parseCallableData(linkDriveFileInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['linkDriveFile', uid], 30);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   const ref = db.doc(advancePath(eventId, stageId, advanceId));
   const snap = await ref.get();
@@ -129,7 +134,7 @@ export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) =>
   const { eventId, stageId, advanceId, fileId } = parseCallableData(removeDriveFileInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['removeDriveFile', uid], 30);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   const ref = db.doc(advancePath(eventId, stageId, advanceId));
   const snap = await ref.get();
@@ -188,6 +193,7 @@ async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: n
 export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
+  assertApproved(token);
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
@@ -302,7 +308,7 @@ export const savePacketToDrive = onCall(
     }
     const db = getFirestore();
     await enforceRateLimit(db, ['savePacketToDrive', uid], 10);
-    await assertEventMember(db, uid, token.admin === true, eventId);
+    await assertEventMember(db, token, uid, eventId);
 
     const eventSnap = await db.doc(`events/${eventId}`).get();
     if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
@@ -342,9 +348,7 @@ export const getArtistDocumentContent = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
-    if (token.admin !== true && token.approved !== true) {
-      throw new HttpsError('permission-denied', 'Approved users only.');
-    }
+    assertApproved(token);
     const { fileId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);

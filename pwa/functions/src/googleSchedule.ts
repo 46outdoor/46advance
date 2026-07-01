@@ -98,7 +98,7 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   const { eventId, itemId } = parsePushInput(request.data ?? {});
   const db = getFirestore();
   await enforceRateLimit(db, ['pushScheduleItem', uid], 60);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   const itemRef = db.doc(`events/${eventId}/scheduleItems/${itemId}`);
   const snap = await itemRef.get();
@@ -150,7 +150,7 @@ export const removeScheduleCalendarEvent = onCall({ secrets: OAUTH_SECRETS, time
   const { eventId, calendarEventId } = parseCallableData(removeScheduleCalendarEventInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['removeScheduleCalendarEvent', uid], 60);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
 
   let client: AuthClient;
   try {

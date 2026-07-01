@@ -9,6 +9,22 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-01
+
+### Added
+
+- **Email verification:** new email/password accounts must now verify their email before getting access. A verification link is sent at sign-up, and a **"Verify your email"** screen (with resend + "I've verified — continue") stands in until it's confirmed. Google sign-ins are already verified, so they're unaffected.
+
+### Fixed
+
+- **Schedule days across timezones:** the schedule day picker and imported schedule-template items now derive each calendar day in the **event's timezone** rather than the viewer's browser zone, so opening a schedule from another timezone no longer lands items on the wrong day.
+- **Booking auto-attach:** syncing advance-call bookings now attaches each match transactionally. Two bookings for the same artist (or an overlapping manual + scheduled sync) can no longer overwrite each other's Meet link and time — the extra booking is queued for review instead.
+
+### Security
+
+- **Admin bootstrap hardened:** the global admin claim is granted only to a **verified** allowlisted email — previously an unverified address that matched the allowlist could receive it. Combined with the email-verification gate above, this closes an admin self-escalation path.
+- **Approved-user gate on server callables:** the privileged Cloud Function callables (packet/quote PDF, event creation, Google Calendar/Drive/booking actions) now re-check that the caller's account is **approved**, matching what the Firestore rules already enforce — so a pending or admin-revoked member can no longer act through them.
+
 ## 2026-06-28
 
 ### Added

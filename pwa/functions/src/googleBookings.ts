@@ -205,7 +205,14 @@ async function writeAlreadyLinked(
   );
 }
 
-/** Auto-attach a confident single match: write back to the advance, then mark the booking attached. */
+/**
+ * Auto-attach a confident single match, transactionally. Re-reads the advance inside a
+ * transaction and only writes if it has no call yet (or is already linked to THIS booking) —
+ * so a concurrent manual+cron run, or a second same-artist booking in the same run, can't
+ * clobber an attach that already landed. Returns whether it claimed the advance; on a lost
+ * race the caller queues the booking for review instead. Only marks the booking attached on
+ * success.
+ */
 async function writeConfidentAttach(
   db: Firestore,
   eventId: string,
@@ -214,16 +221,29 @@ async function writeConfidentAttach(
   m: AdvanceRef,
   syncedAt: SyncedAt,
   nowTs: FieldValue,
-): Promise<void> {
-  await db.doc(`events/${eventId}/stages/${m.stageId}/advances/${m.advanceId}`).set(
-    {
-      advanceCallAt: Timestamp.fromMillis(b.startMillis),
-      advanceCallLink: b.meetLink,
-      googleCalendarEventId: b.calendarEventId,
-      updatedAt: nowTs,
-    },
-    { merge: true },
-  );
+): Promise<boolean> {
+  const advanceRef = db.doc(`events/${eventId}/stages/${m.stageId}/advances/${m.advanceId}`);
+  const claimed = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(advanceRef);
+    if (!snap.exists) return false;
+    const data = snap.data() ?? {};
+    const linkedId = typeof data.googleCalendarEventId === 'string' ? data.googleCalendarEventId : null;
+    const hasCall = Boolean(data.advanceCallAt) || Boolean(data.advanceCallLink) || Boolean(linkedId);
+    // Eligible only if no call is attached yet, or it's already this exact booking (idempotent re-sync).
+    if (hasCall && linkedId !== b.calendarEventId) return false;
+    tx.set(
+      advanceRef,
+      {
+        advanceCallAt: Timestamp.fromMillis(b.startMillis),
+        advanceCallLink: b.meetLink,
+        googleCalendarEventId: b.calendarEventId,
+        updatedAt: nowTs,
+      },
+      { merge: true },
+    );
+    return true;
+  });
+  if (!claimed) return false;
   await bookingRef.set(
     {
       ...bookingDoc(b),
@@ -236,6 +256,7 @@ async function writeConfidentAttach(
     },
     { merge: true },
   );
+  return true;
 }
 
 /** Queue an ambiguous booking for manual review, recording why and the best suggestion. */
@@ -327,8 +348,18 @@ export async function syncEventBookings(
 
     const unlinked = matches.filter((a) => !a.hasCall && !a.linkedEventId);
     if (matches.length === 1 && unlinked.length === 1) {
-      await writeConfidentAttach(db, eventId, bookingRef, b, unlinked[0], syncedAt, nowTs);
-      attached++;
+      const target = unlinked[0];
+      const didAttach = await writeConfidentAttach(db, eventId, bookingRef, b, target, syncedAt, nowTs);
+      if (didAttach) {
+        // Mutate the in-memory index so a second same-artist booking this run can't re-attach
+        // the same advance (it'll fall through to needs_review as 'already_linked' instead).
+        target.hasCall = true;
+        target.linkedEventId = b.calendarEventId;
+        attached++;
+      } else {
+        await writeNeedsReview(bookingRef, b, matches, syncedAt, nowTs);
+        needsReview++;
+      }
     } else {
       await writeNeedsReview(bookingRef, b, matches, syncedAt, nowTs);
       needsReview++;
@@ -348,7 +379,7 @@ export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutS
   const { eventId } = parseCallableData(syncAdvanceCallBookingsInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['syncAdvanceCallBookings', uid], 10);
-  await assertCanEditEvent(db, uid, token.admin === true, eventId);
+  await assertCanEditEvent(db, token, uid, eventId);
   const client = await authedClientForUser(db, uid);
   return syncEventBookings(db, client, eventId);
 });

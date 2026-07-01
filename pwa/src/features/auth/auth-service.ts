@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
@@ -21,8 +22,24 @@ export function signInWithEmail(email: string, password: string): Promise<UserCr
   return signInWithEmailAndPassword(auth, email, password);
 }
 
-export function signUpWithEmail(email: string, password: string): Promise<UserCredential> {
-  return createUserWithEmailAndPassword(auth, email, password);
+export async function signUpWithEmail(email: string, password: string): Promise<UserCredential> {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  // Kick off email verification immediately — no privileged claim (admin/approved) is
+  // granted server-side until the address is verified (see syncUserClaims).
+  await sendEmailVerification(cred.user);
+  return cred;
+}
+
+/** Re-send the verification email to the currently signed-in (unverified) user. */
+export async function resendVerificationEmail(): Promise<void> {
+  if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+}
+
+/** Reload the current user from the server (picks up a freshly-verified email). */
+export async function reloadCurrentUser(): Promise<User | null> {
+  if (!auth.currentUser) return null;
+  await auth.currentUser.reload();
+  return auth.currentUser;
 }
 
 export function signOutUser(): Promise<void> {
