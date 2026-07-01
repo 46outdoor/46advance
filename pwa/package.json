@@ -22,20 +22,20 @@
     "emulators": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start"
   },
   "dependencies": {
-    "@sentry/react": "^10.62.0",
-    "@tanstack/react-query": "^5.62.0",
+    "@sentry/react": "^10.63.0",
+    "@tanstack/react-query": "^5.101.2",
     "firebase": "^11.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-easy-crop": "^6.0.2",
-    "react-router-dom": "^7.1.0",
+    "react-router-dom": "^7.18.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@firebase/rules-unit-testing": "^4.0.1",
-    "@playwright/test": "^1.49.0",
-    "@tailwindcss/vite": "^4.0.0",
+    "@playwright/test": "^1.61.1",
+    "@tailwindcss/vite": "^4.3.2",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.0",
@@ -49,11 +49,11 @@
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^15.14.0",
     "jsdom": "^25.0.0",
-    "prettier": "^3.4.0",
+    "prettier": "^3.9.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.18.0",
-    "vite": "^7.0.0",
+    "typescript-eslint": "^8.62.1",
+    "vite": "^7.3.6",
     "vite-plugin-pwa": "^1.0.0",
     "vitest": "^3.0.0"
   }
