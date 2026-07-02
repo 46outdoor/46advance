@@ -119,3 +119,32 @@ describe('storage.rules — upload validation', () => {
     );
   });
 });
+
+describe('storage.rules — contact photos (uploader-scoped)', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // "\x89PNG"
+  const pngMeta = { contentType: 'image/png' };
+
+  it('an approved user can write a photo in their own uid folder', async () => {
+    await assertSucceeds(uploadBytes(ref(storageFor(TECH), `contacts/photos/${TECH}/a.png`), PNG, pngMeta));
+  });
+
+  it("a user cannot write into another user's folder", async () => {
+    await assertFails(uploadBytes(ref(storageFor(TECH), `contacts/photos/${PM}/a.png`), PNG, pngMeta));
+  });
+
+  it('any approved user can read a contact photo', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), `contacts/photos/${PM}/x.png`), PNG, pngMeta);
+    });
+    await assertSucceeds(getBytes(ref(storageFor(OUTSIDER), `contacts/photos/${PM}/x.png`)));
+  });
+
+  it("a user cannot delete another user's photo but can delete their own", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), `contacts/photos/${TECH}/mine.png`), PNG, pngMeta);
+      await uploadBytes(ref(ctx.storage(), `contacts/photos/${PM}/theirs.png`), PNG, pngMeta);
+    });
+    await assertFails(deleteObject(ref(storageFor(TECH), `contacts/photos/${PM}/theirs.png`)));
+    await assertSucceeds(deleteObject(ref(storageFor(TECH), `contacts/photos/${TECH}/mine.png`)));
+  });
+});

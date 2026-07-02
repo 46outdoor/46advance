@@ -858,3 +858,19 @@ describe('firestore.rules — schedule items (Phase 12a)', () => {
     await assertFails(updateDoc(doc(dbFor(LEAD), itemPath), { title: 'nope' }));
   });
 });
+
+describe('contacts — create userId link', () => {
+  const newContact = (extra: Record<string, unknown> = {}) => ({ name: 'Someone', createdBy: TECH, ...extra });
+
+  it('an approved user can create an unlinked contact', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(TECH), 'contacts/c-unlinked'), newContact()));
+  });
+
+  it('a user can create a contact linked to their own account', async () => {
+    await assertSucceeds(setDoc(doc(dbFor(TECH), 'contacts/c-self'), newContact({ userId: TECH })));
+  });
+
+  it('a user cannot create a contact spoofing a link to another account', async () => {
+    await assertFails(setDoc(doc(dbFor(TECH), 'contacts/c-spoof'), newContact({ userId: PM })));
+  });
+});

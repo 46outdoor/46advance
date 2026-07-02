@@ -6,7 +6,10 @@ import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage
 import { storage } from '@/services/firebase';
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
-const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'dwg', 'dxf'];
+// Keep in lockstep with storage.rules `validUpload` (see uploads.test.ts for the parity check).
+// These extensions all upload with a contentType the rules accept: pdf→application/pdf,
+// png→image/png, jpg/jpeg→image/jpeg, dwg/dxf→application/octet-stream.
+export const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'dwg', 'dxf'];
 
 export interface UploadedFile {
   path: string;
@@ -17,7 +20,9 @@ export interface UploadedFile {
 
 /** Client-side validation. Returns an error message, or null if OK. */
 export function validateUpload(file: File): string | null {
-  if (file.size > MAX_UPLOAD_BYTES) return 'File exceeds the 25 MB limit.';
+  // storage.rules gates on `size < 25MB` (strict), so a file at EXACTLY the limit is rejected
+  // there — use `>=` here so the client pre-check never green-lights an upload the rules reject.
+  if (file.size >= MAX_UPLOAD_BYTES) return 'File exceeds the 25 MB limit.';
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (!ALLOWED_EXTENSIONS.includes(ext)) return 'Allowed types: PDF, PNG, JPG, DWG, DXF.';
   return null;

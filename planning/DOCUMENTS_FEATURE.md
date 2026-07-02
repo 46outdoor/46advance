@@ -29,7 +29,10 @@ event. Two-way Drive: import existing files, and upload new ones back into the r
 
 ## Drive integration
 
-- **Scope:** the app keeps the least-privilege **`drive.file`** scope (no broad-Drive read).
+- **Scope:** the app uses **`drive.file`** (per-file access to picked/created files) plus
+  **`drive.metadata.readonly`** — the latter is needed to *list* an imported folder's contents
+  (`drive.file` alone can't enumerate files the app didn't create); it's metadata-only, a much
+  lower verification bar than `drive.readonly`. Still no broad-Drive file *content* read.
   The user **picks the folder** in the Google Picker (folder selection enabled), which grants
   the app access to that folder's tree; a server callable enumerates + imports.
 - **Import (from Drive):** recurse the picked folder's per-artist subfolders → one document

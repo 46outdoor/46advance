@@ -11,21 +11,32 @@ import {
   doc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
+import { createLogger } from '@/lib/logger';
 import { parseContact, type Contact, type ContactInput, type ContactPhoto } from './contact';
+
+const logger = createLogger('Contacts');
+
+/** Defensive ceiling on the directory read so it can't grow unbounded. Well above any realistic
+ *  internal directory; if it's ever hit, that's the signal to add cursor pagination (roadmap). */
+const CONTACTS_READ_CAP = 1000;
 
 function contactsCol() {
   return collection(db, 'contacts');
 }
 
-/** All contacts, sorted by name. */
+/** Contacts sorted by name (bounded read — see CONTACTS_READ_CAP). */
 export async function listContacts(): Promise<Contact[]> {
-  const snap = await getDocs(contactsCol());
+  const snap = await getDocs(query(contactsCol(), orderBy('name'), limit(CONTACTS_READ_CAP)));
+  if (snap.size >= CONTACTS_READ_CAP) {
+    logger.warn(`Contact directory hit the ${CONTACTS_READ_CAP}-row read cap; some contacts are not shown — add pagination.`);
+  }
   return snap.docs.map((d) => parseContact(d.id, d.data())).sort((a, b) => a.name.localeCompare(b.name));
 }
 

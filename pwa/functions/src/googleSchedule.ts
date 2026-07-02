@@ -136,6 +136,22 @@ export const pushScheduleItem = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds:
   const body = buildEventBody(item, startTs!, eventTz);
 
   const calEventId = await upsertCalendarEvent(calendar, calendarId, body, existing);
+  if (!calEventId) throw new HttpsError('internal', 'Could not sync the schedule item to Google Calendar.');
+
+  if (!existing) {
+    // We just CREATED a new event. Adopt it only if the item still has none; if a concurrent
+    // push already attached one, delete our orphan so the item never gets a duplicate event.
+    const adopted = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(itemRef);
+      const current = fresh.data()?.googleCalendarEventId;
+      if (typeof current === 'string' && current.length > 0) return current;
+      tx.set(itemRef, { googleCalendarEventId: calEventId, updatedAt: now }, { merge: true });
+      return calEventId;
+    });
+    if (adopted !== calEventId) await deleteCalendarEvent(calendar, calendarId, calEventId);
+    return { synced: true, calendarEventId: adopted };
+  }
+
   await itemRef.set({ googleCalendarEventId: calEventId, updatedAt: now }, { merge: true });
   return { synced: true, calendarEventId: calEventId };
 });

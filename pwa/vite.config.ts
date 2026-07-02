@@ -57,7 +57,7 @@ export default defineConfig({
     // Rules tests run in Node against the emulator via vitest.rules.config.ts.
     // Cloud Functions tests run in functions/ via its own Vitest (the `functions`
     // CI job); exclude them here so this jsdom suite never imports firebase-admin.
-    exclude: [...configDefaults.exclude, 'test/**/*.rules.test.ts', 'functions/**'],
+    exclude: [...configDefaults.exclude, 'test/**/*.rules.test.ts', 'tests/**', 'functions/**'],
     css: true,
     // Dummy Firebase config so `services/firebase.ts` can initialize under test
     // (CI has no .env.local). Non-secret placeholders; no network at init.

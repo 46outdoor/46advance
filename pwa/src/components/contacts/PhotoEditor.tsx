@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
+import { useAuth } from '@/contexts/auth-context';
 import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
 import { ContactAvatar } from './ContactAvatar';
 import type { ContactPhoto, CropRect } from '@/lib/contacts/contact';
@@ -74,6 +75,7 @@ function CropModal({ src, onCancel, onSave }: { src: string; onCancel: () => voi
 /** Avatar + upload/reframe/remove, with a round crop step. Stores the original + crop rectangle
  *  so reframing re-opens the cropper on the original (no re-upload). */
 export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props) {
+  const { user } = useAuth();
   const [editing, setEditing] = useState<{ src: string; file: File | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +98,17 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
 
   const onCropSaved = async (crop: CropRect) => {
     if (!editing) return;
+    if (editing.file && !user) {
+      setError('You must be signed in to upload a photo.');
+      return;
+    }
     setBusy(true);
     try {
-      if (editing.file) {
+      if (editing.file && user) {
         const prev = photo;
         const ext = editing.file.name.split('.').pop()?.toLowerCase() || 'png';
-        const uploaded = await uploadFile(`contacts/photos/${Date.now()}.${ext}`, editing.file);
+        // Uploader-scoped path (contacts/photos/{uid}/…) so storage.rules can confine writes.
+        const uploaded = await uploadFile(`contacts/photos/${user.uid}/${Date.now()}.${ext}`, editing.file);
         await onChange({ path: uploaded.path, url: uploaded.url, crop });
         if (prev) await deleteFile(prev.path).catch(() => undefined);
       } else if (photo) {

@@ -5,6 +5,11 @@
  *
  * Invariant: a `Date` is always an absolute UTC instant. "Wall clock" strings
  * ('YYYY-MM-DDTHH:mm') are interpreted **in `timeZone`**, not local time.
+ *
+ * The Cloud Functions side has a hand-kept mirror of this math in
+ * `functions/src/lib/dates/zonedTime.ts` (no shared package across the ESM/CJS boundary). Keep
+ * the two in lockstep — a prior divergence produced wrong schedule dates; golden-vector tests on
+ * both sides (this file's `timezone.test.ts` + `zonedTime.test.ts`) will fail if they drift.
  */
 
 export const APP_TIME_ZONE = 'America/Chicago';

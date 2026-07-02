@@ -10,6 +10,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -19,6 +20,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
+import { createLogger } from '@/lib/logger';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
 import { defaultEventSlug, slugify, uniqueSlug } from '@/lib/events/slug';
@@ -29,6 +31,11 @@ import type {
   CreateEventFromTemplateOutput,
 } from '@contracts/callables/events';
 import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pdf';
+
+const logger = createLogger('Events');
+
+/** Defensive ceiling on the admin all-events read; if hit, add cursor pagination (roadmap). */
+const EVENTS_READ_CAP = 500;
 
 /**
  * Create an event, then add the creator as its production-manager.
@@ -102,7 +109,10 @@ async function takenSlugs(): Promise<Set<string>> {
 export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
   let events: EventRecord[];
   if (viewer.isAdmin) {
-    const snap = await getDocs(collection(db, 'events'));
+    const snap = await getDocs(query(collection(db, 'events'), orderBy('name'), limit(EVENTS_READ_CAP)));
+    if (snap.size >= EVENTS_READ_CAP) {
+      logger.warn(`Admin events list hit the ${EVENTS_READ_CAP}-event read cap — add pagination.`);
+    }
     events = snap.docs.map((d) => parseEvent(d.id, d.data()));
   } else {
     const memberSnap = await getDocs(
