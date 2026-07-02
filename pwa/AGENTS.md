@@ -55,13 +55,11 @@ src/
 
 functions/              # Firebase Cloud Functions — SHARED BACKEND (serves both apps)
 └── src/
-    ├── handlers/      # Handler files grouped by domain
-    ├── lib/           # Shared backend utilities (rate limiting, security)
-    ├── types/         # Backend type definitions
-    └── wiring/        # Function registration & export wiring
-
-contracts/              # Shared callable schemas (consumed by both apps)
-└── schemas/callables/  # Zod schemas for Cloud Function callables
+    ├── index.ts       # Entry: initializeApp + admin/event/PDF callables + re-exports
+    ├── google*.ts     # Domain handler modules (google, googleBookings, googleDrive, googleSchedule)
+    ├── contracts/     # Shared callable Zod schemas (contracts/callables/*) — client via `@contracts`
+    └── lib/           # Backend utilities: auth/ (authorize, allowlist), security/ (rate limits),
+                       #   db/ (chunkedBatch), dates/ (zonedTime), events/, pdf/
 ```
 
 ## Essential Commands

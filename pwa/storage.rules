@@ -57,11 +57,18 @@ service firebase.storage {
       allow write: if isAdmin() && validUpload();
       allow delete: if isAdmin();
     }
-    // Contact directory photos — any approved user manages (mirrors the open contacts create rule).
-    match /contacts/{allPaths=**} {
+    // Contact directory photos live at contacts/photos/{uploaderUid}/{file}. Any approved user
+    // reads; a user may only write/delete within their OWN uid folder (admin: any) — previously
+    // any approved user could overwrite/delete any photo. Legacy flat photos
+    // (contacts/photos/{file}, pre-uid-prefix) stay readable; only an admin can mutate them.
+    match /contacts/photos/{uid}/{fileName} {
       allow read: if isActiveUser();
-      allow write: if isActiveUser() && validUpload();
-      allow delete: if isActiveUser();
+      allow write: if (isAdmin() || (isActiveUser() && uid == request.auth.uid)) && validUpload();
+      allow delete: if isAdmin() || (isActiveUser() && uid == request.auth.uid);
+    }
+    match /contacts/photos/{fileName} {
+      allow read: if isActiveUser();
+      allow write, delete: if isAdmin();
     }
   }
 }

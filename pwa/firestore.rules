@@ -132,7 +132,12 @@ service cloud.firestore {
     // update the entry linked to their own account (userId == them) — e.g. their profile photo.
     match /contacts/{contactId} {
       allow read: if isActiveUser();
-      allow create: if isActiveUser() && request.resource.data.createdBy == request.auth.uid;
+      // `userId` links a contact to an account (profile mirror). A client may only create an
+      // unlinked contact or one linked to THEMSELVES — never spoof a link to another account.
+      // The server-created self-mirror (syncUserClaims, Admin SDK) bypasses these rules.
+      allow create: if isActiveUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.createdBy == request.auth.uid)
         || (isActiveUser() && resource.data.userId == request.auth.uid);

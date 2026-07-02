@@ -157,11 +157,24 @@ export async function ensureEventCalendar(
   const calendarId = created.data.id;
   if (!calendarId) throw new HttpsError('internal', 'Could not create the event calendar.');
 
-  await eventRef.set(
-    { googleCalendarId: calendarId, googleCalendarOwnerUid: uid, updatedAt: FieldValue.serverTimestamp() },
-    { merge: true },
-  );
-  return calendarId;
+  // Idempotent adopt: two concurrent calls both create a calendar, but only one is stored. In a
+  // transaction, claim ours only if the event still has no calendar; if another call won, delete
+  // our orphan so the event never ends up with a duplicate (or an unreferenced) Google calendar.
+  const adopted = await db.runTransaction(async (tx) => {
+    const fresh = await tx.get(eventRef);
+    const current = fresh.data()?.googleCalendarId;
+    if (typeof current === 'string' && current.length > 0) return current;
+    tx.set(
+      eventRef,
+      { googleCalendarId: calendarId, googleCalendarOwnerUid: uid, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+    return calendarId;
+  });
+  if (adopted !== calendarId) {
+    await calendar.calendars.delete({ calendarId }).catch(() => undefined);
+  }
+  return adopted;
 }
 
 /**

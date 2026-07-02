@@ -64,8 +64,14 @@ function brokerDriveClient(): drive_v3.Drive {
 }
 
 /**
- * Short-lived OAuth access token for the browser Picker. Refresh tokens stay server-side;
- * only this transient, `drive.file`-scoped access token is handed to the client.
+ * Short-lived OAuth access token for the browser Picker. Refresh tokens stay server-side; only a
+ * transient (~1h) access token is handed to the client.
+ *
+ * NOTE (P2-15, deferred): this token carries ALL scopes the user granted at connect (calendar +
+ * drive.file + drive.metadata.readonly), not `drive.file` alone — a user OAuth access token can't
+ * be scope-narrowed from its refresh token. True Picker down-scoping needs a SEPARATE
+ * drive.file-only OAuth grant (a second consent + refresh token), which would force every user to
+ * re-consent; tracked as a product decision rather than done here.
  */
 export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
@@ -355,14 +361,28 @@ export const getArtistDocumentContent = onCall(
     const snap = await db.collection('artistDocuments').doc(fileId).get();
     if (!snap.exists) throw new HttpsError('not-found', 'Unknown document.');
     const doc = snap.data() ?? {};
+    const storedMime = typeof doc.mimeType === 'string' ? doc.mimeType : '';
 
-    const res = await brokerDriveClient().files.get(
-      { fileId, alt: 'media', supportsAllDrives: true },
-      { responseType: 'arraybuffer' },
-    );
+    const drive = brokerDriveClient();
+    let data: ArrayBuffer;
+    let mimeType: string;
+    if (storedMime.startsWith('application/vnd.google-apps.')) {
+      // Google-native docs (Docs/Sheets/Slides — common for riders) can't be downloaded raw:
+      // `files.get?alt=media` 403s. Export to PDF, which is universally viewable in-app.
+      const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
+      data = res.data as ArrayBuffer;
+      mimeType = 'application/pdf';
+    } else {
+      const res = await drive.files.get(
+        { fileId, alt: 'media', supportsAllDrives: true },
+        { responseType: 'arraybuffer' },
+      );
+      data = res.data as ArrayBuffer;
+      mimeType = storedMime || 'application/octet-stream';
+    }
     return {
-      base64: Buffer.from(res.data as ArrayBuffer).toString('base64'),
-      mimeType: typeof doc.mimeType === 'string' ? doc.mimeType : 'application/octet-stream',
+      base64: Buffer.from(data).toString('base64'),
+      mimeType,
       name: typeof doc.name === 'string' ? doc.name : 'document',
     };
   },

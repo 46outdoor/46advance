@@ -24,11 +24,14 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Tracker completion accuracy:** the advance tracker now counts every currently-enabled department for each advance, so a department added after an advance was created no longer makes completion read higher than the advance's own page shows.
 - **Quote amounts:** quote line items reject invalid amounts (negative or non-numeric), and out-of-range stored values can no longer distort an artist-facing total.
 - **Booking auto-attach:** syncing advance-call bookings now attaches each match transactionally. Two bookings for the same artist (or an overlapping manual + scheduled sync) can no longer overwrite each other's Meet link and time — the extra booking is queued for review instead.
+- **Viewing Google-native docs in-app:** artist documents that are native Google files (Docs, Sheets, Slides — common for riders) now open in-app through the broker (exported to PDF) instead of failing to load; other file types are unchanged.
+- **Duplicate calendar entries:** creating an event's Google calendar, or pushing a schedule item to it, is now idempotent — a double-click or an overlapping sync can no longer leave a duplicate/orphaned calendar or event.
 
 ### Security
 
 - **Admin bootstrap hardened:** the global admin claim is granted only to a **verified** allowlisted email — previously an unverified address that matched the allowlist could receive it. Combined with the email-verification gate above, this closes an admin self-escalation path.
 - **Approved-user gate on server callables:** the privileged Cloud Function callables (packet/quote PDF, event creation, Google Calendar/Drive/booking actions) now re-check that the caller's account is **approved**, matching what the Firestore rules already enforce — so a pending or admin-revoked member can no longer act through them.
+- **Contact photo & link scoping:** a user can now only replace/remove contact photos they uploaded (previously any approved user could overwrite any photo), and a contact can no longer be created spoofing a link to someone else's account.
 
 ## 2026-06-28
 

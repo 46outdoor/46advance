@@ -35,7 +35,7 @@ change in one app's data layer can silently break the other.
 
 | Surface | Canonical location | What can break |
 | ------- | ------------------ | -------------- |
-| Cloud Function callables (signatures, validation) | `pwa/functions/src/handlers/` + `pwa/contracts/schemas/callables/` | Any caller passing the old shape |
+| Cloud Function callables (signatures, validation) | `pwa/functions/src/*.ts` (index.ts, google*.ts) + `pwa/functions/src/contracts/callables/` (shared Zod; client via `@contracts`) | Any caller passing the old shape |
 | Firestore document shape (fields, types, required vs optional) | Read/write sites in every app + `pwa/src/types/` | Reads/writes that assume the old shape |
 | Firestore security rules | `pwa/firestore.rules` | An app losing read/write access |
 | Auth custom claims / RBAC roles | `pwa/src/lib/rbac/roles.ts` (roles + Zod), `permissions.ts` (predicates), `membership.ts` (IO); claims setters in `functions/` | Any app's permission checks |
