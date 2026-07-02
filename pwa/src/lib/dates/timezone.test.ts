@@ -7,7 +7,6 @@ import {
   formatCentralDateTime,
   formatCentralDate,
   formatCentralTime,
-  centralDayKey,
   shiftDayKey,
 } from './timezone';
 
@@ -55,9 +54,6 @@ describe('timezone — Central (America/Chicago) conversions', () => {
     const d = new Date(Date.UTC(2026, 5, 24, 21, 0)); // 4:00 PM CDT, Jun 24
     expect(formatCentralDate(d)).toContain('Jun 24');
     expect(formatCentralTime(d)).toBe('4:00 PM');
-    expect(centralDayKey(d)).toBe('2026-06-24');
-    // 1:00 AM UTC Jun 25 is still Jun 24 in Central (8:00 PM CDT)
-    expect(centralDayKey(new Date(Date.UTC(2026, 5, 25, 1, 0)))).toBe('2026-06-24');
     expect(formatCentralTime(null)).toBe('');
   });
 

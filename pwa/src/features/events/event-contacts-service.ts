@@ -77,16 +77,6 @@ export async function attachContact(
   return ref.id;
 }
 
-export async function setEventContactRole(
-  eventId: string,
-  attachId: string,
-  roleLabel: string | null,
-): Promise<void> {
-  await updateDoc(doc(db, 'events', eventId, 'contacts', attachId), {
-    roleLabel: roleLabel?.trim() || null,
-  });
-}
-
 /** Set this crew member's event-specific note (stored on the join, not the directory contact). */
 export async function setEventContactNotes(
   eventId: string,

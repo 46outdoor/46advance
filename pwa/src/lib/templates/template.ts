@@ -129,8 +129,6 @@ export function parseTemplate(id: string, data: unknown): TemplateRecord {
   };
 }
 
-export const templateNameSchema = z.string().trim().min(1, 'Template name is required.');
-
 export function emptyTemplateInput(): TemplateInput {
   return {
     name: '',

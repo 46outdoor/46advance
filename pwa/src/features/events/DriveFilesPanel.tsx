@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { driveFilesKey, listDriveFiles } from './advances-service';
 import { createLogger } from '@/lib/logger';
 import { formatDate } from '@/lib/dates/formatting';
-import { isPickerConfigured } from '@/config/integrations';
+import { GOOGLE_CONNECTED_MESSAGE, isPickerConfigured } from '@/config/integrations';
 import {
   getGoogleAuthUrl,
   googleConnectionKey,
@@ -50,7 +50,7 @@ export function DriveFilesPanel({ eventId, stageId, advanceId, canEdit }: Props)
   // The OAuth callback popup posts this once tokens are stored; refresh the connection.
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (event.data === '46advance:google-connected') {
+      if (event.data === GOOGLE_CONNECTED_MESSAGE) {
         void queryClient.invalidateQueries({ queryKey: googleConnectionKey(user?.uid) });
       }
     }

@@ -22,7 +22,7 @@ import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
 import { createLogger } from '@/lib/logger';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
-import { parseEvent, type EventInput, type EventRecord, type EventStatus } from '@/lib/events/event';
+import { parseEvent, type EventInput, type EventRecord } from '@/lib/events/event';
 import { defaultEventSlug, slugify, uniqueSlug } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
 import type { Viewer } from '@/lib/rbac/permissions';
@@ -142,10 +142,6 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     ...(input.departmentIds ? { departmentIds: input.departmentIds } : {}),
     updatedAt: serverTimestamp(),
   });
-}
-
-export async function setEventStatus(eventId: string, status: EventStatus): Promise<void> {
-  await updateDoc(doc(db, 'events', eventId), { status, updatedAt: serverTimestamp() });
 }
 
 /**

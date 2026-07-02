@@ -287,7 +287,7 @@ service cloud.firestore {
           && nonEmptyStr(request.resource.data, 'title')
           && fieldIn(request.resource.data, 'section', ['production', 'show', 'travel', 'transportation', 'labor', 'custom'])
           && request.resource.data.get('includeInMaster', false) is bool
-          && keysUnchanged(['googleCalendarEventId']);
+          && keysUnchanged(['googleCalendarEventId', 'createdBy']); // server-owned + audit field
         allow delete: if canEditEvent(eventId);
       }
 

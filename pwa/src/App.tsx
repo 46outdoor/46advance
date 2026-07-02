@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import { lazyWithRetry } from '@/lib/pwa/lazyWithRetry';
 // Guards stay eager — they wrap the protected layout and are needed on first paint.
 // Importing them from their module paths (not the feature barrels) keeps each barrel
@@ -170,9 +171,11 @@ function ProtectedLayout() {
   return (
     <AuthGate>
       <AppShell>
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
+        <RouteErrorBoundary>
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </RouteErrorBoundary>
       </AppShell>
     </AuthGate>
   );

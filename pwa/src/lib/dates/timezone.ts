@@ -25,11 +25,6 @@ export const COMMON_TIME_ZONES: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'Pacific/Honolulu', label: 'Hawaii' },
 ];
 
-/** Friendly label for a timezone id (falls back to the raw id). */
-export function timeZoneLabel(id: string): string {
-  return COMMON_TIME_ZONES.find((z) => z.id === id)?.label ?? id;
-}
-
 /**
  * Offset (ms) of `timeZone` from UTC at the given instant — negative for zones west of
  * UTC (Central is −6h CST / −5h CDT). Computed by formatting the instant in the zone and
@@ -128,11 +123,6 @@ export function formatCentralDate(date: Date | null): string {
 /** Time only, in Central, e.g. "4:00 PM" (empty string for null). */
 export function formatCentralTime(date: Date | null): string {
   return date ? CENTRAL_TIME_FMT.format(date) : '';
-}
-
-/** Stable per-day key (`YYYY-MM-DD` in Central) for grouping items by day. */
-export function centralDayKey(date: Date | null): string {
-  return date ? dateToZonedInput(date).slice(0, 10) : '';
 }
 
 /** Date only, in `timeZone`, e.g. "Wed, Jun 24". */

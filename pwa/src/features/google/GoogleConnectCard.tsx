@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { GOOGLE_CONNECTED_MESSAGE } from '@/config/integrations';
 import {
   disconnectGoogle,
   getGoogleAuthUrl,
@@ -27,7 +28,7 @@ export function GoogleConnectCard() {
   // The OAuth callback popup posts this once tokens are stored.
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (event.data === '46advance:google-connected') void invalidate();
+      if (event.data === GOOGLE_CONNECTED_MESSAGE) void invalidate();
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
