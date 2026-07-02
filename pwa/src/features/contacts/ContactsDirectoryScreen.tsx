@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
@@ -21,6 +22,88 @@ import {
 import { ContactForm } from './ContactForm';
 
 const logger = createLogger('Contacts');
+
+/** One contact row: the card, or an inline edit form when being edited. */
+function ContactRow({
+  contact,
+  editing,
+  canManage,
+  updating,
+  updateError,
+  deleting,
+  onEdit,
+  onDelete,
+  onSubmitEdit,
+  onCancelEdit,
+}: {
+  contact: Contact;
+  editing: boolean;
+  canManage: boolean;
+  updating: boolean;
+  updateError: boolean;
+  deleting: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onSubmitEdit: (input: ContactInput) => void;
+  onCancelEdit: () => void;
+}) {
+  if (editing) {
+    return (
+      <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
+        <h2 className="mb-3 font-semibold text-brand">Edit contact</h2>
+        <ContactForm
+          initial={contact}
+          submitLabel="Save changes"
+          pending={updating}
+          error={updateError ? 'Could not save changes.' : null}
+          onSubmit={onSubmitEdit}
+          onCancel={onCancelEdit}
+        />
+      </div>
+    );
+  }
+  return (
+    <article className="rounded-lg border border-line px-4 py-3">
+      <div className="flex items-start gap-4">
+        <div className="flex min-w-0 flex-1 gap-3">
+          <ContactAvatar name={contact.name} photo={contact.photo} className="h-11 w-11" />
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 font-semibold text-ink">
+              {contact.name}
+              {contact.userId && (
+                <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ink-muted">
+                  Account
+                </span>
+              )}
+            </h2>
+            {contactSubtitle(contact) && <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>}
+            <div className="mt-1">
+              <ContactLinks phone={contact.phone} email={contact.email} />
+            </div>
+          </div>
+        </div>
+        {contact.notes && (
+          <p className="min-w-0 flex-1 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
+        )}
+        {canManage && (
+          <div className="flex shrink-0 gap-2 text-xs">
+            <button type="button" onClick={onEdit} className="text-ink-muted hover:text-accent">
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={onDelete}
+              className="text-ink-muted hover:text-accent disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
 
 /** Global personnel directory: anyone adds; creator/admin edits/deletes. */
 export function ContactsDirectoryScreen() {
@@ -58,13 +141,21 @@ export function ContactsDirectoryScreen() {
     onError: (err) => logger.error('Failed to delete contact', err),
   });
 
-  if (!user) return null;
   const contacts = contactsQuery.data ?? [];
-  const canManage = (c: Contact) => isAdmin || c.createdBy === user.uid;
   const visible = sortContacts(
     contacts.filter((c) => matchesContactQuery(c, search)),
     sortBy,
   );
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 88,
+    overscan: 8,
+  });
+
+  if (!user) return null;
+  const canManage = (c: Contact) => isAdmin || c.createdBy === user.uid;
 
   return (
     <section className="space-y-6">
@@ -130,66 +221,40 @@ export function ContactsDirectoryScreen() {
         <p className="text-sm text-ink-muted">No contacts yet.</p>
       )}
 
-      <div className="space-y-2">
-        {visible.map((contact) =>
-          editingId === contact.id ? (
-            <div key={contact.id} className="rounded-lg border border-line bg-surface-muted/40 p-4">
-              <h2 className="mb-3 font-semibold text-brand">Edit contact</h2>
-              <ContactForm
-                initial={contact}
-                submitLabel="Save changes"
-                pending={update.isPending}
-                error={update.isError ? 'Could not save changes.' : null}
-                onSubmit={(input) => update.mutate({ id: contact.id, input })}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
-          ) : (
-            <article key={contact.id} className="rounded-lg border border-line px-4 py-3">
-              <div className="flex items-start gap-4">
-                <div className="flex min-w-0 flex-1 gap-3">
-                  <ContactAvatar name={contact.name} photo={contact.photo} className="h-11 w-11" />
-                  <div className="min-w-0">
-                  <h2 className="flex items-center gap-2 font-semibold text-ink">
-                    {contact.name}
-                    {contact.userId && (
-                      <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ink-muted">
-                        Account
-                      </span>
-                    )}
-                  </h2>
-                  {contactSubtitle(contact) && <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>}
-                  <div className="mt-1">
-                    <ContactLinks phone={contact.phone} email={contact.email} />
-                  </div>
-                  </div>
+      {!contactsQuery.isLoading && contacts.length > 0 && visible.length === 0 && (
+        <p className="text-sm text-ink-muted">No contacts match your search.</p>
+      )}
+      {visible.length > 0 && (
+        <div ref={parentRef} className="max-h-[70vh] overflow-auto">
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map((vi) => {
+              const contact = visible[vi.index];
+              return (
+                <div
+                  key={contact.id}
+                  data-index={vi.index}
+                  ref={rowVirtualizer.measureElement}
+                  className="pb-2"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vi.start}px)` }}
+                >
+                  <ContactRow
+                    contact={contact}
+                    editing={editingId === contact.id}
+                    canManage={canManage(contact)}
+                    updating={update.isPending}
+                    updateError={update.isError}
+                    deleting={remove.isPending}
+                    onEdit={() => setEditingId(contact.id)}
+                    onDelete={() => remove.mutate(contact.id)}
+                    onSubmitEdit={(input) => update.mutate({ id: contact.id, input })}
+                    onCancelEdit={() => setEditingId(null)}
+                  />
                 </div>
-                {contact.notes && (
-                  <p className="min-w-0 flex-1 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
-                )}
-                {canManage(contact) && (
-                  <div className="flex shrink-0 gap-2 text-xs">
-                    <button type="button" onClick={() => setEditingId(contact.id)} className="text-ink-muted hover:text-accent">
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate(contact.id)}
-                      className="text-ink-muted hover:text-accent disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            </article>
-          ),
-        )}
-        {!contactsQuery.isLoading && contacts.length > 0 && visible.length === 0 && (
-          <p className="text-sm text-ink-muted">No contacts match your search.</p>
-        )}
-      </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
