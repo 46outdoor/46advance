@@ -14,6 +14,7 @@ import {
   type ContactSort,
 } from '@/lib/contacts/contact';
 import {
+  CONTACTS_PAGE_SIZE,
   createContact,
   deleteContact,
   listContacts,
@@ -113,8 +114,9 @@ export function ContactsDirectoryScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<ContactSort>('first');
+  const [cap, setCap] = useState(CONTACTS_PAGE_SIZE);
 
-  const contactsQuery = useQuery({ queryKey: ['contacts'], queryFn: listContacts });
+  const contactsQuery = useQuery({ queryKey: ['contacts', cap], queryFn: () => listContacts(cap) });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['contacts'] });
 
   const create = useMutation({
@@ -253,6 +255,18 @@ export function ContactsDirectoryScreen() {
               );
             })}
           </div>
+        </div>
+      )}
+      {contacts.length >= cap && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setCap((c) => c + CONTACTS_PAGE_SIZE)}
+            disabled={contactsQuery.isFetching}
+            className="rounded border border-line px-4 py-1.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {contactsQuery.isFetching ? 'Loading…' : 'Load more contacts'}
+          </button>
         </div>
       )}
     </section>
