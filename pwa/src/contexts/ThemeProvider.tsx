@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThemeContext, type Theme, type ThemeContextValue } from './theme-context';
 
 const STORAGE_KEY = 'theme';
@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
-  const setTheme = (next: Theme): void => {
+  const setTheme = useCallback((next: Theme): void => {
     setThemeState(next);
     setShowSystemDarkNudge(false); // any explicit choice ends the nudge for good
     try {
@@ -40,14 +40,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       // localStorage unavailable (private mode) — theme still applies this session
     }
-  };
+  }, []);
 
-  const value: ThemeContextValue = {
-    theme,
-    setTheme,
-    toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
-    showSystemDarkNudge,
-  };
+  // Memoized so consumers don't re-render on every ThemeProvider render (only when theme/nudge change).
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      theme,
+      setTheme,
+      toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      showSystemDarkNudge,
+    }),
+    [theme, showSystemDarkNudge, setTheme],
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

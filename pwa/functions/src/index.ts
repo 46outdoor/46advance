@@ -133,6 +133,10 @@ export const syncUserClaims = onCall(async (request) => {
   // accounts must click the verification link first.
   const emailVerified = token.email_verified === true;
 
+  // Rate-limit BEFORE any external call (the Auth getUser below) so abuse is capped up front.
+  const db = getFirestore();
+  await enforceRateLimit(db, ['syncUserClaims', uid], 60);
+
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
   const isOrganizer = existing.organizer === true;
@@ -146,8 +150,6 @@ export const syncUserClaims = onCall(async (request) => {
   // allowlist email becomes admin only when verified OR already admin.
   const isAdmin = isAdminEmail(email, ADMIN_EMAILS) && (emailVerified || wasAdmin);
 
-  const db = getFirestore();
-  await enforceRateLimit(db, ['syncUserClaims', uid], 60);
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
 

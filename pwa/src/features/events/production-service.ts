@@ -104,13 +104,6 @@ export async function updateStageProductionStatus(
   );
 }
 
-export async function setStageProductionLinks(
-  eventId: string,
-  stageId: string,
-  links: ProductionLink[],
-): Promise<void> {
-  await setDoc(stageProductionDoc(eventId, stageId), { links, updatedAt: serverTimestamp() }, { merge: true });
-}
 
 // ---- Attachments: one doc per file in the production `attachments` subcollection ----
 // (concurrency-safe — no read-modify-write of a shared array). Files in Storage.

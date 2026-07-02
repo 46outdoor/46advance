@@ -86,6 +86,17 @@ function emailFromIdToken(idToken: string | null | undefined): string | null {
   }
 }
 
+/** Escape user-derived text before interpolating it into the callback HTML (defense-in-depth). */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;',
+  );
+}
+
+// postMessage payload the callback popup sends its opener on success — MUST match
+// GOOGLE_CONNECTED_MESSAGE in pwa/src/config/integrations.ts (separate toolchain).
+const GOOGLE_CONNECTED_MESSAGE = '46advance:google-connected';
+
 function htmlPage(title: string, heading: string, body: string, script = ''): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
@@ -261,14 +272,14 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
       db.collection('googleTokens').doc(uid).set(tokenDoc, { merge: true }),
     ]);
 
-    const script = `<script>try{window.opener&&window.opener.postMessage('46advance:google-connected','*')}catch(e){}setTimeout(function(){window.close()},1800)</script>`;
+    const script = `<script>try{window.opener&&window.opener.postMessage('${GOOGLE_CONNECTED_MESSAGE}','*')}catch(e){}setTimeout(function(){window.close()},1800)</script>`;
     res
       .status(200)
       .send(
         htmlPage(
           '46 Advance — Google',
           'Google connected',
-          `${email ? `Connected as <b>${email}</b>. ` : ''}You can close this window.`,
+          `${email ? `Connected as <b>${escapeHtml(email)}</b>. ` : ''}You can close this window.`,
           script,
         ),
       );

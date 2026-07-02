@@ -48,7 +48,6 @@ export interface EventMember {
 
 /** Validated input for assigning/updating a member (the client-supplied fields). */
 export const eventMemberInputSchema = z.object({ role: eventRoleSchema });
-export type EventMemberInput = z.infer<typeof eventMemberInputSchema>;
 
 /** Raw Firestore member doc (timestamps still as `Timestamp`). */
 const eventMemberDocSchema = z.object({

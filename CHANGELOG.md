@@ -26,6 +26,7 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Booking auto-attach:** syncing advance-call bookings now attaches each match transactionally. Two bookings for the same artist (or an overlapping manual + scheduled sync) can no longer overwrite each other's Meet link and time — the extra booking is queued for review instead.
 - **Viewing Google-native docs in-app:** artist documents that are native Google files (Docs, Sheets, Slides — common for riders) now open in-app through the broker (exported to PDF) instead of failing to load; other file types are unchanged.
 - **Duplicate calendar entries:** creating an event's Google calendar, or pushing a schedule item to it, is now idempotent — a double-click or an overlapping sync can no longer leave a duplicate/orphaned calendar or event.
+- **Page-level error recovery:** if one screen hits an unexpected error, it now shows a contained "reload" message with the rest of the app still usable, instead of blanking the whole window.
 
 ### Security
 
