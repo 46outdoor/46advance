@@ -20,6 +20,32 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Earliest net for a stale dynamically-imported chunk after a deploy (fires even if the
+      // main module itself 404s, before React can mount): clear caches + service workers and
+      // reload once. Shares the 'pwa:last-recovery' cooldown key with src/lib/pwa/recovery.ts
+      // so the two paths can't reload-loop.
+      (function () {
+        var RE = /dynamically imported module|Importing a module script failed/i;
+        function heal() {
+          try {
+            var k = 'pwa:last-recovery', now = Date.now();
+            if (now - (+sessionStorage.getItem(k) || 0) < 20000) return;
+            sessionStorage.setItem(k, String(now));
+          } catch (e) {}
+          var done = function () { location.reload(); };
+          var jobs = [];
+          if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (c) { return caches.delete(c); })); }));
+          if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+          Promise.all(jobs).then(done, done);
+        }
+        window.addEventListener('error', function (e) { if (e && e.message && RE.test(e.message)) heal(); });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason; var m = r && (r.message || r);
+          if (m && RE.test(String(m))) heal();
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root">

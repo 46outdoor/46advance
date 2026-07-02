@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
+import { lazyWithRetry } from '@/lib/pwa/lazyWithRetry';
 // Guards stay eager — they wrap the protected layout and are needed on first paint.
 // Importing them from their module paths (not the feature barrels) keeps each barrel
 // out of the initial chunk so its screens can split.
@@ -9,76 +10,76 @@ import { AdminGate } from '@/features/admin/AdminGate';
 
 // Route screens are lazy-loaded so each feature ships in its own chunk and the
 // initial bundle stays small (routing uses lazy code splitting).
-const LandingScreen = lazy(() =>
+const LandingScreen = lazyWithRetry(() =>
   import('@/routes/LandingScreen').then((m) => ({ default: m.LandingScreen })),
 );
-const PrivacyScreen = lazy(() =>
+const PrivacyScreen = lazyWithRetry(() =>
   import('@/routes/PrivacyScreen').then((m) => ({ default: m.PrivacyScreen })),
 );
-const ThemeSpecimen = lazy(() =>
+const ThemeSpecimen = lazyWithRetry(() =>
   import('@/routes/ThemeSpecimen').then((m) => ({ default: m.ThemeSpecimen })),
 );
 
-const SignInScreen = lazy(() => import('@/features/auth').then((m) => ({ default: m.SignInScreen })));
-const SignUpScreen = lazy(() => import('@/features/auth').then((m) => ({ default: m.SignUpScreen })));
-const ForgotPasswordScreen = lazy(() =>
+const SignInScreen = lazyWithRetry(() => import('@/features/auth').then((m) => ({ default: m.SignInScreen })));
+const SignUpScreen = lazyWithRetry(() => import('@/features/auth').then((m) => ({ default: m.SignUpScreen })));
+const ForgotPasswordScreen = lazyWithRetry(() =>
   import('@/features/auth').then((m) => ({ default: m.ForgotPasswordScreen })),
 );
 
-const AdminScreen = lazy(() => import('@/features/admin').then((m) => ({ default: m.AdminScreen })));
+const AdminScreen = lazyWithRetry(() => import('@/features/admin').then((m) => ({ default: m.AdminScreen })));
 
-const EventsListScreen = lazy(() =>
+const EventsListScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.EventsListScreen })),
 );
-const EventDetailScreen = lazy(() =>
+const EventDetailScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.EventDetailScreen })),
 );
-const EventProductionScreen = lazy(() =>
+const EventProductionScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.EventProductionScreen })),
 );
-const EventScheduleScreen = lazy(() =>
+const EventScheduleScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.EventScheduleScreen })),
 );
-const StageDetailScreen = lazy(() =>
+const StageDetailScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.StageDetailScreen })),
 );
-const AdvanceDetailScreen = lazy(() =>
+const AdvanceDetailScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.AdvanceDetailScreen })),
 );
 
-const TemplatesListScreen = lazy(() =>
+const TemplatesListScreen = lazyWithRetry(() =>
   import('@/features/templates').then((m) => ({ default: m.TemplatesListScreen })),
 );
-const TemplateEditorScreen = lazy(() =>
+const TemplateEditorScreen = lazyWithRetry(() =>
   import('@/features/templates').then((m) => ({ default: m.TemplateEditorScreen })),
 );
 
-const ScheduleTemplatesListScreen = lazy(() =>
+const ScheduleTemplatesListScreen = lazyWithRetry(() =>
   import('@/features/scheduleTemplates').then((m) => ({ default: m.ScheduleTemplatesListScreen })),
 );
-const ScheduleTemplateEditorScreen = lazy(() =>
+const ScheduleTemplateEditorScreen = lazyWithRetry(() =>
   import('@/features/scheduleTemplates').then((m) => ({ default: m.ScheduleTemplateEditorScreen })),
 );
 
-const TrackerOverviewScreen = lazy(() =>
+const TrackerOverviewScreen = lazyWithRetry(() =>
   import('@/features/tracker').then((m) => ({ default: m.TrackerOverviewScreen })),
 );
-const EventTrackerScreen = lazy(() =>
+const EventTrackerScreen = lazyWithRetry(() =>
   import('@/features/tracker').then((m) => ({ default: m.EventTrackerScreen })),
 );
 
-const ContactsDirectoryScreen = lazy(() =>
+const ContactsDirectoryScreen = lazyWithRetry(() =>
   import('@/features/contacts').then((m) => ({ default: m.ContactsDirectoryScreen })),
 );
 
-const DocumentsScreen = lazy(() =>
+const DocumentsScreen = lazyWithRetry(() =>
   import('@/features/documents').then((m) => ({ default: m.DocumentsScreen })),
 );
-const ArtistDocumentsScreen = lazy(() =>
+const ArtistDocumentsScreen = lazyWithRetry(() =>
   import('@/features/documents').then((m) => ({ default: m.ArtistDocumentsScreen })),
 );
 
-const SettingsScreen = lazy(() =>
+const SettingsScreen = lazyWithRetry(() =>
   import('@/features/google').then((m) => ({ default: m.SettingsScreen })),
 );
 

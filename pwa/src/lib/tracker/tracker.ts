@@ -3,7 +3,7 @@
  * no Firestore IO here (that's tracker-service.ts). A tracker is a read-only roll-up
  * colored by per-section status (not_started → in_progress → complete); red stays brand.
  */
-import { SECTION_STATUSES, type SectionStatus } from '@/lib/advances/sections';
+import { SECTION_STATUSES, sectionStateFor, type SectionStatus } from '@/lib/advances/sections';
 import type { Advance } from '@/lib/advances/advance';
 
 /** Count of sections in each status, plus the total counted. */
@@ -21,8 +21,9 @@ export interface AdvanceRow {
   advanceId: string;
   artistName: string;
   performanceDate: Date | null;
-  /** Status per department column; null = the advance has no section for that dept. */
-  cells: Record<string, SectionStatus | null>;
+  /** Status per department column. A department with no section yet counts as not_started
+   *  (matching the advance detail screen), so every current column is represented. */
+  cells: Record<string, SectionStatus>;
   counts: StatusCounts;
 }
 
@@ -68,21 +69,20 @@ export function completionPct(counts: StatusCounts): number {
 }
 
 /**
- * Build one grid row from a located advance over the given department columns. A cell is
- * the section's status, or null when the advance has no section for that department
- * (e.g. the event's department list changed after the advance was created).
+ * Build one grid row from a located advance over the given department columns. Every current
+ * column is counted: a department with no section yet on this advance (e.g. enabled after the
+ * advance was created) counts as not_started via `sectionStateFor`, so the row's denominator is
+ * the current department count — the same rule the advance detail screen uses.
  */
 function buildRow(located: LocatedAdvance, columnIds: readonly string[]): AdvanceRow {
   const { stageId, stageName, advance } = located;
-  const cells: Record<string, SectionStatus | null> = {};
+  const cells: Record<string, SectionStatus> = {};
   const counts = emptyCounts();
   for (const deptId of columnIds) {
-    const status = advance.sections[deptId]?.status ?? null;
+    const status = sectionStateFor(advance.sections, deptId).status;
     cells[deptId] = status;
-    if (status) {
-      counts[status] += 1;
-      counts.total += 1;
-    }
+    counts[status] += 1;
+    counts.total += 1;
   }
   return {
     stageId,

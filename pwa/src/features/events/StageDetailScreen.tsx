@@ -10,16 +10,20 @@ import { deleteStage, getStage, updateStage } from './stages-service';
 import { StageForm } from './StageForm';
 import { StageProductionPanel } from './StageProductionPanel';
 import { AdvancesPanel } from './AdvancesPanel';
+import { useResolvedEvent } from './useResolvedEvent';
 
 const logger = createLogger('Stages');
 
 export function StageDetailScreen() {
-  const { eventId, stageId } = useParams();
+  const { eventId: eventParam, stageId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Resolve slug-or-id → canonical event id so stage/role reads + panels use the doc id.
+  const { eventId } = useResolvedEvent(eventParam);
 
   const stageQuery = useQuery({
     queryKey: ['stages', eventId, stageId],
@@ -46,12 +50,12 @@ export function StageDetailScreen() {
     mutationFn: () => deleteStage(eventId!, stageId!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['stages', eventId] });
-      navigate(`/events/${eventId}`);
+      navigate(`/events/${eventParam}`);
     },
     onError: (err) => logger.error('Failed to delete stage', err),
   });
 
-  if (!user || !eventId || !stageId) return null;
+  if (!user || !eventParam || !stageId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
@@ -59,7 +63,7 @@ export function StageDetailScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventId}`} className="text-sm text-ink-muted hover:text-accent">
+      <Link to={`/events/${eventParam}`} className="text-sm text-ink-muted hover:text-accent">
         ← Event
       </Link>
 
@@ -111,8 +115,8 @@ export function StageDetailScreen() {
         </div>
       )}
 
-      {stage && <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />}
-      {stage && <AdvancesPanel eventId={eventId} stageId={stageId} canEdit={canEdit} />}
+      {stage && eventId && <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />}
+      {stage && eventId && <AdvancesPanel eventId={eventId} stageId={stageId} canEdit={canEdit} />}
     </section>
   );
 }

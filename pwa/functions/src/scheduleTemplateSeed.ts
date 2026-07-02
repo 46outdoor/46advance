@@ -10,8 +10,8 @@ import {
   type DocumentData,
   type DocumentReference,
   type Firestore,
-  type WriteBatch,
 } from 'firebase-admin/firestore';
+import type { BatchLike } from './lib/db/chunkedBatch.js';
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const pad2 = (n: number): string => String(n).padStart(2, '0');
@@ -83,7 +83,12 @@ function toScheduleItemDoc(
   const dayOffset = typeof item.dayOffset === 'number' ? item.dayOffset : 0;
   const stageName = typeof item.stageName === 'string' ? item.stageName.trim().toLowerCase() : '';
   const startAt = resolveInstant(base, dayOffset, item.timeOfDay, timeZone);
-  const endAt = resolveInstant(base, dayOffset, item.endTimeOfDay, timeZone);
+  let endAt = resolveInstant(base, dayOffset, item.endTimeOfDay, timeZone);
+  // Overnight blueprint (end time before start time) rolls the end to the next day, so the
+  // seeded item has endAt >= startAt (mirrors the client schedule form + applyScheduleTemplate).
+  if (startAt && endAt && endAt.getTime() < startAt.getTime()) {
+    endAt = resolveInstant(base, dayOffset + 1, item.endTimeOfDay, timeZone);
+  }
   return {
     section: typeof item.section === 'string' ? item.section : 'production',
     customLabel: typeof item.customLabel === 'string' ? item.customLabel : null,
@@ -109,7 +114,7 @@ function toScheduleItemDoc(
  */
 export async function seedScheduleFromTemplates(
   db: Firestore,
-  batch: WriteBatch,
+  batch: BatchLike,
   eventRef: DocumentReference,
   scheduleTemplateIds: string[],
   eventStart: Date,

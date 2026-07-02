@@ -14,10 +14,15 @@ dependency bumps, and planning-doc updates) are omitted.
 ### Added
 
 - **Email verification:** new email/password accounts must now verify their email before getting access. A verification link is sent at sign-up, and a **"Verify your email"** screen (with resend + "I've verified — continue") stands in until it's confirmed. Google sign-ins are already verified, so they're unaffected.
+- **Update prompt:** when a new version of the app has deployed, you now get a small **"A new version is available — Reload"** prompt instead of silently running old code. The app also self-heals if a page fails to load stale code after a deploy (it refreshes to the current version automatically).
 
 ### Fixed
 
 - **Schedule days across timezones:** the schedule day picker and imported schedule-template items now derive each calendar day in the **event's timezone** rather than the viewer's browser zone, so opening a schedule from another timezone no longer lands items on the wrong day.
+- **Overnight schedule items:** an item whose end time is earlier than its start (e.g. a load-out running 22:00 → 02:00) now correctly spans into the next day instead of showing a negative time range — in the form, in imported templates, and in event-template seeding.
+- **Deep links to event pages:** opening or refreshing a schedule, production, stage, or advance page via an event's readable URL now loads correctly and keeps edit controls (previously these could show "not found" or drop your permissions depending on how you got there).
+- **Tracker completion accuracy:** the advance tracker now counts every currently-enabled department for each advance, so a department added after an advance was created no longer makes completion read higher than the advance's own page shows.
+- **Quote amounts:** quote line items reject invalid amounts (negative or non-numeric), and out-of-range stored values can no longer distort an artist-facing total.
 - **Booking auto-attach:** syncing advance-call bookings now attaches each match transactionally. Two bookings for the same artist (or an overlapping manual + scheduled sync) can no longer overwrite each other's Meet link and time — the extra booking is queued for review instead.
 
 ### Security

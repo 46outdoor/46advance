@@ -94,21 +94,28 @@ export async function applyScheduleTemplate(
   creatorUid: string,
 ): Promise<number> {
   const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
-  const inputs = template.items.map(
-    (item): ScheduleItemInput => ({
+  const inputs = template.items.map((item): ScheduleItemInput => {
+    const startAt = templateItemInstant(eventStart, item.dayOffset, item.timeOfDay, timeZone);
+    let endAt = templateItemInstant(eventStart, item.dayOffset, item.endTimeOfDay, timeZone);
+    // Overnight blueprint (end time before start time) rolls the end to the next day, so the
+    // seeded item has endAt >= startAt — matching the schedule form's overnight handling.
+    if (startAt && endAt && endAt.getTime() < startAt.getTime()) {
+      endAt = templateItemInstant(eventStart, item.dayOffset + 1, item.endTimeOfDay, timeZone);
+    }
+    return {
       section: item.section,
       customLabel: item.customLabel ?? undefined,
       title: item.title,
-      startAt: templateItemInstant(eventStart, item.dayOffset, item.timeOfDay, timeZone),
-      endAt: templateItemInstant(eventStart, item.dayOffset, item.endTimeOfDay, timeZone),
+      startAt,
+      endAt,
       location: item.location ?? undefined,
       notes: item.notes ?? undefined,
       stageId: (item.stageName && stageByName.get(item.stageName.trim().toLowerCase())) || undefined,
       slot: item.slot ?? undefined,
       fields: item.fields,
       includeInMaster: item.includeInMaster,
-    }),
-  );
+    };
+  });
   await Promise.all(inputs.map((input) => createScheduleItem(eventId, input, creatorUid)));
   return inputs.length;
 }

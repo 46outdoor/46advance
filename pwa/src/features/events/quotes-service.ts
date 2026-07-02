@@ -9,13 +9,21 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  runTransaction,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
-import { parseQuote, isDecisionStatus, type Quote, type QuoteInput, type QuoteStatus } from '@/lib/quotes/quote';
+import {
+  parseQuote,
+  isDecisionStatus,
+  isValidQuoteTransition,
+  type Quote,
+  type QuoteInput,
+  type QuoteStatus,
+} from '@/lib/quotes/quote';
 import { deleteFile, uploadFile } from '@/lib/storage/uploads';
 import type { GenerateQuotePdfInput, GenerateQuotePdfOutput } from '@contracts/callables/pdf';
 
@@ -91,13 +99,20 @@ export async function setQuoteStatus(
   uid: string,
   note?: string,
 ): Promise<void> {
-  const decision = isDecisionStatus(status)
-    ? { decisionBy: uid, decisionAt: serverTimestamp(), decisionNote: note?.trim() || null }
-    : { decisionBy: null, decisionAt: null, decisionNote: null };
-  await updateDoc(quoteDoc(eventId, stageId, advanceId, quoteId), {
-    status,
-    ...decision,
-    updatedAt: serverTimestamp(),
+  const targetRef = quoteDoc(eventId, stageId, advanceId, quoteId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(targetRef);
+    if (!snap.exists()) throw new Error('Quote not found.');
+    const current = parseQuote(snap.id, snap.data()).status;
+    // The lifecycle (draft → sent → approved|rejected, with reopen) is enforced here — rules
+    // gate who can write but can't compare prior→next status. An illegal jump throws.
+    if (!isValidQuoteTransition(current, status)) {
+      throw new Error(`Illegal quote status change: ${current} → ${status}.`);
+    }
+    const decision = isDecisionStatus(status)
+      ? { decisionBy: uid, decisionAt: serverTimestamp(), decisionNote: note?.trim() || null }
+      : { decisionBy: null, decisionAt: null, decisionNote: null };
+    tx.update(targetRef, { status, ...decision, updatedAt: serverTimestamp() });
   });
 }
 

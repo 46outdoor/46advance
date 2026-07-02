@@ -85,18 +85,26 @@ export function parseScheduleItem(id: string, data: unknown): ScheduleItem {
 }
 
 /** Client-supplied fields when creating/editing a schedule item. */
-export const scheduleItemInputSchema = z.object({
-  section: sectionEnum,
-  customLabel: z.string().trim().optional(),
-  title: z.string().trim().min(1, 'Title is required.'),
-  startAt: z.date().nullable().optional(),
-  endAt: z.date().nullable().optional(),
-  location: z.string().trim().optional(),
-  notes: z.string().trim().optional(),
-  stageId: z.string().trim().optional(),
-  advanceId: z.string().trim().optional(),
-  slot: z.number().int().positive().nullable().optional(),
-  fields: z.record(z.string(), z.string()).optional(),
-  includeInMaster: z.boolean().optional(),
-});
+export const scheduleItemInputSchema = z
+  .object({
+    section: sectionEnum,
+    customLabel: z.string().trim().optional(),
+    title: z.string().trim().min(1, 'Title is required.'),
+    startAt: z.date().nullable().optional(),
+    endAt: z.date().nullable().optional(),
+    location: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+    stageId: z.string().trim().optional(),
+    advanceId: z.string().trim().optional(),
+    slot: z.number().int().positive().nullable().optional(),
+    fields: z.record(z.string(), z.string()).optional(),
+    includeInMaster: z.boolean().optional(),
+  })
+  // Overnight items must resolve their end to the next day before this point (the form rolls
+  // it); a stored end before its start is invalid and would produce a negative span / bad
+  // calendar event. Mirrors eventInputSchema's date guard.
+  .refine((v) => !v.startAt || !v.endAt || v.endAt.getTime() >= v.startAt.getTime(), {
+    message: 'End time must be at or after the start time.',
+    path: ['endAt'],
+  });
 export type ScheduleItemInput = z.infer<typeof scheduleItemInputSchema>;

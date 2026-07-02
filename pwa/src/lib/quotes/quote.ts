@@ -46,8 +46,10 @@ export interface Quote {
 
 const lineItemSchema = z.object({
   description: z.string(),
-  quantity: z.number(),
-  unitPrice: z.number(),
+  // Read-side sanitation: a negative / non-finite (Infinity, NaN) amount from a legacy or
+  // out-of-band write can't corrupt an artist-facing total or crash the panel — it reads as 0.
+  quantity: z.number().nonnegative().finite().catch(0),
+  unitPrice: z.number().nonnegative().finite().catch(0),
 });
 
 const quoteDocSchema = z.object({
@@ -91,8 +93,8 @@ export const quoteInputSchema = z.object({
     .array(
       z.object({
         description: z.string().trim().min(1, 'Describe the line item.'),
-        quantity: z.number().nonnegative('Quantity must be ≥ 0.'),
-        unitPrice: z.number().nonnegative('Unit price must be ≥ 0.'),
+        quantity: z.number().finite('Quantity must be a number.').nonnegative('Quantity must be ≥ 0.'),
+        unitPrice: z.number().finite('Unit price must be a number.').nonnegative('Unit price must be ≥ 0.'),
       }),
     )
     .min(1, 'Add at least one line item.'),

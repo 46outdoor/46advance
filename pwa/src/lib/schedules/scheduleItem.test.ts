@@ -43,4 +43,15 @@ describe('scheduleItem', () => {
     expect(parseScheduleItem('s5', { section: 'show', title: 'Headliner', createdBy: 'u1', slot: 1 }).slot).toBe(1);
     expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', slot: 3 }).success).toBe(true);
   });
+
+  it('input schema rejects an end time before its start (overnight must roll to next day first)', () => {
+    const start = new Date('2026-06-26T22:00:00Z');
+    const before = new Date('2026-06-26T02:00:00Z'); // earlier same day — invalid
+    const after = new Date('2026-06-27T02:00:00Z'); // rolled to next day — valid
+    expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: before }).success).toBe(false);
+    expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: after }).success).toBe(true);
+    // Equal is allowed (zero-length); a null end is allowed.
+    expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: start }).success).toBe(true);
+    expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: null }).success).toBe(true);
+  });
 });

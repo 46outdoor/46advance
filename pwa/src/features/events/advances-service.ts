@@ -10,13 +10,20 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseAdvance, type Advance, type AdvanceInput } from '@/lib/advances/advance';
-import { initialSections, type SectionKey, type SectionStatus } from '@/lib/advances/sections';
+import {
+  initialSections,
+  isValidSectionTransition,
+  sectionStateFor,
+  type SectionKey,
+  type SectionStatus,
+} from '@/lib/advances/sections';
 import type { SectionContent } from '@/lib/advances/fields';
 import { parseDriveFile, type DriveFileRef } from '@/lib/google/driveFile';
 
@@ -126,8 +133,10 @@ export async function deleteAdvance(
 }
 
 /**
- * Set one section's status. `complete` stamps finalizedAt/finalizedBy (the lock);
- * any other status clears them. Permission + transition validity enforced by rules.
+ * Set one section's status. `complete` stamps finalizedAt/finalizedBy (the lock); any other
+ * status clears them. Permission (who can write) is enforced by firestore.rules; the state
+ * machine (not_started ⇄ in_progress ⇄ complete — see ALLOWED_TRANSITIONS) is enforced HERE,
+ * transactionally, since rules can't compare prior→next status. An illegal jump throws.
  */
 export async function updateSectionStatus(
   eventId: string,
@@ -137,13 +146,19 @@ export async function updateSectionStatus(
   status: SectionStatus,
   uid: string,
 ): Promise<void> {
-  const state =
-    status === 'complete'
-      ? { status, finalizedAt: serverTimestamp(), finalizedBy: uid }
-      : { status, finalizedAt: null, finalizedBy: null };
-  await updateDoc(advanceDoc(eventId, stageId, advanceId), {
-    [`sections.${key}`]: state,
-    updatedAt: serverTimestamp(),
+  const ref = advanceDoc(eventId, stageId, advanceId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('Advance not found.');
+    const current = sectionStateFor(parseAdvance(snap.id, snap.data()).sections, key).status;
+    if (!isValidSectionTransition(current, status)) {
+      throw new Error(`Illegal section status change: ${current} → ${status}.`);
+    }
+    const state =
+      status === 'complete'
+        ? { status, finalizedAt: serverTimestamp(), finalizedBy: uid }
+        : { status, finalizedAt: null, finalizedBy: null };
+    tx.update(ref, { [`sections.${key}`]: state, updatedAt: serverTimestamp() });
   });
 }
 
