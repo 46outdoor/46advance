@@ -3,7 +3,7 @@
  * no Firestore IO here (that's tracker-service.ts). A tracker is a read-only roll-up
  * colored by per-section status (not_started → in_progress → complete); red stays brand.
  */
-import { SECTION_STATUSES, sectionStateFor, type SectionStatus } from '@/lib/advances/sections';
+import { sectionStateFor, type SectionStatus } from '@/lib/advances/sections';
 import type { Advance } from '@/lib/advances/advance';
 
 /** Count of sections in each status, plus the total counted. */
@@ -117,6 +117,3 @@ export function rollUpEvent(
     summary: sumCounts(rows.map((r) => r.counts)),
   };
 }
-
-/** Status keys in canonical display order (re-exported for grid legends). */
-export const TRACKER_STATUSES = SECTION_STATUSES;

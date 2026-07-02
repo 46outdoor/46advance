@@ -56,6 +56,7 @@ jobs:
       - run: npm run lint -- --max-warnings 0
       - run: npm run typecheck
       - run: npm run arch:check
+      - run: npm run deadcode
 
   test:
     needs: changes
