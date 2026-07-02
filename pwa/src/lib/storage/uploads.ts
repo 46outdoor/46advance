@@ -28,7 +28,7 @@ export function validateUpload(file: File): string | null {
   return null;
 }
 
-export async function uploadFile(path: string, file: File): Promise<UploadedFile> {
+export async function uploadFile(path: string, file: File | Blob): Promise<UploadedFile> {
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, file, { contentType: file.type || 'application/octet-stream' });
   const url = await getDownloadURL(storageRef);

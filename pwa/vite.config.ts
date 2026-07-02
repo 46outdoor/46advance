@@ -82,6 +82,7 @@ export default defineConfig({
         'src/main.tsx',
         'src/lib/schedules/schedule-templates-service.ts',
         'src/lib/google/drive-service.ts',
+        'src/lib/storage/image.ts',
       ],
       // A low GLOBAL floor (locks overall coverage; ratchet up over time) plus HIGH
       // per-directory bars that lock in the well-covered pure business-logic libs so

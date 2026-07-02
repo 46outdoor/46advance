@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { useAuth } from '@/contexts/auth-context';
 import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
+import { downscaleImage } from '@/lib/storage/image';
 import { ContactAvatar } from './ContactAvatar';
 import type { ContactPhoto, CropRect } from '@/lib/contacts/contact';
 
@@ -107,8 +108,10 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
       if (editing.file && user) {
         const prev = photo;
         const ext = editing.file.name.split('.').pop()?.toLowerCase() || 'png';
+        // Downscale large camera photos before upload; the ratio-based crop rect stays valid.
+        const scaled = await downscaleImage(editing.file);
         // Uploader-scoped path (contacts/photos/{uid}/…) so storage.rules can confine writes.
-        const uploaded = await uploadFile(`contacts/photos/${user.uid}/${Date.now()}.${ext}`, editing.file);
+        const uploaded = await uploadFile(`contacts/photos/${user.uid}/${Date.now()}.${ext}`, scaled);
         await onChange({ path: uploaded.path, url: uploaded.url, crop });
         if (prev) await deleteFile(prev.path).catch(() => undefined);
       } else if (photo) {
