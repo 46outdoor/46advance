@@ -130,7 +130,7 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
     queryFn: () => listEventContacts(eventId),
     enabled: !!eventId,
   });
-  const directoryQuery = useQuery({ queryKey: ['contacts'], queryFn: listContacts, enabled: canEdit });
+  const directoryQuery = useQuery({ queryKey: ['contacts'], queryFn: () => listContacts(), enabled: canEdit });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event-contacts', eventId] });
 
