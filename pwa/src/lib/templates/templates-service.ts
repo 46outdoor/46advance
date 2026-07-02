@@ -10,7 +10,6 @@ import {
   getDoc,
   getDocs,
   serverTimestamp,
-  setDoc,
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
@@ -37,10 +36,6 @@ export async function createTemplate(input: TemplateInput): Promise<string> {
     updatedAt: serverTimestamp(),
   });
   return ref.id;
-}
-
-export async function updateTemplate(id: string, input: TemplateInput): Promise<void> {
-  await setDoc(doc(db, 'templates', id), { ...input, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
