@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/dates/formatting';
 import {
   canFinalizeSection,
   canUnlockSection,
+  sectionStateFor,
   type SectionKey,
   type SectionStatus,
 } from '@/lib/advances/sections';
@@ -27,7 +28,7 @@ import {
   updateSectionContent,
   updateSectionStatus,
 } from './advances-service';
-import { getEvent } from './events-service';
+import { useResolvedEvent } from './useResolvedEvent';
 import { AdvanceForm } from './AdvanceForm';
 import { AdvanceSection } from './AdvanceSection';
 import { AdvanceCallPanel } from './AdvanceCallPanel';
@@ -37,12 +38,15 @@ import { DriveFilesPanel } from './DriveFilesPanel';
 const logger = createLogger('Advances');
 
 export function AdvanceDetailScreen() {
-  const { eventId, stageId, advanceId } = useParams();
+  const { eventId: eventParam, stageId, advanceId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Resolve slug-or-id → canonical event; the advance path + all sub-queries key on the id.
+  const { query: eventQuery, eventId } = useResolvedEvent(eventParam);
 
   const advanceQuery = useQuery({
     queryKey: ['advances', eventId, stageId, advanceId],
@@ -54,12 +58,6 @@ export function AdvanceDetailScreen() {
     queryKey: ['events', 'role', eventId, user?.uid],
     queryFn: () => getEventRole(user!.uid, eventId!),
     enabled: !!eventId && !!user,
-  });
-
-  const eventQuery = useQuery({
-    queryKey: ['events', 'detail', eventId],
-    queryFn: () => getEvent(eventId!),
-    enabled: !!eventId,
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
@@ -83,7 +81,7 @@ export function AdvanceDetailScreen() {
     mutationFn: () => deleteAdvance(eventId!, stageId!, advanceId!),
     onSuccess: () => {
       invalidate();
-      navigate(`/events/${eventId}/stages/${stageId}`);
+      navigate(`/events/${eventParam}/stages/${stageId}`);
     },
     onError: (err) => logger.error('Failed to delete advance', err),
   });
@@ -120,7 +118,7 @@ export function AdvanceDetailScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventId}/stages/${stageId}`} className="text-sm text-ink-muted hover:text-accent">
+      <Link to={`/events/${eventParam}/stages/${stageId}`} className="text-sm text-ink-muted hover:text-accent">
         ← Stage
       </Link>
 
@@ -344,7 +342,7 @@ function AdvanceSectionsPanel({
           key={dept.id}
           deptId={dept.id}
           deptName={dept.name}
-          state={advance.sections[dept.id] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null }}
+          state={sectionStateFor(advance.sections, dept.id)}
           content={advance.content[dept.id] ?? {}}
           canEdit={canEdit}
           canFinalize={canFinalize}

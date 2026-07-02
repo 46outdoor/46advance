@@ -85,6 +85,15 @@ describe('quoteInputSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects non-finite amounts (Infinity / NaN)', () => {
+    expect(
+      quoteInputSchema.safeParse({ title: 'Inf', lineItems: [{ description: 'X', quantity: Infinity, unitPrice: 10 }] }).success,
+    ).toBe(false);
+    expect(
+      quoteInputSchema.safeParse({ title: 'NaN', lineItems: [{ description: 'X', quantity: 1, unitPrice: NaN }] }).success,
+    ).toBe(false);
+  });
+
   it('rejects a blank title', () => {
     const result = quoteInputSchema.safeParse({
       title: '   ',
@@ -102,5 +111,21 @@ describe('parseQuote', () => {
     expect(quote.notes).toBeNull();
     expect(quote.decisionBy).toBeNull();
     expect(quote.signedCopyPath).toBeNull();
+  });
+
+  it('sanitizes a negative or non-finite stored amount to 0 (protects artist-facing totals)', () => {
+    const quote = parseQuote('q2', {
+      title: 'T',
+      status: 'sent',
+      createdBy: 'u1',
+      lineItems: [
+        { description: 'bad-qty', quantity: -5, unitPrice: 10 },
+        { description: 'inf-price', quantity: 2, unitPrice: Infinity },
+        { description: 'ok', quantity: 3, unitPrice: 4 },
+      ],
+    });
+    expect(quote.lineItems[0].quantity).toBe(0);
+    expect(quote.lineItems[1].unitPrice).toBe(0);
+    expect(quote.lineItems[2]).toEqual({ description: 'ok', quantity: 3, unitPrice: 4 });
   });
 });

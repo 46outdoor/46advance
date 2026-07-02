@@ -6,7 +6,6 @@ import {
   Timestamp,
   type DocumentData,
   type Firestore,
-  type WriteBatch,
   type DocumentReference,
 } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -17,7 +16,8 @@ import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
-import { assertApproved } from './lib/auth/authorize.js';
+import { assertApproved, assertAdmin } from './lib/auth/authorize.js';
+import { ChunkedBatch, type BatchLike } from './lib/db/chunkedBatch.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
   deleteUserInputSchema,
@@ -201,12 +201,7 @@ export const syncUserClaims = onCall(async (request) => {
  * refresh / sign-in. Input: { uid: string, approved: boolean }.
  */
 export const setUserApproved = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  if (request.auth.token.admin !== true) {
-    throw new HttpsError('permission-denied', 'Admin only.');
-  }
+  assertAdmin(request.auth);
   const { uid, approved } = parseCallableData(setUserApprovedInputSchema, request.data);
   await enforceRateLimit(getFirestore(), ['setUserApproved', request.auth.uid], 30);
 
@@ -224,12 +219,7 @@ export const setUserApproved = onCall(async (request) => {
  * user picks up the claim on their next token refresh / sign-in.
  */
 export const setUserOrganizer = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  if (request.auth.token.admin !== true) {
-    throw new HttpsError('permission-denied', 'Admin only.');
-  }
+  assertAdmin(request.auth);
   const { uid, organizer } = parseCallableData(setUserOrganizerInputSchema, request.data);
   await enforceRateLimit(getFirestore(), ['setUserOrganizer', request.auth.uid], 30);
 
@@ -246,12 +236,7 @@ export const setUserOrganizer = onCall(async (request) => {
  * clears it (display falls back to email). Keeps the user's linked contact name in sync.
  */
 export const setUserDisplayName = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  if (request.auth.token.admin !== true) {
-    throw new HttpsError('permission-denied', 'Admin only.');
-  }
+  assertAdmin(request.auth);
   const { uid, displayName } = parseCallableData(setUserDisplayNameInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['setUserDisplayName', request.auth.uid], 30);
@@ -274,12 +259,7 @@ export const setUserDisplayName = onCall(async (request) => {
  * data. Cannot delete your own account.
  */
 export const deleteUser = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  if (request.auth.token.admin !== true) {
-    throw new HttpsError('permission-denied', 'Admin only.');
-  }
+  assertAdmin(request.auth);
   const { uid } = parseCallableData(deleteUserInputSchema, request.data);
   if (uid === request.auth.uid) {
     throw new HttpsError('failed-precondition', 'You cannot delete your own account.');
@@ -298,7 +278,7 @@ export const deleteUser = onCall(async (request) => {
   const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
   const contacts = await db.collection('contacts').where('userId', '==', uid).get();
 
-  const batch = db.batch();
+  const batch = new ChunkedBatch(db);
   memberships.forEach((m) => batch.delete(m.ref));
   contacts.forEach((c) =>
     batch.set(c.ref, { userId: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true }),
@@ -347,7 +327,7 @@ function parseNewEventInput(data: unknown): NewEventInput {
 }
 
 /** Seed the caller as PM, then template members (without clobbering the caller). */
-function seedEventMembers(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, uid: string, now: FieldValue): void {
+function seedEventMembers(batch: BatchLike, eventRef: DocumentReference, tpl: DocumentData, uid: string, now: FieldValue): void {
   batch.set(eventRef.collection('members').doc(uid), { role: 'production-manager', addedBy: uid, addedAt: now, uid });
   for (const m of asArray(tpl.members)) {
     const member = m as DocumentData;
@@ -363,7 +343,7 @@ function seedEventMembers(batch: WriteBatch, eventRef: DocumentReference, tpl: D
 }
 
 /** Seed the event-level production record from the template blueprint. */
-function seedEventProduction(batch: WriteBatch, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
+function seedEventProduction(batch: BatchLike, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
   const ep = (tpl.eventProduction ?? {}) as DocumentData;
   batch.set(eventRef.collection('production').doc('record'), {
     info: ep.info ?? {},
@@ -375,7 +355,7 @@ function seedEventProduction(batch: WriteBatch, eventRef: DocumentReference, tpl
 
 /** Seed stages + per-stage production records; returns a map of lowercased stage name → new id. */
 function seedEventStages(
-  batch: WriteBatch,
+  batch: BatchLike,
   eventRef: DocumentReference,
   tpl: DocumentData,
   now: FieldValue,
@@ -429,7 +409,7 @@ export const createEventFromTemplate = onCall(async (request) => {
   }
   const tpl = tplSnap.data() ?? {};
   const now = FieldValue.serverTimestamp();
-  const batch = db.batch();
+  const batch = new ChunkedBatch(db);
 
   // Readable URL slug: prefer the client-computed one (booking label/name + year), else the
   // name; enforce uniqueness across events.

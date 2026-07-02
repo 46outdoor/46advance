@@ -25,3 +25,20 @@ export function assertApproved(token: DecodedIdToken): void {
     throw new HttpsError('permission-denied', 'Your account is not approved for access.');
   }
 }
+
+/** The auth context on a callable request (present once the caller is signed in). */
+export interface CallerAuth {
+  uid: string;
+  token: DecodedIdToken;
+}
+
+/**
+ * Assert the caller is a signed-in **global admin** — the single gate for admin-only callables
+ * (setUserApproved / setUserOrganizer / setUserDisplayName / deleteUser). Narrows `auth` to
+ * non-null so the handler can use `auth.uid` afterward. Throws `unauthenticated` when not signed
+ * in, `permission-denied` when the caller lacks the `admin` claim.
+ */
+export function assertAdmin(auth: CallerAuth | undefined): asserts auth is CallerAuth {
+  if (!auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  if (auth.token.admin !== true) throw new HttpsError('permission-denied', 'Admin only.');
+}

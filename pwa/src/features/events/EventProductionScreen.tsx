@@ -19,15 +19,19 @@ import {
 import { SectionContentForm } from '@/components/production/SectionContentForm';
 import { ProductionContactsEditor } from '@/components/production/ProductionContactsEditor';
 import { ProductionLinksEditor } from '@/components/production/ProductionLinksEditor';
+import { useResolvedEvent } from './useResolvedEvent';
 import { AttachmentsEditor } from './AttachmentsEditor';
 
 const logger = createLogger('Production');
 
 /** Event-level production record: tech-operational info + contacts + links. */
 export function EventProductionScreen() {
-  const { eventId } = useParams();
+  const { eventId: eventParam } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
+
+  // Resolve slug-or-id → canonical event id for all reads.
+  const { eventId } = useResolvedEvent(eventParam);
 
   const productionQuery = useQuery({
     queryKey: ['production', eventId],
@@ -77,7 +81,7 @@ export function EventProductionScreen() {
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
-  if (!user || !eventId) return null;
+  if (!user || !eventParam) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
@@ -85,7 +89,7 @@ export function EventProductionScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventId}`} className="text-sm text-ink-muted hover:text-accent">
+      <Link to={`/events/${eventParam}`} className="text-sm text-ink-muted hover:text-accent">
         ← Event
       </Link>
       <h1 className="font-display text-3xl font-black tracking-tight text-brand">Festival production</h1>

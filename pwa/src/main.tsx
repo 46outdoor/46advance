@@ -7,6 +7,7 @@ import './index.css';
 
 import { App } from '@/App';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { AuthProvider } from '@/contexts/AuthProvider';
 import { ThemeProvider } from '@/contexts/ThemeProvider';
 import { initSentry } from '@/lib/sentry';
@@ -29,6 +30,7 @@ createRoot(container).render(
             </BrowserRouter>
           </AuthProvider>
         </QueryClientProvider>
+        <PwaUpdatePrompt />
       </ThemeProvider>
     </AppErrorBoundary>
   </StrictMode>,

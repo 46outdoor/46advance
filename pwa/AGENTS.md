@@ -196,6 +196,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Logging               | `src/lib/logger.ts`                                      |
 | Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
 | Rate limiting (in-memory)   | `functions/src/lib/security/rateLimit.ts` (backend — low-stakes paths) |
+| Chunked Firestore batch (backend) | `functions/src/lib/db/chunkedBatch.ts` (`ChunkedBatch` / `BatchLike` — auto-splits >400-op seeds/cleanups under the 500 cap) |
 | Firestore timestamps  | `src/lib/firestore/timestamps.ts`                        |
 | File uploads (Storage) | `src/lib/storage/uploads.ts` (validate + upload/delete) |
 | Type definitions      | `src/types/`                                             |
@@ -211,7 +212,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |
-| Callable authorization (approved gate) | `functions/src/lib/auth/authorize.ts` (`assertApproved` — Admin-SDK callables re-assert the rules' `isActiveUser` gate) |
+| Callable authorization (approved gate) | `functions/src/lib/auth/authorize.ts` (`assertApproved`/`assertAdmin` — Admin-SDK callables re-assert the rules' `isActiveUser`/admin gates) |
+| Event slug/id resolution (hook) | `src/features/events/useResolvedEvent.ts` (resolve a slug-or-id route param → canonical event; key sub-queries on `event.id`) |
+| PWA stale-chunk recovery | `src/lib/pwa/recovery.ts` (`isDynamicImportError`/`recoverFromStaleChunk`) + `src/lib/pwa/lazyWithRetry.tsx` (resilient lazy routes) |
 | Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
 | Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
 | Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |

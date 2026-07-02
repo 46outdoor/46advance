@@ -78,13 +78,17 @@ describe('rollUpEvent', () => {
     expect(tracker.summary).toEqual({ not_started: 0, in_progress: 1, complete: 1, total: 2 });
   });
 
-  it('marks a missing section cell null and excludes it from counts', () => {
+  it('counts a section missing for an enabled column as not_started (denominator = current columns)', () => {
+    // 'lighting' was enabled after this advance was created, so it has no stored section.
+    // It must still count (as not_started), matching the advance detail screen — otherwise the
+    // tracker's denominator shrinks and completion % is overstated.
     const tracker = rollUpEvent(
       [located('s1', 'Main', advance('a1', 'Alpha', { audio: 'complete' }))],
       COLUMNS,
     );
-    expect(tracker.rows[0].cells.lighting).toBeNull();
-    expect(tracker.rows[0].counts.total).toBe(1);
+    expect(tracker.rows[0].cells.lighting).toBe('not_started');
+    expect(tracker.rows[0].counts).toEqual({ not_started: 1, in_progress: 0, complete: 1, total: 2 });
+    expect(completionPct(tracker.rows[0].counts)).toBe(0.5); // 1 of 2, not 1 of 1
   });
 
   it('orders rows by stage then artist', () => {

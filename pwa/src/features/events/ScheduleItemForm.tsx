@@ -15,7 +15,7 @@ import {
   type ScheduleItem,
   type ScheduleItemInput,
 } from '@/lib/schedules/scheduleItem';
-import { dateToZonedInput, zonedInputToDate } from '@/lib/dates/timezone';
+import { dateToZonedInput, shiftDayKey, zonedInputToDate } from '@/lib/dates/timezone';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
 import type { EventScheduleDay } from '@/lib/events/event';
 
@@ -275,12 +275,19 @@ export function ScheduleItemForm({
       const v = fields[f.key]?.trim();
       if (v) sectionFields[f.key] = v;
     }
+    const startAt = day && startTime ? zonedInputToDate(`${day}T${startTime}`, timeZone) : null;
+    let endAt = day && endTime ? zonedInputToDate(`${day}T${endTime}`, timeZone) : null;
+    // Overnight item: an end time earlier than the start rolls to the next calendar day
+    // (e.g. a load-out running 22:00 → 02:00), so endAt stays after startAt.
+    if (startAt && endAt && endAt.getTime() < startAt.getTime()) {
+      endAt = zonedInputToDate(`${shiftDayKey(day, 1)}T${endTime}`, timeZone);
+    }
     const parsed = scheduleItemInputSchema.safeParse({
       section,
       customLabel: section === 'custom' ? customLabel.trim() || undefined : undefined,
       title,
-      startAt: day && startTime ? zonedInputToDate(`${day}T${startTime}`, timeZone) : null,
-      endAt: day && endTime ? zonedInputToDate(`${day}T${endTime}`, timeZone) : null,
+      startAt,
+      endAt,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
       stageId: stageId || undefined,

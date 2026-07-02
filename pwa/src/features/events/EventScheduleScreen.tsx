@@ -23,7 +23,7 @@ import { slotLabel } from '@/lib/advances/advance';
 import { eventScheduleDays } from '@/lib/events/event';
 import { listStages } from './stages-service';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
-import { getEvent } from './events-service';
+import { useResolvedEvent } from './useResolvedEvent';
 import {
   applyScheduleTemplate,
   createScheduleItem,
@@ -146,7 +146,7 @@ function ImportTemplatePanel({
 }
 
 export function EventScheduleScreen() {
-  const { eventId } = useParams();
+  const { eventId: eventParam } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
   const [view, setView] = useState<'edit' | 'master'>('edit');
@@ -157,13 +157,14 @@ export function EventScheduleScreen() {
     () => new Set(SCHEDULE_SECTION_KEYS),
   );
 
+  // Resolve slug-or-id → canonical event once; every sub-query keys on the resolved id.
+  const { query: eventQuery, eventId } = useResolvedEvent(eventParam);
+  const timeZone = eventTimeZone(eventQuery.data);
   const roleQuery = useQuery({
     queryKey: ['events', 'role', eventId, user?.uid],
     queryFn: () => getEventRole(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
-  const eventQuery = useQuery({ queryKey: ['events', 'detail', eventId], queryFn: () => getEvent(eventId!), enabled: !!eventId });
-  const timeZone = eventTimeZone(eventQuery.data);
   const itemsQuery = useQuery({ queryKey: ['schedule', eventId], queryFn: () => listScheduleItems(eventId!), enabled: !!eventId });
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
@@ -253,7 +254,7 @@ export function EventScheduleScreen() {
     onError: (e) => logger.error('Failed to save schedule note', e),
   });
 
-  if (!user || !eventId) return null;
+  if (!user || !eventParam) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
 
   const items = itemsQuery.data ?? [];
@@ -265,7 +266,7 @@ export function EventScheduleScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventId}`} className="text-sm text-ink-muted hover:text-accent">
+      <Link to={`/events/${eventParam}`} className="text-sm text-ink-muted hover:text-accent">
         ← Event
       </Link>
 

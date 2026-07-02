@@ -34,6 +34,16 @@ export function initialSections(departmentIds: readonly string[]): AdvanceSectio
   );
 }
 
+/**
+ * The effective state of a department's section on an advance. A section that's absent — e.g. a
+ * department enabled AFTER the advance was created — counts as a fresh `not_started` section, so
+ * every currently-enabled department is accounted for. Single source of this rule shared by the
+ * advance detail screen and the tracker roll-up, so their completion denominators agree.
+ */
+export function sectionStateFor(sections: AdvanceSections, deptId: string): AdvanceSectionState {
+  return sections[deptId] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null };
+}
+
 const sectionStateDocSchema = z.object({
   status: sectionStatusSchema,
   finalizedAt: z.instanceof(Timestamp).nullable().optional(),
