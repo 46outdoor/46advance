@@ -75,6 +75,7 @@ npm run lint             # ESLint check
 npm run test             # Run Vitest unit tests (jsdom)
 npm run test:rules       # Firestore security-rules tests (Firestore emulator; needs Java)
 npm run test:e2e         # Playwright E2E tests
+# From functions/: npm run test:emulator — callable handler tests (Auth+Firestore emulators; needs Java)
 
 # Quality
 npm run lint:fix         # Auto-fix ESLint violations (see auto-fix safety in ../AGENTS.md)
@@ -206,6 +207,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Config: security      | `src/config/security.ts`                                 |
 | Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
 | Test mocks: domain    | `src/testing/mockFactories.ts`                           |
+| Functions handler test harness | `functions/src/testing/emulatorHarness.ts` (wrap callables vs live Auth/Firestore emulators; run via `test:emulator`) |
 | Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |

@@ -11,6 +11,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:emulator": "FIREBASE_PROJECT=demo-46advance ../scripts/cli/firebase-safe.sh emulators:exec --only auth,firestore --config ../firebase.json \"vitest run --config vitest.emulator.config.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
+    "firebase-functions-test": "^3.5.0",
     "typescript": "^5.7.0",
     "vitest": "^3.2.6"
   }
