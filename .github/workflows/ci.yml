@@ -139,13 +139,43 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  # Callable handler tests (firebase-functions-test) against the Auth + Firestore
+  # emulators — same emulator setup as rules-tests, but for functions/src handlers.
+  functions-emulator:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pwa/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Cache Firestore emulator
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+      - run: npm ci
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@14
+      - run: npm run test:emulator
+
   # Required status check for branch protection on `main`. Always runs so the
   # check reports on every PR (incl. doc-only). Passes when each gate job either
   # succeeded or was skipped (doc-only change); fails if any gate job failed or
   # change detection itself failed.
   ci-summary:
     name: CI Summary
-    needs: [changes, quality, test, build, rules-tests, functions]
+    needs: [changes, quality, test, build, rules-tests, functions, functions-emulator]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -161,7 +191,8 @@ jobs:
             "test:${{ needs.test.result }}" \
             "build:${{ needs.build.result }}" \
             "rules-tests:${{ needs.rules-tests.result }}" \
-            "functions:${{ needs.functions.result }}"; do
+            "functions:${{ needs.functions.result }}" \
+            "functions-emulator:${{ needs.functions-emulator.result }}"; do
             name="${entry%%:*}"; res="${entry##*:}"
             if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
               echo "::error::Gate job '$name' resulted in: $res"
