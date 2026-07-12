@@ -96,9 +96,11 @@ const s = StyleSheet.create({
   brandMark: { fontSize: 28, fontWeight: 'bold', letterSpacing: 2 },
   coverTitle: { fontSize: 34, fontWeight: 'bold', marginTop: 16 },
   coverSub: { fontSize: 12, color: '#cfcfcf', marginTop: 8 },
+  // Logo rows mirror the app's LogoRow ratios (src/components/branding/LogoRow.tsx):
+  // event = 2× mark height, marks in equal fixed-width slots, adjacent gap ≈ event/2.
   coverLogos: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
-  coverEventLogo: { height: 46, marginHorizontal: 14, objectFit: 'contain' },
-  coverMarkLogo: { height: 26, marginHorizontal: 14, objectFit: 'contain' },
+  coverEventLogo: { height: 46, marginHorizontal: 12, objectFit: 'contain' },
+  coverMarkLogo: { height: 23, width: 84, marginHorizontal: 12, objectFit: 'contain' },
   page: { padding: 40, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   header: {
     flexDirection: 'row',
@@ -113,7 +115,7 @@ const s = StyleSheet.create({
   headerText: { flex: 1 },
   headerLogos: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
   headerEventLogo: { height: 22, marginHorizontal: 6, objectFit: 'contain' },
-  headerMarkLogo: { height: 13, marginHorizontal: 6, objectFit: 'contain' },
+  headerMarkLogo: { height: 11, width: 40, marginHorizontal: 6, objectFit: 'contain' },
   h1: { fontSize: 16, fontWeight: 'bold', color: BRAND, marginBottom: 8 },
   h2: { fontSize: 12, fontWeight: 'bold', color: BRAND, marginTop: 12, marginBottom: 4 },
   h3: { fontSize: 10, fontWeight: 'bold', color: ACCENT, marginTop: 8, marginBottom: 2 },
