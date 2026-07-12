@@ -17,3 +17,13 @@ export function formatDateRange(start: Date | null, end: Date | null): string {
   if (start || end) return formatDate(start ?? end);
   return '—';
 }
+
+/** 12-hour display for an 'HH:mm' wall-clock string ('08:00' → '8:00 AM', '22:30' → '10:30 PM').
+ * Pure string formatting — no Date or timezone conversion involved. */
+export function formatWallClockTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  if (!Number.isInteger(h) || !Number.isInteger(m)) return time;
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${suffix}`;
+}
