@@ -18,7 +18,7 @@ import {
   scheduleSectionLabel,
   type ScheduleSection,
 } from '@/lib/schedules/sections';
-import type { ScheduleItem, ScheduleItemInput } from '@/lib/schedules/scheduleItem';
+import { itemHours, type ScheduleItem, type ScheduleItemInput } from '@/lib/schedules/scheduleItem';
 import { slotLabel } from '@/lib/advances/advance';
 import { eventScheduleDays } from '@/lib/events/event';
 import { listStages } from './stages-service';
@@ -91,6 +91,10 @@ function summarizeItem(
   if (it.location) parts.push(it.location);
   for (const f of scheduleSectionDef(it.section).fields) {
     if (it.fields[f.key]) parts.push(`${f.label}: ${it.fields[f.key]}`);
+  }
+  if (it.section === 'labor') {
+    const hours = itemHours(it.startAt, it.endAt);
+    if (hours != null) parts.push(`${hours} hrs`);
   }
   return parts.join(' · ');
 }
@@ -383,7 +387,7 @@ export function EventScheduleScreen() {
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-sm font-semibold text-ink-muted">
                             {formatZonedTime(it.startAt, timeZone) || '—'}
-                            {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}` : ''}
+                            {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}${it.endEstimated ? ' (est)' : ''}` : ''}
                           </span>
                           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
                             {scheduleSectionLabel(it.section, it.customLabel)}
@@ -456,7 +460,7 @@ export function EventScheduleScreen() {
                     <li key={it.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
                       <span className="w-28 shrink-0 font-semibold text-ink-muted">
                         {formatZonedTime(it.startAt, timeZone) || '—'}
-                        {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}` : ''}
+                        {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}${it.endEstimated ? ' (est)' : ''}` : ''}
                       </span>
                       <span className="font-medium text-ink" title={itemHeading(it, slotArtist).tip}>
                         {itemHeading(it, slotArtist).name}

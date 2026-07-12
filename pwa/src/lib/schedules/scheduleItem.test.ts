@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { parseScheduleItem, scheduleItemInputSchema } from './scheduleItem';
+import { itemHours, parseScheduleItem, scheduleItemInputSchema } from './scheduleItem';
 
 describe('scheduleItem', () => {
   it('parses a minimal doc with defaults', () => {
@@ -53,5 +53,28 @@ describe('scheduleItem', () => {
     // Equal is allowed (zero-length); a null end is allowed.
     expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: start }).success).toBe(true);
     expect(scheduleItemInputSchema.safeParse({ section: 'show', title: 'Set', startAt: start, endAt: null }).success).toBe(true);
+  });
+});
+
+describe('endEstimated', () => {
+  it('defaults to false on parse and accepts a boolean input', () => {
+    expect(parseScheduleItem('s6', { section: 'labor', title: 'Call', createdBy: 'u1' }).endEstimated).toBe(false);
+    expect(parseScheduleItem('s7', { section: 'labor', title: 'Call', createdBy: 'u1', endEstimated: true }).endEstimated).toBe(true);
+    expect(scheduleItemInputSchema.safeParse({ section: 'labor', title: 'Call', endEstimated: true }).success).toBe(true);
+  });
+});
+
+describe('itemHours', () => {
+  it('computes the call duration in hours (2-dp)', () => {
+    expect(itemHours(new Date('2026-07-10T08:00:00Z'), new Date('2026-07-10T18:00:00Z'))).toBe(10);
+    expect(itemHours(new Date('2026-07-10T22:00:00Z'), new Date('2026-07-11T02:00:00Z'))).toBe(4);
+    expect(itemHours(new Date('2026-07-10T13:00:00Z'), new Date('2026-07-10T22:30:00Z'))).toBe(9.5);
+  });
+
+  it('returns null without both times or for a non-positive span', () => {
+    const t = new Date('2026-07-10T08:00:00Z');
+    expect(itemHours(null, t)).toBeNull();
+    expect(itemHours(t, null)).toBeNull();
+    expect(itemHours(t, t)).toBeNull();
   });
 });
