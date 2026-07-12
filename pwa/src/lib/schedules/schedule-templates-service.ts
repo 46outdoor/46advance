@@ -43,6 +43,7 @@ export async function createScheduleTemplate(
   const ref = await addDoc(templatesCol(), {
     name: input.name,
     category: input.category,
+    days: input.days ?? [],
     items: input.items ?? [],
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
@@ -55,6 +56,7 @@ export async function updateScheduleTemplate(id: string, input: ScheduleTemplate
   await updateDoc(templateDoc(id), {
     name: input.name,
     category: input.category,
+    days: input.days ?? [],
     items: input.items ?? [],
     updatedAt: serverTimestamp(),
   });

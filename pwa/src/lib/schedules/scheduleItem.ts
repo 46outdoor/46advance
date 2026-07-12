@@ -20,6 +20,8 @@ export interface ScheduleItem {
   title: string;
   startAt: Date | null;
   endAt: Date | null;
+  /** The end time is an estimate (e.g. labor grids' "Est End Time"). */
+  endEstimated: boolean;
   location: string | null;
   notes: string | null;
   /** Optional stage tag (stage-specific items like soundcheck/set); null = event-wide. */
@@ -45,6 +47,7 @@ const scheduleItemDocSchema = z.object({
   title: z.string().min(1),
   startAt: z.instanceof(Timestamp).nullable().optional(),
   endAt: z.instanceof(Timestamp).nullable().optional(),
+  endEstimated: z.boolean().optional(),
   location: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   stageId: z.string().nullable().optional(),
@@ -69,6 +72,7 @@ export function parseScheduleItem(id: string, data: unknown): ScheduleItem {
     title: doc.title,
     startAt: timestampToDate(doc.startAt ?? null),
     endAt: timestampToDate(doc.endAt ?? null),
+    endEstimated: doc.endEstimated ?? false,
     location: doc.location ?? null,
     notes: doc.notes ?? null,
     stageId: doc.stageId ?? null,
@@ -92,6 +96,7 @@ export const scheduleItemInputSchema = z
     title: z.string().trim().min(1, 'Title is required.'),
     startAt: z.date().nullable().optional(),
     endAt: z.date().nullable().optional(),
+    endEstimated: z.boolean().optional(),
     location: z.string().trim().optional(),
     notes: z.string().trim().optional(),
     stageId: z.string().trim().optional(),
@@ -108,3 +113,11 @@ export const scheduleItemInputSchema = z
     path: ['endAt'],
   });
 export type ScheduleItemInput = z.infer<typeof scheduleItemInputSchema>;
+
+/** Duration of an item in hours (2-dp, e.g. a labor call's total hours); null without both
+ * times or for a non-positive span. */
+export function itemHours(startAt: Date | null, endAt: Date | null): number | null {
+  if (!startAt || !endAt) return null;
+  const hours = (endAt.getTime() - startAt.getTime()) / 3_600_000;
+  return hours > 0 ? Math.round(hours * 100) / 100 : null;
+}

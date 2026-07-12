@@ -1,14 +1,24 @@
 import { useTheme } from '@/contexts/theme-context';
 import { hasLogo, logoForBackground, type Logo, type LogoImage } from '@/lib/branding/logo';
 
+/**
+ * One shared scale for every logo row so the branding reads the same everywhere:
+ * the event logo is 2× the mark height, each mark sits in an equal fixed-width slot
+ * (keeping mark centers equidistant from the event logo and stopping wide wordmarks
+ * outweighing compact marks), and the gap is half the event height. `sm` is exactly
+ * half of `md`. The packet PDF mirrors these ratios (functions/src/lib/pdf/packet.tsx).
+ */
+const SIZES = {
+  md: { gap: 'gap-12', event: 'h-24', mark: 'h-12 w-44' },
+  sm: { gap: 'gap-6', event: 'h-12', mark: 'h-6 w-22' },
+} as const;
+
 interface Props {
   eventLogo: Logo | null;
   defaults: readonly Logo[];
   className?: string;
-  /** Height class for the centered event logo (default h-12). */
-  eventClassName?: string;
-  /** Height class for the flanking company marks (default h-8). */
-  markClassName?: string;
+  /** Overall scale of the row; every size shares the same relative proportions (default 'md'). */
+  size?: keyof typeof SIZES;
 }
 
 /**
@@ -17,9 +27,10 @@ interface Props {
  * selection. With no event logo, the marks render as a simple centered row; returns null
  * when there's nothing to show.
  */
-export function LogoRow({ eventLogo, defaults, className, eventClassName = 'h-12', markClassName = 'h-8' }: Props) {
+export function LogoRow({ eventLogo, defaults, className, size = 'md' }: Props) {
   const { theme } = useTheme();
   const bg = theme === 'dark' ? 'dark' : 'light';
+  const scale = SIZES[size];
 
   const eventImg = hasLogo(eventLogo) ? logoForBackground(eventLogo, bg) : null;
   const markImgs = defaults
@@ -30,9 +41,9 @@ export function LogoRow({ eventLogo, defaults, className, eventClassName = 'h-12
 
   if (!eventImg && markImgs.length === 0) return null;
 
-  const wrap = `flex items-center justify-center gap-8 ${className ?? ''}`;
+  const wrap = `flex items-center justify-center ${scale.gap} ${className ?? ''}`;
   const renderMark = (img: LogoImage) => (
-    <img key={img.path} src={img.url} alt="" className={`w-auto object-contain ${markClassName}`} />
+    <img key={img.path} src={img.url} alt="" className={`object-contain ${scale.mark}`} />
   );
 
   if (!eventImg) {
@@ -43,7 +54,7 @@ export function LogoRow({ eventLogo, defaults, className, eventClassName = 'h-12
   return (
     <div className={wrap}>
       {markImgs.slice(0, split).map(renderMark)}
-      <img src={eventImg.url} alt="" className={`w-auto object-contain ${eventClassName}`} />
+      <img src={eventImg.url} alt="" className={`w-auto object-contain ${scale.event}`} />
       {markImgs.slice(split).map(renderMark)}
     </div>
   );

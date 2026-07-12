@@ -4,12 +4,7 @@
  * any item can tag a stage. Times are entered as Central wall-clock and converted to UTC.
  */
 import { useState, type FormEvent } from 'react';
-import {
-  SCHEDULE_SECTIONS,
-  scheduleSectionDef,
-  type ScheduleFieldDef,
-  type ScheduleSection,
-} from '@/lib/schedules/sections';
+import { SCHEDULE_SECTIONS, scheduleSectionDef, type ScheduleSection } from '@/lib/schedules/sections';
 import {
   scheduleItemInputSchema,
   type ScheduleItem,
@@ -17,6 +12,7 @@ import {
 } from '@/lib/schedules/scheduleItem';
 import { dateToZonedInput, shiftDayKey, zonedInputToDate } from '@/lib/dates/timezone';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
+import { SectionFieldInput } from '@/components/schedules/SectionFieldInput';
 import type { EventScheduleDay } from '@/lib/events/event';
 
 export interface StageOption {
@@ -48,6 +44,7 @@ type ScheduleItemSource = Pick<
   | 'customLabel'
   | 'startAt'
   | 'endAt'
+  | 'endEstimated'
   | 'location'
   | 'notes'
   | 'stageId'
@@ -64,6 +61,7 @@ const EMPTY_ITEM: ScheduleItemSource = {
   customLabel: '',
   startAt: null,
   endAt: null,
+  endEstimated: false,
   location: '',
   notes: '',
   stageId: '',
@@ -86,6 +84,7 @@ function initialFormState(initial: ScheduleItem | undefined, timeZone: string) {
     day: startDay,
     startTime,
     endTime,
+    endEstimated: src.endEstimated,
     location: src.location ?? '',
     notes: src.notes ?? '',
     stageId: src.stageId ?? '',
@@ -93,38 +92,6 @@ function initialFormState(initial: ScheduleItem | undefined, timeZone: string) {
     fields: src.fields,
     includeInMaster: src.includeInMaster,
   } as const;
-}
-
-/** A single section-specific field control (select or text/number input). */
-function SectionFieldInput({
-  field,
-  value,
-  onChange,
-}: {
-  field: ScheduleFieldDef;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  if (field.type === 'select') {
-    return (
-      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">—</option>
-        {field.options?.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    );
-  }
-  return (
-    <input
-      type={field.type === 'number' ? 'number' : 'text'}
-      className={inputClass}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
 }
 
 /** Right-column slot under Stage: either the lineup slot (Show, auto-fills the artist) or Location. */
@@ -197,6 +164,8 @@ function DayTimeFields({
   setStartTime,
   endTime,
   setEndTime,
+  endEstimated,
+  setEndEstimated,
 }: {
   scheduleDays: EventScheduleDay[];
   day: string;
@@ -205,6 +174,8 @@ function DayTimeFields({
   setStartTime: (v: string) => void;
   endTime: string;
   setEndTime: (v: string) => void;
+  endEstimated: boolean;
+  setEndEstimated: (v: boolean) => void;
 }) {
   return (
     <>
@@ -228,10 +199,16 @@ function DayTimeFields({
           <span className="mb-1 block font-semibold text-ink">Start (Central)</span>
           <input type="time" className={inputClass} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">End</span>
-          <input type="time" className={inputClass} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-        </label>
+        <div className="text-sm">
+          <label className="block">
+            <span className="mb-1 block font-semibold text-ink">End</span>
+            <input type="time" className={inputClass} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </label>
+          <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-muted">
+            <input type="checkbox" checked={endEstimated} onChange={(e) => setEndEstimated(e.target.checked)} />
+            Estimated end time
+          </label>
+        </div>
       </div>
     </>
   );
@@ -255,6 +232,7 @@ export function ScheduleItemForm({
   const [day, setDay] = useState(defaults.day);
   const [startTime, setStartTime] = useState(defaults.startTime);
   const [endTime, setEndTime] = useState(defaults.endTime);
+  const [endEstimated, setEndEstimated] = useState(defaults.endEstimated);
   const [location, setLocation] = useState(defaults.location);
   const [notes, setNotes] = useState(defaults.notes);
   const [stageId, setStageId] = useState(defaults.stageId);
@@ -288,6 +266,7 @@ export function ScheduleItemForm({
       title,
       startAt,
       endAt,
+      endEstimated: endAt ? endEstimated : false,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
       stageId: stageId || undefined,
@@ -337,6 +316,8 @@ export function ScheduleItemForm({
         setStartTime={setStartTime}
         endTime={endTime}
         setEndTime={setEndTime}
+        endEstimated={endEstimated}
+        setEndEstimated={setEndEstimated}
       />
 
       <label className="block text-sm">
@@ -368,7 +349,7 @@ export function ScheduleItemForm({
       {def.fields.map((f) => (
         <label key={f.key} className="block text-sm">
           <span className="mb-1 block font-semibold text-ink">{f.label}</span>
-          <SectionFieldInput field={f} value={fields[f.key] ?? ''} onChange={(v) => setField(f.key, v)} />
+          <SectionFieldInput field={f} value={fields[f.key] ?? ''} className={inputClass} onChange={(v) => setField(f.key, v)} />
         </label>
       ))}
 

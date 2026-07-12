@@ -83,9 +83,9 @@ export default tseslint.config(
     rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
-    // One-off Node ops/migration scripts (run via `node --import tsx`); console
-    // is their UI and they aren't part of the app or functions build.
-    files: ['scripts/**/*.{ts,mts}'],
+    // One-off Node ops/migration/seed scripts (run via tsx); console is their UI
+    // and they aren't part of the app or functions build.
+    files: ['scripts/**/*.{ts,mts}', 'functions/scripts/**/*.{ts,mts}'],
     languageOptions: { globals: globals.node },
     rules: { 'no-console': 'off' },
   },

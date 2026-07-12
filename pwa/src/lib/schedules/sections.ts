@@ -66,15 +66,9 @@ export const SCHEDULE_SECTIONS: readonly ScheduleSectionDef[] = [
   {
     key: 'labor',
     label: 'Stagehand labor',
-    fields: [
-      {
-        key: 'callType',
-        label: 'Call type',
-        type: 'select',
-        options: ['Stagehands', 'Riggers', 'Fork Op', 'Spot Op', 'Cam Op', 'Other'],
-      },
-      { key: 'crewCount', label: 'Quantity', type: 'number' },
-    ],
+    // The call type (Stagehands, Riggers / Climbers, Fork / Lull Operators, …) is the
+    // item's title, not a separate field.
+    fields: [{ key: 'crewCount', label: 'Quantity', type: 'number' }],
   },
   { key: 'custom', label: 'Custom', fields: [] },
 ];
