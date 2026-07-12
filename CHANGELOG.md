@@ -9,6 +9,20 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-10
+
+### Added
+
+- **Schedule template days:** templates are now built day-first, like the labor grids they mirror — add and label each operational day (e.g. "Load-in 3 — Stage Build Day 1 + Pre Rig"), then add items within it. The editor groups items under their day heading in aligned columns (times · quantity · title · duration/details), sorted by start time within the day — there's no manual reordering, so the display always matches the times. Days can be relabeled or moved (their items follow), and the item form no longer asks for a day.
+- **Stagehand schedule details:** schedule items can mark their end time as **estimated** (a checkbox by the End field; shown as "(est)" in schedule lists), and labor calls now show their **total hours** (e.g. "10 hrs", overnight calls handled) in the event schedule and template editor. The schedule-template item form now also edits section-specific fields — e.g. a labor call's **Quantity** — matching the per-event schedule form. The call type (Stagehands, Riggers / Climbers, Fork / Lull Operators, …) is the item's title rather than a separate field.
+
+### Changed
+
+- **Schedule templates:** when adding an item in the template editor, the Section now defaults to the template's category (e.g. a Stagehand template starts new items on "Stagehand labor") instead of always starting on Production. "Other" templates keep the Production default.
+- **12-hour times:** the schedule-template editor now displays times as 12-hour ("8:00 AM–6:00 PM") instead of 24-hour; event schedules already did.
+- **Schedule templates:** the item form's Stage field is now a dropdown of the stage names defined across the event templates (plus "Event-wide"), replacing the free-text entry — so template items match event stages by a known name instead of relying on exact typing.
+- **Event branding row:** the logo row (company marks flanking the centered event logo) now uses one consistent scale everywhere it appears — the event page, advance pages, and the packet PDF's cover and page headers. The event logo is larger, and the flanking marks sit in equal-width slots so both sides read symmetrically regardless of each logo's shape.
+
 ## 2026-07-01
 
 ### Added
