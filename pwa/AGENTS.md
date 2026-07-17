@@ -238,7 +238,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
 | Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron) |
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
-| Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) |
+| Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) — pre-redesign model, retired as the redesign PRs land |
+| Schedule days (redesign model) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/SCHEDULE_REDESIGN.md` |
 | Schedules data access | `src/features/events/schedule-service.ts` (CRUD + calendar push/remove; `EventScheduleScreen` at `/events/:id/schedule`) |
 | Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`pushScheduleItem` reconcile + `removeScheduleCalendarEvent`; reuses 11b) |
 | Google Drive (client) | `src/lib/google/drive-service.ts` (link/remove/savePacket callables + Picker), `driveFile.ts` (`DriveFileRef` type+Zod); Picker keys in `src/config/integrations.ts` |

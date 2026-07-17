@@ -298,6 +298,30 @@ service cloud.firestore {
         allow write: if canEditEvent(eventId);
       }
 
+      // Schedule days (redesign — planning/SCHEDULE_REDESIGN.md): one doc per calendar day,
+      // doc id = the 'YYYY-MM-DD' date key (one-card-per-date is structural), items embedded
+      // in the day. Member read; PM/admin write. Per-item googleCalendarEventId is reconciled
+      // server-side — rules can't practically gate fields inside an embedded array, so the
+      // push callable is authoritative for calendar state.
+      match /scheduleDays/{dayKey} {
+        // Shared shape gate for create + update: the stored date always equals the doc
+        // id, the day type is a known key, and items is a (possibly empty) list.
+        function validDayShape() {
+          return request.resource.data.get('date', '') == dayKey
+            && fieldIn(request.resource.data, 'dayType', ['travel', 'loadIn', 'show', 'loadOut', 'offDay'])
+            && request.resource.data.get('items', []) is list;
+        }
+        allow read: if isAdmin() || isMember(eventId);
+        allow create: if canEditEvent(eventId)
+          && validDayShape()
+          && dayKey.matches('\\d{4}-\\d{2}-\\d{2}')
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if canEditEvent(eventId)
+          && validDayShape()
+          && keysUnchanged(['createdBy']);
+        allow delete: if canEditEvent(eventId);
+      }
+
       // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
       // PM/admin resolve (attach/dismiss) from the review queue. Member read.
       match /callBookings/{bookingId} {

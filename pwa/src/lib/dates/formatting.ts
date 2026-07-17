@@ -18,6 +18,16 @@ export function formatDateRange(start: Date | null, end: Date | null): string {
   return '—';
 }
 
+/** Compact duration display: 600 → "10h", 270 → "4h 30m", 45 → "45m". Rounds the
+ * total first so fractional inputs can't split into "1h 60m". */
+export function formatMinutes(minutes: number): string {
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 /** 12-hour display for an 'HH:mm' wall-clock string ('08:00' → '8:00 AM', '22:30' → '10:30 PM').
  * Pure string formatting — no Date or timezone conversion involved. */
 export function formatWallClockTime(time: string): string {

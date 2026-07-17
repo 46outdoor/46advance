@@ -262,9 +262,10 @@ event schedule screen and the template editor:
 
 `{artist N}` in Item or Description resolves at render time to the artist whose
 advance holds slot N on the item's stage (same lookup the schedule screen uses
-today). Unresolved (no stage set, or slot unbooked) renders the slot label, e.g.
-"Slot 1", as the current slot feature does. Calendar push and PDF export resolve
-placeholders before sending.
+today). Unresolved (no stage set, or slot unbooked) renders the canonical lineup
+slot label — "Headliner" / "Direct Support" / "Artist N" (`slotLabel`) — as the
+current slot feature does. Calendar push and PDF export resolve placeholders
+before sending.
 
 ### Calendar push
 
@@ -288,17 +289,22 @@ embedded items:
 
 ## Suggested PR sequence
 
-1. **Model + registries + rules** — `scheduleDays` model (event + template),
-   type/dayType registries with colors, the `config/crewTypes` config model
-   (seeded), Firestore rules, delete the old models/collections' code paths
-   behind the new service layer. Unit tests on parsers/helpers +
-   firestore-rules tests for the new collections. Rewrite the stagehand labor
-   seed (`scheduleTemplateSeed.ts` / seed script) to the crew-lines shape.
-2. **Shared grid** — `ScheduleDayCard` + inline edit; rebuild
-   `EventScheduleScreen` on it (filters, legend, edit toggle, placeholders),
-   plus the bulk "shift all days ±N days" action.
-3. **Template editor on the grid** + master-template composition + auto-insert
-   on event creation + the crew-types admin edit screen.
+1. **Model + registries + rules** — the event-side `scheduleDays` model
+   (day + embedded items + crew lines), day-type/item-type registries with
+   colors, the `config/crewTypes` config model (seed-fallback parse), the
+   `scheduleDays` Firestore rules block. Unit tests on parsers/helpers +
+   firestore-rules tests. Pure model only — IO services land with their
+   consumers (the dead-export gate fails exports nothing imports), and the
+   old model stays untouched so the live screens keep compiling; deletions
+   ride with the screen migrations (PR 2/3) and the cleanup sweep (PR 5).
+2. **Shared grid** — `ScheduleDayCard` + inline edit + the schedule-days IO
+   service; rebuild `EventScheduleScreen` on it (filters, legend, edit
+   toggle, placeholders), plus the bulk "shift all days ±N days" action.
+   Old event-schedule code paths deleted as the screen migrates.
+3. **Templates on the new model** — template model rework (days own items,
+   master templates) + editor on the grid + composition + auto-insert on
+   event creation + the crew-types admin screen (IO service) + the stagehand
+   seed rewrite (`scheduleTemplateSeed.ts` / seed script) to crew lines.
 4. **Calendar push rework** (`pushToCalendar`, wall-clock→instant derivation,
    placeholder resolution, transactional write-back, day-date-change
    re-reconcile, delete cascades) + contract updates in
