@@ -13,6 +13,15 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Schedule → Google Calendar sync (redesigned):** items marked **"Push to
+  calendar"** auto-sync to the event's Google calendar again, on the new day model —
+  saving a day reconciles all of its items (times derive from the day's date + each
+  item's start/end in the event's timezone, overnight ends handled), `{artist 1}`
+  placeholders resolve to the booked artist in the calendar event, and crew lines /
+  type details appear in the event description. Re-dating or bulk-shifting days
+  re-times every pushed item; deleting items or days removes their calendar events.
+  As before, sync is a quiet no-op until you connect Google in Settings.
+
 - **Master schedule templates:** a new template kind that composes other schedule
   templates in order (the first template defining a day owns its header; later ones add
   their items to it), with one master flaggable as the **default** — automatically

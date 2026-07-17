@@ -33,11 +33,14 @@ import { useResolvedEvent } from './useResolvedEvent';
 import { ImportScheduleTemplatePanel } from './ImportScheduleTemplatePanel';
 import { ScheduleDayForm } from './ScheduleDayForm';
 import type { ScheduleDayMeta } from '@/lib/schedules/scheduleDay';
+import { useGoogleConnection } from '@/lib/google';
 import {
   createScheduleDay,
   dayToInput,
   deleteScheduleDay,
   listScheduleDays,
+  reconcileScheduleDayCalendar,
+  removeScheduleCalendarEvent,
   saveScheduleDay,
   saveScheduleDayMeta,
   shiftScheduleDays,
@@ -68,11 +71,20 @@ function makeItemFilter(type: string, stage: string) {
   return (item: ScheduleDayItem) => (!type || item.type === type) && (!stage || item.stageId === stage);
 }
 
-/** All schedule-day mutations, invalidating the day list on success. */
+/** All schedule-day mutations, invalidating the day list on success. Saves also fire a
+ * fire-and-forget calendar reconcile for the affected day (PR 4) — a graceful no-op
+ * when the caller hasn't connected Google. */
 function useScheduleDayMutations(eventId: string | null, uid: string | undefined, onDaySettled: () => void) {
   const queryClient = useQueryClient();
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
   const onError = (what: string) => (e: unknown) => logger.error(`Failed to ${what}`, e);
+  const syncDay = (dayId: string) => {
+    void reconcileScheduleDayCalendar(eventId!, dayId)
+      .then((r) => {
+        if (r.synced) invalidate(); // calendar ids were written back
+      })
+      .catch((e) => logger.error('Calendar sync failed', e));
+  };
 
   const createDay = useMutation({
     mutationFn: (meta: ScheduleDayMeta) => createScheduleDay(eventId!, meta, uid!),
@@ -86,9 +98,11 @@ function useScheduleDayMutations(eventId: string | null, uid: string | undefined
     // Atomic in the service: a date change re-keys and applies the metadata in one batch.
     mutationFn: ({ day, meta }: { day: ScheduleDay; meta: ScheduleDayMeta }) =>
       saveScheduleDayMeta(eventId!, day, meta, uid!),
-    onSuccess: () => {
+    onSuccess: (dayId) => {
       invalidate();
       onDaySettled();
+      // A date change moved every item's instant — re-reconcile the (possibly re-keyed) day.
+      syncDay(dayId);
     },
     onError: onError('save the day'),
   });
@@ -96,27 +110,50 @@ function useScheduleDayMutations(eventId: string | null, uid: string | undefined
     // Serialized (shared scope) + optimistic cache write: rapid row commits each build
     // on the previous one instead of racing whole-day snapshots out of order.
     scope: { id: `saveScheduleDay-${eventId}` },
-    mutationFn: ({ day, items }: { day: ScheduleDay; items: ScheduleDayItem[] }) =>
-      saveScheduleDay(eventId!, day, dayToInput({ ...day, items })),
+    mutationFn: ({
+      day,
+      items,
+    }: {
+      day: ScheduleDay;
+      items: ScheduleDayItem[];
+      /** Calendar ids of items this save removes — their events are deleted only
+       * AFTER the save commits (a failed save must not strand a live id pointing at
+       * a deleted Google event). */
+      removedCalendarIds?: string[];
+    }) => saveScheduleDay(eventId!, day, dayToInput({ ...day, items })),
     onMutate: ({ day, items }) => {
       queryClient.setQueryData<ScheduleDay[]>(['scheduleDays', eventId], (prev) =>
         prev?.map((d) => (d.id === day.id ? { ...d, items } : d)),
       );
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, { day, removedCalendarIds }) => {
+      for (const calId of removedCalendarIds ?? []) {
+        void removeScheduleCalendarEvent(eventId!, calId).catch((e) =>
+          logger.error('Calendar event removal failed', e),
+        );
+      }
+      invalidate();
+      syncDay(day.id);
+    },
     onError: (e) => {
       invalidate();
       onError('save the schedule')(e);
     },
   });
   const removeDay = useMutation({
-    mutationFn: (dayId: string) => deleteScheduleDay(eventId!, dayId),
+    mutationFn: (day: ScheduleDay) => deleteScheduleDay(eventId!, day),
     onSuccess: invalidate,
     onError: onError('delete the day'),
   });
   const shiftDays = useMutation({
     mutationFn: (deltaDays: number) => shiftScheduleDays(eventId!, deltaDays, uid!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      // Every day re-keyed — re-time all pushed items at their new dates.
+      void listScheduleDays(eventId!)
+        .then((days) => days.forEach((d) => syncDay(d.id)))
+        .catch((e) => logger.error('Calendar sync failed', e));
+    },
     onError: onError('shift the days'),
   });
   return { createDay, editDay, saveItems, removeDay, shiftDays };
@@ -211,6 +248,26 @@ function ShiftControl({ pending, onShift }: { pending: boolean; onShift: (deltaD
   );
 }
 
+/** Auto-sync hint for editors: what "Push to calendar" does, or the connect link. */
+function GoogleSyncHint({ canEdit }: { canEdit: boolean }) {
+  const connection = useGoogleConnection();
+  if (!canEdit) return null;
+  return (
+    <p className="text-xs text-ink-muted">
+      {connection.data?.connected === true ? (
+        '“Push to calendar” items auto-sync to the event’s Google calendar on save.'
+      ) : (
+        <>
+          <Link to="/settings" className="text-accent hover:underline">
+            Connect Google
+          </Link>{' '}
+          to auto-sync “Push to calendar” items to the event’s calendar.
+        </>
+      )}
+    </p>
+  );
+}
+
 /** Loading / load-error / save-error notices for the screen. */
 function ScheduleNotices({
   loading,
@@ -249,7 +306,7 @@ interface DayListProps {
   onSubmitDayMeta: (day: ScheduleDay, meta: ScheduleDayMeta) => void;
   onCloseDayForm: () => void;
   onOpenDayForm: (dayId: string) => void;
-  onDeleteDay: (dayId: string) => void;
+  onDeleteDay: (day: ScheduleDay) => void;
   onAddItem: (day: ScheduleDay) => void;
   onCommitItem: (day: ScheduleDay, item: ScheduleDayItem) => void;
   onDeleteItem: (day: ScheduleDay, itemId: string) => void;
@@ -279,7 +336,7 @@ function DayList(props: DayListProps) {
             crewTypes={props.crewTypes}
             resolveText={props.resolveText}
             onEditDay={() => props.onOpenDayForm(day.id)}
-            onDeleteDay={() => props.onDeleteDay(day.id)}
+            onDeleteDay={() => props.onDeleteDay(day)}
             onAddItem={() => props.onAddItem(day)}
             onCommitItem={(item) => props.onCommitItem(day, item)}
             onDeleteItem={(itemId) => props.onDeleteItem(day, itemId)}
@@ -493,6 +550,8 @@ export function EventScheduleScreen() {
         }}
       />
 
+      <GoogleSyncHint canEdit={canEdit} />
+
       <ScheduleNotices
         loading={daysQuery.isLoading}
         loadFailed={daysQuery.isError}
@@ -554,12 +613,19 @@ export function EventScheduleScreen() {
         onSubmitDayMeta={(day, meta) => editDay.mutate({ day, meta })}
         onCloseDayForm={() => setEditingDayId(null)}
         onOpenDayForm={setEditingDayId}
-        onDeleteDay={(dayId) => removeDay.mutate(dayId)}
+        onDeleteDay={(day) => removeDay.mutate(day)}
         onAddItem={(day) => saveItems.mutate({ day, items: [...day.items, blankItem()] })}
         onCommitItem={(day, item) =>
           saveItems.mutate({ day, items: day.items.map((i) => (i.id === item.id ? item : i)) })
         }
-        onDeleteItem={(day, itemId) => saveItems.mutate({ day, items: day.items.filter((i) => i.id !== itemId) })}
+        onDeleteItem={(day, itemId) => {
+          const removed = day.items.find((i) => i.id === itemId);
+          saveItems.mutate({
+            day,
+            items: day.items.filter((i) => i.id !== itemId),
+            removedCalendarIds: removed?.googleCalendarEventId ? [removed.googleCalendarEventId] : undefined,
+          });
+        }}
       />
 
       <ScheduleTypeLegend items={visibleItems} />

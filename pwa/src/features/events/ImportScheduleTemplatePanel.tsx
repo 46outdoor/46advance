@@ -15,7 +15,7 @@ import {
 } from '@/lib/schedules/scheduleTemplate';
 import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
 import type { StageOption } from '@/components/schedules/ScheduleItemRowEditor';
-import { applyTemplateDaysToEvent } from './schedule-days-service';
+import { applyTemplateDaysToEvent, reconcileScheduleDayCalendar } from './schedule-days-service';
 
 const logger = createLogger('Schedule');
 
@@ -45,9 +45,16 @@ export function ImportScheduleTemplatePanel({
       const resolved = resolveTemplateDays(template, byId);
       return applyTemplateDaysToEvent(eventId, resolved, eventStart, timeZone, stages, uid);
     },
-    onSuccess: () => {
+    onSuccess: ({ dates }) => {
       void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
       setImportId('');
+      // Fire-and-forget: push the imported days to the event's calendar (no-op if the
+      // caller hasn't connected Google).
+      for (const date of dates) {
+        void reconcileScheduleDayCalendar(eventId, date)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] }))
+          .catch((e) => logger.error('Calendar sync failed', e));
+      }
     },
     onError: (e) => logger.error('Failed to import schedule template', e),
   });

@@ -1,24 +1,29 @@
 /**
- * Callable contract schemas — schedule-sync domain (pushScheduleItem,
+ * Callable contract schemas — schedule-sync domain (reconcileScheduleDay,
  * removeScheduleCalendarEvent). Pure Zod — see ./auth.ts header.
  */
 import { z } from 'zod';
 
-// pushScheduleItem — reconcile one item with the event's Google calendar.
-export const pushScheduleItemInputSchema = z.object({
+// reconcileScheduleDay — reconcile every item of one schedule day with the event's
+// Google calendar (redesign PR 4): pushToCalendar items with a start time get their
+// calendar events created/updated (instants derived from the day's date + wall-clock
+// times in the event's timezone, {artist N} placeholders resolved); others get any
+// existing event removed. Per-item calendar ids write back transactionally.
+export const reconcileScheduleDayInputSchema = z.object({
   eventId: z.string().min(1),
-  itemId: z.string().min(1),
+  dayId: z.string().min(1),
 });
-export type PushScheduleItemInput = z.infer<typeof pushScheduleItemInputSchema>;
-export const pushScheduleItemOutputSchema = z.object({
+export type ReconcileScheduleDayInput = z.infer<typeof reconcileScheduleDayInputSchema>;
+export const reconcileScheduleDayOutputSchema = z.object({
   synced: z.boolean(),
   reason: z.string().optional(), // e.g. 'not_connected'
-  removed: z.boolean().optional(),
-  calendarEventId: z.string().nullable().optional(),
+  /** Items whose calendar state changed (created/updated/removed). */
+  updated: z.number().optional(),
 });
-export type PushScheduleItemOutput = z.infer<typeof pushScheduleItemOutputSchema>;
+export type ReconcileScheduleDayOutput = z.infer<typeof reconcileScheduleDayOutputSchema>;
 
-// removeScheduleCalendarEvent — drop an item's calendar event before deletion.
+// removeScheduleCalendarEvent — drop an item's calendar event before deleting the item
+// (or its whole day), since the stored id is gone afterwards.
 export const removeScheduleCalendarEventInputSchema = z.object({
   eventId: z.string().min(1),
   calendarEventId: z.string().min(1),

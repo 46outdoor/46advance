@@ -18,7 +18,14 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import type {
+  ReconcileScheduleDayInput,
+  ReconcileScheduleDayOutput,
+  RemoveScheduleCalendarEventInput,
+  RemoveScheduleCalendarEventOutput,
+} from '@contracts/callables/schedules';
+import { db, functions } from '@/services/firebase';
 import { shiftDayKey, zonedDayKey } from '@/lib/dates/timezone';
 import type { ScheduleTemplateDay, ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
 import {
@@ -161,8 +168,44 @@ export async function saveScheduleDay(
   });
 }
 
-export async function deleteScheduleDay(eventId: string, dayId: string): Promise<void> {
-  await deleteDoc(dayDoc(eventId, dayId));
+/** Delete a day, removing its pushed items' calendar events first (their stored ids are
+ * gone once the doc is). Calendar removal is best-effort — a failure never blocks the
+ * delete. */
+export async function deleteScheduleDay(eventId: string, day: ScheduleDay): Promise<void> {
+  await removeCalendarEvents(eventId, day.items);
+  await deleteDoc(dayDoc(eventId, day.id));
+}
+
+/** Best-effort calendar-event removal for every pushed item in the list. */
+export async function removeCalendarEvents(
+  eventId: string,
+  items: readonly ScheduleDayItem[],
+): Promise<void> {
+  const ids = items.map((i) => i.googleCalendarEventId).filter((id): id is string => id !== null);
+  await Promise.allSettled(ids.map((id) => removeScheduleCalendarEvent(eventId, id)));
+}
+
+/** Reconcile one day with the event's Google calendar (fire after day saves; redesign
+ * PR 4). Returns `{ synced:false, reason:'not_connected' }` as a no-op when the caller
+ * hasn't linked Google — never block a save on it. */
+export async function reconcileScheduleDayCalendar(
+  eventId: string,
+  dayId: string,
+): Promise<ReconcileScheduleDayOutput> {
+  const callable = httpsCallable<ReconcileScheduleDayInput, ReconcileScheduleDayOutput>(
+    functions,
+    'reconcileScheduleDay',
+  );
+  return (await callable({ eventId, dayId })).data;
+}
+
+/** Remove one calendar event — call BEFORE deleting the item/day that stores its id. */
+export async function removeScheduleCalendarEvent(eventId: string, calendarEventId: string): Promise<void> {
+  const callable = httpsCallable<RemoveScheduleCalendarEventInput, RemoveScheduleCalendarEventOutput>(
+    functions,
+    'removeScheduleCalendarEvent',
+  );
+  await callable({ eventId, calendarEventId });
 }
 
 /** Save a day's metadata (dayType/title/description/notes — the day form's slice).
@@ -225,7 +268,8 @@ function templateItemToDayItem(
  * landing on a date that already has a card merges its items into that card — the
  * event day keeps its own metadata — while new dates get the template day's metadata.
  * Offsets resolve against the event's start date in its timezone (offset 0 = the
- * start date). One atomic batch; returns the number of items added.
+ * start date). One atomic batch; returns the item count and the affected date keys
+ * (so the caller can fire calendar reconciles for them).
  */
 export async function applyTemplateDaysToEvent(
   eventId: string,
@@ -234,17 +278,19 @@ export async function applyTemplateDaysToEvent(
   timeZone: string,
   stages: readonly { id: string; name: string }[],
   uid: string,
-): Promise<number> {
+): Promise<{ added: number; dates: string[] }> {
   if (!eventStart) throw new Error('Set the event’s start date before applying a schedule template.');
   const baseKey = zonedDayKey(eventStart, timeZone);
   const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
   const existing = new Map((await listScheduleDays(eventId)).map((d) => [d.id, d]));
   const batch = writeBatch(db);
   let added = 0;
+  const dates: string[] = [];
   for (const day of resolvedDays) {
     const date = shiftDayKey(baseKey, day.offset);
     const items = day.items.map((i) => templateItemToDayItem(i, stageByName));
     added += items.length;
+    dates.push(date);
     const current = existing.get(date);
     if (current) {
       batch.update(dayDoc(eventId, date), {
@@ -266,7 +312,7 @@ export async function applyTemplateDaysToEvent(
     }
   }
   await batch.commit();
-  return added;
+  return { added, dates };
 }
 
 /** Firestore caps a batch at 500 writes; each shifted day costs a delete + a set (plus
