@@ -238,8 +238,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
 | Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron) |
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
-| Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) — pre-redesign model, retired as the redesign PRs land |
-| Schedule days (redesign model) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/SCHEDULE_REDESIGN.md` |
+| Schedule days (model + registries) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/SCHEDULE_REDESIGN.md` |
 | Schedules data access (redesign) | `src/features/events/schedule-days-service.ts` (day CRUD, whole-day save, redate/shift; `EventScheduleScreen` at `/events/:id/schedule`). Old `schedule-service.ts` removed; calendar push callables return with the PR-4 rework |
 | Schedule grid UI (shared) | `src/components/schedules/` (`ScheduleDayCard` day container + grid, `ScheduleItemRowEditor` inline editor, `CrewLines` view/edit, `ScheduleTypeDot` dot+legend, `SectionFieldInput`) |
 | Crew types config IO | `src/lib/schedules/crew-types-service.ts` (`getCrewTypes`/`setCrewTypes`; admin screen `src/features/admin/CrewTypesAdmin.tsx`) |
