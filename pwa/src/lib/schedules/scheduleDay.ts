@@ -183,6 +183,10 @@ export const scheduleDayInputSchema = z.object({
 });
 export type ScheduleDayInput = z.infer<typeof scheduleDayInputSchema>;
 
+/** The day form's slice of the input — metadata only; items stay with the grid. */
+export const scheduleDayMetaSchema = scheduleDayInputSchema.omit({ items: true });
+export type ScheduleDayMeta = z.infer<typeof scheduleDayMetaSchema>;
+
 /** The Duration column for one item, or null to leave it blank. Crew-bearing items show
  * a duration only when every line agrees on one (decision 17 — differing per-line
  * durations make a single number misleading). A line without hours runs the item's own

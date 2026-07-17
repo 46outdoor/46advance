@@ -1,10 +1,25 @@
 /** Canonical date formatting helpers (see AGENTS.md canonical sources). */
+import { parseDateInput } from './parsing';
 
 const DATE_FMT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   month: 'short',
   day: 'numeric',
 });
+
+const DAY_KEY_FMT = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+
+/** "Tue, Jul 14, 2026" for a 'YYYY-MM-DD' day key (plain calendar day, no timezone
+ * math); em dash for an unparseable key. */
+export function formatDateKey(dateKey: string): string {
+  const date = parseDateInput(dateKey);
+  return date ? DAY_KEY_FMT.format(date) : '—';
+}
 
 /** Short human date, or em dash for null. */
 export function formatDate(date: Date | null): string {
