@@ -11,7 +11,28 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ## 2026-07-17
 
+### Added
+
+- **Master schedule templates:** a new template kind that composes other schedule
+  templates in order (the first template defining a day owns its header; later ones add
+  their items to it), with one master flaggable as the **default** — automatically
+  applied when a new event is created without an event template that supplies its own
+  schedule templates. Standard templates keep their categories.
+- **Crew types (Admin):** the labor crew-type list (Stagehands, Riggers / Climbers,
+  Fork / Lull Operators, …) offered on schedule crew lines is now editable under Admin.
+
 ### Changed
+
+- **Schedule templates on the day grid:** the template editor now uses the same
+  day-card grid as event schedules — color-coded day headers on the relative-day axis
+  ("Load-in 2"), inline row editing, crew lines, the works. Template items carry the
+  full redesigned shape (type, description, per-type fields, crew lines, push flag),
+  and stages are picked by name from the event templates' stages.
+- **Importing schedule templates** is back on the event schedule (edit mode): standard
+  or master templates resolve against the event's start date and merge into existing
+  day cards by date — an imported day landing on a date you already have adds its items
+  to that card without touching your day's title or notes. Creating an event from an
+  event template seeds the schedule the same way, in the new day format.
 
 - **Schedule redesign (grid):** the event schedule is rebuilt around day-container
   cards (planning/SCHEDULE_REDESIGN.md). Each day is its own color-coded card — the

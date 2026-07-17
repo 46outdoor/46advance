@@ -81,7 +81,9 @@ const crewLineDocSchema = z.object({
   hours: z.number().positive().nullable().optional(),
 });
 
-const itemDocSchema = z.object({
+/** Exported for the template model, which derives its item shape from this one
+ * (stage by name instead of id; no server-owned calendar field). */
+export const scheduleDayItemDocSchema = z.object({
   id: z.string().min(1),
   type: z.enum(SCHEDULE_ITEM_TYPE_KEYS),
   customLabel: z.string().nullable().optional(),
@@ -103,13 +105,13 @@ const dayDocSchema = z.object({
   title: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  items: z.array(itemDocSchema).optional(),
+  items: z.array(scheduleDayItemDocSchema).optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
 
-function parseItem(raw: z.infer<typeof itemDocSchema>): ScheduleDayItem {
+function parseItem(raw: z.infer<typeof scheduleDayItemDocSchema>): ScheduleDayItem {
   return {
     id: raw.id,
     type: raw.type,

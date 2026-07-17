@@ -8,12 +8,55 @@ import { formatDateRange } from '@/lib/dates/formatting';
 import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listTemplates } from '@/lib/templates/templates-service';
+import type { TemplateRecord } from '@/lib/templates/template';
+import { APP_TIME_ZONE } from '@/lib/dates/timezone';
+import { resolveTemplateDays } from '@/lib/schedules/scheduleTemplate';
+import {
+  getDefaultMasterTemplate,
+  listScheduleTemplates,
+} from '@/lib/schedules/schedule-templates-service';
 import { createEvent, createEventFromTemplate, listEvents } from './events-service';
+import { applyTemplateDaysToEvent } from './schedule-days-service';
+import { listStages } from './stages-service';
 import { filterEvents } from './filter-events';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 
 const logger = createLogger('Events');
+
+/** Decision 23 (SCHEDULE_REDESIGN): after creating an event, the default master schedule
+ * template auto-applies only when the chosen event template didn't supply schedule
+ * templates itself (or no event template was used). Best-effort — a failure here never
+ * fails the creation; the schedule can be imported manually later. */
+async function applyDefaultMasterSchedule(
+  eventId: string,
+  input: EventInput,
+  templateId: string,
+  eventTemplates: readonly TemplateRecord[],
+  uid: string,
+): Promise<void> {
+  try {
+    const chosen = templateId ? eventTemplates.find((t) => t.id === templateId) : undefined;
+    if (chosen && chosen.scheduleTemplateIds.length > 0) return; // the event template wins
+    if (!input.startDate) return; // offsets have no anchor without a start date
+    const master = await getDefaultMasterTemplate();
+    if (!master) return;
+    const all = await listScheduleTemplates();
+    const resolved = resolveTemplateDays(master, new Map(all.map((t) => [t.id, t])));
+    if (resolved.length === 0) return;
+    const stages = await listStages(eventId);
+    await applyTemplateDaysToEvent(
+      eventId,
+      resolved,
+      input.startDate,
+      input.timeZone ?? APP_TIME_ZONE,
+      stages,
+      uid,
+    );
+  } catch (e) {
+    logger.error('Failed to auto-apply the default master schedule', e);
+  }
+}
 
 export function EventsListScreen() {
   const { user, isAdmin, isOrganizer } = useAuth();
@@ -36,8 +79,13 @@ export function EventsListScreen() {
   const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: listTemplates });
 
   const create = useMutation({
-    mutationFn: (input: EventInput) =>
-      templateId ? createEventFromTemplate(templateId, input) : createEvent(input, viewer!.uid),
+    mutationFn: async (input: EventInput) => {
+      const id = templateId
+        ? await createEventFromTemplate(templateId, input)
+        : await createEvent(input, viewer!.uid);
+      await applyDefaultMasterSchedule(id, input, templateId, templatesQuery.data ?? [], viewer!.uid);
+      return id;
+    },
     onSuccess: (id) => {
       void queryClient.invalidateQueries({ queryKey: ['events'] });
       setShowCreate(false);

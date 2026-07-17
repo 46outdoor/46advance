@@ -16,6 +16,7 @@ import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateKey } from '@/lib/dates/formatting';
 import { dateInputValue } from '@/lib/dates/parsing';
+import { APP_TIME_ZONE } from '@/lib/dates/timezone';
 import { SCHEDULE_ITEM_TYPES } from '@/lib/schedules/itemTypes';
 import {
   resolveArtistPlaceholders,
@@ -29,6 +30,7 @@ import { ScheduleTypeLegend } from '@/components/schedules/ScheduleTypeDot';
 import type { StageOption } from '@/components/schedules/ScheduleItemRowEditor';
 import { listStages } from './stages-service';
 import { useResolvedEvent } from './useResolvedEvent';
+import { ImportScheduleTemplatePanel } from './ImportScheduleTemplatePanel';
 import { ScheduleDayForm } from './ScheduleDayForm';
 import type { ScheduleDayMeta } from '@/lib/schedules/scheduleDay';
 import {
@@ -521,6 +523,16 @@ export function EventScheduleScreen() {
         createPending={createDay.isPending}
         onCreateDay={(meta) => createDay.mutate(meta)}
       />
+
+      {editing && (
+        <ImportScheduleTemplatePanel
+          eventId={eventId!}
+          eventStart={eventQuery.data?.startDate ?? null}
+          timeZone={eventQuery.data?.timeZone ?? APP_TIME_ZONE}
+          stages={stages}
+          uid={user.uid}
+        />
+      )}
 
       <EmptyState
         loaded={!!daysQuery.data}

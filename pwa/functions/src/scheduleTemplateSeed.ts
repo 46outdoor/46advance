@@ -1,68 +1,110 @@
 /**
- * Seed an event's schedule from referenced schedule templates during create-from-template.
- * Each blueprint item's relative day + wall-clock time resolve against the event's start date
- * IN THE EVENT'S TIMEZONE (DST-aware, via Intl), and stage-tagged items match the new stages by
- * name. The timezone math mirrors pwa/src/lib/dates/timezone.ts (functions shares no client code).
+ * Seed an event's schedule from referenced schedule templates during create-from-template
+ * (redesign PR 3). Templates are day-first blueprints: the referenced templates' days
+ * merge BY OFFSET (the first template defining an offset owns the day's metadata; later
+ * ones only add items — planning/SCHEDULE_REDESIGN.md decision 14) and land as
+ * `scheduleDays/{YYYY-MM-DD}` docs, each offset resolved against the event's start date
+ * IN THE EVENT'S TIMEZONE. Items keep wall-clock times (no instant math here — that's
+ * the calendar push's job); stage-tagged items match the new event's stages by name.
+ * Master templates expand their refs one level deep; duplicate refs apply once.
  */
-import {
-  FieldValue,
-  Timestamp,
-  type DocumentData,
-  type DocumentReference,
-  type Firestore,
-} from 'firebase-admin/firestore';
+import { randomUUID } from 'node:crypto';
+import { FieldValue, type DocumentData, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import type { BatchLike } from './lib/db/chunkedBatch.js';
-import { shiftDayKey, zonedDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
+import { shiftDayKey, zonedDayKey } from './lib/dates/zonedTime.js';
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const asStringOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
-/** Resolve a blueprint item's relative day + wall-clock time to a UTC instant (null if no time).
- *  `baseKey` is the event start's day (YYYY-MM-DD) in the event zone; offset by whole days. */
-function resolveInstant(baseKey: string, dayOffset: number, timeOfDay: unknown, timeZone: string): Date | null {
-  if (typeof timeOfDay !== 'string' || !timeOfDay) return null;
-  return zonedInputToDate(`${shiftDayKey(baseKey, dayOffset)}T${timeOfDay}`, timeZone);
+const DAY_TYPES = new Set(['travel', 'loadIn', 'show', 'loadOut', 'offDay']);
+const ITEM_TYPES = new Set(['production', 'show', 'travel', 'transportation', 'labor', 'custom']);
+const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const asWallClock = (v: unknown): string | null =>
+  typeof v === 'string' && WALL_CLOCK_RE.test(v) ? v : null;
+
+function toCrewLines(raw: unknown): DocumentData[] {
+  const lines: DocumentData[] = [];
+  for (const entry of asArray(raw)) {
+    const line = entry as DocumentData;
+    const type = asStringOrNull(line?.type);
+    const quantity = typeof line?.quantity === 'number' ? Math.floor(line.quantity) : 0;
+    if (!type || quantity < 1) continue;
+    lines.push({
+      type,
+      quantity,
+      hours: typeof line.hours === 'number' && line.hours > 0 ? line.hours : null,
+    });
+  }
+  return lines;
 }
 
-/** Build a `scheduleItems` doc from one blueprint item (times resolved, stage matched by name). */
-function toScheduleItemDoc(
-  item: DocumentData,
-  base: string,
-  timeZone: string,
-  stageIdByName: Map<string, string>,
-  uid: string,
-  now: FieldValue,
-): DocumentData {
-  const dayOffset = typeof item.dayOffset === 'number' ? item.dayOffset : 0;
-  const stageName = typeof item.stageName === 'string' ? item.stageName.trim().toLowerCase() : '';
-  const startAt = resolveInstant(base, dayOffset, item.timeOfDay, timeZone);
-  let endAt = resolveInstant(base, dayOffset, item.endTimeOfDay, timeZone);
-  // Overnight blueprint (end time before start time) rolls the end to the next day, so the
-  // seeded item has endAt >= startAt (mirrors the client schedule form + applyScheduleTemplate).
-  if (startAt && endAt && endAt.getTime() < startAt.getTime()) {
-    endAt = resolveInstant(base, dayOffset + 1, item.endTimeOfDay, timeZone);
-  }
+/** Build one embedded schedule-day item from a blueprint item (fresh id; stage matched
+ * by name). Returns null for items without a name. */
+function toDayItem(raw: DocumentData, stageIdByName: Map<string, string>): DocumentData | null {
+  const name = asStringOrNull(raw.item);
+  if (!name) return null;
+  const type = typeof raw.type === 'string' && ITEM_TYPES.has(raw.type) ? raw.type : 'production';
+  const stageName = asStringOrNull(raw.stageName)?.trim().toLowerCase() ?? '';
+  const endTime = asWallClock(raw.endTime);
   return {
-    section: typeof item.section === 'string' ? item.section : 'production',
-    customLabel: typeof item.customLabel === 'string' ? item.customLabel : null,
-    title: item.title,
-    startAt: startAt ? Timestamp.fromDate(startAt) : null,
-    endAt: endAt ? Timestamp.fromDate(endAt) : null,
-    location: typeof item.location === 'string' ? item.location : null,
-    notes: typeof item.notes === 'string' ? item.notes : null,
+    id: randomUUID(),
+    type,
+    customLabel: type === 'custom' ? asStringOrNull(raw.customLabel) : null,
+    startTime: asWallClock(raw.startTime),
+    endTime,
+    endEstimated: endTime ? raw.endEstimated === true : false,
+    item: name,
+    description: asStringOrNull(raw.description),
     stageId: stageName ? (stageIdByName.get(stageName) ?? null) : null,
-    slot: typeof item.slot === 'number' ? item.slot : null,
-    fields: item.fields && typeof item.fields === 'object' ? item.fields : {},
-    includeInMaster: item.includeInMaster !== false,
-    order: typeof item.order === 'number' ? item.order : 0,
-    createdBy: uid,
-    createdAt: now,
-    updatedAt: now,
+    fields: raw.fields && typeof raw.fields === 'object' ? raw.fields : {},
+    crew: toCrewLines(raw.crew),
+    pushToCalendar: raw.pushToCalendar !== false,
+    googleCalendarEventId: null,
   };
 }
 
+/** Fetch the referenced templates, expanding masters one level (standard refs only) and
+ * applying each template once even if referenced twice. Returns docs in apply order. */
+async function expandTemplates(db: Firestore, ids: string[]): Promise<DocumentData[]> {
+  const col = db.collection('scheduleTemplates');
+  const seen = new Set<string>();
+  const ordered: DocumentData[] = [];
+  const firstPass = await Promise.all(ids.map((id) => col.doc(id).get()));
+  for (const snap of firstPass) {
+    if (!snap.exists || seen.has(snap.id)) continue;
+    const data = snap.data() ?? {};
+    if (data.kind === 'master') {
+      seen.add(snap.id);
+      ordered.push(data); // its inline days apply first (they own metadata)
+      const refIds = asArray(data.refs).filter((r): r is string => typeof r === 'string' && !seen.has(r));
+      const refs = await Promise.all(refIds.map((id) => col.doc(id).get()));
+      for (const ref of refs) {
+        if (!ref.exists || seen.has(ref.id)) continue;
+        const refData = ref.data() ?? {};
+        if (refData.kind === 'master') continue; // one level deep
+        seen.add(ref.id);
+        ordered.push(refData);
+      }
+    } else {
+      seen.add(snap.id);
+      ordered.push(data);
+    }
+  }
+  return ordered;
+}
+
+interface MergedDay {
+  dayType: string;
+  title: string | null;
+  description: string | null;
+  notes: string | null;
+  items: DocumentData[];
+}
+
 /**
- * Read the referenced schedule templates and add their items to the batch as `scheduleItems`
- * under the new event. No-op for missing templates or items without a title.
+ * Read the referenced schedule templates and add their merged days to the batch as
+ * `scheduleDays/{date}` docs under the new event. No-op for missing templates.
  */
 export async function seedScheduleFromTemplates(
   db: Firestore,
@@ -75,16 +117,42 @@ export async function seedScheduleFromTemplates(
   uid: string,
   now: FieldValue,
 ): Promise<void> {
-  const snaps = await Promise.all(
-    scheduleTemplateIds.map((id) => db.collection('scheduleTemplates').doc(id).get()),
-  );
-  const base = zonedDayKey(eventStart, timeZone);
-  for (const snap of snaps) {
-    if (!snap.exists) continue;
-    for (const raw of asArray(snap.data()?.items)) {
-      const item = raw as DocumentData;
-      if (!item || typeof item.title !== 'string' || !item.title) continue;
-      batch.set(eventRef.collection('scheduleItems').doc(), toScheduleItemDoc(item, base, timeZone, stageIdByName, uid, now));
+  const templates = await expandTemplates(db, scheduleTemplateIds);
+  const byOffset = new Map<number, MergedDay>();
+  for (const tpl of templates) {
+    for (const rawDay of asArray(tpl.days)) {
+      const day = rawDay as DocumentData;
+      if (typeof day?.offset !== 'number' || !Number.isInteger(day.offset)) continue;
+      const items = asArray(day.items)
+        .map((i) => toDayItem(i as DocumentData, stageIdByName))
+        .filter((i): i is DocumentData => i !== null);
+      const existing = byOffset.get(day.offset);
+      if (existing) {
+        existing.items.push(...items);
+      } else {
+        byOffset.set(day.offset, {
+          dayType: typeof day.dayType === 'string' && DAY_TYPES.has(day.dayType) ? day.dayType : 'show',
+          title: asStringOrNull(day.title),
+          description: asStringOrNull(day.description),
+          notes: asStringOrNull(day.notes),
+          items,
+        });
+      }
     }
+  }
+  const baseKey = zonedDayKey(eventStart, timeZone);
+  for (const [offset, day] of byOffset) {
+    const date = shiftDayKey(baseKey, offset);
+    batch.set(eventRef.collection('scheduleDays').doc(date), {
+      date,
+      dayType: day.dayType,
+      title: day.title,
+      description: day.description,
+      notes: day.notes,
+      items: day.items,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 }

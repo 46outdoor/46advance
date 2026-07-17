@@ -7,7 +7,11 @@ import { listDepartments } from '@/lib/departments/departments-service';
 import { listUsers } from '@/lib/users/users-service';
 import { getTemplate, patchTemplate } from '@/lib/templates/templates-service';
 import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
-import { scheduleTemplateCategoryLabel, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
+import {
+  scheduleTemplateCategoryLabel,
+  templateItemCount,
+  type ScheduleTemplate,
+} from '@/lib/schedules/scheduleTemplate';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import { emptyLogo, type Logo } from '@/lib/branding/logo';
 import { LogoUploader } from '@/components/branding/LogoUploader';
@@ -272,10 +276,12 @@ function ScheduleTemplatesField({
               <input type="checkbox" checked={ids.has(st.id)} onChange={() => toggle(st.id)} />
               {st.name}
               <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
-                {scheduleTemplateCategoryLabel(st.category)}
+                {st.kind === 'master' ? 'Master' : scheduleTemplateCategoryLabel(st.category)}
               </span>
               <span className="text-xs text-ink-muted">
-                {st.items.length} item{st.items.length === 1 ? '' : 's'}
+                {st.kind === 'master'
+                  ? `${st.refs.length} composed`
+                  : `${templateItemCount(st)} item${templateItemCount(st) === 1 ? '' : 's'}`}
               </span>
             </label>
           ))}

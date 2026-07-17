@@ -1,8 +1,9 @@
 /**
- * Schedule-template data access (`scheduleTemplates/{id}`). Admin-authored reusable schedule
- * blueprints; read by the event schedule (import) and the event-template clone. CRUD only —
- * the apply/import (blueprint → real `scheduleItems`) lives in the events feature since it
- * writes event subcollections.
+ * Schedule-template data access (`scheduleTemplates/{id}`, redesign PR 3). Admin/organizer-
+ * authored day-first blueprints; read by the template editor, the event schedule's import,
+ * and event creation (default master + event-template clone). CRUD only — applying a
+ * template to an event lives in the events feature (it writes event subcollections).
+ * Listing skips docs that don't parse (pre-redesign templates linger until reseeded).
  */
 import {
   addDoc,
@@ -13,22 +14,36 @@ import {
   getDocs,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
+import { createLogger } from '@/lib/logger';
 import {
   parseScheduleTemplate,
+  scheduleTemplateInputSchema,
   type ScheduleTemplate,
   type ScheduleTemplateInput,
 } from './scheduleTemplate';
+
+const logger = createLogger('ScheduleTemplates');
 
 const templatesCol = () => collection(db, 'scheduleTemplates');
 const templateDoc = (id: string) => doc(db, 'scheduleTemplates', id);
 
 export async function listScheduleTemplates(): Promise<ScheduleTemplate[]> {
   const snap = await getDocs(templatesCol());
-  return snap.docs
-    .map((d) => parseScheduleTemplate(d.id, d.data()))
-    .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  const templates: ScheduleTemplate[] = [];
+  for (const d of snap.docs) {
+    try {
+      templates.push(parseScheduleTemplate(d.id, d.data()));
+    } catch (e) {
+      logger.error(`Skipping unparseable schedule template ${d.id} (pre-redesign shape?)`, e);
+    }
+  }
+  return templates.sort(
+    (a, b) =>
+      a.kind.localeCompare(b.kind) || a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
+  );
 }
 
 export async function getScheduleTemplate(id: string): Promise<ScheduleTemplate | null> {
@@ -36,15 +51,24 @@ export async function getScheduleTemplate(id: string): Promise<ScheduleTemplate 
   return snap.exists() ? parseScheduleTemplate(snap.id, snap.data()) : null;
 }
 
+function toDoc(raw: ScheduleTemplateInput) {
+  const input = scheduleTemplateInputSchema.parse(raw);
+  return {
+    name: input.name.trim(),
+    kind: input.kind,
+    category: input.category,
+    refs: input.kind === 'master' ? (input.refs ?? []) : [],
+    isDefault: input.kind === 'master' ? (input.isDefault ?? false) : false,
+    days: input.days ?? [],
+  };
+}
+
 export async function createScheduleTemplate(
   input: ScheduleTemplateInput,
   creatorUid: string,
 ): Promise<string> {
   const ref = await addDoc(templatesCol(), {
-    name: input.name,
-    category: input.category,
-    days: input.days ?? [],
-    items: input.items ?? [],
+    ...toDoc(input),
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -52,16 +76,29 @@ export async function createScheduleTemplate(
   return ref.id;
 }
 
+/** Whole-doc save. Setting `isDefault` on a master clears it from every other master in
+ * the same batch — at most one default exists (the auto-insert target, decision 23). */
 export async function updateScheduleTemplate(id: string, input: ScheduleTemplateInput): Promise<void> {
-  await updateDoc(templateDoc(id), {
-    name: input.name,
-    category: input.category,
-    days: input.days ?? [],
-    items: input.items ?? [],
-    updatedAt: serverTimestamp(),
-  });
+  const payload = { ...toDoc(input), updatedAt: serverTimestamp() };
+  if (!payload.isDefault) {
+    await updateDoc(templateDoc(id), payload);
+    return;
+  }
+  const others = (await listScheduleTemplates()).filter((t) => t.id !== id && t.isDefault);
+  const batch = writeBatch(db);
+  batch.update(templateDoc(id), payload);
+  for (const other of others) {
+    batch.update(templateDoc(other.id), { isDefault: false, updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
 }
 
 export async function deleteScheduleTemplate(id: string): Promise<void> {
   await deleteDoc(templateDoc(id));
+}
+
+/** The master template auto-applied on event creation, if one is flagged. */
+export async function getDefaultMasterTemplate(): Promise<ScheduleTemplate | null> {
+  const all = await listScheduleTemplates();
+  return all.find((t) => t.kind === 'master' && t.isDefault) ?? null;
 }
