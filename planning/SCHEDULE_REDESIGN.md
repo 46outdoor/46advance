@@ -1,8 +1,10 @@
 # Schedule Redesign — Day-Container Grid Model
 
-> **Status:** Planning. Decisions below are agreed; items under "To verify" and
-> "Open" are not. No existing schedule data needs to be preserved — this is a
-> clean replacement, no migration.
+> **Status:** Implemented — all five PRs shipped (model+rules #109, grid screen #110,
+> templates #111, calendar push #112, cleanup sweep) and the backend deployed.
+> Outstanding: the "To verify" checklist below (notably merge-by-offset composition
+> and live calendar sync, both awaiting a hands-on pass), and the one-shot data
+> cleanup + stagehand reseed scripts in `pwa/functions/scripts/`.
 >
 > **Goal:** One consistent grid layout for schedules everywhere — the event
 > schedule, the schedule template editor, and (later) the PDF packet — following

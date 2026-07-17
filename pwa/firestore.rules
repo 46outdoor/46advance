@@ -114,8 +114,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Reusable schedule templates ("sub-templates"): any approved user reads (import picker);
-    // admin/organizer author. Applying one seeds events/{e}/scheduleItems (gated there).
+    // Reusable schedule templates (day-first blueprints): any approved user reads (import
+    // picker); admin/organizer author. Applying one seeds events/{e}/scheduleDays (gated there).
     match /scheduleTemplates/{templateId} {
       allow read: if isActiveUser();
       allow write: if isActiveUser() && (isAdmin() || isOrganizer());
@@ -272,30 +272,6 @@ service cloud.firestore {
       match /contacts/{attachId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create, update, delete: if canEditEvent(eventId);
-      }
-
-      // Schedule items (Phase 12a): member read; PM/admin write (mirrors advances).
-      // `googleCalendarEventId` is server-owned (pushScheduleItem); clients never set it.
-      match /scheduleItems/{itemId} {
-        allow read: if isAdmin() || isMember(eventId);
-        allow create: if canEditEvent(eventId)
-          && nonEmptyStr(request.resource.data, 'title')
-          && fieldIn(request.resource.data, 'section', ['production', 'show', 'travel', 'transportation', 'labor', 'custom'])
-          && request.resource.data.get('includeInMaster', false) is bool
-          && !('googleCalendarEventId' in request.resource.data);
-        allow update: if canEditEvent(eventId)
-          && nonEmptyStr(request.resource.data, 'title')
-          && fieldIn(request.resource.data, 'section', ['production', 'show', 'travel', 'transportation', 'labor', 'custom'])
-          && request.resource.data.get('includeInMaster', false) is bool
-          && keysUnchanged(['googleCalendarEventId', 'createdBy']); // server-owned + audit field
-        allow delete: if canEditEvent(eventId);
-      }
-
-      // Per-day schedule notes (master note + per-section notes, keyed by day): member read;
-      // PM/admin write. Free-form text fields; no shape constraints beyond the write gate.
-      match /scheduleNotes/{dayKey} {
-        allow read: if isAdmin() || isMember(eventId);
-        allow write: if canEditEvent(eventId);
       }
 
       // Schedule days (redesign — planning/SCHEDULE_REDESIGN.md): one doc per calendar day,

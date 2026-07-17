@@ -67,12 +67,6 @@ beforeEach(async () => {
       artistName: 'jelly roll',
       status: 'needs_review',
     });
-    // Schedule item under event A (Phase 12a).
-    await setDoc(doc(db, 'events/event-a/scheduleItems/sch-1'), {
-      section: 'production',
-      title: 'Load-in',
-      createdBy: PM,
-    });
   });
 });
 
@@ -463,7 +457,6 @@ describe('firestore.rules — quotes (under an advance)', () => {
 describe('firestore.rules — document shape validation', () => {
   const advPath = 'events/event-a/stages/stg-a/advances/adv-1';
   const quotePath = (q: string) => `${advPath}/quotes/${q}`;
-  const schedPath = 'events/event-a/scheduleItems/sch-1';
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -524,40 +517,6 @@ describe('firestore.rules — document shape validation', () => {
     await assertFails(updateDoc(doc(dbFor(PM), quotePath('q-shape')), { createdBy: 'someone-else' }));
   });
 
-  // schedule items
-  it('rejects an invalid schedule-item section (create + update)', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { section: 'bogus' }));
-    await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-bad'), { section: 'bogus', title: 'X', createdBy: PM }),
-    );
-  });
-
-  it('rejects a non-boolean includeInMaster', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { includeInMaster: 'yes' }));
-  });
-
-  it('blocks client writes to the server-owned googleCalendarEventId on schedule items', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), schedPath), { googleCalendarEventId: 'cal-evt-x' }));
-    await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-cal'), {
-        section: 'production',
-        title: 'X',
-        createdBy: PM,
-        googleCalendarEventId: 'cal-evt-x',
-      }),
-    );
-  });
-
-  it('allows a valid schedule-item create', async () => {
-    await assertSucceeds(
-      setDoc(doc(dbFor(PM), 'events/event-a/scheduleItems/sch-ok'), {
-        section: 'show',
-        title: 'Headliner',
-        createdBy: PM,
-        includeInMaster: true,
-      }),
-    );
-  });
 });
 
 describe('firestore.rules — schedule days (redesign)', () => {
@@ -910,22 +869,6 @@ describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
     await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }));
     await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
     await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
-  });
-});
-
-describe('firestore.rules — schedule items (Phase 12a)', () => {
-  const itemPath = 'events/event-a/scheduleItems/sch-1';
-
-  it('any event member reads; a non-member cannot', async () => {
-    await assertSucceeds(getDoc(doc(dbFor(TECH), itemPath)));
-    await assertFails(getDoc(doc(dbFor(OUTSIDER), itemPath)));
-  });
-
-  it('PM/admin write; tech and dept-lead cannot', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), itemPath), { title: 'Load-in (edited)' }));
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), itemPath), { title: 'x' }));
-    await assertFails(updateDoc(doc(dbFor(TECH), itemPath), { title: 'nope' }));
-    await assertFails(updateDoc(doc(dbFor(LEAD), itemPath), { title: 'nope' }));
   });
 });
 

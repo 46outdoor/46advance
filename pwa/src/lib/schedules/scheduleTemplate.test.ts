@@ -6,6 +6,7 @@ import {
   resolveTemplateDays,
   scheduleTemplateInputSchema,
   templateDayLabel,
+  templateDaysToInput,
   templateItemCount,
   templateItemToDayItem,
   type ScheduleTemplate,
@@ -156,6 +157,20 @@ describe('editor bridges + helpers', () => {
     expect(templateDayLabel(-2)).toBe('Load-in 2');
     expect(templateDayLabel(0)).toBe('Show day 1');
     expect(templateItemCount(template({ days: [day(0, [item('a'), item('b')]), day(1, [item('c')])] }))).toBe(3);
+  });
+
+  it('serializes parsed days to the input shape (nulls become omitted optionals)', () => {
+    const input = templateDaysToInput([day(-1, [item('a')], 'Rig Day')]);
+    expect(input).toHaveLength(1);
+    expect(input[0].offset).toBe(-1);
+    expect(input[0].title).toBe('Rig Day');
+    expect(input[0].description).toBeUndefined();
+    expect(input[0].items?.[0]).toMatchObject({ id: 'a', stageName: 'Main', item: 'Crew Call' });
+    // The round trip is schema-valid.
+    expect(
+      scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'standard', category: 'stagehand', days: input })
+        .success,
+    ).toBe(true);
   });
 
   it('input schema requires a name and known kind/category', () => {

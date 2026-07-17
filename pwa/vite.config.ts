@@ -81,6 +81,7 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/main.tsx',
         'src/lib/schedules/schedule-templates-service.ts',
+        'src/lib/schedules/crew-types-service.ts',
         'src/lib/google/drive-service.ts',
         'src/lib/storage/image.ts',
       ],

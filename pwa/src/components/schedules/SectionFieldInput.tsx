@@ -1,4 +1,4 @@
-import type { ScheduleFieldDef } from '@/lib/schedules/sections';
+import type { ScheduleFieldDef } from '@/lib/schedules/itemTypes';
 
 /** A single section-specific schedule field control (select or text/number input), shared by
  * the per-event schedule item form and the schedule-template item form. */
