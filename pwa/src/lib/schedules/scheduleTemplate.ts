@@ -1,19 +1,28 @@
 /**
- * Schedule template ("sub-template"): a reusable, categorized list of schedule-item blueprints
- * (`scheduleTemplates/{id}`). Authored in admin; "imported" into an event's schedule (or applied
- * by an event template). On import each blueprint becomes a real `scheduleItems` doc — its
- * relative day + wall-clock time resolve against the event's start date in the event's timezone
- * (default Central), and its stage matches the event's stages by name.
+ * Schedule templates (redesign PR 3, planning/SCHEDULE_REDESIGN.md): reusable day-first
+ * blueprints (`scheduleTemplates/{id}`) on the day-container model. A **standard**
+ * template is a categorized list of template days — relative offsets (negative =
+ * load-in) owning items that match the event schedule's item shape, with the stage
+ * referenced by NAME (templates don't know an event's stage ids). A **master** template
+ * composes standard templates by reference (ordered, one level deep) plus optional
+ * inline days; at most one master is the default, auto-applied when an event is created
+ * without an event template that supplies schedules (decision 23). Applying resolves
+ * offsets against the event's start date in its timezone and merges into existing days
+ * by date (decision 22) — that IO lives in the events feature.
  */
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { APP_TIME_ZONE, shiftDayKey, zonedDayKey, zonedInputToDate } from '@/lib/dates/timezone';
-import { SCHEDULE_SECTION_KEYS, type ScheduleSection } from './sections';
+import { SCHEDULE_DAY_TYPE_KEYS, type ScheduleDayType } from './dayTypes';
+import {
+  crewLineInputSchema,
+  scheduleDayItemDocSchema,
+  scheduleDayItemInputSchema,
+  type ScheduleDayItem,
+} from './scheduleDay';
 
 export const SCHEDULE_TEMPLATE_CATEGORIES = ['production', 'show', 'stagehand', 'other'] as const;
 export type ScheduleTemplateCategory = (typeof SCHEDULE_TEMPLATE_CATEGORIES)[number];
-const categoryEnum = z.enum(SCHEDULE_TEMPLATE_CATEGORIES);
 
 const CATEGORY_LABELS: Record<ScheduleTemplateCategory, string> = {
   production: 'Production',
@@ -25,181 +34,229 @@ export function scheduleTemplateCategoryLabel(c: ScheduleTemplateCategory): stri
   return CATEGORY_LABELS[c];
 }
 
-/** Section a new blueprint item starts on, matching the template's category ('other' has no
- * section counterpart, so it keeps the Production default). */
-const CATEGORY_DEFAULT_SECTION: Record<ScheduleTemplateCategory, ScheduleSection> = {
-  production: 'production',
-  show: 'show',
-  stagehand: 'labor',
-  other: 'production',
-};
-export function categoryDefaultSection(c: ScheduleTemplateCategory): ScheduleSection {
-  return CATEGORY_DEFAULT_SECTION[c];
-}
+export const SCHEDULE_TEMPLATE_KINDS = ['standard', 'master'] as const;
+export type ScheduleTemplateKind = (typeof SCHEDULE_TEMPLATE_KINDS)[number];
 
-/** Relative-day label for a template item: negative = load-in (before show), 0+ = a show day.
- * (Templates have no real dates; the offset resolves against the event's show start on import.) */
+/** Relative-day label for a template day: negative = load-in (before show), 0+ = a show
+ * day. (Templates have no real dates; the offset resolves against the event's show
+ * start on apply.) */
 export function templateDayLabel(offset: number): string {
   return offset < 0 ? `Load-in ${-offset}` : `Show day ${offset + 1}`;
 }
 
-/** A labeled operational day in the template (e.g. "Stage Build Day 1 + Pre Rig" on Load-in 3).
- * `offset` is the same relative-day axis items use — items attach to a day via `dayOffset`. */
+/** A template item is a schedule-day item with the stage referenced by name and no
+ * server-owned calendar field. */
+export type ScheduleTemplateItem = Omit<ScheduleDayItem, 'stageId' | 'googleCalendarEventId'> & {
+  stageName: string | null;
+};
+
+/** One template day: the day-container metadata on the relative-day axis, owning its
+ * items (mirrors ScheduleDay). */
 export interface ScheduleTemplateDay {
   offset: number;
-  label: string;
-}
-
-const dayDocSchema = z.object({ offset: z.number().int(), label: z.string() });
-
-/** One blueprint row: like a ScheduleItem but with a relative day + wall-clock time (resolved on
- * apply) and a stage referenced by name (the template doesn't know the event's stage ids). */
-export interface ScheduleTemplateItem {
-  id: string;
-  section: ScheduleSection;
-  customLabel: string | null;
-  title: string;
-  /** 0-based festival day (0 = the event's start date). */
-  dayOffset: number;
-  /** 'HH:mm' wall-clock start in the event's timezone; null = no time. */
-  timeOfDay: string | null;
-  /** 'HH:mm' wall-clock end; null = none. */
-  endTimeOfDay: string | null;
-  /** The end time is an estimate (e.g. labor grids' "Est End Time"). */
-  endEstimated: boolean;
-  /** Stage matched by name to the event's stages on apply; null = event-wide. */
-  stageName: string | null;
-  slot: number | null;
-  location: string | null;
+  dayType: ScheduleDayType;
+  title: string | null;
+  description: string | null;
   notes: string | null;
-  fields: Record<string, string>;
-  includeInMaster: boolean;
-  order: number;
+  items: ScheduleTemplateItem[];
 }
 
 export interface ScheduleTemplate {
   id: string;
   name: string;
+  kind: ScheduleTemplateKind;
   category: ScheduleTemplateCategory;
+  /** Master only: ordered ids of the standard templates it composes. */
+  refs: string[];
+  /** Master only: auto-applied on event creation (at most one — service-enforced). */
+  isDefault: boolean;
   days: ScheduleTemplateDay[];
-  items: ScheduleTemplateItem[];
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
 
-const itemDocSchema = z.object({
-  id: z.string().min(1),
-  section: z.enum(SCHEDULE_SECTION_KEYS),
-  customLabel: z.string().nullable().optional(),
-  title: z.string().min(1),
-  dayOffset: z.number().int().optional(),
-  timeOfDay: z.string().nullable().optional(),
-  endTimeOfDay: z.string().nullable().optional(),
-  endEstimated: z.boolean().optional(),
-  stageName: z.string().nullable().optional(),
-  slot: z.number().nullable().optional(),
-  location: z.string().nullable().optional(),
+const templateItemDocSchema = scheduleDayItemDocSchema
+  .omit({ stageId: true, googleCalendarEventId: true })
+  .extend({ stageName: z.string().nullable().optional() });
+
+const templateDayDocSchema = z.object({
+  offset: z.number().int(),
+  dayType: z.enum(SCHEDULE_DAY_TYPE_KEYS),
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  fields: z.record(z.string(), z.string()).optional(),
-  includeInMaster: z.boolean().optional(),
-  order: z.number().optional(),
+  items: z.array(templateItemDocSchema).optional(),
 });
 
 const docSchema = z.object({
   name: z.string().min(1),
-  category: categoryEnum,
-  days: z.array(dayDocSchema).optional(),
-  items: z.array(itemDocSchema).optional(),
+  kind: z.enum(SCHEDULE_TEMPLATE_KINDS).optional(),
+  category: z.enum(SCHEDULE_TEMPLATE_CATEGORIES),
+  refs: z.array(z.string()).optional(),
+  isDefault: z.boolean().optional(),
+  days: z.array(templateDayDocSchema).optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
 
-function parseItem(raw: z.infer<typeof itemDocSchema>): ScheduleTemplateItem {
+/** True for the fields only a master may carry. */
+function hasMasterOnlyFields(v: { kind?: ScheduleTemplateKind; refs?: string[]; isDefault?: boolean }): boolean {
+  return v.kind !== 'master' && ((v.refs?.length ?? 0) > 0 || v.isDefault === true);
+}
+
+function parseItem(raw: z.infer<typeof templateItemDocSchema>): ScheduleTemplateItem {
   return {
     id: raw.id,
-    section: raw.section,
+    type: raw.type,
     customLabel: raw.customLabel ?? null,
-    title: raw.title,
-    dayOffset: raw.dayOffset ?? 0,
-    timeOfDay: raw.timeOfDay ?? null,
-    endTimeOfDay: raw.endTimeOfDay ?? null,
+    startTime: raw.startTime ?? null,
+    endTime: raw.endTime ?? null,
     endEstimated: raw.endEstimated ?? false,
+    item: raw.item,
+    description: raw.description ?? null,
     stageName: raw.stageName ?? null,
-    slot: raw.slot ?? null,
-    location: raw.location ?? null,
-    notes: raw.notes ?? null,
     fields: raw.fields ?? {},
-    includeInMaster: raw.includeInMaster ?? true,
-    order: raw.order ?? 0,
+    crew: (raw.crew ?? []).map((c) => ({ type: c.type, quantity: c.quantity, hours: c.hours ?? null })),
+    pushToCalendar: raw.pushToCalendar ?? true,
   };
 }
 
-/** Validate + normalize a raw schedule-template doc. */
+/** Validate + normalize a raw schedule-template doc (days sorted by offset). Master-only
+ * fields on a standard doc normalize away rather than reject — reads stay tolerant. */
 export function parseScheduleTemplate(id: string, data: unknown): ScheduleTemplate {
   const doc = docSchema.parse(data);
+  const kind = doc.kind ?? 'standard';
   return {
     id,
     name: doc.name,
+    kind,
     category: doc.category,
-    days: [...(doc.days ?? [])].sort((a, b) => a.offset - b.offset),
-    items: (doc.items ?? []).map(parseItem).sort((a, b) => a.order - b.order),
+    refs: kind === 'master' ? (doc.refs ?? []) : [],
+    isDefault: kind === 'master' ? (doc.isDefault ?? false) : false,
+    days: (doc.days ?? [])
+      .map((d) => ({
+        offset: d.offset,
+        dayType: d.dayType,
+        title: d.title ?? null,
+        description: d.description ?? null,
+        notes: d.notes ?? null,
+        items: (d.items ?? []).map(parseItem),
+      }))
+      .sort((a, b) => a.offset - b.offset),
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
   };
 }
 
-export const scheduleTemplateItemInputSchema = z.object({
-  id: z.string().min(1),
-  section: z.enum(SCHEDULE_SECTION_KEYS),
-  customLabel: z.string().nullable().optional(),
-  title: z.string().trim().min(1),
-  dayOffset: z.number().int(),
-  timeOfDay: z.string().nullable().optional(),
-  endTimeOfDay: z.string().nullable().optional(),
-  endEstimated: z.boolean().optional(),
-  stageName: z.string().nullable().optional(),
-  slot: z.number().int().positive().nullable().optional(),
-  location: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  fields: z.record(z.string(), z.string()).optional(),
-  includeInMaster: z.boolean().optional(),
-  order: z.number().optional(),
-});
+export const scheduleTemplateItemInputSchema = scheduleDayItemInputSchema
+  .omit({ stageId: true })
+  .extend({ stageName: z.string().trim().optional(), crew: z.array(crewLineInputSchema).optional() });
 
-/** Client-supplied fields when creating/editing a schedule template. */
-export const scheduleTemplateInputSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required.'),
-  category: categoryEnum,
-  days: z.array(z.object({ offset: z.number().int(), label: z.string().trim().min(1) })).optional(),
+export const scheduleTemplateDayInputSchema = z.object({
+  offset: z.number().int(),
+  dayType: z.enum(SCHEDULE_DAY_TYPE_KEYS),
+  title: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
   items: z.array(scheduleTemplateItemInputSchema).optional(),
 });
+
+/** Client-supplied fields when creating/editing a schedule template. Writes are strict:
+ * refs and isDefault are master-only. */
+export const scheduleTemplateInputSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required.'),
+    kind: z.enum(SCHEDULE_TEMPLATE_KINDS),
+    category: z.enum(SCHEDULE_TEMPLATE_CATEGORIES),
+    refs: z.array(z.string()).optional(),
+    isDefault: z.boolean().optional(),
+    days: z.array(scheduleTemplateDayInputSchema).optional(),
+  })
+  .refine((v) => !hasMasterOnlyFields(v), {
+    message: 'Only a master template can compose others or be the default.',
+  });
 export type ScheduleTemplateInput = z.infer<typeof scheduleTemplateInputSchema>;
 
-/** Duration in hours (2-dp) between two 'HH:mm' wall-clock times — an end at or before the
- * start wraps overnight (22:00 → 02:00 = 4). Null without both times or for a zero span. */
-export function wallClockHours(start: string | null, end: string | null): number | null {
-  if (!start || !end) return null;
-  const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-  const span = (mins(end) - mins(start) + 1440) % 1440;
-  return span > 0 ? Math.round((span / 60) * 100) / 100 : null;
+/** Merge template day lists by offset (decision 14): day metadata comes from the FIRST
+ * source that defines an offset; later sources only contribute items. Sources are in
+ * priority order; result sorted by offset. */
+export function composeTemplateDays(
+  sources: ReadonlyArray<readonly ScheduleTemplateDay[]>,
+): ScheduleTemplateDay[] {
+  const byOffset = new Map<number, ScheduleTemplateDay>();
+  for (const days of sources) {
+    for (const day of days) {
+      const existing = byOffset.get(day.offset);
+      if (existing) existing.items = [...existing.items, ...day.items];
+      else byOffset.set(day.offset, { ...day, items: [...day.items] });
+    }
+  }
+  return [...byOffset.values()].sort((a, b) => a.offset - b.offset);
 }
 
-/**
- * Resolve a blueprint's relative day + wall-clock time to a UTC instant against the event's
- * start date, in the event's `timeZone` (default Central). The event day is derived in that
- * zone — NOT the browser's — so an imported item lands on the right calendar day regardless of
- * the viewer's location. Returns null when there's no start date or no time-of-day.
- */
-export function templateItemInstant(
-  eventStart: Date | null,
-  dayOffset: number,
-  timeOfDay: string | null,
-  timeZone: string = APP_TIME_ZONE,
-): Date | null {
-  if (!eventStart || !timeOfDay) return null;
-  const dayKey = shiftDayKey(zonedDayKey(eventStart, timeZone), dayOffset);
-  return zonedInputToDate(`${dayKey}T${timeOfDay}`, timeZone);
+/** Resolve a template to its effective days. A standard template is just its days; a
+ * master composes its own inline days (highest priority — it defines day metadata)
+ * with each referenced standard template in order. One level deep: refs to missing or
+ * master templates are skipped. */
+export function resolveTemplateDays(
+  template: ScheduleTemplate,
+  byId: ReadonlyMap<string, ScheduleTemplate>,
+): ScheduleTemplateDay[] {
+  if (template.kind !== 'master') return template.days;
+  const sources = [
+    template.days,
+    ...template.refs.map((id) => {
+      const ref = byId.get(id);
+      return ref && ref.kind === 'standard' ? ref.days : [];
+    }),
+  ];
+  return composeTemplateDays(sources);
+}
+
+/** Total item count across a template's own days (list-screen display). */
+export function templateItemCount(template: ScheduleTemplate): number {
+  return template.days.reduce((n, d) => n + d.items.length, 0);
+}
+
+/** Editor view bridge: a template item as a schedule-day item (stage name doubles as
+ * the stage "id", so the shared grid's stage select lists names). */
+export function templateItemToDayItem(item: ScheduleTemplateItem): ScheduleDayItem {
+  const { stageName, ...rest } = item;
+  return { ...rest, stageId: stageName, googleCalendarEventId: null };
+}
+
+/** Editor view bridge back: the grid's stage "id" is the stage name. */
+export function dayItemToTemplateItem(item: ScheduleDayItem): ScheduleTemplateItem {
+  const { stageId, googleCalendarEventId: _cal, ...rest } = item;
+  return { ...rest, stageName: stageId };
+}
+
+/** Parsed days → input shape (the editor's save path). */
+export function templateDaysToInput(
+  days: readonly ScheduleTemplateDay[],
+): NonNullable<ScheduleTemplateInput['days']> {
+  return days.map((d) => ({
+    offset: d.offset,
+    dayType: d.dayType,
+    title: d.title ?? undefined,
+    description: d.description ?? undefined,
+    notes: d.notes ?? undefined,
+    items: d.items.map((i) => ({
+      id: i.id,
+      type: i.type,
+      customLabel: i.customLabel ?? undefined,
+      startTime: i.startTime,
+      endTime: i.endTime,
+      endEstimated: i.endEstimated,
+      item: i.item,
+      description: i.description ?? undefined,
+      stageName: i.stageName ?? undefined,
+      fields: i.fields,
+      crew: i.crew,
+      pushToCalendar: i.pushToCalendar,
+    })),
+  }));
 }

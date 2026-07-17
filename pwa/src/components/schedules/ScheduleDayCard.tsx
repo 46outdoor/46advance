@@ -24,6 +24,10 @@ const EDIT_COLS =
 
 export type ResolveItemText = (item: ScheduleDayItem, text: string) => string;
 
+/** The slice of a day the card renders — the event screen passes a full ScheduleDay;
+ * the template editor passes a view built from a template day (offset as id). */
+export type ScheduleDayView = Pick<ScheduleDay, 'id' | 'dayType' | 'title' | 'description' | 'notes'>;
+
 /** "Location: FOH · Carrier: Delta · Conf #: ABC123" — the populated per-type fields. */
 function typeFieldsSummary(item: ScheduleDayItem): string {
   return scheduleItemTypeDef(item.type)
@@ -70,8 +74,8 @@ export function ScheduleDayCard({
   onCommitItem,
   onDeleteItem,
 }: {
-  day: ScheduleDay;
-  /** Formatted header date (event: "Tue, Jul 14, 2026"; templates will pass offsets). */
+  day: ScheduleDayView;
+  /** Formatted header date (event: "Tue, Jul 14, 2026"; templates: "Load-in 2"). */
   dateLabel: string;
   /** The rows to render (already filtered by the screen; sorted here). */
   items: readonly ScheduleDayItem[];

@@ -19,7 +19,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
-import { shiftDayKey } from '@/lib/dates/timezone';
+import { shiftDayKey, zonedDayKey } from '@/lib/dates/timezone';
+import type { ScheduleTemplateDay, ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
 import {
   parseScheduleDay,
   scheduleDayInputSchema,
@@ -201,6 +202,71 @@ export async function saveScheduleDayMeta(
   });
   await batch.commit();
   return parsed.date;
+}
+
+/** A template item landing in an event day: stage matched to the event's stages by
+ * name (case-insensitive), a fresh id (re-applying a template must not collide with
+ * items it created before), and no calendar event yet. */
+function templateItemToDayItem(
+  item: ScheduleTemplateItem,
+  stageByName: ReadonlyMap<string, string>,
+): ScheduleDayItem {
+  const { stageName, ...rest } = item;
+  return {
+    ...rest,
+    id: crypto.randomUUID(),
+    stageId: stageName ? (stageByName.get(stageName.trim().toLowerCase()) ?? null) : null,
+    googleCalendarEventId: null,
+  };
+}
+
+/**
+ * Apply resolved template days to an event's schedule (decision 22): a resolved day
+ * landing on a date that already has a card merges its items into that card — the
+ * event day keeps its own metadata — while new dates get the template day's metadata.
+ * Offsets resolve against the event's start date in its timezone (offset 0 = the
+ * start date). One atomic batch; returns the number of items added.
+ */
+export async function applyTemplateDaysToEvent(
+  eventId: string,
+  resolvedDays: readonly ScheduleTemplateDay[],
+  eventStart: Date | null,
+  timeZone: string,
+  stages: readonly { id: string; name: string }[],
+  uid: string,
+): Promise<number> {
+  if (!eventStart) throw new Error('Set the event’s start date before applying a schedule template.');
+  const baseKey = zonedDayKey(eventStart, timeZone);
+  const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
+  const existing = new Map((await listScheduleDays(eventId)).map((d) => [d.id, d]));
+  const batch = writeBatch(db);
+  let added = 0;
+  for (const day of resolvedDays) {
+    const date = shiftDayKey(baseKey, day.offset);
+    const items = day.items.map((i) => templateItemToDayItem(i, stageByName));
+    added += items.length;
+    const current = existing.get(date);
+    if (current) {
+      batch.update(dayDoc(eventId, date), {
+        items: [...current.items, ...items],
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      batch.set(dayDoc(eventId, date), {
+        date,
+        dayType: day.dayType,
+        title: day.title,
+        description: day.description,
+        notes: day.notes,
+        items,
+        createdBy: uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }
+  await batch.commit();
+  return added;
 }
 
 /** Firestore caps a batch at 500 writes; each shifted day costs a delete + a set (plus

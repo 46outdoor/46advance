@@ -10,7 +10,9 @@ import { createLogger } from '@/lib/logger';
 import {
   SCHEDULE_TEMPLATE_CATEGORIES,
   scheduleTemplateCategoryLabel,
+  templateItemCount,
   type ScheduleTemplateCategory,
+  type ScheduleTemplateKind,
 } from '@/lib/schedules/scheduleTemplate';
 import {
   createScheduleTemplate,
@@ -26,12 +28,17 @@ export function ScheduleTemplatesListScreen() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ScheduleTemplateCategory>('production');
+  const [kind, setKind] = useState<ScheduleTemplateKind>('standard');
 
   const templatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['scheduleTemplates'] });
 
   const create = useMutation({
-    mutationFn: () => createScheduleTemplate({ name: name.trim(), category, items: [] }, user!.uid),
+    mutationFn: () =>
+      createScheduleTemplate(
+        { name: name.trim(), kind, category: kind === 'master' ? 'other' : category, days: [] },
+        user!.uid,
+      ),
     onSuccess: (id) => {
       void invalidate();
       setName('');
@@ -76,23 +83,36 @@ export function ScheduleTemplatesListScreen() {
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Category</span>
+          <span className="mb-1 block font-semibold text-ink">Kind</span>
           <select
-            className="rounded border border-line px-3 py-2 outline-none focus:border-brand"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as ScheduleTemplateCategory)}
+            className="min-h-11 rounded border border-line px-3 py-2 outline-none focus:border-brand sm:min-h-0"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ScheduleTemplateKind)}
           >
-            {SCHEDULE_TEMPLATE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {scheduleTemplateCategoryLabel(c)}
-              </option>
-            ))}
+            <option value="standard">Standard</option>
+            <option value="master">Master (composes others)</option>
           </select>
         </label>
+        {kind === 'standard' && (
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold text-ink">Category</span>
+            <select
+              className="min-h-11 rounded border border-line px-3 py-2 outline-none focus:border-brand sm:min-h-0"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ScheduleTemplateCategory)}
+            >
+              {SCHEDULE_TEMPLATE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {scheduleTemplateCategoryLabel(c)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           type="submit"
           disabled={create.isPending || !name.trim()}
-          className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:min-h-0"
         >
           Create
         </button>
@@ -108,10 +128,17 @@ export function ScheduleTemplatesListScreen() {
             <Link to={`/schedule-templates/${t.id}`} className="font-semibold text-brand hover:text-accent">
               {t.name}
               <span className="ml-2 rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
-                {scheduleTemplateCategoryLabel(t.category)}
+                {t.kind === 'master' ? 'Master' : scheduleTemplateCategoryLabel(t.category)}
               </span>
+              {t.isDefault && (
+                <span className="ml-2 rounded-full bg-ink px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-surface">
+                  Default
+                </span>
+              )}
               <span className="ml-2 text-xs font-normal text-ink-muted">
-                {t.items.length} item{t.items.length === 1 ? '' : 's'}
+                {t.kind === 'master'
+                  ? `${t.refs.length} composed`
+                  : `${templateItemCount(t)} item${templateItemCount(t) === 1 ? '' : 's'}`}
               </span>
             </Link>
             <button

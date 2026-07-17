@@ -1,9 +1,10 @@
 /**
  * Seed/refresh the "575 Stage — Master Labor Schedule" stagehand schedule template
- * (`scheduleTemplates/{id}`) from the 575 Stage labor grid. Days are labeled first-class
- * template days on the relative-day axis (offset -3 → "Load-in 3" … +2 → the post-show
- * load-out day), each holding its calls; items are titled by call type. Re-running
- * overwrites the template's content in place (matched by name).
+ * (`scheduleTemplates/{id}`) from the 575 Stage labor grid — redesign shape
+ * (planning/SCHEDULE_REDESIGN.md): day-first template days on the relative-day axis,
+ * each owning its items; calls sharing a window become ONE labor item ("Crew Call")
+ * with per-type crew lines ("(28) Stagehands"). Re-running overwrites the template's
+ * content in place (matched by name).
  *
  * Run (from functions/, where firebase-admin is installed):
  *   gcloud auth application-default login   # one-time
@@ -112,45 +113,69 @@ const DAYS: DayBlock[] = [
   },
 ];
 
-/** Flatten day blocks into `ScheduleTemplateItem`-shaped docs (matches itemDocSchema). */
-function toItems(days: DayBlock[]) {
-  let order = 0;
-  return days.flatMap((day) =>
-    day.calls.map((call) => ({
+/** The day type on the arc: build days are load-in, show days show, the last day out. */
+function dayTypeFor(offset: number): string {
+  if (offset < 0) return 'loadIn';
+  return offset >= 2 ? 'loadOut' : 'show';
+}
+
+/** Group a day's calls by their shared window: one labor item per (start, end), its
+ * crew lines carrying the per-type quantities; distinct call notes join the lunch note
+ * in the item description. Each line's duration is the call window (hours: null). */
+function toDayItems(calls: Call[]) {
+  const groups = new Map<string, Call[]>();
+  for (const call of calls) {
+    const key = `${call.start}-${call.end}`;
+    const group = groups.get(key);
+    if (group) group.push(call);
+    else groups.set(key, [call]);
+  }
+  return [...groups.values()].map((group) => {
+    const notes = [...new Set(group.map((c) => c.note).filter((n): n is string => !!n))];
+    return {
       id: randomUUID(),
-      section: 'labor',
+      type: 'labor',
       customLabel: null,
-      title: call.type,
-      dayOffset: day.dayOffset,
-      timeOfDay: call.start,
-      endTimeOfDay: call.end,
+      startTime: group[0].start,
+      endTime: group[0].end,
       // The grid's end column is "Est End Time" — every call's end is an estimate.
       endEstimated: true,
+      item: 'Crew Call',
+      description: [...notes, LUNCH_NOTE].join(' · '),
       stageName: null,
-      slot: null,
-      location: null,
-      notes: call.note ? `${call.note} · ${LUNCH_NOTE}` : LUNCH_NOTE,
-      fields: { crewCount: String(call.count) },
-      includeInMaster: true,
-      order: order++,
-    })),
-  );
+      fields: {},
+      crew: group.map((c) => ({ type: c.type, quantity: c.count, hours: null })),
+      pushToCalendar: true,
+    };
+  });
 }
 
 async function main(): Promise<void> {
   const creator = await getAuth().getUserByEmail(CREATOR_EMAIL);
+  const days = DAYS.map((d) => ({
+    offset: d.dayOffset,
+    dayType: dayTypeFor(d.dayOffset),
+    title: d.label,
+    description: null,
+    notes: null,
+    items: toDayItems(d.calls),
+  }));
+  const itemCount = days.reduce((n, d) => n + d.items.length, 0);
   const content = {
     name: TEMPLATE_NAME,
+    kind: 'standard',
     category: 'stagehand',
-    days: DAYS.map((d) => ({ offset: d.dayOffset, label: d.label })),
-    items: toItems(DAYS),
+    refs: [],
+    isDefault: false,
+    days,
     updatedAt: FieldValue.serverTimestamp(),
   };
 
   const existing = await db.collection('scheduleTemplates').where('name', '==', TEMPLATE_NAME).get();
   if (!existing.empty) {
-    await existing.docs[0].ref.update(content);
-    console.log(`Updated "${TEMPLATE_NAME}" (${existing.docs[0].id}) in place: ${content.items.length} items across ${content.days.length} days.`);
+    // Merge without createdBy — a reseed refreshes content, not attribution.
+    await existing.docs[0].ref.set(content, { merge: true });
+    console.log(`Updated "${TEMPLATE_NAME}" (${existing.docs[0].id}) in place: ${itemCount} items across ${days.length} days.`);
     return;
   }
 
@@ -159,7 +184,7 @@ async function main(): Promise<void> {
     createdBy: creator.uid,
     createdAt: FieldValue.serverTimestamp(),
   });
-  console.log(`Created "${TEMPLATE_NAME}" (${ref.id}): ${content.items.length} items across ${content.days.length} days.`);
+  console.log(`Created "${TEMPLATE_NAME}" (${ref.id}): ${itemCount} items across ${days.length} days.`);
 }
 
 main().catch((err) => {

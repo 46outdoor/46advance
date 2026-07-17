@@ -1,105 +1,189 @@
 import { describe, it, expect } from 'vitest';
 import {
-  categoryDefaultSection,
+  composeTemplateDays,
+  dayItemToTemplateItem,
   parseScheduleTemplate,
-  scheduleTemplateCategoryLabel,
+  resolveTemplateDays,
+  scheduleTemplateInputSchema,
   templateDayLabel,
-  templateItemInstant,
-  wallClockHours,
+  templateItemCount,
+  templateItemToDayItem,
+  type ScheduleTemplate,
+  type ScheduleTemplateDay,
+  type ScheduleTemplateItem,
 } from './scheduleTemplate';
 
-describe('parseScheduleTemplate', () => {
-  it('parses items with defaults and sorts them by order', () => {
-    const t = parseScheduleTemplate('st1', {
-      name: 'Load-in',
-      category: 'production',
-      createdBy: 'u1',
-      items: [
-        { id: 'b', section: 'production', title: 'Doors', order: 1 },
-        { id: 'a', section: 'show', title: 'Headliner', slot: 1, order: 0 },
-      ],
-    });
-    expect(t.name).toBe('Load-in');
-    expect(t.category).toBe('production');
-    expect(t.items.map((i) => i.id)).toEqual(['a', 'b']); // sorted by order
-    expect(t.items[0].slot).toBe(1);
-    expect(t.items[1].dayOffset).toBe(0); // default
-    expect(t.items[1].includeInMaster).toBe(true); // default
-    expect(t.items[1].endEstimated).toBe(false); // default
-    expect(t.days).toEqual([]); // default
-  });
+const item = (id: string, over: Partial<ScheduleTemplateItem> = {}): ScheduleTemplateItem => ({
+  id,
+  type: 'labor',
+  customLabel: null,
+  startTime: '08:00',
+  endTime: '18:00',
+  endEstimated: false,
+  item: 'Crew Call',
+  description: null,
+  stageName: 'Main',
+  fields: {},
+  crew: [],
+  pushToCalendar: true,
+  ...over,
+});
 
-  it('parses labeled days sorted by offset', () => {
-    const t = parseScheduleTemplate('st2', {
-      name: 'Labor',
+const day = (offset: number, items: ScheduleTemplateItem[] = [], title = ''): ScheduleTemplateDay => ({
+  offset,
+  dayType: 'loadIn',
+  title: title || null,
+  description: null,
+  notes: null,
+  items,
+});
+
+const template = (over: Partial<ScheduleTemplate>): ScheduleTemplate => ({
+  id: 't1',
+  name: 'T',
+  kind: 'standard',
+  category: 'stagehand',
+  refs: [],
+  isDefault: false,
+  days: [],
+  createdBy: 'u1',
+  createdAt: null,
+  updatedAt: null,
+  ...over,
+});
+
+describe('parseScheduleTemplate', () => {
+  it('parses a minimal doc with defaults (standard, no refs, days sorted by offset)', () => {
+    const t = parseScheduleTemplate('t1', {
+      name: 'Stagehand',
       category: 'stagehand',
       createdBy: 'u1',
       days: [
-        { offset: 0, label: 'Show Day 1' },
-        { offset: -3, label: 'Stage Build Day 1 + Pre Rig' },
+        { offset: 0, dayType: 'show' },
+        { offset: -2, dayType: 'loadIn', items: [{ id: 'i1', type: 'labor', item: 'Crew Call' }] },
       ],
     });
-    expect(t.days.map((d) => d.offset)).toEqual([-3, 0]);
-    expect(t.days[0].label).toBe('Stage Build Day 1 + Pre Rig');
+    expect(t.kind).toBe('standard');
+    expect(t.isDefault).toBe(false);
+    expect(t.days.map((d) => d.offset)).toEqual([-2, 0]);
+    expect(t.days[0].items[0].stageName).toBeNull();
+    expect(t.days[0].items[0].pushToCalendar).toBe(true);
   });
 
-  it('rejects an unknown category', () => {
-    expect(() => parseScheduleTemplate('x', { name: 'X', category: 'bogus', createdBy: 'u' })).toThrow();
+  it('parses a master with refs + isDefault; rejects unknown kind or dayType', () => {
+    const t = parseScheduleTemplate('m1', {
+      name: 'Master',
+      kind: 'master',
+      category: 'other',
+      refs: ['a', 'b'],
+      isDefault: true,
+      createdBy: 'u1',
+    });
+    expect(t.kind).toBe('master');
+    expect(t.refs).toEqual(['a', 'b']);
+    expect(t.isDefault).toBe(true);
+    expect(() =>
+      parseScheduleTemplate('x', { name: 'X', kind: 'mega', category: 'other', createdBy: 'u1' }),
+    ).toThrow();
+    expect(() =>
+      parseScheduleTemplate('x', {
+        name: 'X',
+        category: 'other',
+        createdBy: 'u1',
+        days: [{ offset: 0, dayType: 'build' }],
+      }),
+    ).toThrow();
   });
 });
 
-describe('scheduleTemplateCategoryLabel', () => {
-  it('labels each category', () => {
-    expect(scheduleTemplateCategoryLabel('show')).toBe('Show');
-    expect(scheduleTemplateCategoryLabel('stagehand')).toBe('Stagehand');
+describe('composeTemplateDays (decision 14: merge by offset)', () => {
+  it('keeps metadata from the first source defining an offset; later sources add items', () => {
+    const merged = composeTemplateDays([
+      [day(-1, [item('a')], 'Rig Day')],
+      [day(-1, [item('b')], 'Ignored Title'), day(0, [item('c')])],
+    ]);
+    expect(merged.map((d) => d.offset)).toEqual([-1, 0]);
+    expect(merged[0].title).toBe('Rig Day');
+    expect(merged[0].items.map((i) => i.id)).toEqual(['a', 'b']);
+  });
+
+  it('does not mutate its sources', () => {
+    const src = day(-1, [item('a')]);
+    composeTemplateDays([[src], [day(-1, [item('b')])]]);
+    expect(src.items.map((i) => i.id)).toEqual(['a']);
   });
 });
 
-describe('categoryDefaultSection', () => {
-  it('matches each category to its section, falling back to production for other', () => {
-    expect(categoryDefaultSection('production')).toBe('production');
-    expect(categoryDefaultSection('show')).toBe('show');
-    expect(categoryDefaultSection('stagehand')).toBe('labor');
-    expect(categoryDefaultSection('other')).toBe('production');
+describe('resolveTemplateDays', () => {
+  const std = template({ id: 's1', days: [day(-1, [item('a')])] });
+
+  it('returns a standard template’s own days', () => {
+    expect(resolveTemplateDays(std, new Map())).toEqual(std.days);
+  });
+
+  it('composes a master: inline days first, then refs in order; skips missing/master refs', () => {
+    const other = template({ id: 's2', days: [day(-1, [item('b')]), day(0, [item('c')])] });
+    const nestedMaster = template({ id: 'm2', kind: 'master', days: [day(5, [item('z')])] });
+    const master = template({
+      id: 'm1',
+      kind: 'master',
+      refs: ['s1', 'missing', 's2', 'm2'],
+      days: [day(-1, [], 'Master Rig Day')],
+    });
+    const byId = new Map([
+      ['s1', std],
+      ['s2', other],
+      ['m2', nestedMaster],
+    ]);
+    const resolved = resolveTemplateDays(master, byId);
+    expect(resolved.map((d) => d.offset)).toEqual([-1, 0]);
+    expect(resolved[0].title).toBe('Master Rig Day');
+    expect(resolved[0].items.map((i) => i.id)).toEqual(['a', 'b']);
+    expect(resolved.some((d) => d.offset === 5)).toBe(false);
   });
 });
 
-describe('templateDayLabel', () => {
-  it('labels load-in (negative) and show days', () => {
+describe('editor bridges + helpers', () => {
+  it('round-trips an item through the day-item view (stage name ⇄ stage "id")', () => {
+    const original = item('i1');
+    const asDay = templateItemToDayItem(original);
+    expect(asDay.stageId).toBe('Main');
+    expect(asDay.googleCalendarEventId).toBeNull();
+    expect(dayItemToTemplateItem(asDay)).toEqual(original);
+  });
+
+  it('labels offsets and counts items', () => {
     expect(templateDayLabel(-2)).toBe('Load-in 2');
-    expect(templateDayLabel(-1)).toBe('Load-in 1');
     expect(templateDayLabel(0)).toBe('Show day 1');
-    expect(templateDayLabel(2)).toBe('Show day 3');
-  });
-});
-
-describe('templateItemInstant', () => {
-  it('resolves day offset + wall-clock time to an instant on the right day', () => {
-    const start = new Date(2026, 5, 26); // Fri Jun 26 (local calendar date)
-    const day0 = templateItemInstant(start, 0, '21:00');
-    const day2 = templateItemInstant(start, 2, '21:00');
-    expect(day0).not.toBeNull();
-    expect(day2).not.toBeNull();
-    // Same wall-clock time, two days later, no DST boundary in June → exactly 2 days apart.
-    expect(day2!.getTime() - day0!.getTime()).toBe(2 * 24 * 60 * 60 * 1000);
+    expect(templateItemCount(template({ days: [day(0, [item('a'), item('b')]), day(1, [item('c')])] }))).toBe(3);
   });
 
-  it('returns null without a start date or a time', () => {
-    expect(templateItemInstant(null, 0, '21:00')).toBeNull();
-    expect(templateItemInstant(new Date(2026, 5, 26), 0, null)).toBeNull();
-  });
-});
-
-describe('wallClockHours', () => {
-  it('computes hours between wall-clock times, wrapping overnight ends', () => {
-    expect(wallClockHours('08:00', '18:00')).toBe(10);
-    expect(wallClockHours('22:00', '02:00')).toBe(4); // overnight
-    expect(wallClockHours('13:00', '22:30')).toBe(9.5);
+  it('input schema requires a name and known kind/category', () => {
+    expect(scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'standard', category: 'show' }).success).toBe(true);
+    expect(scheduleTemplateInputSchema.safeParse({ name: ' ', kind: 'standard', category: 'show' }).success).toBe(false);
+    expect(scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'nope', category: 'show' }).success).toBe(false);
   });
 
-  it('returns null without both times or for a zero span', () => {
-    expect(wallClockHours(null, '18:00')).toBeNull();
-    expect(wallClockHours('08:00', null)).toBeNull();
-    expect(wallClockHours('08:00', '08:00')).toBeNull();
+  it('master-only fields: input rejects them on a standard; parse normalizes them away', () => {
+    expect(
+      scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'standard', category: 'show', refs: ['x'] }).success,
+    ).toBe(false);
+    expect(
+      scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'standard', category: 'show', isDefault: true })
+        .success,
+    ).toBe(false);
+    expect(
+      scheduleTemplateInputSchema.safeParse({ name: 'T', kind: 'master', category: 'other', refs: ['x'], isDefault: true })
+        .success,
+    ).toBe(true);
+    const parsed = parseScheduleTemplate('t', {
+      name: 'T',
+      category: 'show',
+      createdBy: 'u1',
+      refs: ['stale'],
+      isDefault: true,
+    });
+    expect(parsed.refs).toEqual([]);
+    expect(parsed.isDefault).toBe(false);
   });
 });
