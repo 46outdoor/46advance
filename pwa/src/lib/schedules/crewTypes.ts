@@ -18,9 +18,11 @@ const crewTypesDocSchema = z.object({
 });
 
 /** Validate + normalize the crew-types config doc: trims entries, drops blanks and
- * duplicates (order-preserving). An absent/empty list falls back to the seed. */
+ * duplicates (order-preserving). An absent doc (`undefined`, e.g. `snap.data()` on a
+ * missing document) or an empty list falls back to the seed; a malformed present doc
+ * still fails validation. */
 export function parseCrewTypes(data: unknown): string[] {
-  const doc = crewTypesDocSchema.parse(data);
+  const doc = crewTypesDocSchema.parse(data === undefined ? {} : data);
   const cleaned = [...new Set((doc.types ?? []).map((t) => t.trim()).filter(Boolean))];
   return cleaned.length > 0 ? cleaned : [...DEFAULT_CREW_TYPES];
 }

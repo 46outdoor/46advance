@@ -7,6 +7,11 @@ describe('formatMinutes', () => {
     expect(formatMinutes(270)).toBe('4h 30m');
     expect(formatMinutes(45)).toBe('45m');
   });
+
+  it('rounds the total first (fractional input never yields "1h 60m")', () => {
+    expect(formatMinutes(119.5)).toBe('2h');
+    expect(formatMinutes(119.4)).toBe('1h 59m');
+  });
 });
 
 describe('formatWallClockTime', () => {

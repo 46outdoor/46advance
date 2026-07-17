@@ -3,6 +3,7 @@ import { DEFAULT_CREW_TYPES, parseCrewTypes } from './crewTypes';
 
 describe('parseCrewTypes', () => {
   it('falls back to the seed when the doc is absent or empty', () => {
+    expect(parseCrewTypes(undefined)).toEqual([...DEFAULT_CREW_TYPES]);
     expect(parseCrewTypes({})).toEqual([...DEFAULT_CREW_TYPES]);
     expect(parseCrewTypes({ types: [] })).toEqual([...DEFAULT_CREW_TYPES]);
     expect(parseCrewTypes({ types: ['  ', ''] })).toEqual([...DEFAULT_CREW_TYPES]);

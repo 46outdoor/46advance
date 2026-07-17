@@ -18,10 +18,12 @@ export function formatDateRange(start: Date | null, end: Date | null): string {
   return '—';
 }
 
-/** Compact duration display: 600 → "10h", 270 → "4h 30m", 45 → "45m". */
+/** Compact duration display: 600 → "10h", 270 → "4h 30m", 45 → "45m". Rounds the
+ * total first so fractional inputs can't split into "1h 60m". */
 export function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
   if (h === 0) return `${m}m`;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }

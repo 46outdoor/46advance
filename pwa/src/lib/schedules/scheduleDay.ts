@@ -12,15 +12,15 @@ import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
 import { spanMinutes } from '@/lib/dates/calculations';
 import { formatMinutes } from '@/lib/dates/formatting';
+import { isValidDateKey } from '@/lib/dates/parsing';
 import { slotLabel } from '@/lib/advances/advance';
 import { SCHEDULE_DAY_TYPE_KEYS, type ScheduleDayType } from './dayTypes';
 import { SCHEDULE_ITEM_TYPE_KEYS, scheduleItemTypeDef, type ScheduleItemType } from './itemTypes';
 
-const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ARTIST_PLACEHOLDER_RE = /\{artist\s+(\d+)\}/gi;
 
-const dateKeySchema = z.string().regex(DATE_KEY_RE, 'Use a YYYY-MM-DD date.');
+const dateKeySchema = z.string().refine(isValidDateKey, 'Use a real YYYY-MM-DD date.');
 const wallClockSchema = z.string().regex(WALL_CLOCK_RE, 'Use a HH:mm time.');
 
 /** One labor crew line: "(12) Stagehands · 8h". `hours` is this type's call length,
@@ -127,10 +127,14 @@ function parseItem(raw: z.infer<typeof itemDocSchema>): ScheduleDayItem {
   };
 }
 
-/** Validate + normalize a raw schedule-day doc. Preserves item array order (the
- * authoring order — display sorting is `sortDayItems`). */
+/** Validate + normalize a raw schedule-day doc. Enforces the structural invariant
+ * that the doc id IS the stored date (one card per date). Preserves item array order
+ * (the authoring order — display sorting is `sortDayItems`). */
 export function parseScheduleDay(id: string, data: unknown): ScheduleDay {
   const doc = dayDocSchema.parse(data);
+  if (doc.date !== id) {
+    throw new Error(`Schedule-day id "${id}" must equal its date "${doc.date}".`);
+  }
   return {
     id,
     date: doc.date,
@@ -181,23 +185,19 @@ export type ScheduleDayInput = z.infer<typeof scheduleDayInputSchema>;
 
 /** The Duration column for one item, or null to leave it blank. Crew-bearing items show
  * a duration only when every line agrees on one (decision 17 — differing per-line
- * durations make a single number misleading); lines without hours fall back to the
- * item's start/end span. Everything else derives from start/end. */
+ * durations make a single number misleading). A line without hours runs the item's own
+ * window (a call line with no stated duration means the full call), so it compares by
+ * that value. Everything else derives from start/end. */
 export function itemDurationLabel(
   item: Pick<ScheduleDayItem, 'type' | 'startTime' | 'endTime' | 'crew'>,
 ): string | null {
-  if (scheduleItemTypeDef(item.type).hasCrew && item.crew.length > 0) {
-    let shared: number | undefined;
-    let mixed = false;
-    for (const line of item.crew) {
-      if (line.hours == null) mixed = true;
-      else if (shared === undefined) shared = line.hours;
-      else if (line.hours !== shared) mixed = true;
-    }
-    if (shared !== undefined) return mixed ? null : formatMinutes(shared * 60);
-    // No line carries hours — fall through to the item's own window.
-  }
   const span = spanMinutes(item.startTime, item.endTime);
+  if (scheduleItemTypeDef(item.type).hasCrew && item.crew.length > 0) {
+    const durations = item.crew.map((line) => (line.hours == null ? span : line.hours * 60));
+    const shared = durations[0];
+    if (shared == null || durations.some((d) => d !== shared)) return null;
+    return formatMinutes(shared);
+  }
   return span == null ? null : formatMinutes(span);
 }
 

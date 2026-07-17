@@ -85,6 +85,17 @@ describe('parseScheduleDay', () => {
     expect(day.items.map((i) => i.id)).toEqual(['b', 'a']);
   });
 
+  it('enforces the id == date invariant (one card per date)', () => {
+    expect(() =>
+      parseScheduleDay('2026-07-15', { date: '2026-07-14', dayType: 'show', createdBy: 'u1' }),
+    ).toThrow(/must equal its date/);
+  });
+
+  it('rejects an impossible calendar date (regex-valid but rolls over)', () => {
+    expect(() => parseScheduleDay('2026-02-31', { date: '2026-02-31', dayType: 'show', createdBy: 'u1' })).toThrow();
+    expect(scheduleDayInputSchema.safeParse({ date: '2026-02-31', dayType: 'show' }).success).toBe(false);
+  });
+
   it('rejects a bad date key, unknown day type, or unknown item type', () => {
     expect(() => parseScheduleDay('x', { date: 'July 14', dayType: 'show', createdBy: 'u1' })).toThrow();
     expect(() => parseScheduleDay('x', { date: '2026-07-14', dayType: 'build', createdBy: 'u1' })).toThrow();
@@ -169,12 +180,21 @@ describe('itemDurationLabel (decision 17)', () => {
 
   it('stays blank when crew lines differ (per-line durations carry the truth)', () => {
     expect(itemDurationLabel(labor([{ type: 'SH', quantity: 12, hours: 10 }, { type: 'RG', quantity: 4, hours: 4 }]))).toBeNull();
-    expect(itemDurationLabel(labor([{ type: 'SH', quantity: 12, hours: 10 }, { type: 'RG', quantity: 4, hours: null }]))).toBeNull();
+    // A line without hours runs the 10h item window — 4h vs 10h differs.
+    expect(itemDurationLabel(labor([{ type: 'RG', quantity: 4, hours: 4 }, { type: 'SH', quantity: 12, hours: null }]))).toBeNull();
   });
 
-  it('falls back to the item window when no line carries hours (or there is no crew)', () => {
+  it('treats a line without hours as running the item window (agreeing lines still show)', () => {
+    // 10h line + no-hours line on a 10h window agree → show.
+    expect(itemDurationLabel(labor([{ type: 'SH', quantity: 12, hours: 10 }, { type: 'RG', quantity: 4, hours: null }]))).toBe('10h');
     expect(itemDurationLabel(labor([{ type: 'SH', quantity: 12, hours: null }]))).toBe('10h');
     expect(itemDurationLabel(labor([]))).toBe('10h');
+  });
+
+  it('stays blank for an untimed item whose lines lack hours', () => {
+    expect(
+      itemDurationLabel({ type: 'labor', startTime: null, endTime: null, crew: [{ type: 'SH', quantity: 2, hours: null }] }),
+    ).toBeNull();
   });
 
   it('derives from start/end for non-labor items; blank when untimed', () => {
