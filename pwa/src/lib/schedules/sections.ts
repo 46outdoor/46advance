@@ -4,6 +4,8 @@
  * item itself; these are the *extra* fields each section adds, stored in `item.fields`.
  * Code-defined for now — expected to be refined repeatedly.
  */
+import type { ScheduleFieldDef } from './itemTypes';
+
 export const SCHEDULE_SECTION_KEYS = [
   'production',
   'show',
@@ -14,14 +16,9 @@ export const SCHEDULE_SECTION_KEYS = [
 ] as const;
 export type ScheduleSection = (typeof SCHEDULE_SECTION_KEYS)[number];
 
-export type ScheduleFieldType = 'text' | 'number' | 'select';
-
-export interface ScheduleFieldDef {
-  key: string;
-  label: string;
-  type: ScheduleFieldType;
-  options?: readonly string[];
-}
+// The field-def type is canonical in the redesign registry (itemTypes.ts) — re-exported
+// here so this retiring module's consumers keep working until they migrate.
+export type { ScheduleFieldDef } from './itemTypes';
 
 export interface ScheduleSectionDef {
   key: ScheduleSection;

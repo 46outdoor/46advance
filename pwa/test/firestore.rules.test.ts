@@ -560,6 +560,76 @@ describe('firestore.rules — document shape validation', () => {
   });
 });
 
+describe('firestore.rules — schedule days (redesign)', () => {
+  const dayPath = 'events/event-a/scheduleDays/2026-07-14';
+  const validDay = {
+    date: '2026-07-14',
+    dayType: 'loadIn',
+    title: 'Stage Build Day 1',
+    items: [],
+    createdBy: PM,
+  };
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), dayPath), validDay);
+    });
+  });
+
+  it('members read; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), dayPath)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), dayPath)));
+  });
+
+  it('PM creates a valid day; a tech (non-editor) cannot', async () => {
+    const day = { ...validDay, date: '2026-07-15' };
+    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), day));
+    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/scheduleDays/2026-07-16'), { ...validDay, date: '2026-07-16', createdBy: TECH }));
+  });
+
+  it('rejects a doc whose date does not match its id (one card per date is structural)', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), { ...validDay, date: '2026-07-16' }),
+    );
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { date: '2026-07-20' }));
+  });
+
+  it('rejects a non-date id and an unknown dayType', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/day-one'), { ...validDay, date: 'day-one' }),
+    );
+    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), { ...validDay, date: '2026-07-15', dayType: 'build' }));
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { dayType: 'strike' }));
+  });
+
+  it('requires items to be a list', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { items: 'none' }));
+  });
+
+  it('pins createdBy to the caller on create (audit field is not forgeable)', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-17'), {
+        ...validDay,
+        date: '2026-07-17',
+        createdBy: 'someone-else',
+      }),
+    );
+  });
+
+  it('allows the whole-day atomic overwrite the inline editor uses (createdBy carried through)', async () => {
+    const items = [{ id: 'i1', type: 'labor', item: 'Load-In Call', startTime: '08:00', crew: [] }];
+    await assertSucceeds(setDoc(doc(dbFor(PM), dayPath), { ...validDay, notes: 'Dock 2 only', items }));
+    // A full overwrite that drops createdBy changes the audit field — rejected.
+    await assertFails(setDoc(doc(dbFor(PM), dayPath), { date: '2026-07-14', dayType: 'loadIn', items }));
+  });
+
+  it('keeps day.createdBy immutable; PM can update and delete', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { createdBy: 'someone-else' }));
+    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { notes: 'Dock 2 only until noon.' }));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), dayPath)));
+  });
+});
+
 describe('firestore.rules — stages', () => {
   it('any member can read a stage; outsiders cannot', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a')));
