@@ -125,18 +125,6 @@ export function formatCentralTime(date: Date | null): string {
   return date ? CENTRAL_TIME_FMT.format(date) : '';
 }
 
-/** Date only, in `timeZone`, e.g. "Wed, Jun 24". */
-export function formatZonedDate(date: Date | null, timeZone = APP_TIME_ZONE): string {
-  if (!date) return '—';
-  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric' }).format(date);
-}
-
-/** Time only, in `timeZone`, e.g. "4:00 PM" (empty string for null). */
-export function formatZonedTime(date: Date | null, timeZone = APP_TIME_ZONE): string {
-  if (!date) return '';
-  return new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(date);
-}
-
 /** Stable per-day key (`YYYY-MM-DD` in `timeZone`) for grouping items by day. */
 export function zonedDayKey(date: Date | null, timeZone = APP_TIME_ZONE): string {
   return date ? dateToZonedInput(date, timeZone).slice(0, 10) : '';

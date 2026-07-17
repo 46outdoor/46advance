@@ -1,235 +1,463 @@
 /**
- * Event schedule (Phase 12a). Two views: **Edit** (section-aware authoring, grouped by day)
- * and **Master** (aggregated read-only — toggle whole sections, with per-item include/exclude).
- * All times Central. Master = items with `includeInMaster` whose section is toggled on.
+ * Event schedule (redesign PR 2, planning/SCHEDULE_REDESIGN.md): day-container cards on
+ * a shared grid — Start | End | Duration | Type | Item | Description — with a
+ * URL-persisted filter bar (day / type / stage), the visible-type color key, an
+ * MPA-style global Edit toggle with inline row editing (save on focus-leave), fully
+ * manual days (add / edit / re-date / delete), and a bulk "shift all days ±N" action.
+ * `{artist N}` placeholders resolve to the artist holding that lineup slot on the
+ * item's stage. Calendar reconcile for pushToCalendar items lands with PR 4.
  */
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
-import { APP_TIME_ZONE, formatZonedDate, formatZonedTime, zonedDayKey } from '@/lib/dates/timezone';
+import { formatDateKey } from '@/lib/dates/formatting';
+import { dateInputValue } from '@/lib/dates/parsing';
+import { SCHEDULE_ITEM_TYPES } from '@/lib/schedules/itemTypes';
 import {
-  SCHEDULE_SECTIONS,
-  SCHEDULE_SECTION_KEYS,
-  scheduleSectionDef,
-  scheduleSectionLabel,
-  type ScheduleSection,
-} from '@/lib/schedules/sections';
-import { itemHours, type ScheduleItem, type ScheduleItemInput } from '@/lib/schedules/scheduleItem';
-import { slotLabel } from '@/lib/advances/advance';
-import { eventScheduleDays } from '@/lib/events/event';
-import { listStages } from './stages-service';
+  resolveArtistPlaceholders,
+  type ScheduleDay,
+  type ScheduleDayItem,
+} from '@/lib/schedules/scheduleDay';
+import { crewTypesKey, getCrewTypes } from '@/lib/schedules/crew-types-service';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
+import { ScheduleDayCard, type ResolveItemText } from '@/components/schedules/ScheduleDayCard';
+import { ScheduleTypeLegend } from '@/components/schedules/ScheduleTypeDot';
+import type { StageOption } from '@/components/schedules/ScheduleItemRowEditor';
+import { listStages } from './stages-service';
 import { useResolvedEvent } from './useResolvedEvent';
+import { ScheduleDayForm } from './ScheduleDayForm';
+import type { ScheduleDayMeta } from '@/lib/schedules/scheduleDay';
 import {
-  applyScheduleTemplate,
-  createScheduleItem,
-  deleteScheduleItem,
-  listScheduleItems,
-  pushScheduleItem,
-  removeScheduleCalendarEvent,
-  setScheduleItemMaster,
-  updateScheduleItem,
-} from './schedule-service';
-import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
-import { scheduleTemplateCategoryLabel, type ScheduleTemplate } from '@/lib/schedules/scheduleTemplate';
-import { useGoogleConnection } from '@/lib/google';
-import { ScheduleItemForm, type StageOption } from './ScheduleItemForm';
-import { listScheduleNotes, setScheduleNote, type DayNoteField } from './schedule-notes-service';
-import { DayNotesEditor, DayNotesDisplay } from './ScheduleDayNotes';
+  createScheduleDay,
+  dayToInput,
+  deleteScheduleDay,
+  listScheduleDays,
+  saveScheduleDay,
+  saveScheduleDayMeta,
+  shiftScheduleDays,
+} from './schedule-days-service';
 
 const logger = createLogger('Schedule');
 
-interface DayGroup {
-  key: string;
-  label: string;
-  items: ScheduleItem[];
+function blankItem(): ScheduleDayItem {
+  return {
+    id: crypto.randomUUID(),
+    type: 'production',
+    customLabel: null,
+    startTime: null,
+    endTime: null,
+    endEstimated: false,
+    item: 'New item',
+    description: null,
+    stageId: null,
+    fields: {},
+    crew: [],
+    pushToCalendar: true,
+    googleCalendarEventId: null,
+  };
 }
 
-/** The event's timezone, defaulting to Central. */
-function eventTimeZone(event: { timeZone?: string } | null | undefined): string {
-  return event?.timeZone ?? APP_TIME_ZONE;
+/** Row predicate for the type/stage filters ('' = no filter). */
+function makeItemFilter(type: string, stage: string) {
+  return (item: ScheduleDayItem) => (!type || item.type === type) && (!stage || item.stageId === stage);
 }
 
-function groupByDay(items: ScheduleItem[], timeZone: string): DayGroup[] {
-  const map = new Map<string, ScheduleItem[]>();
-  for (const it of items) {
-    const key = zonedDayKey(it.startAt, timeZone) || 'no-time';
-    const arr = map.get(key);
-    if (arr) arr.push(it);
-    else map.set(key, [it]);
-  }
-  return [...map.keys()]
-    .sort((a, b) => (a === 'no-time' ? 1 : b === 'no-time' ? -1 : a.localeCompare(b)))
-    .map((key) => ({
-      key,
-      label: key === 'no-time' ? 'No time set' : formatZonedDate(map.get(key)![0].startAt, timeZone),
-      items: map.get(key)!,
-    }));
+/** All schedule-day mutations, invalidating the day list on success. */
+function useScheduleDayMutations(eventId: string | null, uid: string | undefined, onDaySettled: () => void) {
+  const queryClient = useQueryClient();
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
+  const onError = (what: string) => (e: unknown) => logger.error(`Failed to ${what}`, e);
+
+  const createDay = useMutation({
+    mutationFn: (meta: ScheduleDayMeta) => createScheduleDay(eventId!, meta, uid!),
+    onSuccess: () => {
+      invalidate();
+      onDaySettled();
+    },
+    onError: onError('add the day'),
+  });
+  const editDay = useMutation({
+    // Atomic in the service: a date change re-keys and applies the metadata in one batch.
+    mutationFn: ({ day, meta }: { day: ScheduleDay; meta: ScheduleDayMeta }) =>
+      saveScheduleDayMeta(eventId!, day, meta, uid!),
+    onSuccess: () => {
+      invalidate();
+      onDaySettled();
+    },
+    onError: onError('save the day'),
+  });
+  const saveItems = useMutation({
+    // Serialized (shared scope) + optimistic cache write: rapid row commits each build
+    // on the previous one instead of racing whole-day snapshots out of order.
+    scope: { id: `saveScheduleDay-${eventId}` },
+    mutationFn: ({ day, items }: { day: ScheduleDay; items: ScheduleDayItem[] }) =>
+      saveScheduleDay(eventId!, day, dayToInput({ ...day, items })),
+    onMutate: ({ day, items }) => {
+      queryClient.setQueryData<ScheduleDay[]>(['scheduleDays', eventId], (prev) =>
+        prev?.map((d) => (d.id === day.id ? { ...d, items } : d)),
+      );
+    },
+    onSuccess: invalidate,
+    onError: (e) => {
+      invalidate();
+      onError('save the schedule')(e);
+    },
+  });
+  const removeDay = useMutation({
+    mutationFn: (dayId: string) => deleteScheduleDay(eventId!, dayId),
+    onSuccess: invalidate,
+    onError: onError('delete the day'),
+  });
+  const shiftDays = useMutation({
+    mutationFn: (deltaDays: number) => shiftScheduleDays(eventId!, deltaDays, uid!),
+    onSuccess: invalidate,
+    onError: onError('shift the days'),
+  });
+  return { createDay, editDay, saveItems, removeDay, shiftDays };
 }
 
-/** The item's heading. A Show slot shows the artist holding it (slot label as a tooltip),
- * falling back to the slot label as a placeholder until one is assigned; else the typed title. */
-function itemHeading(it: ScheduleItem, slotArtist: Map<string, string>): { name: string; tip?: string } {
-  if (it.slot == null) return { name: it.title };
-  const artist = (it.stageId && slotArtist.get(`${it.stageId}:${it.slot}`)) || null;
-  return artist ? { name: artist, tip: slotLabel(it.slot) } : { name: slotLabel(it.slot) };
-}
-
-/** One-line detail under an item: stage · act (legacy advance link) · location · section fields. */
-function summarizeItem(
-  it: ScheduleItem,
-  stageName: Map<string, string>,
-  advanceLabel: Map<string, string>,
-): string {
-  const parts: string[] = [];
-  if (it.stageId) parts.push(stageName.get(it.stageId) ?? 'Stage');
-  if (it.slot == null && it.advanceId) parts.push(advanceLabel.get(it.advanceId) ?? 'Act');
-  if (it.location) parts.push(it.location);
-  for (const f of scheduleSectionDef(it.section).fields) {
-    if (it.fields[f.key]) parts.push(`${f.label}: ${it.fields[f.key]}`);
-  }
-  if (it.section === 'labor') {
-    const hours = itemHours(it.startAt, it.endAt);
-    if (hours != null) parts.push(`${hours} hrs`);
-  }
-  return parts.join(' · ');
-}
-
-/** "Import from schedule template" control — applies a saved blueprint to this event's schedule. */
-function ImportTemplatePanel({
-  templates,
-  importId,
-  onSelect,
-  onImport,
-  pending,
-  succeeded,
-  failed,
+/** Day / type / stage selects, backed by URL query params (shareable filtered views). */
+function FilterBar({
+  days,
+  stages,
+  day,
+  type,
+  stage,
+  onChange,
+  onClear,
 }: {
-  templates: ScheduleTemplate[];
-  importId: string;
-  onSelect: (id: string) => void;
-  onImport: () => void;
-  pending: boolean;
-  succeeded: boolean;
-  failed: boolean;
+  days: readonly ScheduleDay[];
+  stages: readonly StageOption[];
+  day: string;
+  type: string;
+  stage: string;
+  onChange: (key: 'day' | 'type' | 'stage', value: string) => void;
+  onClear: () => void;
 }) {
-  if (templates.length === 0) return null;
+  const selectClass =
+    'min-h-11 rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand sm:min-h-0';
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line p-3">
-      <label className="block text-sm">
-        <span className="mb-1 block font-semibold text-ink">Import from schedule template</span>
-        <select
-          className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
-          value={importId}
-          onChange={(e) => onSelect(e.target.value)}
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="font-semibold text-ink">Filter:</span>
+      <select className={selectClass} value={day} aria-label="Filter by day" onChange={(e) => onChange('day', e.target.value)}>
+        <option value="">All days</option>
+        {days.map((d) => (
+          <option key={d.id} value={d.id}>
+            {formatDateKey(d.date)}
+          </option>
+        ))}
+      </select>
+      <select className={selectClass} value={type} aria-label="Filter by type" onChange={(e) => onChange('type', e.target.value)}>
+        <option value="">All types</option>
+        {SCHEDULE_ITEM_TYPES.map((t) => (
+          <option key={t.key} value={t.key}>
+            {t.label}
+          </option>
+        ))}
+      </select>
+      <select className={selectClass} value={stage} aria-label="Filter by stage" onChange={(e) => onChange('stage', e.target.value)}>
+        <option value="">All stages</option>
+        {stages.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      {(day || type || stage) && (
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center text-xs text-ink-muted hover:text-accent sm:min-h-0"
+          onClick={onClear}
         >
-          <option value="">Select a template…</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} · {scheduleTemplateCategoryLabel(t.category)} · {t.items.length} item{t.items.length === 1 ? '' : 's'}
-            </option>
-          ))}
-        </select>
-      </label>
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Bulk "shift all days ±N" (the event slipped): re-keys every day doc in one batch. */
+function ShiftControl({ pending, onShift }: { pending: boolean; onShift: (deltaDays: number) => void }) {
+  const [delta, setDelta] = useState(0);
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="font-semibold text-ink">Shift all days</span>
+      <input
+        type="number"
+        className="min-h-11 w-20 rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand sm:min-h-0"
+        value={delta}
+        aria-label="Days to shift by"
+        onChange={(e) => setDelta(Math.trunc(Number(e.target.value) || 0))}
+      />
+      <span className="text-ink-muted">days</span>
       <button
         type="button"
-        disabled={!importId || pending}
-        onClick={onImport}
-        className="rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+        disabled={pending || delta === 0}
+        className="inline-flex min-h-11 items-center rounded border border-line px-3 py-1 text-xs font-semibold text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50 sm:min-h-0"
+        onClick={() => {
+          onShift(delta);
+          setDelta(0);
+        }}
       >
-        {pending ? 'Importing…' : 'Import'}
+        {pending ? 'Shifting…' : 'Apply'}
       </button>
-      {succeeded && <span className="text-sm text-status-complete">Imported.</span>}
-      {failed && <span className="text-sm text-accent">Could not import.</span>}
     </div>
+  );
+}
+
+/** Loading / load-error / save-error notices for the screen. */
+function ScheduleNotices({
+  loading,
+  loadFailed,
+  saveFailed,
+  createDayError,
+}: {
+  loading: boolean;
+  loadFailed: boolean;
+  saveFailed: boolean;
+  createDayError: unknown;
+}) {
+  return (
+    <>
+      {loading && <p className="text-sm text-ink-muted">Loading schedule…</p>}
+      {loadFailed && <p className="text-sm text-accent">Failed to load the schedule.</p>}
+      {saveFailed && <p className="text-sm text-accent">Could not save — check your connection and try again.</p>}
+      {createDayError != null && (
+        <p className="text-sm text-accent">
+          Could not add the day{createDayError instanceof Error ? ` — ${createDayError.message}` : '.'}
+        </p>
+      )}
+    </>
+  );
+}
+
+interface DayListProps {
+  visibleDays: readonly ScheduleDay[];
+  matchesFilters: (item: ScheduleDayItem) => boolean;
+  editing: boolean;
+  editingDayId: string | null;
+  editPending: boolean;
+  stages: readonly StageOption[];
+  crewTypes: readonly string[];
+  resolveText: ResolveItemText;
+  onSubmitDayMeta: (day: ScheduleDay, meta: ScheduleDayMeta) => void;
+  onCloseDayForm: () => void;
+  onOpenDayForm: (dayId: string) => void;
+  onDeleteDay: (dayId: string) => void;
+  onAddItem: (day: ScheduleDay) => void;
+  onCommitItem: (day: ScheduleDay, item: ScheduleDayItem) => void;
+  onDeleteItem: (day: ScheduleDay, itemId: string) => void;
+}
+
+function DayList(props: DayListProps) {
+  return (
+    <>
+      {props.visibleDays.map((day) =>
+        props.editing && props.editingDayId === day.id ? (
+          <ScheduleDayForm
+            key={day.id}
+            initial={day}
+            submitLabel="Save day"
+            pending={props.editPending}
+            onSubmit={(meta) => props.onSubmitDayMeta(day, meta)}
+            onCancel={props.onCloseDayForm}
+          />
+        ) : (
+          <ScheduleDayCard
+            key={day.id}
+            day={day}
+            dateLabel={formatDateKey(day.date)}
+            items={day.items.filter(props.matchesFilters)}
+            editing={props.editing}
+            stages={props.stages}
+            crewTypes={props.crewTypes}
+            resolveText={props.resolveText}
+            onEditDay={() => props.onOpenDayForm(day.id)}
+            onDeleteDay={() => props.onDeleteDay(day.id)}
+            onAddItem={() => props.onAddItem(day)}
+            onCommitItem={(item) => props.onCommitItem(day, item)}
+            onDeleteItem={(itemId) => props.onDeleteItem(day, itemId)}
+          />
+        ),
+      )}
+    </>
+  );
+}
+
+function anySaveFailed(mutations: ReadonlyArray<{ isError: boolean }>): boolean {
+  return mutations.some((m) => m.isError);
+}
+
+/** URL-backed day/type/stage filter state (shareable filtered views). */
+function useScheduleFilters() {
+  const [search, setSearch] = useSearchParams();
+  const filters = {
+    day: search.get('day') ?? '',
+    type: search.get('type') ?? '',
+    stage: search.get('stage') ?? '',
+  };
+  const setFilter = (key: 'day' | 'type' | 'stage', value: string) =>
+    setSearch(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  // One update for all three — same-tick setSearchParams calls don't chain.
+  const clearFilters = () =>
+    setSearch(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const key of ['day', 'type', 'stage']) next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  return { filters, setFilter, clearFilters };
+}
+
+/** Title row: back link is the screen's; this is the h1 + the global Edit toggle. */
+function ScreenHeader({
+  name,
+  canEdit,
+  editing,
+  onToggleEditing,
+}: {
+  name: string | undefined;
+  canEdit: boolean;
+  editing: boolean;
+  onToggleEditing: () => void;
+}) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+        Schedule{name ? ` — ${name}` : ''}
+      </h1>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onToggleEditing}
+          className={`inline-flex min-h-11 items-center rounded px-3 py-1 text-sm font-semibold transition-colors sm:min-h-0 ${editing ? 'bg-ink text-surface' : 'border border-line text-ink-muted hover:text-ink'}`}
+        >
+          {editing ? 'Done editing' : 'Edit'}
+        </button>
+      )}
+    </header>
+  );
+}
+
+/** Edit-mode toolbar: add-day (button + form) and the bulk shift control. */
+function EditToolbar({
+  editing,
+  addingDay,
+  setAddingDay,
+  dayCount,
+  shiftPending,
+  onShift,
+  defaultDate,
+  createPending,
+  onCreateDay,
+}: {
+  editing: boolean;
+  addingDay: boolean;
+  setAddingDay: (v: boolean) => void;
+  dayCount: number;
+  shiftPending: boolean;
+  onShift: (deltaDays: number) => void;
+  defaultDate: string;
+  createPending: boolean;
+  onCreateDay: (meta: ScheduleDayMeta) => void;
+}) {
+  if (!editing) return null;
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line p-3">
+        {!addingDay && (
+          <button
+            type="button"
+            onClick={() => setAddingDay(true)}
+            className="inline-flex min-h-11 items-center rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:min-h-0"
+          >
+            + Add day
+          </button>
+        )}
+        {dayCount > 0 && <ShiftControl pending={shiftPending} onShift={onShift} />}
+      </div>
+      {addingDay && (
+        <ScheduleDayForm
+          defaultDate={defaultDate}
+          submitLabel="Add day"
+          pending={createPending}
+          onSubmit={onCreateDay}
+          onCancel={() => setAddingDay(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** "No schedule days yet" (with an edit hint for editors), only once loading settles. */
+function EmptyState({
+  loaded,
+  dayCount,
+  addingDay,
+  canEdit,
+  editing,
+}: {
+  loaded: boolean;
+  dayCount: number;
+  addingDay: boolean;
+  canEdit: boolean;
+  editing: boolean;
+}) {
+  if (!loaded || dayCount > 0 || addingDay) return null;
+  return (
+    <p className="text-sm text-ink-muted">
+      No schedule days yet.{canEdit && !editing ? ' Switch to Edit to add the first day.' : ''}
+    </p>
   );
 }
 
 export function EventScheduleScreen() {
   const { eventId: eventParam } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
-  const queryClient = useQueryClient();
-  const [view, setView] = useState<'edit' | 'master'>('edit');
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [importId, setImportId] = useState('');
-  const [enabledSections, setEnabledSections] = useState<Set<ScheduleSection>>(
-    () => new Set(SCHEDULE_SECTION_KEYS),
-  );
+  const { filters, setFilter, clearFilters } = useScheduleFilters();
+  const [editing, setEditing] = useState(false);
+  const [addingDay, setAddingDay] = useState(false);
+  const [editingDayId, setEditingDayId] = useState<string | null>(null);
 
-  // Resolve slug-or-id → canonical event once; every sub-query keys on the resolved id.
   const { query: eventQuery, eventId } = useResolvedEvent(eventParam);
-  const timeZone = eventTimeZone(eventQuery.data);
   const roleQuery = useQuery({
     queryKey: ['events', 'role', eventId, user?.uid],
     queryFn: () => getEventRole(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
-  const itemsQuery = useQuery({ queryKey: ['schedule', eventId], queryFn: () => listScheduleItems(eventId!), enabled: !!eventId });
+  const daysQuery = useQuery({ queryKey: ['scheduleDays', eventId], queryFn: () => listScheduleDays(eventId!), enabled: !!eventId });
   const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
   const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
-  const scheduleTemplatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates, enabled: !!eventId });
-  const scheduleNotesQuery = useQuery({ queryKey: ['scheduleNotes', eventId], queryFn: () => listScheduleNotes(eventId!), enabled: !!eventId });
+  const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
 
-  const connection = useGoogleConnection();
-  const isConnected = connection.data?.connected === true;
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['schedule', eventId] });
-  /** Auto-push: reconcile the item with the event's Google calendar after a save (fire-and-forget). */
-  const syncItem = (itemId: string) => {
-    void pushScheduleItem(eventId!, itemId)
-      .then(() => invalidate())
-      .catch((e) => logger.error('Calendar sync failed', e));
+  const days = useMemo(() => daysQuery.data ?? [], [daysQuery.data]);
+  const closeDayForms = () => {
+    setAddingDay(false);
+    setEditingDayId(null);
   };
-
-  const create = useMutation({
-    mutationFn: (input: ScheduleItemInput) => createScheduleItem(eventId!, input, user!.uid),
-    onSuccess: (id) => { invalidate(); setAdding(false); syncItem(id); },
-    onError: (e) => logger.error('Failed to create schedule item', e),
-  });
-  const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: ScheduleItemInput }) => updateScheduleItem(eventId!, id, input),
-    onSuccess: (_data, vars) => { invalidate(); setEditingId(null); syncItem(vars.id); },
-    onError: (e) => logger.error('Failed to update schedule item', e),
-  });
-  const remove = useMutation({
-    mutationFn: async (item: ScheduleItem) => {
-      await deleteScheduleItem(eventId!, item.id);
-      if (item.googleCalendarEventId) await removeScheduleCalendarEvent(eventId!, item.googleCalendarEventId);
-    },
-    onSuccess: invalidate,
-    onError: (e) => logger.error('Failed to delete schedule item', e),
-  });
-  const toggleMaster = useMutation({
-    mutationFn: ({ id, include }: { id: string; include: boolean }) => setScheduleItemMaster(eventId!, id, include),
-    onSuccess: (_data, vars) => { invalidate(); syncItem(vars.id); },
-    onError: (e) => logger.error('Failed to toggle master', e),
-  });
+  const { createDay, editDay, saveItems, removeDay, shiftDays } = useScheduleDayMutations(
+    eventId,
+    user?.uid,
+    closeDayForms,
+  );
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
-  const scheduleDays = useMemo(
-    () =>
-      eventScheduleDays(
-        eventQuery.data?.startDate,
-        eventQuery.data?.endDate,
-        eventQuery.data?.loadInDays,
-        eventQuery.data?.loadOutDays,
-        timeZone,
-      ),
-    [eventQuery.data, timeZone],
-  );
-  const stageName = useMemo(() => new Map(stages.map((s) => [s.id, s.name])), [stages]);
-  const advanceLabel = useMemo(
-    () =>
-      new Map(
-        (advancesQuery.data ?? []).map((a) => [a.advance.id, `${a.advance.artistName} · ${a.stageName}`]),
-      ),
-    [advancesQuery.data],
-  );
-  /** (stageId:slot) → artist, for resolving Show slot placeholders to the assigned act. */
+
+  /** (stageId:slot) → artist, for resolving {artist N} placeholders. */
   const slotArtist = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of advancesQuery.data ?? []) {
@@ -237,244 +465,92 @@ export function EventScheduleScreen() {
     }
     return m;
   }, [advancesQuery.data]);
-
-  const importTemplate = useMutation({
-    mutationFn: () => {
-      const tpl = scheduleTemplatesQuery.data?.find((t) => t.id === importId);
-      if (!tpl) throw new Error('No template selected.');
-      return applyScheduleTemplate(eventId!, eventQuery.data?.startDate ?? null, timeZone, tpl, stages, user!.uid);
-    },
-    onSuccess: () => {
-      invalidate();
-      setImportId('');
-    },
-    onError: (e) => logger.error('Failed to import schedule template', e),
-  });
-
-  const setNote = useMutation({
-    mutationFn: ({ dayKey, field, text }: { dayKey: string; field: DayNoteField; text: string }) =>
-      setScheduleNote(eventId!, dayKey, field, text),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['scheduleNotes', eventId] }),
-    onError: (e) => logger.error('Failed to save schedule note', e),
-  });
+  const resolveText: ResolveItemText = (item, text) =>
+    resolveArtistPlaceholders(text, (slot) => (item.stageId ? (slotArtist.get(`${item.stageId}:${slot}`) ?? null) : null));
 
   if (!user || !eventParam) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
 
-  const items = itemsQuery.data ?? [];
-  const masterItems = items.filter((it) => it.includeInMaster && enabledSections.has(it.section));
-  const editGroups = groupByDay(items, timeZone);
-  const masterGroups = groupByDay(masterItems, timeZone);
-
-  const summarize = (it: ScheduleItem): string => summarizeItem(it, stageName, advanceLabel);
+  const matchesFilters = makeItemFilter(filters.type, filters.stage);
+  const visibleDays = days.filter((d) => !filters.day || d.id === filters.day);
+  const visibleItems = visibleDays.flatMap((d) => d.items.filter(matchesFilters));
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <Link to={`/events/${eventParam}`} className="text-sm text-ink-muted hover:text-accent">
         ← Event
       </Link>
 
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-3xl font-black tracking-tight text-brand">
-          Schedule{eventQuery.data ? ` — ${eventQuery.data.name}` : ''}
-        </h1>
-        <div className="flex items-center gap-1 rounded-lg border border-line p-0.5 text-sm">
-          {(['edit', 'master'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={`rounded px-3 py-1 capitalize transition-colors ${view === v ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'}`}
-            >
-              {v === 'master' ? 'Master' : 'Edit'}
-            </button>
-          ))}
-        </div>
-      </header>
+      <ScreenHeader
+        name={eventQuery.data?.name}
+        canEdit={canEdit}
+        editing={editing}
+        onToggleEditing={() => {
+          if (editing) closeDayForms();
+          setEditing((e) => !e);
+        }}
+      />
 
-      {canEdit && (
-        <p className="text-xs text-ink-muted">
-          {isConnected ? (
-            'Master-schedule items auto-sync to your Google calendar on save.'
-          ) : (
-            <>
-              <Link to="/settings" className="text-accent hover:underline">
-                Connect Google
-              </Link>{' '}
-              to auto-sync the master schedule to a calendar.
-            </>
-          )}
-        </p>
+      <ScheduleNotices
+        loading={daysQuery.isLoading}
+        loadFailed={daysQuery.isError}
+        saveFailed={anySaveFailed([saveItems, editDay, removeDay, shiftDays])}
+        createDayError={createDay.isError ? createDay.error : null}
+      />
+
+      {days.length > 0 && (
+        <FilterBar
+          days={days}
+          stages={stages}
+          day={filters.day}
+          type={filters.type}
+          stage={filters.stage}
+          onChange={setFilter}
+          onClear={clearFilters}
+        />
       )}
 
-      {itemsQuery.isLoading && <p className="text-sm text-ink-muted">Loading schedule…</p>}
-      {itemsQuery.isError && <p className="text-sm text-accent">Failed to load the schedule.</p>}
+      <EditToolbar
+        editing={editing}
+        addingDay={addingDay}
+        setAddingDay={setAddingDay}
+        dayCount={days.length}
+        shiftPending={shiftDays.isPending}
+        onShift={(d) => shiftDays.mutate(d)}
+        defaultDate={dateInputValue(eventQuery.data?.startDate ?? null)}
+        createPending={createDay.isPending}
+        onCreateDay={(meta) => createDay.mutate(meta)}
+      />
 
-      {view === 'edit' ? (
-        <div className="space-y-5">
-          {canEdit && (
-            <div>
-              {adding ? (
-                <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
-                  <h2 className="mb-3 font-display text-lg font-bold text-brand">New schedule item</h2>
-                  <ScheduleItemForm
-                    stages={stages}
-                    scheduleDays={scheduleDays}
-                    timeZone={timeZone}
-                    submitLabel="Add item"
-                    pending={create.isPending}
-                    error={create.isError ? 'Could not add the item.' : null}
-                    onSubmit={(input) => create.mutate(input)}
-                    onCancel={() => setAdding(false)}
-                  />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAdding(true)}
-                  className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  Add item
-                </button>
-              )}
-            </div>
-          )}
+      <EmptyState
+        loaded={!!daysQuery.data}
+        dayCount={days.length}
+        addingDay={addingDay}
+        canEdit={canEdit}
+        editing={editing}
+      />
 
-          {canEdit && (
-            <ImportTemplatePanel
-              templates={scheduleTemplatesQuery.data ?? []}
-              importId={importId}
-              onSelect={setImportId}
-              onImport={() => importTemplate.mutate()}
-              pending={importTemplate.isPending}
-              succeeded={importTemplate.isSuccess}
-              failed={importTemplate.isError}
-            />
-          )}
+      <DayList
+        visibleDays={visibleDays}
+        matchesFilters={matchesFilters}
+        editing={editing}
+        editingDayId={editingDayId}
+        editPending={editDay.isPending}
+        stages={stages}
+        crewTypes={crewTypesQuery.data ?? []}
+        resolveText={resolveText}
+        onSubmitDayMeta={(day, meta) => editDay.mutate({ day, meta })}
+        onCloseDayForm={() => setEditingDayId(null)}
+        onOpenDayForm={setEditingDayId}
+        onDeleteDay={(dayId) => removeDay.mutate(dayId)}
+        onAddItem={(day) => saveItems.mutate({ day, items: [...day.items, blankItem()] })}
+        onCommitItem={(day, item) =>
+          saveItems.mutate({ day, items: day.items.map((i) => (i.id === item.id ? item : i)) })
+        }
+        onDeleteItem={(day, itemId) => saveItems.mutate({ day, items: day.items.filter((i) => i.id !== itemId) })}
+      />
 
-          {itemsQuery.data && items.length === 0 && !adding && (
-            <p className="text-sm text-ink-muted">No schedule items yet.</p>
-          )}
-
-          {editGroups.map((day) => (
-            <div key={day.key} className="space-y-2">
-              <h2 className="font-display text-lg font-bold text-brand">{day.label}</h2>
-              {canEdit && (
-                <DayNotesEditor
-                  notes={scheduleNotesQuery.data?.get(day.key)}
-                  onSave={(field, text) => setNote.mutate({ dayKey: day.key, field, text })}
-                />
-              )}
-              <ul className="space-y-2">
-                {day.items.map((it) =>
-                  editingId === it.id ? (
-                    <li key={it.id} className="rounded-lg border border-line bg-surface-muted/40 p-4">
-                      <ScheduleItemForm
-                        initial={it}
-                        stages={stages}
-                        scheduleDays={scheduleDays}
-                        timeZone={timeZone}
-                        submitLabel="Save changes"
-                        pending={update.isPending}
-                        error={update.isError ? 'Could not save.' : null}
-                        onSubmit={(input) => update.mutate({ id: it.id, input })}
-                        onCancel={() => setEditingId(null)}
-                      />
-                    </li>
-                  ) : (
-                    <li key={it.id} className="rounded-lg border border-line p-3">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-sm font-semibold text-ink-muted">
-                            {formatZonedTime(it.startAt, timeZone) || '—'}
-                            {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}${it.endEstimated ? ' (est)' : ''}` : ''}
-                          </span>
-                          <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
-                            {scheduleSectionLabel(it.section, it.customLabel)}
-                          </span>
-                          <span className="font-semibold text-ink" title={itemHeading(it, slotArtist).tip}>
-                            {itemHeading(it, slotArtist).name}
-                          </span>
-                          {!it.includeInMaster && (
-                            <span className="text-[0.65rem] text-ink-muted">(hidden from master)</span>
-                          )}
-                          {it.googleCalendarEventId && (
-                            <span className="text-[0.65rem] font-semibold text-status-complete">on calendar</span>
-                          )}
-                        </div>
-                        {canEdit && (
-                          <div className="flex shrink-0 gap-2 text-xs">
-                            <button type="button" onClick={() => toggleMaster.mutate({ id: it.id, include: !it.includeInMaster })} className="text-ink-muted hover:text-accent">
-                              {it.includeInMaster ? 'Hide' : 'Show'}
-                            </button>
-                            <button type="button" onClick={() => setEditingId(it.id)} className="text-ink-muted hover:text-accent">
-                              Edit
-                            </button>
-                            <button type="button" disabled={remove.isPending} onClick={() => remove.mutate(it)} className="text-ink-muted hover:text-accent disabled:opacity-50">
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {summarize(it) && <p className="mt-0.5 text-xs text-ink-muted">{summarize(it)}</p>}
-                      {it.notes && <p className="mt-1 whitespace-pre-line text-sm text-ink-muted">{it.notes}</p>}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 text-sm">
-            <span className="font-semibold text-ink">Sections:</span>
-            {SCHEDULE_SECTIONS.map((s) => (
-              <label key={s.key} className="inline-flex items-center gap-1.5 text-ink-muted">
-                <input
-                  type="checkbox"
-                  checked={enabledSections.has(s.key)}
-                  onChange={(e) =>
-                    setEnabledSections((prev) => {
-                      const next = new Set(prev);
-                      if (e.target.checked) next.add(s.key);
-                      else next.delete(s.key);
-                      return next;
-                    })
-                  }
-                />
-                {s.label}
-              </label>
-            ))}
-          </div>
-
-          {masterItems.length === 0 ? (
-            <p className="text-sm text-ink-muted">Nothing in the master schedule for the selected sections.</p>
-          ) : (
-            masterGroups.map((day) => (
-              <div key={day.key} className="space-y-1">
-                <h2 className="font-display text-lg font-bold text-brand">{day.label}</h2>
-                <DayNotesDisplay notes={scheduleNotesQuery.data?.get(day.key)} />
-                <ul className="divide-y divide-line/60">
-                  {day.items.map((it) => (
-                    <li key={it.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
-                      <span className="w-28 shrink-0 font-semibold text-ink-muted">
-                        {formatZonedTime(it.startAt, timeZone) || '—'}
-                        {it.endAt ? `–${formatZonedTime(it.endAt, timeZone)}${it.endEstimated ? ' (est)' : ''}` : ''}
-                      </span>
-                      <span className="font-medium text-ink" title={itemHeading(it, slotArtist).tip}>
-                        {itemHeading(it, slotArtist).name}
-                      </span>
-                      <span className="text-xs text-ink-muted">{scheduleSectionLabel(it.section, it.customLabel)}</span>
-                      {summarize(it) && <span className="basis-full pl-28 text-xs text-ink-muted">{summarize(it)}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      <ScheduleTypeLegend items={visibleItems} />
     </section>
   );
 }

@@ -9,6 +9,37 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-17
+
+### Changed
+
+- **Schedule redesign (grid):** the event schedule is rebuilt around day-container
+  cards (planning/SCHEDULE_REDESIGN.md). Each day is its own color-coded card — the
+  day type (Travel / Load In / Show / Load Out / Off Day) drives the header color —
+  with a title, description, and a small day-notes line, and its items render in a
+  consistent grid: **Start | End | Duration | Type | Item | Description**, aligned
+  across every card. The type shows as a color dot with a tooltip, and a color key
+  under the schedule lists the types currently visible. Labor calls list per-crew
+  lines ("(24) Stagehands · 10h") in an aligned mini-grid; the Duration column stays
+  blank when crew lines run different lengths. `{artist 1}` placeholders in item text
+  resolve to the artist booked in that lineup slot on the item's stage.
+- **Schedule editing:** a global **Edit** toggle switches the grid to inline editing —
+  edit cells directly in the row, with the type's extra fields (stage, travel/
+  transportation details, crew lines) underneath; changes save when you leave the row.
+  Days are fully manual: add, edit, re-date, or delete each day, and a **"shift all
+  days ±N"** action moves the whole schedule when the event slips.
+- **Schedule filters:** filter by day, type, or stage; filters live in the URL so a
+  filtered view can be bookmarked or shared. The filter view replaces the old
+  Edit/Master split and per-section day notes; "push to calendar" is now a per-item
+  flag (calendar sync itself returns with the push rework).
+
+### Removed
+
+- **Old schedule screen:** the section-grouped list, the separate Master view with
+  per-section toggles, the per-section day-notes blocks, and the schedule-item form
+  (replaced by inline grid editing). Importing schedule templates returns with the
+  template rework, on the new day model.
+
 ## 2026-07-10
 
 ### Added

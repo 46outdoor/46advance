@@ -240,7 +240,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
 | Schedules model + sections | `src/lib/schedules/` (`scheduleItem.ts` type+Zod+parser, `sections.ts` 6-section field registry) — pre-redesign model, retired as the redesign PRs land |
 | Schedule days (redesign model) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/SCHEDULE_REDESIGN.md` |
-| Schedules data access | `src/features/events/schedule-service.ts` (CRUD + calendar push/remove; `EventScheduleScreen` at `/events/:id/schedule`) |
+| Schedules data access (redesign) | `src/features/events/schedule-days-service.ts` (day CRUD, whole-day save, redate/shift; `EventScheduleScreen` at `/events/:id/schedule`). Old `schedule-service.ts` removed; calendar push callables return with the PR-4 rework |
+| Schedule grid UI (shared) | `src/components/schedules/` (`ScheduleDayCard` day container + grid, `ScheduleItemRowEditor` inline editor, `CrewLines` view/edit, `ScheduleTypeDot` dot+legend, `SectionFieldInput`) |
+| Crew types config IO | `src/lib/schedules/crew-types-service.ts` (`getCrewTypes`; write side lands with the admin screen, PR 3) |
 | Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`pushScheduleItem` reconcile + `removeScheduleCalendarEvent`; reuses 11b) |
 | Google Drive (client) | `src/lib/google/drive-service.ts` (link/remove/savePacket callables + Picker), `driveFile.ts` (`DriveFileRef` type+Zod); Picker keys in `src/config/integrations.ts` |
 | Google Drive (backend) | `functions/src/googleDrive.ts` (`linkDriveFile`/`removeDriveFile`/`savePacketToDrive`/`getDriveAccessToken`; `drive.file` scope, reuses 11b) |

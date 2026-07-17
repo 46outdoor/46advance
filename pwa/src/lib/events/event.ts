@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { APP_TIME_ZONE, formatZonedDate, shiftDayKey, zonedDayKey, zonedInputToDate } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE } from '@/lib/dates/timezone';
 import { logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
 
 export const EVENT_STATUSES = ['draft', 'active', 'archived'] as const;
@@ -123,56 +123,3 @@ export function eventDays(start?: Date | null, end?: Date | null): Date[] {
   return days;
 }
 
-export type EventDayKind = 'load-in' | 'show' | 'load-out';
-
-export interface EventScheduleDay {
-  /** Midnight (in the event's timezone) instant for the calendar day. */
-  date: Date;
-  /** Stable `YYYY-MM-DD` key for the day, in the event's timezone (matches `zonedDayKey`). */
-  key: string;
-  kind: EventDayKind;
-  /** e.g. "Mon, Jun 22". */
-  dateLabel: string;
-  /** e.g. "Mon, Jun 22 · Load-in". */
-  label: string;
-}
-
-const DAY_KIND_LABELS: Record<EventDayKind, string> = {
-  'load-in': 'Load-in',
-  show: 'Show',
-  'load-out': 'Load-out',
-};
-
-/**
- * The event's full operational days — `loadInDays` before the show, the show days, then
- * `loadOutDays` after — each tagged Load-in / Show / Load-out, for the schedule's day picker.
- * Days are derived in the event's `timeZone` (default Central), NOT the browser's zone, so a
- * viewer in another zone still sees the correct calendar days (and the day `key` lines up with
- * `zonedDayKey(item.startAt, timeZone)` used to group items).
- */
-export function eventScheduleDays(
-  start?: Date | null,
-  end?: Date | null,
-  loadInDays = 0,
-  loadOutDays = 0,
-  timeZone: string = APP_TIME_ZONE,
-): EventScheduleDay[] {
-  if (!start) return [];
-  const showEnd = end ?? start;
-  const showStartKey = zonedDayKey(start, timeZone);
-  const showEndKey = zonedDayKey(showEnd, timeZone);
-  const firstKey = shiftDayKey(showStartKey, -Math.max(0, loadInDays));
-  const lastKey = shiftDayKey(showEndKey, Math.max(0, loadOutDays));
-
-  const days: EventScheduleDay[] = [];
-  let key = firstKey;
-  // `YYYY-MM-DD` keys are zero-padded, so lexical string comparison is date order.
-  while (key <= lastKey && days.length < 60) {
-    const kind: EventDayKind = key < showStartKey ? 'load-in' : key > showEndKey ? 'load-out' : 'show';
-    const date = zonedInputToDate(`${key}T00:00`, timeZone) ?? start;
-    const dateLabel = formatZonedDate(date, timeZone);
-    days.push({ date, key, kind, dateLabel, label: `${dateLabel} · ${DAY_KIND_LABELS[kind]}` });
-    key = shiftDayKey(key, 1);
-  }
-  return days;
-}

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { zonedInputToDate } from '@/lib/dates/timezone';
-import { eventDays, eventScheduleDays, eventInputSchema, parseEvent } from './event';
+import { eventDays, eventInputSchema, parseEvent } from './event';
 
 describe('parseEvent', () => {
   it('normalizes timestamps and passes through fields', () => {
@@ -60,31 +59,3 @@ describe('eventDays', () => {
   });
 });
 
-describe('eventScheduleDays', () => {
-  const tz = 'America/Chicago';
-  // Noon in the event zone → an unambiguous calendar day regardless of the test machine's zone.
-  const at = (ymd: string): Date => zonedInputToDate(`${ymd}T12:00`, tz)!;
-
-  it('spans load-in → show → load-out, tagged by kind, in the event timezone', () => {
-    const days = eventScheduleDays(at('2026-06-26'), at('2026-06-28'), 1, 1, tz); // Fri–Sun show
-    expect(days.map((d) => d.kind)).toEqual(['load-in', 'show', 'show', 'show', 'load-out']);
-    expect(days.map((d) => d.key)).toEqual([
-      '2026-06-25',
-      '2026-06-26',
-      '2026-06-27',
-      '2026-06-28',
-      '2026-06-29',
-    ]);
-  });
-
-  it('derives the day in the event zone, not the browser zone', () => {
-    // An instant at 00:30 UTC on 6/27 is still 6/26 in Central (UTC−5) — the day key must be 6/26.
-    const days = eventScheduleDays(new Date('2026-06-27T00:30:00Z'), new Date('2026-06-27T00:30:00Z'), 0, 0, tz);
-    expect(days.map((d) => d.key)).toEqual(['2026-06-26']);
-  });
-
-  it('is just the show days with no load-in/out, and empty without a start', () => {
-    expect(eventScheduleDays(at('2026-06-26'), at('2026-06-26'), 0, 0, tz).map((d) => d.kind)).toEqual(['show']);
-    expect(eventScheduleDays(null)).toEqual([]);
-  });
-});

@@ -112,7 +112,6 @@ export const scheduleItemInputSchema = z
     message: 'End time must be at or after the start time.',
     path: ['endAt'],
   });
-export type ScheduleItemInput = z.infer<typeof scheduleItemInputSchema>;
 
 /** Duration of an item in hours (2-dp, e.g. a labor call's total hours); null without both
  * times or for a non-positive span. */
