@@ -228,7 +228,7 @@ owns the checkpoints in between and after.
 
 1. **Branch first** — `git switch -c <type>/<name>` off `main`. Never commit to `main` directly (docs/chore exceptions per the table).
 2. Make the change; run `npm run typecheck && lint && test` in the relevant app dir.
-3. **Code review pass** — run the configured review tool, then apply suggested fixes. Run it once or twice, never in a loop. <!-- TBD: choose review tool (e.g. CodeRabbit CLI) during CI setup -->
+3. **Code review pass** — run **CodeRabbit CLI** from the repo root: `coderabbit review --plain --base main` (reviews committed + working-tree changes against `main`; takes a few minutes — run it in the background). Apply the findings you agree with, note the ones you reject and why, and re-run the quality gates after fixes. Run it once or twice, never in a loop. Auth is per-user (`coderabbit auth login`); if CodeRabbit is unavailable (rate limit, auth, outage), fall back to Claude Code's built-in `/code-review` pass and say so in the hand-off.
 4. Commit to the branch with explicit paths.
 5. **Stop — do NOT push.** Tell the user the branch is committed and review-clean, ready to ship.
 
