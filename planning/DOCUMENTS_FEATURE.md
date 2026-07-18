@@ -1,7 +1,8 @@
 # Artist & Event Documents — Feature Spec
 
-Status: **in build.** PR 1 (categories) merged-pending (#80). This doc is the living spec
-for the rest; update it as decisions firm up.
+Status: **in build.** PRs 1–2 shipped (categories #80; artist library + Drive import).
+Open questions resolved 2026-07-18 (§ Decisions); next up: PR 3 (advance inclusion +
+tech-access broker). This doc is the living spec; update it as decisions firm up.
 
 ## Goal
 
@@ -66,22 +67,58 @@ event. Two-way Drive: import existing files, and upload new ones back into the r
 Artist matching is by a **normalized name key** (lowercased, trimmed) shared between imported
 subfolder names and `advance.artistName`.
 
+## Decisions (2026-07-18)
+
+1. **Packet inclusion — YES, embedded, selectively.** Included PDFs and photos are pulled
+   INTO the generated advance packet (photos as image pages; PDFs merged in via pdf-lib —
+   `@react-pdf/renderer` can't splice external PDFs), each behind a per-file
+   **"include in packet"** toggle, separate from advance inclusion itself. The packet
+   toggle ships *with* the embedding (PR 5) so it's never a dead control.
+2. **Tech-access broker — in PR 3.** A `getArtistDocumentContent`-style callable streams
+   file bytes via the functions runtime **service account** (the artist-docs Drive folder
+   is shared to that SA as Viewer — no key management, ADC only), gated by app RBAC:
+   any approved member of an event can open docs included on that event's advances;
+   admin/organizer can open anything in the library. This same SA read-path later feeds
+   packet embedding (PR 5).
+3. **Advance inclusion shape — subcollection**, not an array:
+   `events/{e}/stages/{s}/advances/{a}/documents/{docId}` with **docId = the
+   `artistDocuments` id** (natural de-dupe; include/exclude = idempotent set/delete; no
+   whole-array write races). Each doc copies the Drive ref + category label for display
+   stability and carries `includePacket: boolean` (default false), `addedBy`, `addedAt`.
+4. **Inclusion permissions follow advance-edit rights** (admin / event PM via
+   `canEditEvent`), not the global manage-documents role — inclusion is per-event
+   curation, not library management. Members read.
+5. **Event documents key to the schedule's day model** (PR 4): the same `YYYY-MM-DD`
+   date keys as `scheduleDays` (null = event-wide), grouped under the same color-coded
+   day headers. One day concept app-wide.
+6. **Uploads land in PR 4** with event documents; the artist library reuses that upload
+   path. PR 3 stays import/link-only.
+7. **Artist-name normalization — conservative:** `artistKey` = lowercase → NFKD
+   diacritic-strip → punctuation-strip → whitespace-collapse. No "feat."-clause
+   splitting (a feat billing is usually a distinct act; wrongly merging entries is worse
+   than a missed match). Unmatched-name hints in the UI can come later.
+
 ## Phasing
 
 - **PR 1 — Categories** ✅ (#80): admin-managed category list (the 7 defaults + add/rename/remove).
 - **PR 2 — Artist library + Drive import** ✅: `artistDocuments` model + service, folder-enabled
   Picker, `importDriveFolder` callable (per-artist subfolders → tagged docs), a top-level
-  **Documents/Artists** list + per-artist document screen (list + classify). Rules. (Upload new
-  files *to* Drive deferred to a follow-up.)
-- **PR 3 — Advance inclusion:** in an artist's advance, list the database files for that artist
-  (matched by name) with checkboxes to include in the advance; show the included set on the
-  advance + in the packet (TBD).
-- **PR 4 — Event documents:** event ↔ Drive folder linking at create/edit, event uploads to that
-  folder, the per-event documents view (by day).
+  **Documents/Artists** list + per-artist document screen (list + classify). Rules.
+- **PR 3 — Advance inclusion + tech-access broker:** on an advance, list the library files
+  for that artist (matched by `artistKey`) with checkboxes; included set displays on the
+  advance (subcollection per decision 3, permissions per decision 4). The broker callable
+  (decision 2) makes every included doc openable by the event's members regardless of
+  their Drive permissions. **Prerequisite:** share the artist-docs Drive folder with the
+  functions runtime service account (Viewer).
+- **PR 4 — Event documents + uploads:** event ↔ Drive folder linking at create/edit,
+  uploads to that folder (client-direct via `getDriveAccessToken`, mirroring PR 2's
+  pattern), the per-event documents view grouped by schedule day (decision 5); artist
+  library gains upload via the same path.
+- **PR 5 — Packet embedding:** the `includePacket` toggle on included docs + embedding
+  photos/PDFs into the generated packet via the SA read-path (decision 1). Size guard:
+  cap embedded content (e.g. skip > ~10 MB per file with a listed link fallback).
 
 ## Open / TBD
 
-- Exact "by day" grouping on the event view and how it relates to advance inclusion.
-- Whether advance inclusion is a subcollection vs an array (concurrency).
-- Whether included artist docs flow into the generated PDF packet.
-- Artist name normalization rules (punctuation, "feat.", etc.).
+- Packet embedding details (PR 5): page sizing for photos, orientation of merged PDF
+  pages, and the size cap / fallback presentation.
