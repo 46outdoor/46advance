@@ -51,16 +51,32 @@ export async function getScheduleTemplate(id: string): Promise<ScheduleTemplate 
   return snap.exists() ? parseScheduleTemplate(snap.id, snap.data()) : null;
 }
 
+/** Firestore rejects explicit `undefined` anywhere in a payload, but the editor's
+ * optional fields (day title/notes, item description, stage name…) arrive as
+ * key-present-`undefined` — drop those keys deeply. Plain objects/arrays only, so
+ * sentinel values like `serverTimestamp()` pass through untouched. */
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(stripUndefinedDeep) as T;
+  if (value && typeof value === 'object' && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, stripUndefinedDeep(v)]),
+    ) as T;
+  }
+  return value;
+}
+
 function toDoc(raw: ScheduleTemplateInput) {
   const input = scheduleTemplateInputSchema.parse(raw);
-  return {
+  return stripUndefinedDeep({
     name: input.name.trim(),
     kind: input.kind,
     category: input.category,
     refs: input.kind === 'master' ? (input.refs ?? []) : [],
     isDefault: input.kind === 'master' ? (input.isDefault ?? false) : false,
     days: input.days ?? [],
-  };
+  });
 }
 
 export async function createScheduleTemplate(

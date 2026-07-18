@@ -5,6 +5,7 @@ import {
   parseScheduleTemplate,
   resolveTemplateDays,
   scheduleTemplateInputSchema,
+  templateDayChipLabel,
   templateDayLabel,
   templateDaysToInput,
   templateItemCount,
@@ -153,10 +154,29 @@ describe('editor bridges + helpers', () => {
     expect(dayItemToTemplateItem(asDay)).toEqual(original);
   });
 
-  it('labels offsets and counts items', () => {
-    expect(templateDayLabel(-2)).toBe('Load-in 2');
-    expect(templateDayLabel(0)).toBe('Show day 1');
+  it('labels offsets by day type and counts items', () => {
+    expect(templateDayLabel(0, 'show')).toBe('Show day 1');
+    expect(templateDayLabel(2, 'show')).toBe('Show day 3');
+    expect(templateDayLabel(-2, 'loadIn')).toBe('Day -2');
+    expect(templateDayLabel(2, 'loadOut')).toBe('Day +2');
     expect(templateItemCount(template({ days: [day(0, [item('a'), item('b')]), day(1, [item('c')])] }))).toBe(3);
+  });
+
+  it('chip labels count load-in days UP from the earliest one', () => {
+    const days = [
+      { offset: -4, dayType: 'travel' as const },
+      { offset: -3, dayType: 'loadIn' as const },
+      { offset: -1, dayType: 'loadIn' as const },
+      { offset: 0, dayType: 'show' as const },
+      { offset: 2, dayType: 'loadOut' as const },
+    ];
+    expect(days.map((d) => templateDayChipLabel(d, days))).toEqual([
+      'Day -4',
+      'Load-in day 1',
+      'Load-in day 2',
+      'Show day 1',
+      'Day +2',
+    ]);
   });
 
   it('serializes parsed days to the input shape (nulls become omitted optionals)', () => {

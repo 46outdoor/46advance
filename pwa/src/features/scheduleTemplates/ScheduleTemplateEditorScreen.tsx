@@ -13,7 +13,7 @@ import { createLogger } from '@/lib/logger';
 import {
   SCHEDULE_TEMPLATE_CATEGORIES,
   scheduleTemplateCategoryLabel,
-  templateDayLabel,
+  templateDayChipLabel,
   templateDaysToInput,
   templateItemToDayItem,
   dayItemToTemplateItem,
@@ -202,7 +202,7 @@ function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTem
               description: day.description,
               notes: day.notes,
             }}
-            dateLabel={templateDayLabel(day.offset)}
+            dateLabel={templateDayChipLabel(day, days)}
             items={day.items.map(templateItemToDayItem)}
             editing
             stages={stageNames}

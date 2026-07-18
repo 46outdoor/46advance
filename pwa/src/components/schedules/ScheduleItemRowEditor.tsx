@@ -67,7 +67,7 @@ export function ScheduleItemRowEditor({
 
   return (
     <div className="space-y-2 px-3 py-2" onBlur={commitOnLeave}>
-      <div className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[4.5rem_4.5rem_4.5rem_5.5rem_minmax(8rem,1fr)_minmax(10rem,1.4fr)] sm:gap-x-3">
+      <div className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[6.5rem_6.5rem_4.5rem_5.5rem_minmax(6rem,1fr)_minmax(8rem,1.4fr)] sm:gap-x-3">
         <input
           type="time"
           className={inputClass}

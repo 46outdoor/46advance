@@ -18,7 +18,7 @@ export interface TemplateDayMeta {
 const inputClass =
   'min-h-11 w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand sm:min-h-0';
 
-/** Offsets offered: Load-in 7 → Show day 10, minus taken ones (keeping `current` so an
+/** Offsets offered: Day -7 → Show day 10, minus taken ones (keeping `current` so an
  * edit can leave the offset unchanged). */
 function offsetOptions(used: readonly number[], current?: number): number[] {
   const taken = new Set(used);
@@ -67,7 +67,7 @@ export function TemplateDayForm({
         <select className={inputClass} value={offset} onChange={(e) => setOffset(Number(e.target.value))}>
           {options.map((o) => (
             <option key={o} value={o}>
-              {templateDayLabel(o)}
+              {templateDayLabel(o, dayType)}
             </option>
           ))}
         </select>
