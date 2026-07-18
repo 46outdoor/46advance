@@ -136,6 +136,17 @@ subfolder names and `advance.artistName`.
   photos/PDFs into the generated packet via the SA read-path (decision 1). Size guard:
   cap embedded content (e.g. skip > ~10 MB per file with a listed link fallback).
 
+## Drive sync (added 2026-07-18)
+
+The library syncs FROM Drive on a schedule — `scheduledLibraryDriveSync`, **midnight +
+noon Central daily** — enumerating the recorded root via the docs-broker SA (Viewer is
+sufficient; no user OAuth). Files added to artist folders directly in Drive become
+library records (unclassified) within a cycle; files deleted or moved out get a
+**"Missing from Drive" flag** (never auto-deleted — a move is indistinguishable from a
+delete; managers resolve flagged records by hand). Reappearing files clear the flag.
+The manual Import button remains for immediate refreshes. Event-folder sweeping is NOT
+included — event docs only enter via in-app upload for now.
+
 ## Open / TBD
 
 - Packet embedding details (PR 5): page sizing for photos, orientation of merged PDF

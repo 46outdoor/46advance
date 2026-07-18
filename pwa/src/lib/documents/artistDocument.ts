@@ -32,6 +32,9 @@ export interface ArtistDocument {
   categoryId: string | null;
   /** The Drive folder the file lives in (upload target for that artist); null pre-backfill. */
   sourceFolderId: string | null;
+  /** Set by the scheduled Drive sync when the file vanished from the library tree
+   * (deleted or moved — indistinguishable); cleared if it reappears. */
+  missingFromDrive: boolean;
   importedBy: string;
   importedByEmail: string | null;
   importedAt: Date | null;
@@ -56,6 +59,7 @@ const artistDocumentDocSchema = z.object({
   artistKey: z.string().nullable().optional(),
   categoryId: z.string().nullable().optional(),
   sourceFolderId: z.string().nullable().optional(),
+  missingFromDrive: z.boolean().optional(),
   importedBy: z.string().min(1),
   importedByEmail: z.string().nullable().optional(),
   importedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -78,6 +82,7 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     artistKey: d.artistKey ?? null,
     categoryId: d.categoryId ?? null,
     sourceFolderId: d.sourceFolderId ?? null,
+    missingFromDrive: d.missingFromDrive === true,
     importedBy: d.importedBy,
     importedByEmail: d.importedByEmail ?? null,
     importedAt: timestampToDate(d.importedAt ?? null),
