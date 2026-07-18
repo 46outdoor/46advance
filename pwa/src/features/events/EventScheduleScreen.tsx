@@ -1,5 +1,5 @@
 /**
- * Event schedule (redesign PR 2, planning/SCHEDULE_REDESIGN.md): day-container cards on
+ * Event schedule (redesign PR 2, planning/archive/feature/SCHEDULE_REDESIGN.md): day-container cards on
  * a shared grid — Start | End | Duration | Type | Item | Description — with a
  * URL-persisted filter bar (day / type / stage), the visible-type color key, an
  * MPA-style global Edit toggle with inline row editing (save on focus-leave), fully

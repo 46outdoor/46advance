@@ -1,7 +1,7 @@
 /**
  * Seed/refresh the "575 Stage — Master Labor Schedule" stagehand schedule template
  * (`scheduleTemplates/{id}`) from the 575 Stage labor grid — redesign shape
- * (planning/SCHEDULE_REDESIGN.md): day-first template days on the relative-day axis,
+ * (planning/archive/feature/SCHEDULE_REDESIGN.md): day-first template days on the relative-day axis,
  * each owning its items; calls sharing a window become ONE labor item ("Crew Call")
  * with per-type crew lines ("(28) Stagehands"). Re-running overwrites the template's
  * content in place (matched by name).

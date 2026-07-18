@@ -1,7 +1,7 @@
 /**
  * Labor crew lines. View: the aligned mini-grid (Qty | Crew type | Duration) under a
  * crew-bearing item — quantities right-aligned in tabular numerals so lines line up
- * (decision 16/17, planning/SCHEDULE_REDESIGN.md). Edit: per-line quantity/type/hours
+ * (decision 16/17, planning/archive/feature/SCHEDULE_REDESIGN.md). Edit: per-line quantity/type/hours
  * inputs; types come from `config/crewTypes`; blank hours = the line runs the item's
  * window.
  */

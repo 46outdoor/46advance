@@ -1,6 +1,6 @@
 /**
  * Admin: the labor crew-type list (`config/crewTypes`) offered on schedule crew lines —
- * Stagehands, Riggers / Climbers, … (planning/SCHEDULE_REDESIGN.md decision 21).
+ * Stagehands, Riggers / Climbers, … (planning/archive/feature/SCHEDULE_REDESIGN.md decision 21).
  * Follows the BrandingAdmin pattern: local draft, explicit save.
  */
 import { useEffect, useState } from 'react';

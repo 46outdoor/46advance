@@ -1,5 +1,5 @@
 /**
- * Schedule day model (planning/SCHEDULE_REDESIGN.md): `events/{eventId}/scheduleDays/{dayKey}`.
+ * Schedule day model (planning/archive/feature/SCHEDULE_REDESIGN.md): `events/{eventId}/scheduleDays/{dayKey}`.
  * One doc per calendar day — the doc id IS the date key (`YYYY-MM-DD` in the event's
  * timezone), making one-card-per-date structural. The day owns its items as an embedded
  * array (a day's schedule sits far under the 1 MB doc cap and saves atomically); array

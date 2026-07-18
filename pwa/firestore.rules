@@ -274,7 +274,7 @@ service cloud.firestore {
         allow create, update, delete: if canEditEvent(eventId);
       }
 
-      // Schedule days (redesign — planning/SCHEDULE_REDESIGN.md): one doc per calendar day,
+      // Schedule days (redesign — planning/archive/feature/SCHEDULE_REDESIGN.md): one doc per calendar day,
       // doc id = the 'YYYY-MM-DD' date key (one-card-per-date is structural), items embedded
       // in the day. Member read; PM/admin write. Per-item googleCalendarEventId is reconciled
       // server-side — rules can't practically gate fields inside an embedded array, so the

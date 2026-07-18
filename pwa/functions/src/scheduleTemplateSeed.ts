@@ -2,7 +2,7 @@
  * Seed an event's schedule from referenced schedule templates during create-from-template
  * (redesign PR 3). Templates are day-first blueprints: the referenced templates' days
  * merge BY OFFSET (the first template defining an offset owns the day's metadata; later
- * ones only add items — planning/SCHEDULE_REDESIGN.md decision 14) and land as
+ * ones only add items — planning/archive/feature/SCHEDULE_REDESIGN.md decision 14) and land as
  * `scheduleDays/{YYYY-MM-DD}` docs, each offset resolved against the event's start date
  * IN THE EVENT'S TIMEZONE. Items keep wall-clock times (no instant math here — that's
  * the calendar push's job); stage-tagged items match the new event's stages by name.
