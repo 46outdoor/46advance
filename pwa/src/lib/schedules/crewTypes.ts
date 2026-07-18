@@ -1,6 +1,6 @@
 /**
  * Crew-type config model (`config/crewTypes`) — the admin-editable list of labor crew
- * types offered on crew lines (planning/SCHEDULE_REDESIGN.md decision 21). Reads fall
+ * types offered on crew lines (planning/archive/feature/SCHEDULE_REDESIGN.md decision 21). Reads fall
  * back to the seed when the doc is absent (the branding-config pattern); the IO service
  * and admin edit screen land with the template-editor PR. Rules: any approved user
  * reads, admin writes (the existing `config/{configId}` block).

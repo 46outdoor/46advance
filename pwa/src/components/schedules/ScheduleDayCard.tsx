@@ -1,5 +1,5 @@
 /**
- * One schedule day container (planning/SCHEDULE_REDESIGN.md § UI): a color-coded header
+ * One schedule day container (planning/archive/feature/SCHEDULE_REDESIGN.md § UI): a color-coded header
  * (day type drives the color; type label + title + description inline, date right), the
  * day-notes line, and the items grid — Start | End | Duration | Type | Item |
  * Description — on shared column widths so every card's columns align down the page.

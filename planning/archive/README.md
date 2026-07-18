@@ -20,6 +20,7 @@ for active plans (see [`../README.md`](../README.md)).
 | 11 | [Google Calendar + Meet](feature/PHASE_11_PLAN.md) |
 | 12 | [Schedules — items + master view + calendar push](feature/PHASE_12_PLAN.md) |
 | 13 | [Google Drive — link files to advances + save packets (13c deferred)](feature/PHASE_13_PLAN.md) |
+| — | [Schedule Redesign — day-container grid, templates, calendar push](feature/SCHEDULE_REDESIGN.md) |
 
 ## reference/ — source material
 - [AUDIO_ADVANCE_REFERENCE.md](reference/AUDIO_ADVANCE_REFERENCE.md) — the audio lead's working advance spec.

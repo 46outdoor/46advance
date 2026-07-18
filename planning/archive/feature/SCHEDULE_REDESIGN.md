@@ -1,10 +1,11 @@
 # Schedule Redesign — Day-Container Grid Model
 
-> **Status:** Implemented — all five PRs shipped (model+rules #109, grid screen #110,
-> templates #111, calendar push #112, cleanup sweep) and the backend deployed.
-> Outstanding: the "To verify" checklist below (notably merge-by-offset composition
-> and live calendar sync, both awaiting a hands-on pass), and the one-shot data
-> cleanup + stagehand reseed scripts in `pwa/functions/scripts/`.
+> **Status:** COMPLETE (archived 2026-07-17). All five PRs shipped — model+rules
+> (#109), grid screen (#110), templates (#111), calendar push (#112), cleanup sweep
+> (#113) — backend deployed, production data migrated (stagehand template reseeded,
+> old-model docs removed). Outstanding at archive time: the hands-on "To verify"
+> passes below (merge-by-offset composition, live calendar sync, inline-save feel,
+> palette contrast) — tracked in auto-memory, not here.
 >
 > **Goal:** One consistent grid layout for schedules everywhere — the event
 > schedule, the schedule template editor, and (later) the PDF packet — following

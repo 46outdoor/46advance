@@ -1,5 +1,5 @@
 /**
- * Schedule templates (redesign PR 3, planning/SCHEDULE_REDESIGN.md): reusable day-first
+ * Schedule templates (redesign PR 3, planning/archive/feature/SCHEDULE_REDESIGN.md): reusable day-first
  * blueprints (`scheduleTemplates/{id}`) on the day-container model. A **standard**
  * template is a categorized list of template days — relative offsets (negative =
  * load-in) owning items that match the event schedule's item shape, with the stage

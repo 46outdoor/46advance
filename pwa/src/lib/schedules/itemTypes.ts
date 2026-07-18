@@ -1,5 +1,5 @@
 /**
- * Schedule item-type registry (planning/SCHEDULE_REDESIGN.md § taxonomy) — successor to
+ * Schedule item-type registry (planning/archive/feature/SCHEDULE_REDESIGN.md § taxonomy) — successor to
  * the section registry of the pre-redesign model (sections.ts, retired with it). An item's
  * type renders as a color dot with a tooltip naming the type; each type declares whether
  * the Stage sub-type applies, its flat detail fields (shown as a muted sub-row when

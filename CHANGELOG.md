@@ -44,7 +44,7 @@ dependency bumps, and planning-doc updates) are omitted.
   event template seeds the schedule the same way, in the new day format.
 
 - **Schedule redesign (grid):** the event schedule is rebuilt around day-container
-  cards (planning/SCHEDULE_REDESIGN.md). Each day is its own color-coded card — the
+  cards (planning/archive/feature/SCHEDULE_REDESIGN.md). Each day is its own color-coded card — the
   day type (Travel / Load In / Show / Load Out / Off Day) drives the header color —
   with a title, description, and a small day-notes line, and its items render in a
   consistent grid: **Start | End | Duration | Type | Item | Description**, aligned

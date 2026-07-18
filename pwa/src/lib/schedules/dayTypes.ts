@@ -1,5 +1,5 @@
 /**
- * Schedule day-type registry (planning/SCHEDULE_REDESIGN.md § taxonomy). Five operational
+ * Schedule day-type registry (planning/archive/feature/SCHEDULE_REDESIGN.md § taxonomy). Five operational
  * day categories; the day-card header takes the type's color (white text on all five).
  * Muted seed palette — approved as the working set; contrast pass lands with the grid UI.
  */
