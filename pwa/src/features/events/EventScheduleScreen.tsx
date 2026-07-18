@@ -56,6 +56,7 @@ function blankItem(): ScheduleDayItem {
     startTime: null,
     endTime: null,
     endEstimated: false,
+    nextDay: false,
     item: 'New item',
     description: null,
     stageId: null,

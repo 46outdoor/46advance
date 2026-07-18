@@ -44,6 +44,10 @@ export interface ScheduleDayItem {
   endTime: string | null;
   /** The end time is an estimate (labor grids' "Est End Time"). */
   endEstimated: boolean;
+  /** "+1": the times are the AM after this day's date (a post-show reset or late-night
+   * load out stays grouped with its work day). Sorts after the same-day rows; calendar
+   * push shifts the instants one date forward. */
+  nextDay: boolean;
   /** The Item column (row name); may contain `{artist N}` placeholders (Show). */
   item: string;
   description: string | null;
@@ -90,6 +94,7 @@ export const scheduleDayItemDocSchema = z.object({
   startTime: wallClockSchema.nullable().optional(),
   endTime: wallClockSchema.nullable().optional(),
   endEstimated: z.boolean().optional(),
+  nextDay: z.boolean().optional(),
   item: z.string().min(1),
   description: z.string().nullable().optional(),
   stageId: z.string().nullable().optional(),
@@ -119,6 +124,7 @@ function parseItem(raw: z.infer<typeof scheduleDayItemDocSchema>): ScheduleDayIt
     startTime: raw.startTime ?? null,
     endTime: raw.endTime ?? null,
     endEstimated: raw.endEstimated ?? false,
+    nextDay: raw.nextDay ?? false,
     item: raw.item,
     description: raw.description ?? null,
     stageId: raw.stageId ?? null,
@@ -165,6 +171,7 @@ export const scheduleDayItemInputSchema = z.object({
   startTime: wallClockSchema.nullable().optional(),
   endTime: wallClockSchema.nullable().optional(),
   endEstimated: z.boolean().optional(),
+  nextDay: z.boolean().optional(),
   item: z.string().trim().min(1, 'Item is required.'),
   description: z.string().trim().optional(),
   stageId: z.string().trim().optional(),
@@ -207,15 +214,15 @@ export function itemDurationLabel(
   return span == null ? null : formatMinutes(span);
 }
 
-/** Display order for a day's rows: by start time, untimed last; equal times keep the
- * array (authoring) order — Array.prototype.sort is stable. */
-export function sortDayItems<T extends { startTime: string | null }>(items: readonly T[]): T[] {
-  return [...items].sort((a, b) => {
-    if (a.startTime === b.startTime) return 0;
-    if (a.startTime == null) return 1;
-    if (b.startTime == null) return -1;
-    return a.startTime.localeCompare(b.startTime);
-  });
+/** Display order for a day's rows: by start time — "+1" (next-day AM) rows after every
+ * same-day time, untimed last; ties keep the array (authoring) order —
+ * Array.prototype.sort is stable. */
+export function sortDayItems<T extends { startTime: string | null; nextDay?: boolean }>(
+  items: readonly T[],
+): T[] {
+  // Lexicographic sort key: '1' same-day times < '2' next-day times < '3' untimed.
+  const key = (i: T) => (i.startTime == null ? '3' : `${i.nextDay ? 2 : 1}${i.startTime}`);
+  return [...items].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
 /** Replace `{artist N}` placeholders in item text. `resolve` maps a slot number to the

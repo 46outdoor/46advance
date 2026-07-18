@@ -37,11 +37,26 @@ export function scheduleTemplateCategoryLabel(c: ScheduleTemplateCategory): stri
 export const SCHEDULE_TEMPLATE_KINDS = ['standard', 'master'] as const;
 export type ScheduleTemplateKind = (typeof SCHEDULE_TEMPLATE_KINDS)[number];
 
-/** Relative-day label for a template day: negative = load-in (before show), 0+ = a show
- * day. (Templates have no real dates; the offset resolves against the event's show
- * start on apply.) */
-export function templateDayLabel(offset: number): string {
-  return offset < 0 ? `Load-in ${-offset}` : `Show day ${offset + 1}`;
+/** Relative-day label for a template day. Show days count from the event start ("Show
+ * day 2"); any other day type reads as its position on the offset axis ("Day -3" /
+ * "Day +2"), since a load-out or travel day isn't a show day. (Templates have no real
+ * dates; the offset resolves against the event's show start on apply.) */
+export function templateDayLabel(offset: number, dayType: ScheduleDayType): string {
+  if (dayType === 'show' && offset >= 0) return `Show day ${offset + 1}`;
+  if (offset === 0) return 'Day 0';
+  return offset < 0 ? `Day -${-offset}` : `Day +${offset}`;
+}
+
+/** Day-card chip label: like `templateDayLabel`, but load-in days count UP from the
+ * template's earliest load-in day ("Load-in day 1" → the show), not down to it —
+ * needs the sibling days for the ordinal. */
+export function templateDayChipLabel(
+  day: Pick<ScheduleTemplateDay, 'offset' | 'dayType'>,
+  days: ReadonlyArray<Pick<ScheduleTemplateDay, 'offset' | 'dayType'>>,
+): string {
+  if (day.dayType !== 'loadIn') return templateDayLabel(day.offset, day.dayType);
+  const ordinal = days.filter((d) => d.dayType === 'loadIn' && d.offset < day.offset).length + 1;
+  return `Load-in day ${ordinal}`;
 }
 
 /** A template item is a schedule-day item with the stage referenced by name and no
@@ -114,6 +129,7 @@ function parseItem(raw: z.infer<typeof templateItemDocSchema>): ScheduleTemplate
     startTime: raw.startTime ?? null,
     endTime: raw.endTime ?? null,
     endEstimated: raw.endEstimated ?? false,
+    nextDay: raw.nextDay ?? false,
     item: raw.item,
     description: raw.description ?? null,
     stageName: raw.stageName ?? null,
@@ -251,6 +267,7 @@ export function templateDaysToInput(
       startTime: i.startTime,
       endTime: i.endTime,
       endEstimated: i.endEstimated,
+      nextDay: i.nextDay,
       item: i.item,
       description: i.description ?? undefined,
       stageName: i.stageName ?? undefined,

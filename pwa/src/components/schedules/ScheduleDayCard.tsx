@@ -16,11 +16,13 @@ import { CrewLinesGrid } from './CrewLines';
 import { ScheduleItemRowEditor, type StageOption } from './ScheduleItemRowEditor';
 
 const COLS =
-  'sm:grid sm:grid-cols-[4.5rem_4.5rem_4.5rem_2rem_minmax(8rem,1fr)_minmax(10rem,1.4fr)] sm:gap-x-3';
+  'sm:grid sm:grid-cols-[6.5rem_6.5rem_4.5rem_2rem_minmax(6rem,1fr)_minmax(8rem,1.4fr)] sm:gap-x-3';
 /** Edit-mode template — the Type cell widens from a dot to a select. Keep in sync with
- * ScheduleItemRowEditor's row grid. */
+ * ScheduleItemRowEditor's row grid. Start/End are 6.5rem so a native time input shows
+ * "hh:mm AM" in full; the flexible columns' minimums give back that width so the
+ * grid's floor still fits the sm breakpoint. */
 const EDIT_COLS =
-  'sm:grid sm:grid-cols-[4.5rem_4.5rem_4.5rem_5.5rem_minmax(8rem,1fr)_minmax(10rem,1.4fr)] sm:gap-x-3';
+  'sm:grid sm:grid-cols-[6.5rem_6.5rem_4.5rem_5.5rem_minmax(6rem,1fr)_minmax(8rem,1.4fr)] sm:gap-x-3';
 
 export type ResolveItemText = (item: ScheduleDayItem, text: string) => string;
 
@@ -40,9 +42,13 @@ function ViewRow({ item, resolveText }: { item: ScheduleDayItem; resolveText: Re
   const detail = typeFieldsSummary(item);
   return (
     <li className={`flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5 text-sm ${COLS}`}>
-      <span className="text-ink-muted tabular-nums">{item.startTime ? formatWallClockTime(item.startTime) : '—'}</span>
       <span className="text-ink-muted tabular-nums">
-        {item.endTime ? `${formatWallClockTime(item.endTime)}${item.endEstimated ? ' (est)' : ''}` : ''}
+        {item.startTime ? `${formatWallClockTime(item.startTime)}${item.nextDay ? ' +1' : ''}` : '—'}
+      </span>
+      <span className="text-ink-muted tabular-nums">
+        {item.endTime
+          ? `${formatWallClockTime(item.endTime)}${item.endEstimated ? ' (est)' : ''}${item.nextDay && !item.startTime ? ' +1' : ''}`
+          : ''}
       </span>
       <span className="text-ink-muted tabular-nums">{itemDurationLabel(item) ?? ''}</span>
       <span>

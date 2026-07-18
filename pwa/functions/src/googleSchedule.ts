@@ -106,21 +106,22 @@ function buildDescriptionLines(
 }
 
 /** Build the Calendar event body for one item of a day (start required). Instants derive
- * from the day's date + wall-clock times in the event's timezone; an end at or before
- * the start rolls overnight. */
+ * from the day's date + wall-clock times in the event's timezone; a "+1" (next-day AM)
+ * item shifts one date forward, and an end at or before the start rolls overnight. */
 function buildEventBody(
   item: DocumentData,
   dateKey: string,
   timeZone: string,
   artistBySlot: Map<string, string>,
 ): calendar_v3.Schema$Event | null {
+  const baseKey = item.nextDay === true ? shiftDayKey(dateKey, 1) : dateKey;
   const startTime = asWallClock(item.startTime);
-  const start = startTime ? zonedInputToDate(`${dateKey}T${startTime}`, timeZone) : null;
+  const start = startTime ? zonedInputToDate(`${baseKey}T${startTime}`, timeZone) : null;
   if (!start) return null;
   const endTime = asWallClock(item.endTime);
-  let end = endTime ? zonedInputToDate(`${dateKey}T${endTime}`, timeZone) : null;
+  let end = endTime ? zonedInputToDate(`${baseKey}T${endTime}`, timeZone) : null;
   if (end && end.getTime() <= start.getTime()) {
-    end = zonedInputToDate(`${shiftDayKey(dateKey, 1)}T${endTime}`, timeZone);
+    end = zonedInputToDate(`${shiftDayKey(baseKey, 1)}T${endTime}`, timeZone);
   }
   if (!end) end = new Date(start.getTime() + DEFAULT_DURATION_MIN * 60_000);
 

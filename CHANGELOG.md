@@ -11,7 +11,24 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ## 2026-07-18
 
+### Fixed
+
+- **Schedule templates:** saving edits to a template no longer fails with "Could not
+  save" when optional fields (day titles, notes, item descriptions…) are blank.
+- **Schedule grid:** the Start/End time fields are wider so the full time ("8:00 AM")
+  is visible instead of being cut off.
+- **Template day labels:** day chips in the template editor now match the day's type —
+  load-in days count up from the first one ("Load-in day 1" toward the show), show days
+  read "Show day N", and load-out/travel days read their day position ("Day +2") instead
+  of everything after the show being called a show day.
+
 ### Added
+
+- **"+1 day" schedule items:** post-show rows that spill past midnight (a 1:00 AM stage
+  reset, a 12:30 AM production load out) can now stay grouped with their work day — check
+  **"+1 day"** on the item and it sorts at the end of that day's card with a "+1" marker
+  on the time, while calendar sync correctly places it on the following date. The
+  festival production template uses this for its after-midnight rows.
 
 - **Event documents:** each event now has a **Documents** page (linked from the event
   header). Link a Google Drive folder to the event in its edit form, then upload files
