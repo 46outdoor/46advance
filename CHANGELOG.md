@@ -24,6 +24,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **"+1 day" schedule items:** post-show rows that spill past midnight (a 1:00 AM stage
+  reset, a 12:30 AM production load out) can now stay grouped with their work day — check
+  **"+1 day"** on the item and it sorts at the end of that day's card with a "+1" marker
+  on the time, while calendar sync correctly places it on the following date. The
+  festival production templates use this for their after-midnight rows.
+
 - **Event documents:** each event now has a **Documents** page (linked from the event
   header). Link a Google Drive folder to the event in its edit form, then upload files
   straight into it from the app — each document tagged to a schedule day (grouped under

@@ -22,6 +22,7 @@ const item = (id: string, over: Partial<ScheduleTemplateItem> = {}): ScheduleTem
   startTime: '08:00',
   endTime: '18:00',
   endEstimated: false,
+  nextDay: false,
   item: 'Crew Call',
   description: null,
   stageName: 'Main',

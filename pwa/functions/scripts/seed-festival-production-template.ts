@@ -14,8 +14,9 @@
  * - "VARIOUS"-timed rows are untimed (sort last, no calendar push).
  * - "EST EOD" rows keep only an END time, flagged estimated (untimed start sorts them
  *   last; no calendar push).
- * - Rows STARTING after midnight (show-night resets/load-outs) sit on the NEXT day's
- *   card — day docs are keyed by calendar date, and start time places the row.
+ * - Rows after midnight (show-night resets/load-outs) stay grouped on their WORK day's
+ *   card, flagged "+1" (next-day AM) — display sorts them last and calendar push
+ *   shifts them one date forward.
  *
  * Run (from functions/, where firebase-admin is installed):
  *   gcloud auth application-default login   # one-time
@@ -39,6 +40,8 @@ interface Row {
   start?: string;
   end?: string;
   endEstimated?: boolean;
+  /** "+1": the times are the AM after this day's date (post-show rows). */
+  plus1?: boolean;
   desc?: string;
   /** Location detail field (Production/Custom types). */
   location?: string;
@@ -96,8 +99,13 @@ const showDayRows = (callTime: string, lunchStart: string): Row[] => [
   meal('Dinner', '17:00', '19:00'),
   prod('Artist load outs', '23:00', '01:00'),
 ];
-/** Night-before reset, landing on the FOLLOWING day's card (starts after midnight). */
-const overnightReset = prod('Reset stage / dock for the next show', '01:00', '01:30');
+/** Post-show reset for the next show — stays on the show day's card as a "+1" row. */
+const overnightReset = prod('Reset stage / dock for the next show', '01:00', '01:30', { plus1: true });
+/** Final night's post-show load out + EOD — "+1" rows on the last show day's card. */
+const finalNightRows: Row[] = [
+  prod('Production load out — all LX + video', '00:30', '03:00', { endEstimated: true, plus1: true }),
+  eod('03:00', { plus1: true }),
+];
 
 const FINAL_NIGHT_NOTE = 'Goal: all artists out by 12:00 AM; production load out follows the show.';
 
@@ -160,21 +168,20 @@ const DAYS: DayBlock[] = [
     dayType: 'show',
     title: 'Show Day 1',
     notes: 'Goal: all artists out by 1:00 AM and set for the next day.',
-    rows: showDayRows('05:30', '11:30'),
+    rows: [...showDayRows('05:30', '11:30'), overnightReset],
   },
   {
     offset: 1,
     dayType: 'show',
     title: 'Show Day 2',
     notes: FINAL_NIGHT_NOTE,
-    rows: [overnightReset, ...showDayRows('05:00', '12:00')],
+    rows: [...showDayRows('05:00', '12:00'), ...finalNightRows],
   },
   {
     offset: 2,
     dayType: 'loadOut',
     title: 'Staging Load Out',
     rows: [
-      prod('Production load out — all LX + video', '00:30', '03:00', { endEstimated: true }),
       meal('Breakfast', '09:00', undefined, { location: 'At hotel' }),
       prod('Call time', '10:00', undefined, { desc: STAGELINE }),
       prod('Staging load out', '10:00', '15:00', { desc: STAGELINE }),
@@ -193,14 +200,16 @@ const DAYS: DayBlock[] = [
 ];
 
 /** For 3+ show-day events: re-date the tail days +1 per extra day, then import this —
- * its single day lands on the vacated date as the new final show day. */
+ * its single day lands on the vacated date as the new FINAL show day (post-show load
+ * out included). On the prior show day, swap the final-night load-out/EOD rows for a
+ * "reset for the next show" row — it's no longer the last night. */
 const ADD_ON_DAYS: DayBlock[] = [
   {
     offset: 2,
     dayType: 'show',
     title: 'Show Day 3',
     notes: FINAL_NIGHT_NOTE,
-    rows: [overnightReset, ...showDayRows('05:00', '12:00')],
+    rows: [...showDayRows('05:00', '12:00'), ...finalNightRows],
   },
 ];
 
@@ -212,6 +221,7 @@ function toItems(rows: Row[]) {
     startTime: row.start ?? null,
     endTime: row.end ?? null,
     endEstimated: row.endEstimated ?? false,
+    nextDay: row.plus1 ?? false,
     item: row.item,
     description: row.desc ?? null,
     stageName: null,

@@ -213,6 +213,16 @@ describe('sortDayItems', () => {
     ];
     expect(sortDayItems(items).map((i) => i.id)).toEqual(['tie-1', 'tie-2', 'late', 'untimed']);
   });
+
+  it('sorts "+1" (next-day AM) rows after every same-day time, before untimed', () => {
+    const items = [
+      { id: 'untimed-eod', startTime: null, nextDay: true },
+      { id: 'reset+1', startTime: '01:00', nextDay: true },
+      { id: 'load-outs', startTime: '23:00' },
+      { id: 'breakfast', startTime: '05:00' },
+    ];
+    expect(sortDayItems(items).map((i) => i.id)).toEqual(['breakfast', 'load-outs', 'reset+1', 'untimed-eod']);
+  });
 });
 
 describe('resolveArtistPlaceholders', () => {

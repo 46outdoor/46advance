@@ -38,6 +38,7 @@ function normalizeDraft(draft: ScheduleDayItem, saved: ScheduleDayItem): Schedul
     fields,
     crew: def.hasCrew ? draft.crew : [],
     endEstimated: draft.endTime ? draft.endEstimated : false,
+    nextDay: draft.startTime || draft.endTime ? draft.nextDay : false,
   };
 }
 
@@ -159,6 +160,18 @@ export function ScheduleItemRowEditor({
             onChange={(e) => patch({ endEstimated: e.target.checked })}
           />
           Estimated end
+        </label>
+        <label
+          className="inline-flex min-h-11 items-center gap-1.5 text-xs text-ink-muted sm:min-h-0"
+          title="The times are the morning after this day's date (stays on this card; syncs to the next date)"
+        >
+          <input
+            type="checkbox"
+            checked={draft.nextDay}
+            disabled={!draft.startTime && !draft.endTime}
+            onChange={(e) => patch({ nextDay: e.target.checked })}
+          />
+          +1 day
         </label>
         <label className="inline-flex min-h-11 items-center gap-1.5 text-xs text-ink-muted sm:min-h-0">
           <input

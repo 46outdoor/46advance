@@ -42,9 +42,13 @@ function ViewRow({ item, resolveText }: { item: ScheduleDayItem; resolveText: Re
   const detail = typeFieldsSummary(item);
   return (
     <li className={`flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5 text-sm ${COLS}`}>
-      <span className="text-ink-muted tabular-nums">{item.startTime ? formatWallClockTime(item.startTime) : '—'}</span>
       <span className="text-ink-muted tabular-nums">
-        {item.endTime ? `${formatWallClockTime(item.endTime)}${item.endEstimated ? ' (est)' : ''}` : ''}
+        {item.startTime ? `${formatWallClockTime(item.startTime)}${item.nextDay ? ' +1' : ''}` : '—'}
+      </span>
+      <span className="text-ink-muted tabular-nums">
+        {item.endTime
+          ? `${formatWallClockTime(item.endTime)}${item.endEstimated ? ' (est)' : ''}${item.nextDay && !item.startTime ? ' +1' : ''}`
+          : ''}
       </span>
       <span className="text-ink-muted tabular-nums">{itemDurationLabel(item) ?? ''}</span>
       <span>
