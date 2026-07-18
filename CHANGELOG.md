@@ -24,6 +24,11 @@ dependency bumps, and planning-doc updates) are omitted.
   immediately. One-time step: re-run the library import once so each artist's Drive
   folder gets recorded (the import now tracks folders; it won't disturb your
   classifications).
+- **Automatic library sync:** the artist library now syncs from Drive twice a day
+  (midnight and noon Central) — files added to artist folders directly in Drive show up
+  in the app on their own, and files that were deleted or moved get a **"Missing from
+  Drive"** badge instead of silently lingering. The Import button still works for an
+  immediate refresh.
 
 - **Documents on advances:** each advance now has a **Documents** section listing the
   artist-library files for that artist (matched by name), with checkboxes for the PM/admin

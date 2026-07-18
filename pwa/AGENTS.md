@@ -246,7 +246,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Schedule templates (redesign) | `src/lib/schedules/scheduleTemplate.ts` (day-first model, master composition `resolveTemplateDays`, editor bridges) + `src/lib/schedules/schedule-templates-service.ts` (CRUD, default-master); editor `src/features/scheduleTemplates/`; apply/import `src/features/events/` (`applyTemplateDaysToEvent`, `ImportScheduleTemplatePanel`) |
 | Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`reconcileScheduleDay` day-level reconcile with transactional id write-back + `removeScheduleCalendarEvent`; reuses 11b). Client wrappers in `src/features/events/schedule-days-service.ts` |
 | Google Drive (client) | `src/lib/google/drive-service.ts` (link/remove/savePacket callables + Picker), `driveFile.ts` (`DriveFileRef` type+Zod); Picker keys in `src/config/integrations.ts` |
-| Google Drive (backend) | `functions/src/googleDrive.ts` (`linkDriveFile`/`removeDriveFile`/`savePacketToDrive`/`getDriveAccessToken`; `drive.file` scope, reuses 11b) |
+| Google Drive (backend) | `functions/src/googleDrive.ts` (`linkDriveFile`/`removeDriveFile`/`savePacketToDrive`/`getDriveAccessToken`/`importDriveFolder`/`getArtistDocumentContent` broker + `scheduledLibraryDriveSync` twice-daily library sync; `drive.file` scope + docs-broker SA) |
 
 ### Step 2: Resolve name variants before searching
 

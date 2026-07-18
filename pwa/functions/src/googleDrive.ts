@@ -19,9 +19,11 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
 import { google, type drive_v3 } from 'googleapis';
-import { OAUTH_SECRETS, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
+import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
 import { assertApproved } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
@@ -216,14 +218,39 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
   } catch {
     throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
   }
-  // Files directly in the picked folder are "unsorted"; each subfolder is an artist whose
-  // ENTIRE subtree (nested subfolders included) is imported under that artist. Each group
-  // records its Drive folder id — the upload target for new files (library uploads).
-  const rootFiles = await listChildren(drive, folderId, false);
-  const groups: { artist: string | null; folderId: string; files: drive_v3.Schema$File[] }[] = [
-    { artist: null, folderId, files: rootFiles },
+  const groups = await enumerateLibrary(drive, folderId, subfolders);
+
+  // The library root — recorded so uploads can create subfolders for new artists and
+  // the scheduled sync knows what to sweep.
+  await db.doc('config/documentsLibrary').set(
+    { rootFolderId: folderId, updatedAt: Timestamp.now() },
+    { merge: true },
+  );
+
+  const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null });
+  return { imported: counts.imported, skipped: counts.skipped };
+});
+
+interface LibraryGroup {
+  artist: string | null;
+  folderId: string;
+  files: drive_v3.Schema$File[];
+}
+
+/** Enumerate the library tree: files directly in the root are "unsorted"; each subfolder
+ * is an artist whose ENTIRE subtree (nested subfolders included) belongs to that artist.
+ * Each group records its Drive folder id — the upload target for new files. */
+async function enumerateLibrary(
+  drive: drive_v3.Drive,
+  rootFolderId: string,
+  subfolders?: drive_v3.Schema$File[],
+): Promise<LibraryGroup[]> {
+  const folders = subfolders ?? (await listChildren(drive, rootFolderId, true));
+  const rootFiles = await listChildren(drive, rootFolderId, false);
+  return [
+    { artist: null, folderId: rootFolderId, files: rootFiles },
     ...(await Promise.all(
-      subfolders
+      folders
         .filter((f) => f.id)
         .map(async (f) => ({
           artist: f.name ?? 'Unknown',
@@ -232,29 +259,51 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
         })),
     )),
   ];
+}
 
-  // The library root — recorded so uploads can create subfolders for new artists.
-  await db.doc('config/documentsLibrary').set(
-    { rootFolderId: folderId, updatedAt: Timestamp.now() },
-    { merge: true },
-  );
-
-  const existing = new Set((await db.collection('artistDocuments').get()).docs.map((d) => d.id));
+/** Upsert enumerated library files into `artistDocuments`: new files become records
+ * (unclassified), existing ones get their `sourceFolderId` backfilled (classifications
+ * and edits untouched), and the missing-from-Drive flag reconciles both ways — records
+ * whose files vanished are FLAGGED (never deleted; a move looks identical to a delete),
+ * and flagged records whose files reappear are cleared. */
+async function upsertLibrary(
+  db: Firestore,
+  groups: readonly LibraryGroup[],
+  attribution: { uid: string; email: string | null },
+): Promise<{ imported: number; skipped: number; flagged: number; restored: number }> {
+  const existingSnap = await db.collection('artistDocuments').get();
+  const existingDocs = new Map(existingSnap.docs.map((d) => [d.id, d.data()]));
+  const seen = new Set<string>();
   let imported = 0;
   let skipped = 0;
+  let flagged = 0;
+  let restored = 0;
   let batch = db.batch();
   let ops = 0;
+  const bump = async () => {
+    ops += 1;
+    if (ops >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
+  };
   for (const group of groups) {
     for (const file of group.files) {
-      if (!file.id || !file.name || !file.webViewLink) continue;
-      if (existing.has(file.id)) {
-        // Already imported — backfill only the upload-target folder id, preserving
-        // classifications and edits (re-import doubles as the sourceFolderId backfill).
-        batch.set(db.collection('artistDocuments').doc(file.id), { sourceFolderId: group.folderId }, { merge: true });
+      if (!file.id || !file.name || !file.webViewLink || seen.has(file.id)) continue;
+      seen.add(file.id);
+      const ref = db.collection('artistDocuments').doc(file.id);
+      const current = existingDocs.get(file.id);
+      if (current) {
+        const patch: Record<string, unknown> = { sourceFolderId: group.folderId };
+        if (current.missingFromDrive === true) {
+          patch.missingFromDrive = false;
+          restored += 1;
+        }
+        batch.set(ref, patch, { merge: true });
         skipped += 1;
       } else {
-        existing.add(file.id);
-        batch.set(db.collection('artistDocuments').doc(file.id), {
+        batch.set(ref, {
           fileId: file.id,
           name: file.name,
           mimeType: file.mimeType ?? 'application/octet-stream',
@@ -264,23 +313,52 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
           artistKey: group.artist ? artistKey(group.artist) : null,
           categoryId: null,
           sourceFolderId: group.folderId,
-          importedBy: uid,
-          importedByEmail: token.email ?? null,
+          importedBy: attribution.uid,
+          importedByEmail: attribution.email,
           importedAt: Timestamp.now(),
         });
         imported += 1;
       }
-      ops += 1;
-      if (ops >= 400) {
-        await batch.commit();
-        batch = db.batch();
-        ops = 0;
-      }
+      await bump();
     }
   }
+  for (const [id, data] of existingDocs) {
+    if (seen.has(id) || data.missingFromDrive === true) continue;
+    batch.set(db.collection('artistDocuments').doc(id), { missingFromDrive: true }, { merge: true });
+    flagged += 1;
+    await bump();
+  }
   if (ops > 0) await batch.commit();
-  return { imported, skipped };
-});
+  return { imported, skipped, flagged, restored };
+}
+
+/**
+ * Scheduled library ⇄ Drive sync: twice daily (midnight + noon Central), enumerate the
+ * recorded library root via the docs-broker service account — no user OAuth involved —
+ * so files added to artist folders directly in Drive appear in the app (unclassified),
+ * and deleted/moved files get flagged. No-op until an import has recorded the root.
+ */
+export const scheduledLibraryDriveSync = onSchedule(
+  {
+    schedule: '0 0,12 * * *',
+    timeZone: TIME_ZONE,
+    secrets: [DRIVE_SA_KEY],
+    memory: '512MiB',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = getFirestore();
+    const root = (await db.doc('config/documentsLibrary').get()).data()?.rootFolderId;
+    if (typeof root !== 'string' || !root) {
+      logger.info('Library Drive sync skipped — no root folder recorded yet.');
+      return;
+    }
+    const drive = brokerDriveClient();
+    const groups = await enumerateLibrary(drive, root);
+    const counts = await upsertLibrary(db, groups, { uid: 'drive-sync', email: null });
+    logger.info('Library Drive sync complete', counts);
+  },
+);
 
 /** Find-or-create an app-owned Drive folder. `drive.file` lists only files the app created,
  *  so this reliably reuses our own folder rather than colliding with the user's. */

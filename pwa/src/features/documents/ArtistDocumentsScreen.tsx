@@ -86,6 +86,14 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
               Obsolete
             </span>
           )}
+          {doc.missingFromDrive && (
+            <span
+              title="The Drive file was deleted or moved out of the library folder"
+              className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-accent"
+            >
+              Missing from Drive
+            </span>
+          )}
           <span
             className={`shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide ${verified ? 'text-status-complete' : 'text-ink-muted'}`}
           >
