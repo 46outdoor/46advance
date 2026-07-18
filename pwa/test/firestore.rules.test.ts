@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
 const rulesPath = fileURLToPath(new URL('../firestore.rules', import.meta.url));
@@ -869,6 +869,66 @@ describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
     await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }));
     await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
     await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
+  });
+});
+
+describe('firestore.rules — advance documents (inclusion)', () => {
+  const docPath = 'events/event-a/stages/stg-a/advances/adv-1/documents/file-1';
+  const validDoc = () => ({
+    fileId: 'file-1',
+    name: 'Rider.pdf',
+    webViewLink: 'https://drive/x',
+    includePacket: false,
+    addedBy: PM,
+    addedAt: serverTimestamp(),
+  });
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), validDoc());
+    });
+  });
+
+  it('members read; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), docPath)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), docPath)));
+  });
+
+  it('PM includes with addedBy pinned to the caller; forged addedBy and tech writes fail', async () => {
+    const path2 = 'events/event-a/stages/stg-a/advances/adv-1/documents/file-2';
+    await assertSucceeds(setDoc(doc(dbFor(PM), path2), { ...validDoc(), fileId: 'file-2' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1/documents/file-3'), {
+        ...validDoc(),
+        fileId: 'file-3',
+        addedBy: 'someone-else',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1/documents/file-4'), {
+        ...validDoc(),
+        fileId: 'file-4',
+        addedBy: TECH,
+      }),
+    );
+  });
+
+  it('rejects a blank fileId or name, and a forged (non-server) addedAt, on create', async () => {
+    const at = (n: number) => `events/event-a/stages/stg-a/advances/adv-1/documents/file-${n}`;
+    await assertFails(setDoc(doc(dbFor(PM), at(5)), { ...validDoc(), fileId: '' }));
+    await assertFails(setDoc(doc(dbFor(PM), at(6)), { ...validDoc(), fileId: 'file-6', name: '' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), at(7)), { ...validDoc(), fileId: 'file-7', addedAt: Timestamp.fromMillis(0) }),
+    );
+  });
+
+  it('updates keep addedBy/addedAt/fileId immutable; PM can toggle includePacket and delete', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { includePacket: true }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { addedBy: 'someone-else' }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { addedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { fileId: 'other' }));
+    await assertFails(updateDoc(doc(dbFor(TECH), docPath), { includePacket: true }));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), docPath)));
   });
 });
 

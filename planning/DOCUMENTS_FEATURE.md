@@ -74,12 +74,12 @@ subfolder names and `advance.artistName`.
    `@react-pdf/renderer` can't splice external PDFs), each behind a per-file
    **"include in packet"** toggle, separate from advance inclusion itself. The packet
    toggle ships *with* the embedding (PR 5) so it's never a dead control.
-2. **Tech-access broker — in PR 3.** A `getArtistDocumentContent`-style callable streams
-   file bytes via the functions runtime **service account** (the artist-docs Drive folder
-   is shared to that SA as Viewer — no key management, ADC only), gated by app RBAC:
-   any approved member of an event can open docs included on that event's advances;
-   admin/organizer can open anything in the library. This same SA read-path later feeds
-   packet embedding (PR 5).
+2. **Tech-access broker — already built (PR 2).** `getArtistDocumentContent` streams
+   file bytes via the dedicated docs-broker service account
+   `google-drive-viewer@advancethat.iam.gserviceaccount.com` (`DRIVE_SA_KEY` secret;
+   the artist-docs folder is shared to it as Viewer), gated by app RBAC (approved
+   users — matching the library's read rules). Google-native files export to PDF.
+   This same SA read-path later feeds packet embedding (PR 5).
 3. **Advance inclusion shape — subcollection**, not an array:
    `events/{e}/stages/{s}/advances/{a}/documents/{docId}` with **docId = the
    `artistDocuments` id** (natural de-dupe; include/exclude = idempotent set/delete; no
@@ -104,12 +104,14 @@ subfolder names and `advance.artistName`.
 - **PR 2 — Artist library + Drive import** ✅: `artistDocuments` model + service, folder-enabled
   Picker, `importDriveFolder` callable (per-artist subfolders → tagged docs), a top-level
   **Documents/Artists** list + per-artist document screen (list + classify). Rules.
-- **PR 3 — Advance inclusion + tech-access broker:** on an advance, list the library files
-  for that artist (matched by `artistKey`) with checkboxes; included set displays on the
-  advance (subcollection per decision 3, permissions per decision 4). The broker callable
-  (decision 2) makes every included doc openable by the event's members regardless of
-  their Drive permissions. **Prerequisite:** share the artist-docs Drive folder with the
-  functions runtime service account (Viewer).
+- **PR 3 — Advance inclusion:** on an advance, list the library files for that artist
+  (matched by `artistKey` — reusing PR 2's stored keys as-is) with checkboxes; included
+  set displays on the advance (subcollection per decision 3, permissions per decision 4).
+  Note: the tech-access broker (decision 2) turned out to already exist from the PR 2
+  build-out — `getArtistDocumentContent` + `openArtistDocument` via the dedicated
+  `google-drive-viewer@advancethat.iam.gserviceaccount.com` service account
+  (`DRIVE_SA_KEY` secret) — so PR 3 reuses it unchanged; the artist-docs folder must be
+  shared with THAT account (Viewer), not the functions runtime SA.
 - **PR 4 — Event documents + uploads:** event ↔ Drive folder linking at create/edit,
   uploads to that folder (client-direct via `getDriveAccessToken`, mirroring PR 2's
   pattern), the per-event documents view grouped by schedule day (decision 5); artist

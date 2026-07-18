@@ -227,6 +227,22 @@ service cloud.firestore {
             allow write: if false;
           }
 
+          // Included artist documents (Documents PR 3): per-advance curation of the
+          // library — doc id = the artistDocuments id. Members read; advance editors
+          // (admin / event PM) curate. `includePacket` rides the update gate for the
+          // packet-embedding PR; the audit fields stay immutable.
+          match /documents/{docId} {
+            allow read: if isAdmin() || isMember(eventId);
+            allow create: if canEditEvent(eventId)
+              && nonEmptyStr(request.resource.data, 'fileId')
+              && nonEmptyStr(request.resource.data, 'name')
+              && request.resource.data.addedBy == request.auth.uid
+              && request.resource.data.addedAt == request.time; // serverTimestamp() only
+            allow update: if canEditEvent(eventId)
+              && keysUnchanged(['addedBy', 'addedAt', 'fileId']);
+            allow delete: if canEditEvent(eventId);
+          }
+
           // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
           // Status changes (approve/reject) ride the update gate, so tech/dept-lead can't decide.
           match /quotes/{quoteId} {

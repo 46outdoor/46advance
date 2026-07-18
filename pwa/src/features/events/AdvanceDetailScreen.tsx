@@ -34,6 +34,7 @@ import { AdvanceSection } from './AdvanceSection';
 import { AdvanceCallPanel } from './AdvanceCallPanel';
 import { QuotesPanel } from './QuotesPanel';
 import { DriveFilesPanel } from './DriveFilesPanel';
+import { AdvanceDocumentsPanel } from './AdvanceDocumentsPanel';
 
 const logger = createLogger('Advances');
 
@@ -171,11 +172,17 @@ export function AdvanceDetailScreen() {
       )}
 
       {advance && (
-        <DriveFilesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} canEdit={canEdit} />
-      )}
-
-      {advance && (
-        <QuotesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} uid={user.uid} canEdit={canEdit} />
+        <>
+          <AdvanceDocumentsPanel
+            eventId={eventId}
+            stageId={stageId}
+            advanceId={advanceId}
+            artistName={advance.artistName}
+            canEdit={canEdit}
+          />
+          <DriveFilesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} canEdit={canEdit} />
+          <QuotesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} uid={user.uid} canEdit={canEdit} />
+        </>
       )}
     </section>
   );
