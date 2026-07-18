@@ -1,10 +1,8 @@
 /**
  * Seed/refresh the "Festival Production Schedule" template (`scheduleTemplates/{id}`)
  * from the Rock the Country production-schedule PDF — the general two-show-day arc used
- * across festivals — plus a one-day "Additional Show Day" companion for stretching an
- * event to three (or more) show days: re-date the tail days +1, then import the
- * companion (its day sits at the extra show-day offset). Re-running overwrites each
- * template's content in place (matched by name).
+ * across festivals (extra show days get added per event on the schedule itself).
+ * Re-running overwrites the template's content in place (matched by name).
  *
  * Mapping decisions (from the PDF's Item | Start | End | Location | Vendor grid):
  * - Vendor "VARIOUS"/"ALL" is noise → dropped; "Stageline (+ Labor)" → the description.
@@ -199,20 +197,6 @@ const DAYS: DayBlock[] = [
   },
 ];
 
-/** For 3+ show-day events: re-date the tail days +1 per extra day, then import this —
- * its single day lands on the vacated date as the new FINAL show day (post-show load
- * out included). On the prior show day, swap the final-night load-out/EOD rows for a
- * "reset for the next show" row — it's no longer the last night. */
-const ADD_ON_DAYS: DayBlock[] = [
-  {
-    offset: 2,
-    dayType: 'show',
-    title: 'Show Day 3',
-    notes: FINAL_NIGHT_NOTE,
-    rows: [...showDayRows('05:00', '12:00'), ...finalNightRows],
-  },
-];
-
 function toItems(rows: Row[]) {
   return rows.map((row) => ({
     id: randomUUID(),
@@ -272,7 +256,6 @@ async function upsert(name: string, days: DayBlock[], creatorUid: string): Promi
 async function main(): Promise<void> {
   const creator = await getAuth().getUserByEmail(CREATOR_EMAIL);
   await upsert('Festival Production Schedule', DAYS, creator.uid);
-  await upsert('Festival Production — Additional Show Day', ADD_ON_DAYS, creator.uid);
 }
 
 main().catch((err) => {
