@@ -780,7 +780,7 @@ describe('firestore.rules — artistDocuments (library)', () => {
     await assertFails(getDoc(doc(dbAnon(), 'artistDocuments/doc-1')));
   });
 
-  it('admin + organizer classify; tech cannot; clients cannot create', async () => {
+  it('admin + organizer classify; tech cannot', async () => {
     await assertSucceeds(
       updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1'), { categoryId: 'tech-rider' }),
     );
@@ -788,15 +788,29 @@ describe('firestore.rules — artistDocuments (library)', () => {
       updateDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/doc-1'), { categoryId: 'media' }),
     );
     await assertFails(updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }));
-    // Creation is server-only (importDriveFolder) — denied even for admin.
-    await assertFails(
-      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-2'), {
-        fileId: 'doc-2',
-        name: 'x',
-        webViewLink: 'https://drive/y',
-        importedBy: 'admin-1',
-      }),
+  });
+
+  it('managers record their own uploads (id = fileId, importedBy pinned); tech cannot create', async () => {
+    const upload = (fileId: string, over: Record<string, unknown> = {}) => ({
+      fileId,
+      name: 'Uploaded.pdf',
+      webViewLink: 'https://drive/y',
+      importedBy: ADMIN.uid,
+      ...over,
+    });
+    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-1'), upload('up-1')));
+    await assertSucceeds(
+      setDoc(
+        doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/up-2'),
+        upload('up-2', { importedBy: ORGANIZER.uid }),
+      ),
     );
+    // id must equal fileId; the audit field must be the caller; techs can't create.
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-3'), upload('other-id')));
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-4'), upload('up-4', { importedBy: 'someone' })),
+    );
+    await assertFails(setDoc(doc(dbFor(TECH), 'artistDocuments/up-5'), upload('up-5', { importedBy: TECH })));
   });
 });
 
@@ -869,6 +883,48 @@ describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
     await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }));
     await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
     await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
+  });
+});
+
+describe('firestore.rules — event documents', () => {
+  const docPath = 'events/event-a/documents/efile-1';
+  const validDoc = () => ({
+    fileId: 'efile-1',
+    name: 'SitePlan.pdf',
+    webViewLink: 'https://drive/x',
+    day: '2026-07-14',
+    uploadedBy: PM,
+    uploadedAt: serverTimestamp(),
+  });
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), validDoc());
+    });
+  });
+
+  it('members read; outsiders cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), docPath)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), docPath)));
+  });
+
+  it('PM creates with pinned audit fields; forged uploadedBy/uploadedAt and tech writes fail', async () => {
+    const at = (n: number) => `events/event-a/documents/efile-${n}`;
+    await assertSucceeds(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'efile-2' }));
+    await assertFails(setDoc(doc(dbFor(PM), at(3)), { ...validDoc(), fileId: 'efile-3', uploadedBy: 'someone-else' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), at(4)), { ...validDoc(), fileId: 'efile-4', uploadedAt: Timestamp.fromMillis(0) }),
+    );
+    await assertFails(setDoc(doc(dbFor(TECH), at(5)), { ...validDoc(), fileId: 'efile-5', uploadedBy: TECH }));
+    // The doc id must equal the file id — the broker resolves records by doc id.
+    await assertFails(setDoc(doc(dbFor(PM), at(6)), { ...validDoc(), fileId: 'mismatched' }));
+  });
+
+  it('updates re-day/categorize but keep audit + fileId immutable; PM deletes', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { day: null, categoryId: 'cat-1' }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { uploadedBy: 'someone-else' }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { fileId: 'other' }));
+    await assertSucceeds(deleteDoc(doc(dbFor(PM), docPath)));
   });
 });
 

@@ -25,6 +25,9 @@ export interface EventRecord {
   /** IANA timezone for this event's schedule (default Central). */
   timeZone: string;
   venue: string | null;
+  /** Linked Drive folder for event documents (picked in the event form); null = unlinked. */
+  driveFolderId: string | null;
+  driveFolderName: string | null;
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
   departmentIds: string[];
@@ -53,6 +56,8 @@ const eventDocSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable().optional(),
+  driveFolderId: z.string().nullable().optional(),
+  driveFolderName: z.string().nullable().optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
   googleCalendarId: z.string().nullable().optional(),
@@ -76,6 +81,8 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     loadOutDays: doc.loadOutDays ?? 0,
     timeZone: doc.timeZone ?? APP_TIME_ZONE,
     venue: doc.venue ?? null,
+    driveFolderId: doc.driveFolderId ?? null,
+    driveFolderName: doc.driveFolderName ?? null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
     googleCalendarId: doc.googleCalendarId ?? null,
@@ -98,6 +105,8 @@ export const eventInputSchema = z
     loadOutDays: z.number().int().min(0).optional(),
     timeZone: z.string().optional(),
     venue: z.string().trim().optional(),
+    driveFolderId: z.string().nullable().optional(),
+    driveFolderName: z.string().nullable().optional(),
     status: eventStatusSchema.optional(),
     departmentIds: z.array(z.string()).optional(),
     bookingLabel: z.string().trim().optional(),

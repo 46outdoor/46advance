@@ -58,6 +58,7 @@ describe('artistsFromDocuments', () => {
     name: 'x',
     displayName: null,
     notes: null,
+    sourceFolderId: null,
     obsolete: false,
     verifiedAt: null,
     mimeType: 'application/pdf',

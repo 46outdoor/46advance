@@ -58,16 +58,87 @@ export async function importDriveFolder(folderId: string): Promise<ImportDriveFo
 }
 
 /**
- * Fetch an artist document's bytes via the service-account broker — for approved techs who can't
- * open the file in Drive directly. Returns base64 + mime + name (the fileId must be a known
- * artist document). See openArtistDocument() for the view/download flow.
+ * Fetch a document's bytes via the service-account broker — for approved techs who can't
+ * open the file in Drive directly. The fileId must be a known artist document, or (with
+ * `eventId`) an event document the caller's membership covers. Returns base64 + mime +
+ * name. See openArtistDocument() for the view/download flow.
  */
-export async function getArtistDocumentContent(fileId: string): Promise<GetArtistDocumentContentOutput> {
+export async function getArtistDocumentContent(
+  fileId: string,
+  eventId?: string,
+): Promise<GetArtistDocumentContentOutput> {
   const callable = httpsCallable<GetArtistDocumentContentInput, GetArtistDocumentContentOutput>(
     functions,
     'getArtistDocumentContent',
   );
-  return (await callable({ fileId })).data;
+  return (await callable(eventId ? { fileId, eventId } : { fileId })).data;
+}
+
+export interface DriveUploadResult {
+  fileId: string;
+  name: string;
+  mimeType: string;
+  iconLink: string | null;
+  webViewLink: string;
+}
+
+/**
+ * Upload a file into a Drive folder via the caller's short-lived `drive.file` token
+ * (multipart create with `parents: [folderId]`). Returns the created file's refs. The
+ * uploader needs Drive edit access on the folder; for other members to open the file
+ * in-app, the folder must be shared with the docs-broker service account.
+ */
+export async function uploadFileToDrive(file: File, folderId: string): Promise<DriveUploadResult> {
+  const token = await getDriveAccessToken();
+  const metadata = { name: file.name, parents: [folderId] };
+  const body = new FormData();
+  body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  body.append('file', file);
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,iconLink,webViewLink',
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body },
+  );
+  if (!res.ok) throw new Error(`Drive upload failed (${res.status}).`);
+  const data = (await res.json()) as {
+    id?: string;
+    name?: string;
+    mimeType?: string;
+    iconLink?: string;
+    webViewLink?: string;
+  };
+  if (!data.id || !data.webViewLink) throw new Error('Drive upload returned no file reference.');
+  return {
+    fileId: data.id,
+    name: data.name ?? file.name,
+    mimeType: data.mimeType ?? file.type ?? 'application/octet-stream',
+    iconLink: data.iconLink ?? null,
+    webViewLink: data.webViewLink,
+  };
+}
+
+/** Create a Drive folder under `parentId` (e.g. a new artist's subfolder in the
+ * library root) via the caller's `drive.file` token; returns the new folder's id. */
+export async function createDriveFolder(name: string, parentId: string): Promise<string> {
+  const token = await getDriveAccessToken();
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
+  });
+  if (!res.ok) throw new Error(`Drive folder creation failed (${res.status}).`);
+  const data = (await res.json()) as { id?: string };
+  if (!data.id) throw new Error('Drive folder creation returned no id.');
+  return data.id;
+}
+
+/** Best-effort delete of an app-created Drive file (compensating cleanup when the
+ * app-side record write fails after an upload). `drive.file` covers files we created. */
+export async function deleteDriveUpload(fileId: string): Promise<void> {
+  const token = await getDriveAccessToken();
+  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 /**
@@ -83,11 +154,11 @@ body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;c
 p{margin-top:18px;color:#8a8a8a;font-size:14px;letter-spacing:.02em}
 </style></head><body><div style="text-align:center"><div class="s"></div><p>Loading document…</p></div></body></html>`;
 
-export async function openArtistDocument(fileId: string): Promise<void> {
+export async function openArtistDocument(fileId: string, eventId?: string): Promise<void> {
   const tab = window.open('', '_blank');
   if (tab) tab.document.write(DOC_LOADING_HTML); // show a spinner while the broker fetches the bytes
   try {
-    const { base64, mimeType, name } = await getArtistDocumentContent(fileId);
+    const { base64, mimeType, name } = await getArtistDocumentContent(fileId, eventId);
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
     if (tab) {
@@ -186,19 +257,24 @@ export async function pickDriveFiles(): Promise<string[]> {
   });
 }
 
+export interface DriveFolderRef {
+  id: string;
+  name: string;
+}
+
 /**
- * Open the Google Picker to select a single Drive FOLDER; resolves its id (or null on cancel).
- * Selecting the folder grants our OAuth client `drive.file` access to it + its contents, which the
- * server `importDriveFolder` callable then enumerates.
+ * Open the Google Picker to select a single Drive FOLDER; resolves its id + name (or null
+ * on cancel). Selecting the folder grants our OAuth client `drive.file` access to it + its
+ * contents (enumerated server-side for imports; upload target for event documents).
  */
-export async function pickDriveFolder(): Promise<string | null> {
+export async function pickDriveFolder(): Promise<DriveFolderRef | null> {
   if (!isPickerConfigured()) throw new Error('Drive Picker is not configured.');
   const token = await getDriveAccessToken();
   await loadPicker();
   const picker = window.google?.picker;
   if (!picker) throw new Error('Drive Picker is unavailable.');
 
-  return new Promise<string | null>((resolve) => {
+  return new Promise<DriveFolderRef | null>((resolve) => {
     const folderView = (view: PickerDocsView) => view.setIncludeFolders(true).setSelectFolderEnabled(true);
     const myDrive = folderView(new picker.DocsView(picker.ViewId.DOCS));
     const sharedWithMe = folderView(new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false));
@@ -212,8 +288,10 @@ export async function pickDriveFolder(): Promise<string | null> {
       .addView(sharedWithMe)
       .addView(sharedDrives)
       .setCallback((data) => {
-        if (data.action === picker.Action.PICKED) resolve(data.docs?.[0]?.id ?? null);
-        else if (data.action === picker.Action.CANCEL) resolve(null);
+        if (data.action === picker.Action.PICKED) {
+          const picked = data.docs?.[0];
+          resolve(picked?.id ? { id: picked.id, name: picked.name ?? 'Drive folder' } : null);
+        } else if (data.action === picker.Action.CANCEL) resolve(null);
       });
     if (GOOGLE_APP_ID) builder.setAppId(GOOGLE_APP_ID);
     builder.build().setVisible(true);

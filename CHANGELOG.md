@@ -13,6 +13,18 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Event documents:** each event now has a **Documents** page (linked from the event
+  header). Link a Google Drive folder to the event in its edit form, then upload files
+  straight into it from the app — each document tagged to a schedule day (grouped under
+  the same color-coded day headers as the schedule, with an "Event-wide" group) and a
+  category. Every member opens files in-app through the document viewer; PMs can re-day,
+  recategorize, or remove records.
+- **Artist library uploads:** upload new files to an artist straight from their document
+  page — files land in that artist's Drive subfolder and appear in the library
+  immediately. One-time step: re-run the library import once so each artist's Drive
+  folder gets recorded (the import now tracks folders; it won't disturb your
+  classifications).
+
 - **Documents on advances:** each advance now has a **Documents** section listing the
   artist-library files for that artist (matched by name), with checkboxes for the PM/admin
   to include specific files on the advance. Every event member sees the included set and
