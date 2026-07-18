@@ -52,11 +52,11 @@ async function assertEventMember(db: Firestore, token: DecodedIdToken, uid: stri
   if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
 }
 
-const DRIVE_SA_KEY = defineSecret('DRIVE_SA_KEY');
+export const DRIVE_SA_KEY = defineSecret('DRIVE_SA_KEY');
 
 /** A read-only Drive client authenticated as the docs-broker service account (the artist-docs
  * folder is shared with it). Lets approved techs view files they can't open in Drive directly. */
-function brokerDriveClient(): drive_v3.Drive {
+export function brokerDriveClient(): drive_v3.Drive {
   const credentials = JSON.parse(DRIVE_SA_KEY.value()) as Record<string, unknown>;
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -465,26 +465,60 @@ export const getArtistDocumentContent = onCall(
     const storedMime = typeof doc.mimeType === 'string' ? doc.mimeType : '';
 
     const drive = brokerDriveClient();
-    let data: ArrayBuffer;
-    let mimeType: string;
-    if (storedMime.startsWith('application/vnd.google-apps.')) {
-      // Google-native docs (Docs/Sheets/Slides — common for riders) can't be downloaded raw:
-      // `files.get?alt=media` 403s. Export to PDF, which is universally viewable in-app.
-      const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
-      data = res.data as ArrayBuffer;
-      mimeType = 'application/pdf';
-    } else {
-      const res = await drive.files.get(
-        { fileId, alt: 'media', supportsAllDrives: true },
-        { responseType: 'arraybuffer' },
-      );
-      data = res.data as ArrayBuffer;
-      mimeType = storedMime || 'application/octet-stream';
-    }
+    const result = await fetchBrokeredFileBytes(drive, fileId, storedMime);
+    if ('tooLarge' in result) throw new HttpsError('internal', 'Unexpected size gate.'); // no cap on this path
     return {
-      base64: Buffer.from(data).toString('base64'),
-      mimeType,
+      base64: result.data.toString('base64'),
+      mimeType: result.mimeType,
       name: typeof doc.name === 'string' ? doc.name : 'document',
     };
   },
 );
+
+/** Workspace types `files.export` can actually convert to PDF — `vnd.google-apps.*`
+ * also covers folders and shortcuts, which would 400 on export. */
+const EXPORTABLE_GOOGLE_MIMES = new Set([
+  'application/vnd.google-apps.document',
+  'application/vnd.google-apps.spreadsheet',
+  'application/vnd.google-apps.presentation',
+  'application/vnd.google-apps.drawing',
+]);
+
+/** Fetch a file's bytes via a broker Drive client. Google-native docs (Docs/Sheets/
+ * Slides — common for riders) can't be downloaded raw (`files.get?alt=media` 403s);
+ * exportable ones convert to PDF, which is universally viewable and packet-embeddable.
+ * With `maxBytes`, binary files preflight their metadata size and return
+ * `{ tooLarge: true }` instead of buffering an oversized download, and the download
+ * itself is Range-bounded to the cap in case the metadata was stale (native exports
+ * have no size until exported — the caller's post-hoc length check covers those). */
+export async function fetchBrokeredFileBytes(
+  drive: drive_v3.Drive,
+  fileId: string,
+  storedMime: string,
+  maxBytes?: number,
+): Promise<{ data: Buffer; mimeType: string } | { tooLarge: true }> {
+  if (storedMime.startsWith('application/vnd.google-apps.')) {
+    if (!EXPORTABLE_GOOGLE_MIMES.has(storedMime)) {
+      throw new HttpsError('failed-precondition', 'This Google Drive item type cannot be exported.');
+    }
+    const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
+    return { data: Buffer.from(res.data as ArrayBuffer), mimeType: 'application/pdf' };
+  }
+  if (maxBytes !== undefined) {
+    const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
+    const size = Number(meta.data.size ?? 0);
+    if (size > maxBytes) return { tooLarge: true };
+  }
+  const res = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    {
+      responseType: 'arraybuffer',
+      // One byte past the cap: a full-length 206/200 response means the file outgrew
+      // its preflighted metadata size, so the length check below still catches it.
+      ...(maxBytes !== undefined && { headers: { Range: `bytes=0-${maxBytes}` } }),
+    },
+  );
+  const data = Buffer.from(res.data as ArrayBuffer);
+  if (maxBytes !== undefined && data.length > maxBytes) return { tooLarge: true };
+  return { data, mimeType: storedMime || 'application/octet-stream' };
+}
