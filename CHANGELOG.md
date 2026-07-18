@@ -9,6 +9,16 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-18
+
+### Added
+
+- **Documents on advances:** each advance now has a **Documents** section listing the
+  artist-library files for that artist (matched by name), with checkboxes for the PM/admin
+  to include specific files on the advance. Every event member sees the included set and
+  can open the files **in-app** (via the document viewer — no Google Drive permissions
+  needed). Files removed from the library stay visible on advances that included them.
+
 ## 2026-07-17
 
 ### Added

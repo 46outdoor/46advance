@@ -233,6 +233,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Contact model | `src/lib/contacts/contact.ts` (type + Zod + tel/mailto helpers) |
 | Contacts directory (read/write) | `src/lib/contacts/contacts-service.ts` (global `contacts/{id}`) |
 | Event contact attachments | `src/features/events/event-contacts-service.ts` (per-event join) |
+| Advance document inclusion | `src/lib/documents/advanceDocument.ts` (model) + `src/features/events/advance-documents-service.ts` (include/exclude IO) + `AdvanceDocumentsPanel` on the advance screen |
 | Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
 | iCalendar (.ics) builder | `src/lib/calendar/ics.ts` (pure VEVENT + download) |
 | Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
