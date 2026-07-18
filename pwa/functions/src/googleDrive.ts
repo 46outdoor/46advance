@@ -488,8 +488,9 @@ const EXPORTABLE_GOOGLE_MIMES = new Set([
  * Slides — common for riders) can't be downloaded raw (`files.get?alt=media` 403s);
  * exportable ones convert to PDF, which is universally viewable and packet-embeddable.
  * With `maxBytes`, binary files preflight their metadata size and return
- * `{ tooLarge: true }` instead of buffering an oversized download (native exports have
- * no size until exported — the caller's post-hoc length check covers those). */
+ * `{ tooLarge: true }` instead of buffering an oversized download, and the download
+ * itself is Range-bounded to the cap in case the metadata was stale (native exports
+ * have no size until exported — the caller's post-hoc length check covers those). */
 export async function fetchBrokeredFileBytes(
   drive: drive_v3.Drive,
   fileId: string,
@@ -510,7 +511,14 @@ export async function fetchBrokeredFileBytes(
   }
   const res = await drive.files.get(
     { fileId, alt: 'media', supportsAllDrives: true },
-    { responseType: 'arraybuffer' },
+    {
+      responseType: 'arraybuffer',
+      // One byte past the cap: a full-length 206/200 response means the file outgrew
+      // its preflighted metadata size, so the length check below still catches it.
+      ...(maxBytes !== undefined && { headers: { Range: `bytes=0-${maxBytes}` } }),
+    },
   );
-  return { data: Buffer.from(res.data as ArrayBuffer), mimeType: storedMime || 'application/octet-stream' };
+  const data = Buffer.from(res.data as ArrayBuffer);
+  if (maxBytes !== undefined && data.length > maxBytes) return { tooLarge: true };
+  return { data, mimeType: storedMime || 'application/octet-stream' };
 }

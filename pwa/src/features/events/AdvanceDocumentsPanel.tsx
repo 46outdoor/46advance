@@ -5,6 +5,7 @@
  * docs-broker (no direct Drive permissions needed). Included docs whose library entry
  * was since deleted stay listed from the advance's own copy.
  */
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
@@ -46,6 +47,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const key = artistKey(artistName);
+  const [showObsolete, setShowObsolete] = useState(false);
 
   const libraryQuery = useQuery({
     queryKey: ['artistDocuments', 'byArtist', key],
@@ -96,6 +98,14 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
       </label>
     );
   };
+  // Obsolete library docs stay out of the auto-populated list unless revealed — but an
+  // obsolete doc that's ALREADY included stays visible (hiding an active inclusion
+  // would be worse than showing a stale file).
+  const obsoleteCount = canEdit ? library.filter((d) => d.obsolete && !includedIds.has(d.id)).length : 0;
+  const visibleLibrary = canEdit
+    ? library.filter((d) => !d.obsolete || includedIds.has(d.id) || showObsolete)
+    : library.filter((d) => includedIds.has(d.id));
+
   // Included docs whose library entry vanished — render from the advance's own copy.
   const orphaned = included.filter((d) => !library.some((l) => l.id === d.id));
   const categoryName = (id: string | null) =>
@@ -121,7 +131,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
       )}
 
       <ul className="divide-y divide-line/60">
-        {(canEdit ? library : library.filter((d) => includedIds.has(d.id))).map((doc) => (
+        {visibleLibrary.map((doc) => (
           <li key={doc.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
             {canEdit && (
               <label className="inline-flex min-h-11 min-w-11 items-center justify-center sm:min-h-0 sm:min-w-0">
@@ -169,6 +179,15 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
           </li>
         ))}
       </ul>
+      {obsoleteCount > 0 && (
+        <button
+          type="button"
+          className="mt-1 inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
+          onClick={() => setShowObsolete((v) => !v)}
+        >
+          {showObsolete ? 'Hide obsolete files' : `Show ${obsoleteCount} obsolete file${obsoleteCount === 1 ? '' : 's'}`}
+        </button>
+      )}
       {(toggle.isError || packetToggle.isError) && (
         <p className="mt-1 text-sm text-accent">Could not update — try again.</p>
       )}

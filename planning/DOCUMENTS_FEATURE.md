@@ -1,9 +1,9 @@
 # Artist & Event Documents — Feature Spec
 
 Status: **feature-complete.** All five PRs shipped (categories #80; artist library +
-Drive import; advance inclusion #116; event documents + uploads #117; packet embedding),
-plus the twice-daily Drive sync (#118). Remaining threads live in § Hardening backlog
-and auto-memory (obsolete-docs hiding).
+Drive import; advance inclusion #116; event documents + uploads #117; packet embedding
++ obsolete-docs hiding), plus the twice-daily Drive sync (#118). Remaining threads
+live in § Hardening backlog.
 
 ## Goal
 
@@ -155,8 +155,9 @@ included — event docs only enter via in-app upload for now.
 ## Open / TBD
 
 - None — the PR 5 embedding details (photo sizing, PDF orientation, cap/fallback) are
-  resolved in the PR 5 note above. Queued follow-up in auto-memory: hide obsolete
-  library docs from the advance inclusion list.
+  resolved in the PR 5 note above. Obsolete library docs are hidden from the advance
+  inclusion list by default (a "Show N obsolete files" toggle reveals them; an obsolete
+  doc that's already included stays visible), shipped with PR 5.
 
 ## Hardening backlog (accepted risks, revisit if the trust model changes)
 

@@ -29,7 +29,9 @@ dependency bumps, and planning-doc updates) are omitted.
   per artist listing the attached documents, PDFs merged in at full quality, and photos
   as full pages. Files that are too large (over 10 MB), unsupported, or unreadable are
   listed on the divider with a note to open them in the app instead of being dropped
-  silently.
+  silently. Library files marked **obsolete** no longer auto-populate the advance's
+  document list — a "Show obsolete files" toggle reveals them when needed, and an
+  obsolete file already included on an advance stays visible.
 - **Automatic library sync:** the artist library now syncs from Drive twice a day
   (midnight and noon Central) — files added to artist folders directly in Drive show up
   in the app on their own, and files that were deleted or moved get a **"Missing from
