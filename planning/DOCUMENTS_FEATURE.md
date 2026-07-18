@@ -1,9 +1,9 @@
 # Artist & Event Documents — Feature Spec
 
-Status: **in build.** PRs 1–4 shipped (categories #80; artist library + Drive import;
-advance inclusion #116; event documents + uploads). Open questions resolved 2026-07-18
-(§ Decisions); next up: PR 5 (packet embedding). This doc is the living spec; update it
-as decisions firm up.
+Status: **feature-complete.** All five PRs shipped (categories #80; artist library +
+Drive import; advance inclusion #116; event documents + uploads #117; packet embedding),
+plus the twice-daily Drive sync (#118). Remaining threads live in § Hardening backlog
+and auto-memory (obsolete-docs hiding).
 
 ## Goal
 
@@ -132,9 +132,14 @@ subfolder names and `advance.artistName`.
   duplicate folder; new artist → subfolder created under the root). Library records
   from uploads are client-created under new admin/organizer rules (id = fileId,
   importedBy pinned). Failed record writes clean up the uploaded Drive file.
-- **PR 5 — Packet embedding:** the `includePacket` toggle on included docs + embedding
-  photos/PDFs into the generated packet via the SA read-path (decision 1). Size guard:
-  cap embedded content (e.g. skip > ~10 MB per file with a listed link fallback).
+- **PR 5 — Packet embedding** ✅: the **"In packet"** toggle on included docs (advance
+  editors) + `appendPacketAttachments` post-processing the rendered packet with pdf-lib:
+  per artist, a divider page listing the attached docs, then PDF pages copied at native
+  size/orientation and photos as LETTER pages fitted within 36pt margins (TBDs
+  resolved). Google-native docs embed via their PDF export. 10 MB/file cap; oversized,
+  unsupported, unreadable, or unfetchable files are LISTED on the divider with an
+  open-in-app note — never silently dropped. Fetches ride the docs-broker SA;
+  `generatePacket` gains the `DRIVE_SA_KEY` secret (1 GiB / 180 s).
 
 ## Drive sync (added 2026-07-18)
 
@@ -149,8 +154,9 @@ included — event docs only enter via in-app upload for now.
 
 ## Open / TBD
 
-- Packet embedding details (PR 5): page sizing for photos, orientation of merged PDF
-  pages, and the size cap / fallback presentation.
+- None — the PR 5 embedding details (photo sizing, PDF orientation, cap/fallback) are
+  resolved in the PR 5 note above. Queued follow-up in auto-memory: hide obsolete
+  library docs from the advance inclusion list.
 
 ## Hardening backlog (accepted risks, revisit if the trust model changes)
 

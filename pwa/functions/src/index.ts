@@ -7,12 +7,15 @@ import {
   type DocumentData,
   type Firestore,
   type DocumentReference,
+  type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions, logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
+import { appendPacketAttachments, MAX_EMBED_BYTES, type PacketAttachment } from './lib/pdf/attachments.js';
+import { DRIVE_SA_KEY, brokerDriveClient, fetchBrokeredFileBytes } from './googleDrive.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
@@ -596,7 +599,41 @@ async function resolvePacketLogos(
  * Returns the Storage `{ path }`; the client resolves a download URL (member-gated by
  * storage.rules). Input: { eventId }.
  */
-export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
+/** An advance's packet-flagged documents (include-in-packet), in stage/advance order. */
+async function collectPacketAttachments(
+  db: Firestore,
+  eventId: string,
+  stageDocs: readonly QueryDocumentSnapshot[],
+): Promise<PacketAttachment[]> {
+  const attachments: PacketAttachment[] = [];
+  for (const sd of stageDocs) {
+    const advSnap = await db.collection(`events/${eventId}/stages/${sd.id}/advances`).get();
+    const ordered = advSnap.docs.sort((a, b) =>
+      String(a.data().artistName ?? '').localeCompare(String(b.data().artistName ?? '')),
+    );
+    for (const adv of ordered) {
+      const docsSnap = await db
+        .collection(`events/${eventId}/stages/${sd.id}/advances/${adv.id}/documents`)
+        .where('includePacket', '==', true)
+        .get();
+      for (const d of docsSnap.docs) {
+        const data = d.data();
+        if (typeof data.fileId !== 'string' || !data.fileId) continue;
+        attachments.push({
+          artistName: String(adv.data().artistName ?? 'Artist'),
+          title: String(data.displayName ?? '') || String(data.name ?? 'Document'),
+          mimeType: typeof data.mimeType === 'string' ? data.mimeType : 'application/octet-stream',
+          fileId: data.fileId,
+        });
+      }
+    }
+  }
+  return attachments;
+}
+
+export const generatePacket = onCall(
+  { memory: '1GiB', timeoutSeconds: 180, secrets: [DRIVE_SA_KEY] },
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.');
   }
@@ -660,11 +697,21 @@ export const generatePacket = onCall({ memory: '512MiB', timeoutSeconds: 120 }, 
     generatedAt: PACKET_DATE_FMT.format(new Date()),
   };
 
-  const buffer = await renderPacket(data);
+  let buffer = await renderPacket(data);
+  // Documents PR 5: append each advance's include-in-packet documents (fetched via the
+  // docs-broker SA) — divider page per artist, PDFs merged, photos as fitted pages.
+  const attachments = await collectPacketAttachments(db, eventId, stageDocs);
+  if (attachments.length > 0) {
+    const drive = brokerDriveClient();
+    buffer = await appendPacketAttachments(buffer, attachments, (fileId, mime) =>
+      fetchBrokeredFileBytes(drive, fileId, mime, MAX_EMBED_BYTES),
+    );
+  }
   const path = `events/${eventId}/packets/${Date.now()}.pdf`;
   await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
   return { path };
-});
+  },
+);
 
 interface QuotePdfRef {
   eventId: string;

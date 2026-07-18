@@ -17,6 +17,7 @@ import {
   excludeArtistDocument,
   includeArtistDocument,
   listAdvanceDocuments,
+  setAdvanceDocumentPacket,
 } from './advance-documents-service';
 
 const logger = createLogger('AdvanceDocuments');
@@ -67,10 +68,34 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
     onSuccess: invalidate,
     onError: (e) => logger.error('Failed to update included documents', e),
   });
+  const packetToggle = useMutation({
+    mutationFn: ({ docId, includePacket }: { docId: string; includePacket: boolean }) =>
+      setAdvanceDocumentPacket(eventId, stageId, advanceId, docId, includePacket),
+    onSuccess: invalidate,
+    onError: (e) => logger.error('Failed to update the packet flag', e),
+  });
 
   const library = libraryQuery.data ?? [];
   const included = includedQuery.data ?? [];
   const includedIds = new Set(included.map((d) => d.id));
+  const includedById = new Map(included.map((d) => [d.id, d]));
+
+  /** "In packet" toggle for an included doc — shown to editors next to Open. */
+  const packetCheckbox = (docId: string) => {
+    const record = includedById.get(docId);
+    if (!canEdit || !record) return null;
+    return (
+      <label className="inline-flex min-h-11 items-center gap-1 text-xs text-ink-muted sm:min-h-0">
+        <input
+          type="checkbox"
+          checked={record.includePacket}
+          disabled={packetToggle.isPending || toggle.isPending}
+          onChange={(e) => packetToggle.mutate({ docId, includePacket: e.target.checked })}
+        />
+        In packet
+      </label>
+    );
+  };
   // Included docs whose library entry vanished — render from the advance's own copy.
   const orphaned = included.filter((d) => !library.some((l) => l.id === d.id));
   const categoryName = (id: string | null) =>
@@ -103,7 +128,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
                 <input
                   type="checkbox"
                   checked={includedIds.has(doc.id)}
-                  disabled={toggle.isPending}
+                  disabled={toggle.isPending || packetToggle.isPending}
                   aria-label={`Include ${documentTitle(doc)}`}
                   onChange={(e) => toggle.mutate({ include: e.target.checked, doc, docId: doc.id })}
                 />
@@ -121,6 +146,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
               </span>
             )}
             <OpenButton fileId={doc.fileId} />
+            {packetCheckbox(doc.id)}
           </li>
         ))}
         {orphaned.map((doc) => (
@@ -130,7 +156,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
                 <input
                   type="checkbox"
                   checked
-                  disabled={toggle.isPending}
+                  disabled={toggle.isPending || packetToggle.isPending}
                   aria-label={`Remove ${doc.displayName ?? doc.name}`}
                   onChange={() => toggle.mutate({ include: false, docId: doc.id })}
                 />
@@ -139,10 +165,13 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
             <span className="font-semibold text-ink">{doc.displayName ?? doc.name}</span>
             <span className="text-[0.65rem] text-ink-muted">(removed from library)</span>
             <OpenButton fileId={doc.fileId} />
+            {packetCheckbox(doc.id)}
           </li>
         ))}
       </ul>
-      {toggle.isError && <p className="mt-1 text-sm text-accent">Could not update — try again.</p>}
+      {(toggle.isError || packetToggle.isError) && (
+        <p className="mt-1 text-sm text-accent">Could not update — try again.</p>
+      )}
     </div>
   );
 }

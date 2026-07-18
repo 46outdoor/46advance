@@ -24,6 +24,12 @@ dependency bumps, and planning-doc updates) are omitted.
   immediately. One-time step: re-run the library import once so each artist's Drive
   folder gets recorded (the import now tracks folders; it won't disturb your
   classifications).
+- **Documents in the packet:** included artist documents can now be marked **"In
+  packet"** on the advance — the generated packet PDF then carries them: a divider page
+  per artist listing the attached documents, PDFs merged in at full quality, and photos
+  as full pages. Files that are too large (over 10 MB), unsupported, or unreadable are
+  listed on the divider with a note to open them in the app instead of being dropped
+  silently.
 - **Automatic library sync:** the artist library now syncs from Drive twice a day
   (midnight and noon Central) — files added to artist folders directly in Drive show up
   in the app on their own, and files that were deleted or moved get a **"Missing from

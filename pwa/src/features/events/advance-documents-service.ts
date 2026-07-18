@@ -4,7 +4,7 @@
  * doc's id. Reads/writes gated by firestore.rules (member read; advance editors —
  * admin/event PM — curate).
  */
-import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import {
   advanceDocumentPayload,
@@ -43,6 +43,17 @@ export async function includeArtistDocument(
     addedBy: uid,
     addedAt: serverTimestamp(),
   });
+}
+
+/** Toggle whether an included doc embeds in the generated packet (Documents PR 5). */
+export async function setAdvanceDocumentPacket(
+  eventId: string,
+  stageId: string,
+  advanceId: string,
+  documentId: string,
+  includePacket: boolean,
+): Promise<void> {
+  await updateDoc(doc(documentsCol(eventId, stageId, advanceId), documentId), { includePacket });
 }
 
 /** Remove a doc from the advance (the library entry is untouched). */
