@@ -41,6 +41,9 @@ const EventProductionScreen = lazyWithRetry(() =>
 const EventScheduleScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.EventScheduleScreen })),
 );
+const EventDocumentsScreen = lazyWithRetry(() =>
+  import('@/features/events').then((m) => ({ default: m.EventDocumentsScreen })),
+);
 const StageDetailScreen = lazyWithRetry(() =>
   import('@/features/events').then((m) => ({ default: m.StageDetailScreen })),
 );
@@ -107,6 +110,7 @@ export function App() {
           <Route path="/events/:eventId" element={<EventDetailScreen />} />
           <Route path="/events/:eventId/production" element={<EventProductionScreen />} />
           <Route path="/events/:eventId/schedule" element={<EventScheduleScreen />} />
+          <Route path="/events/:eventId/documents" element={<EventDocumentsScreen />} />
           <Route path="/tracker" element={<TrackerOverviewScreen />} />
           <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
           <Route path="/contacts" element={<ContactsDirectoryScreen />} />

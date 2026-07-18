@@ -210,6 +210,12 @@ function EventDetailHeader({
             Schedule
           </Link>
           <Link
+            to={`/events/${eventId}/documents`}
+            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+          >
+            Documents
+          </Link>
+          <Link
             to={`/tracker/${eventId}`}
             className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
           >

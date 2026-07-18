@@ -99,11 +99,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Artist document library: any approved user reads; admin/organizer classify + delete;
-    // creation is server-only (importDriveFolder, Admin SDK).
+    // Artist document library: any approved user reads; admin/organizer classify, delete,
+    // and record their own uploads (doc id = the Drive file id; audit field pinned).
+    // Bulk creation stays server-side (importDriveFolder, Admin SDK).
     match /artistDocuments/{docId} {
       allow read: if isActiveUser();
-      allow create: if false;
+      allow create: if isActiveUser() && (isAdmin() || isOrganizer())
+        && request.resource.data.get('fileId', '') == docId
+        && nonEmptyStr(request.resource.data, 'name')
+        && nonEmptyStr(request.resource.data, 'webViewLink')
+        && request.resource.data.importedBy == request.auth.uid;
       allow update, delete: if isActiveUser() && (isAdmin() || isOrganizer());
     }
 
@@ -288,6 +293,21 @@ service cloud.firestore {
       match /contacts/{attachId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create, update, delete: if canEditEvent(eventId);
+      }
+
+      // Event documents (Documents PR 4): Drive files in the event's linked folder,
+      // recorded per event and grouped by schedule day key. Doc id = the Drive file id.
+      // Members read; PM/admin manage. Audit fields pinned + immutable.
+      match /documents/{docId} {
+        allow read: if isAdmin() || isMember(eventId);
+        allow create: if canEditEvent(eventId)
+          && request.resource.data.get('fileId', '') == docId // broker resolves by doc id
+          && nonEmptyStr(request.resource.data, 'name')
+          && request.resource.data.uploadedBy == request.auth.uid
+          && request.resource.data.uploadedAt == request.time; // serverTimestamp() only
+        allow update: if canEditEvent(eventId)
+          && keysUnchanged(['uploadedBy', 'uploadedAt', 'fileId']);
+        allow delete: if canEditEvent(eventId);
       }
 
       // Schedule days (redesign — planning/archive/feature/SCHEDULE_REDESIGN.md): one doc per calendar day,

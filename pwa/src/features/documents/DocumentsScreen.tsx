@@ -37,8 +37,8 @@ export function DocumentsScreen() {
     setImportMessage(null);
     setImportError(null);
     try {
-      const folderId = await pickDriveFolder();
-      if (folderId) importMutation.mutate(folderId);
+      const folder = await pickDriveFolder();
+      if (folder) importMutation.mutate(folder.id);
     } catch (err) {
       logger.error('Failed to open the Drive folder picker', err);
       setImportError('Could not open the Drive picker. Connect Google Drive in Settings first.');

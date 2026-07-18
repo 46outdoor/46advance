@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { createLogger } from '@/lib/logger';
+import { pickDriveFolder } from '@/lib/google';
 import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } from '@/lib/events/event';
 import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { DepartmentRecord } from '@/lib/departments/department';
@@ -18,6 +20,8 @@ interface EventFormProps {
     departmentIds?: string[];
     bookingLabel?: string | null;
     slug?: string | null;
+    driveFolderId?: string | null;
+    driveFolderName?: string | null;
   };
   /** Available departments to enable. */
   departments: DepartmentRecord[];
@@ -31,6 +35,57 @@ interface EventFormProps {
 }
 
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
+const logger = createLogger('EventForm');
+
+/** Drive-folder link field: pick / change / unlink the event documents folder. */
+function DriveFolderField({
+  folder,
+  onChange,
+  onError,
+}: {
+  folder: { id: string; name: string } | null;
+  onChange: (folder: { id: string; name: string } | null) => void;
+  onError: (message: string) => void;
+}) {
+  const pick = () => {
+    void pickDriveFolder()
+      .then((picked) => {
+        if (picked) onChange(picked);
+      })
+      .catch((e) => {
+        logger.error('Drive folder picker failed', e);
+        onError('Could not open the Drive picker — connect Google in Settings first.');
+      });
+  };
+  return (
+    <div className="block text-sm sm:col-span-2">
+      <span className="mb-1 block font-semibold text-ink">Event documents folder (optional)</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-ink-muted">{folder ? folder.name : 'No Drive folder linked.'}</span>
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center rounded border border-line px-3 py-1 text-xs font-semibold text-ink transition-colors hover:border-accent hover:text-accent sm:min-h-0"
+          onClick={pick}
+        >
+          {folder ? 'Change folder' : 'Choose folder'}
+        </button>
+        {folder && (
+          <button
+            type="button"
+            className="inline-flex min-h-11 items-center text-xs text-ink-muted hover:text-accent sm:min-h-0"
+            onClick={() => onChange(null)}
+          >
+            Unlink
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 text-xs text-ink-muted">
+        New event documents upload into this folder. Share it with the document viewer account so
+        every member can open files in-app.
+      </p>
+    </div>
+  );
+}
 
 /** Slug field state: tracks the booking label / name / year until the user edits it directly. */
 function useEventSlug(initialSlug: string | null | undefined, name: string, bookingLabel: string, start: string) {
@@ -64,6 +119,9 @@ export function EventForm({
   const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
   const [timeZone, setTimeZone] = useState(() => initial?.timeZone ?? APP_TIME_ZONE);
   const [venue, setVenue] = useState(initial?.venue ?? '');
+  const [driveFolder, setDriveFolder] = useState<{ id: string; name: string } | null>(
+    initial?.driveFolderId ? { id: initial.driveFolderId, name: initial.driveFolderName ?? 'Drive folder' } : null,
+  );
   const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
   // Default: edit keeps the event's departments; create enables all available.
@@ -92,6 +150,8 @@ export function EventForm({
       loadOutDays,
       timeZone,
       venue: venue.trim() || undefined,
+      driveFolderId: driveFolder?.id ?? null,
+      driveFolderName: driveFolder?.name ?? null,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
       bookingLabel: bookingLabel.trim() || undefined,
       slug: slugField.value.trim() || undefined,
@@ -155,6 +215,7 @@ export function EventForm({
         <span className="mb-1 block font-semibold text-ink">Venue</span>
         <input className={inputClass} value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Riverside Park" />
       </label>
+      <DriveFolderField folder={driveFolder} onChange={setDriveFolder} onError={setLocalError} />
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Booking label</span>
         <input

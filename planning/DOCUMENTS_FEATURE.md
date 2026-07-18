@@ -1,8 +1,9 @@
 # Artist & Event Documents — Feature Spec
 
-Status: **in build.** PRs 1–2 shipped (categories #80; artist library + Drive import).
-Open questions resolved 2026-07-18 (§ Decisions); next up: PR 3 (advance inclusion +
-tech-access broker). This doc is the living spec; update it as decisions firm up.
+Status: **in build.** PRs 1–4 shipped (categories #80; artist library + Drive import;
+advance inclusion #116; event documents + uploads). Open questions resolved 2026-07-18
+(§ Decisions); next up: PR 5 (packet embedding). This doc is the living spec; update it
+as decisions firm up.
 
 ## Goal
 
@@ -91,8 +92,14 @@ subfolder names and `advance.artistName`.
 5. **Event documents key to the schedule's day model** (PR 4): the same `YYYY-MM-DD`
    date keys as `scheduleDays` (null = event-wide), grouped under the same color-coded
    day headers. One day concept app-wide.
-6. **Uploads land in PR 4** with event documents; the artist library reuses that upload
-   path. PR 3 stays import/link-only.
+6. **Uploads land in PR 4** — both contexts. Event documents upload into the event's
+   linked folder. Artist-library uploads target the artist's `sourceFolderId`, which
+   the import callable now records (and merge-backfills onto existing docs on
+   re-import — **run one re-import to enable library uploads**); the library root is
+   recorded in `config/documentsLibrary` so a brand-new artist gets a subfolder
+   created. Uploads run under the uploader's own `drive.file` token — the broker SA
+   stays **Viewer** (no Content Manager needed; it only ever reads). PR 3 stays
+   import/link-only.
 7. **Artist-name normalization — conservative:** `artistKey` = lowercase → NFKD
    diacritic-strip → punctuation-strip → whitespace-collapse. No "feat."-clause
    splitting (a feat billing is usually a distinct act; wrongly merging entries is worse
@@ -112,10 +119,19 @@ subfolder names and `advance.artistName`.
   `google-drive-viewer@advancethat.iam.gserviceaccount.com` service account
   (`DRIVE_SA_KEY` secret) — so PR 3 reuses it unchanged; the artist-docs folder must be
   shared with THAT account (Viewer), not the functions runtime SA.
-- **PR 4 — Event documents + uploads:** event ↔ Drive folder linking at create/edit,
-  uploads to that folder (client-direct via `getDriveAccessToken`, mirroring PR 2's
-  pattern), the per-event documents view grouped by schedule day (decision 5); artist
-  library gains upload via the same path.
+- **PR 4 — Event documents + uploads** ✅: event ↔ Drive folder linking in the event
+  form (Picker, folder mode), client-direct multipart uploads into that folder via a
+  short-lived `drive.file` token, the per-event documents view at
+  `/events/:id/documents` grouped by schedule day (matching schedule days lend their
+  color-coded headers; "Event-wide" last), per-doc re-day/categorize/remove, and the
+  broker extended to serve event documents to that event's members (`{fileId, eventId}`).
+  **Artist-library upload included:** `importDriveFolder` now records each file's
+  `sourceFolderId` + the library root (`config/documentsLibrary`), merge-backfilling
+  existing docs on re-import; the artist screen gains an upload panel (existing artist →
+  their recorded folder; unbackfilled artist → prompted to re-import first, never a
+  duplicate folder; new artist → subfolder created under the root). Library records
+  from uploads are client-created under new admin/organizer rules (id = fileId,
+  importedBy pinned). Failed record writes clean up the uploaded Drive file.
 - **PR 5 — Packet embedding:** the `includePacket` toggle on included docs + embedding
   photos/PDFs into the generated packet via the SA read-path (decision 1). Size guard:
   cap embedded content (e.g. skip > ~10 MB per file with a listed link fallback).
@@ -124,3 +140,17 @@ subfolder names and `advance.artistName`.
 
 - Packet embedding details (PR 5): page sizing for photos, orientation of merged PDF
   pages, and the size cap / fallback presentation.
+
+## Hardening backlog (accepted risks, revisit if the trust model changes)
+
+- **Record registration is client-side** for trusted roles (admin/organizer for the
+  library; admin/event-PM for event docs). In principle a trusted writer could register
+  a fileId from another broker-visible folder, exposing it to that scope's readers. The
+  broker only reaches folders deliberately shared with the viewer SA (whose content is
+  app-visible by design), so this stays acceptable for an internal tool; server-side
+  parentage validation (a create callable checking the file lives in the authorized
+  folder) is the fix if the trust model widens.
+- **No canonical artist→folder mapping.** The upload target comes from existing
+  records' `sourceFolderId`; deleting an artist's last record then re-uploading can
+  create a duplicate same-named Drive subfolder (cosmetic; merge by hand). A persisted
+  `artistFolders/{artistKey}` map would close it.

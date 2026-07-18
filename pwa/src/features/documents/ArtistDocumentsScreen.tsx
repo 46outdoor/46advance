@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import {
+  createArtistDocumentRecord,
   deleteArtistDocument,
+  getDocumentsLibraryRoot,
   listDocumentsForArtist,
   setArtistDocumentCategory,
   setArtistDocumentVerified,
@@ -13,7 +15,12 @@ import {
 import { documentTitle, isVerifiedCurrent, type ArtistDocument } from '@/lib/documents/artistDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
-import { openArtistDocument } from '@/lib/google/drive-service';
+import {
+  createDriveFolder,
+  deleteDriveUpload,
+  openArtistDocument,
+  uploadFileToDrive,
+} from '@/lib/google/drive-service';
 
 const logger = createLogger('Documents');
 
@@ -164,9 +171,83 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
   );
 }
 
+/** Upload a new file into this artist's Drive subfolder (managers). The target is the
+ * `sourceFolderId` recorded on the artist's docs; docs imported before folder tracking
+ * need one re-import first (creating a same-named duplicate folder would be worse). A
+ * brand-new artist (no docs) gets a subfolder created under the library root. */
+function ArtistUploadPanel({
+  artistName,
+  documents,
+  uid,
+  onUploaded,
+}: {
+  artistName: string;
+  documents: readonly ArtistDocument[];
+  uid: string;
+  onUploaded: () => void;
+}) {
+  const [inputKey, setInputKey] = useState(0);
+  const targetFolderId = documents.find((d) => d.sourceFolderId)?.sourceFolderId ?? null;
+  const needsReimport = !targetFolderId && documents.length > 0;
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      let folderId = targetFolderId;
+      if (!folderId) {
+        const root = await getDocumentsLibraryRoot();
+        if (!root) throw new Error('Import the library first — its root folder isn’t recorded yet.');
+        folderId = await createDriveFolder(artistName, root);
+      }
+      const uploaded = await uploadFileToDrive(file, folderId);
+      try {
+        await createArtistDocumentRecord(uploaded, artistName, folderId, uid);
+      } catch (e) {
+        await deleteDriveUpload(uploaded.fileId).catch(() => undefined);
+        throw e;
+      }
+    },
+    onSuccess: onUploaded,
+    onError: (e) => logger.error('Failed to upload the document', e),
+  });
+
+  if (needsReimport) {
+    return (
+      <p className="text-sm text-ink-muted">
+        To upload here, re-run the library import once (Documents → Import) — it records each
+        artist's Drive folder.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-3">
+      <span className="text-sm font-semibold text-ink">Upload to {artistName}'s folder</span>
+      <input
+        key={inputKey}
+        type="file"
+        className="min-h-11 text-sm sm:min-h-0"
+        aria-label="File to upload"
+        disabled={upload.isPending}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            upload.mutate(file);
+            setInputKey((k) => k + 1);
+          }
+        }}
+      />
+      {upload.isPending && <span className="text-sm text-ink-muted">Uploading…</span>}
+      {upload.isError && (
+        <span className="text-sm text-accent">
+          {upload.error instanceof Error ? upload.error.message : 'Upload failed.'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** One artist's documents: links out to Drive; managers classify, retitle (in-app), note, flag obsolete. */
 export function ArtistDocumentsScreen() {
-  const { isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer } = useAuth();
   const canManage = isAdmin || isOrganizer;
   const { artistKey } = useParams();
   const decodedKey = decodeURIComponent(artistKey ?? '');
@@ -227,6 +308,15 @@ export function ArtistDocumentsScreen() {
       {documentsQuery.isError && <p className="text-sm text-accent">Failed to load documents.</p>}
       {!documentsQuery.isLoading && documents.length === 0 && (
         <p className="text-sm text-ink-muted">No documents for this artist.</p>
+      )}
+
+      {canManage && user && documentsQuery.data && (
+        <ArtistUploadPanel
+          artistName={artistName}
+          documents={documents}
+          uid={user.uid}
+          onUploaded={() => void invalidate()}
+        />
       )}
 
       <div className="space-y-2">

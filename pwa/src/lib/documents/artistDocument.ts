@@ -30,6 +30,8 @@ export interface ArtistDocument {
   /** Normalized match key (lowercase, collapsed whitespace); null when unsorted. */
   artistKey: string | null;
   categoryId: string | null;
+  /** The Drive folder the file lives in (upload target for that artist); null pre-backfill. */
+  sourceFolderId: string | null;
   importedBy: string;
   importedByEmail: string | null;
   importedAt: Date | null;
@@ -53,6 +55,7 @@ const artistDocumentDocSchema = z.object({
   artist: z.string().nullable().optional(),
   artistKey: z.string().nullable().optional(),
   categoryId: z.string().nullable().optional(),
+  sourceFolderId: z.string().nullable().optional(),
   importedBy: z.string().min(1),
   importedByEmail: z.string().nullable().optional(),
   importedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -74,6 +77,7 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     artist: d.artist ?? null,
     artistKey: d.artistKey ?? null,
     categoryId: d.categoryId ?? null,
+    sourceFolderId: d.sourceFolderId ?? null,
     importedBy: d.importedBy,
     importedByEmail: d.importedByEmail ?? null,
     importedAt: timestampToDate(d.importedAt ?? null),

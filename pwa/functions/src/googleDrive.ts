@@ -217,16 +217,27 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
     throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
   }
   // Files directly in the picked folder are "unsorted"; each subfolder is an artist whose
-  // ENTIRE subtree (nested subfolders included) is imported under that artist.
+  // ENTIRE subtree (nested subfolders included) is imported under that artist. Each group
+  // records its Drive folder id — the upload target for new files (library uploads).
   const rootFiles = await listChildren(drive, folderId, false);
-  const groups: { artist: string | null; files: drive_v3.Schema$File[] }[] = [
-    { artist: null, files: rootFiles },
+  const groups: { artist: string | null; folderId: string; files: drive_v3.Schema$File[] }[] = [
+    { artist: null, folderId, files: rootFiles },
     ...(await Promise.all(
       subfolders
         .filter((f) => f.id)
-        .map(async (f) => ({ artist: f.name ?? 'Unknown', files: await collectAllFiles(drive, f.id as string, 0) })),
+        .map(async (f) => ({
+          artist: f.name ?? 'Unknown',
+          folderId: f.id as string,
+          files: await collectAllFiles(drive, f.id as string, 0),
+        })),
     )),
   ];
+
+  // The library root — recorded so uploads can create subfolders for new artists.
+  await db.doc('config/documentsLibrary').set(
+    { rootFolderId: folderId, updatedAt: Timestamp.now() },
+    { merge: true },
+  );
 
   const existing = new Set((await db.collection('artistDocuments').get()).docs.map((d) => d.id));
   let imported = 0;
@@ -237,24 +248,28 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
     for (const file of group.files) {
       if (!file.id || !file.name || !file.webViewLink) continue;
       if (existing.has(file.id)) {
+        // Already imported — backfill only the upload-target folder id, preserving
+        // classifications and edits (re-import doubles as the sourceFolderId backfill).
+        batch.set(db.collection('artistDocuments').doc(file.id), { sourceFolderId: group.folderId }, { merge: true });
         skipped += 1;
-        continue;
+      } else {
+        existing.add(file.id);
+        batch.set(db.collection('artistDocuments').doc(file.id), {
+          fileId: file.id,
+          name: file.name,
+          mimeType: file.mimeType ?? 'application/octet-stream',
+          iconLink: file.iconLink ?? null,
+          webViewLink: file.webViewLink,
+          artist: group.artist,
+          artistKey: group.artist ? artistKey(group.artist) : null,
+          categoryId: null,
+          sourceFolderId: group.folderId,
+          importedBy: uid,
+          importedByEmail: token.email ?? null,
+          importedAt: Timestamp.now(),
+        });
+        imported += 1;
       }
-      existing.add(file.id);
-      batch.set(db.collection('artistDocuments').doc(file.id), {
-        fileId: file.id,
-        name: file.name,
-        mimeType: file.mimeType ?? 'application/octet-stream',
-        iconLink: file.iconLink ?? null,
-        webViewLink: file.webViewLink,
-        artist: group.artist,
-        artistKey: group.artist ? artistKey(group.artist) : null,
-        categoryId: null,
-        importedBy: uid,
-        importedByEmail: token.email ?? null,
-        importedAt: Timestamp.now(),
-      });
-      imported += 1;
       ops += 1;
       if (ops >= 400) {
         await batch.commit();
@@ -355,10 +370,18 @@ export const getArtistDocumentContent = onCall(
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
     assertApproved(token);
-    const { fileId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
+    const { fileId, eventId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
-    const snap = await db.collection('artistDocuments').doc(fileId).get();
+    // Artist-library docs serve any approved user (matches the library's read rules);
+    // with an eventId, an event document serves that event's members (PR 4).
+    let snap = await db.collection('artistDocuments').doc(fileId).get();
+    if (!snap.exists && eventId) {
+      const isMember =
+        token.admin === true || (await db.doc(`events/${eventId}/members/${uid}`).get()).exists;
+      if (!isMember) throw new HttpsError('permission-denied', 'Not a member of this event.');
+      snap = await db.doc(`events/${eventId}/documents/${fileId}`).get();
+    }
     if (!snap.exists) throw new HttpsError('not-found', 'Unknown document.');
     const doc = snap.data() ?? {};
     const storedMime = typeof doc.mimeType === 'string' ? doc.mimeType : '';
