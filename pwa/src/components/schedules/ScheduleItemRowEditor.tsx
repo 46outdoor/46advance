@@ -68,7 +68,7 @@ export function ScheduleItemRowEditor({
 
   return (
     <div className="space-y-2 px-3 py-2" onBlur={commitOnLeave}>
-      <div className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[6.5rem_6.5rem_4.5rem_5.5rem_minmax(6rem,1fr)_minmax(8rem,1.4fr)] sm:gap-x-3">
+      <div className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[7.75rem_7.75rem_4.5rem_5.5rem_minmax(5rem,1fr)_minmax(6.5rem,1.4fr)] sm:gap-x-3">
         <input
           type="time"
           className={inputClass}
@@ -112,7 +112,7 @@ export function ScheduleItemRowEditor({
         />
       </div>
 
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pl-0 sm:pl-[14.5rem]">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pl-0 sm:pl-[17rem]">
         {draft.type === 'custom' && (
           <label className="block text-xs">
             <span className="mb-0.5 block font-semibold text-ink">Type name</span>
@@ -191,7 +191,7 @@ export function ScheduleItemRowEditor({
       </div>
 
       {def.hasCrew && (
-        <div className="pl-0 sm:pl-[14.5rem]">
+        <div className="pl-0 sm:pl-[17rem]">
           <CrewLinesEditor
             crew={draft.crew}
             crewTypes={crewTypes}

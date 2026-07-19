@@ -71,10 +71,18 @@ function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTem
   const [addingDay, setAddingDay] = useState(false);
   const [editingOffset, setEditingOffset] = useState<number | null>(null);
 
-  // Stage-name options: canonical names across the event templates (stage "id" = the name).
+  // Stage-name options: canonical names across the event templates (stage "id" = the
+  // name), plus any names already on this template's items — without those, a
+  // stage-tagged item would display as "Event-wide" (and a row edit could silently
+  // drop the stored name).
   const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: listTemplates });
   const stageNames: StageOption[] = [
-    ...new Set((templatesQuery.data ?? []).flatMap((t) => t.stages.map((s) => s.name.trim())).filter(Boolean)),
+    ...new Set(
+      [
+        ...(templatesQuery.data ?? []).flatMap((t) => t.stages.map((s) => s.name.trim())),
+        ...days.flatMap((d) => d.items.map((i) => i.stageName?.trim() ?? '')),
+      ].filter(Boolean),
+    ),
   ].map((n) => ({ id: n, name: n }));
   const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
 
