@@ -268,6 +268,14 @@ the South; see § UI / §7). Distinct from a band advance; one (or a few) per ev
   **Phase 5** (before templates, which seed it). Field taxonomy from
   [`PRODUCTION_ADVANCE_REFERENCE.md`](archive/reference/PRODUCTION_ADVANCE_REFERENCE.md). Drives the §7 PDF.
 
+> **Queued (2026-07-18): master house production advance.** Keep at least one **"master"
+> house production advance** (the standard 46 package). New events **inherit it
+> automatically on creation** — copied in as the event's starting house production
+> record — with the option to edit the copy per event or discard it and start from
+> scratch. Mirrors the default-master pattern used by schedule templates (one flagged
+> default, auto-applied at event creation); edits to the master affect future events
+> only, never records already copied to existing events.
+
 ## 6. Event / Advance Templates
 
 Most events being advanced share the **exact same stage and production package**, so
