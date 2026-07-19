@@ -142,11 +142,12 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
               <h3 className="text-sm font-semibold text-ink">{group.label}</h3>
             )}
             <div className="grid gap-4 lg:grid-cols-2">
-              {stages.map((stage) => (
+              {stages.map((stage, index) => (
                 <StageLineupCard
                   key={stage.id}
                   eventId={event.id}
                   stageName={stage.name}
+                  defaultSlots={index === 0 ? 5 : 4}
                   group={group}
                   occupants={located.filter(
                     (l) =>
@@ -170,6 +171,7 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
 function StageLineupCard({
   eventId,
   stageName,
+  defaultSlots,
   group,
   occupants,
   canEdit,
@@ -179,6 +181,8 @@ function StageLineupCard({
 }: {
   eventId: string;
   stageName: string;
+  /** Open rows before anything is booked: 5 for the first (main) stage, 4 for side stages. */
+  defaultSlots: number;
   group: LineupGroup;
   occupants: readonly LocatedAdvance[];
   canEdit: boolean;
@@ -187,10 +191,9 @@ function StageLineupCard({
   onRemove: (located: LocatedAdvance, mode: 'clear' | 'delete') => void;
 }) {
   const highest = Math.max(0, ...occupants.map((l) => l.advance.slot ?? 0));
-  // Four open rows by default (B-stages usually run four slots); "+ Add slot" extends
-  // and "− Remove slot" trims from the end — an occupied last row must lose its
-  // artist first. The undated pool only shows the slots actually in use.
-  const [baseline, setBaseline] = useState(4);
+  // "+ Add slot" extends and "− Remove slot" trims from the end — an occupied last
+  // row must lose its artist first. The undated pool only shows slots in use.
+  const [baseline, setBaseline] = useState(defaultSlots);
   const slotCount = group.canBook ? Math.max(baseline, highest, 1) : highest;
 
   return (
