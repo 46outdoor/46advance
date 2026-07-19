@@ -24,6 +24,21 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Lineup panel:** the event page now has a **Lineup** section — for each show day,
+  every stage lists its numbered slots (Headliner, Direct Support, Artist N… — four per
+  stage by default, with add/remove-slot controls to extend or trim from the end; an
+  occupied last slot must lose its artist before it can be removed). Type an
+  artist into an open slot to book it: the artist's advance is **created automatically**
+  (an existing advance with that name on the stage is re-slotted instead of duplicated).
+  Removing a booked artist checks for entered advance data first — a data-less shell is
+  simply deleted after a confirm, while an advance with real work (started sections,
+  content, notes, a scheduled call) asks whether to keep it off-lineup or delete it with
+  its data. Slots holding two artists are flagged as conflicts.
+- **Per-day lineups in schedules:** `{artist N}` placeholders — on the schedule grid and
+  in calendar sync — now resolve against the item's **day** as well as its stage: an
+  advance dated to that day wins the slot, an undated advance holds it event-wide. A
+  two-day festival with different nightly headliners shows the right artist on each
+  day's schedule.
 - **Rock the Country show-day template:** seeded a "Rock the Country Show Schedule"
   schedule template — one show day of the two-stage RTC format: parking/doors, then per
   lineup slot a Truck Dump, a combined Set Stage / Soundcheck, and the show set (5 Main

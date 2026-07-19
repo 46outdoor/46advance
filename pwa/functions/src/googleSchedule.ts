@@ -21,7 +21,7 @@ import {
   removeScheduleCalendarEventInputSchema,
 } from './contracts/callables/schedules.js';
 import { google, type calendar_v3 } from 'googleapis';
-import { shiftDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
+import { shiftDayKey, zonedDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
 import {
   OAUTH_SECRETS,
   TIME_ZONE,
@@ -59,27 +59,39 @@ function resolvePlaceholders(text: string, stageId: string | null, artistBySlot:
   });
 }
 
-/** (stageId:slot) → artist for every stage this day's items reference. */
+/** (stageId:slot) → artist for every stage this day's items reference. Day-aware
+ * (mirrors the client's lib/advances/lineup.ts): an advance whose performance day —
+ * in the event's timezone — IS this day wins its slot; an undated advance is a
+ * stage-wide fallback; an advance dated to a DIFFERENT day doesn't resolve here. */
 async function loadSlotArtists(
   db: Firestore,
   eventId: string,
   items: readonly DocumentData[],
+  dayKey: string,
+  timeZone: string,
 ): Promise<Map<string, string>> {
   const stageIds = [
     ...new Set(items.map((i) => (typeof i.stageId === 'string' && i.stageId ? i.stageId : null)).filter((s): s is string => s !== null)),
   ];
   const map = new Map<string, string>();
+  const dated = new Map<string, string>();
   await Promise.all(
     stageIds.map(async (stageId) => {
       const snap = await db.collection(`events/${eventId}/stages/${stageId}/advances`).get();
       for (const doc of snap.docs) {
         const a = doc.data();
-        if (typeof a.slot === 'number' && typeof a.artistName === 'string' && a.artistName) {
-          map.set(`${stageId}:${a.slot}`, a.artistName);
-        }
+        if (typeof a.slot !== 'number' || typeof a.artistName !== 'string' || !a.artistName) continue;
+        const performedAt: unknown = a.performanceDate;
+        const performedKey =
+          performedAt && typeof (performedAt as { toDate?: unknown }).toDate === 'function'
+            ? zonedDayKey((performedAt as { toDate: () => Date }).toDate(), timeZone)
+            : '';
+        if (!performedKey) map.set(`${stageId}:${a.slot}`, a.artistName);
+        else if (performedKey === dayKey) dated.set(`${stageId}:${a.slot}`, a.artistName);
       }
     }),
   );
+  for (const [key, name] of dated) map.set(key, name);
   return map;
 }
 
@@ -311,8 +323,9 @@ export const reconcileScheduleDay = onCall({ secrets: OAUTH_SECRETS, timeoutSeco
     calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventData.name ?? 'Event'));
   }
 
-  const artistBySlot = await loadSlotArtists(db, eventId, items);
-  const results = await reconcileItems(calendar, calendarId, items, String(day.date ?? dayId), eventTz, artistBySlot);
+  const dateKey = String(day.date ?? dayId);
+  const artistBySlot = await loadSlotArtists(db, eventId, items, dateKey, eventTz);
+  const results = await reconcileItems(calendar, calendarId, items, dateKey, eventTz, artistBySlot);
   const orphans = await writeBackCalendarIds(db, dayRef, results);
   for (const orphan of orphans) {
     if (calendarId) await tryDeleteCalendarEvent(calendar, calendarId, orphan);
