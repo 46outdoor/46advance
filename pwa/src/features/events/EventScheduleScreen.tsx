@@ -24,6 +24,7 @@ import {
   type ScheduleDayItem,
 } from '@/lib/schedules/scheduleDay';
 import { crewTypesKey, getCrewTypes } from '@/lib/schedules/crew-types-service';
+import { buildSlotArtistLookup } from '@/lib/advances/lineup';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
 import { ScheduleDayCard, type ResolveItemText } from '@/components/schedules/ScheduleDayCard';
 import { ScheduleTypeLegend } from '@/components/schedules/ScheduleTypeDot';
@@ -303,7 +304,8 @@ interface DayListProps {
   editPending: boolean;
   stages: readonly StageOption[];
   crewTypes: readonly string[];
-  resolveText: ResolveItemText;
+  /** Placeholder resolution needs the day (lineups are per show day). */
+  resolveTextForDay: (day: ScheduleDay) => ResolveItemText;
   onSubmitDayMeta: (day: ScheduleDay, meta: ScheduleDayMeta) => void;
   onCloseDayForm: () => void;
   onOpenDayForm: (dayId: string) => void;
@@ -335,7 +337,7 @@ function DayList(props: DayListProps) {
             editing={props.editing}
             stages={props.stages}
             crewTypes={props.crewTypes}
-            resolveText={props.resolveText}
+            resolveText={props.resolveTextForDay(day)}
             onEditDay={() => props.onOpenDayForm(day.id)}
             onDeleteDay={() => props.onDeleteDay(day)}
             onAddItem={() => props.onAddItem(day)}
@@ -517,16 +519,15 @@ export function EventScheduleScreen() {
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
 
-  /** (stageId:slot) → artist, for resolving {artist N} placeholders. */
-  const slotArtist = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const a of advancesQuery.data ?? []) {
-      if (a.advance.slot != null) m.set(`${a.stageId}:${a.advance.slot}`, a.advance.artistName);
-    }
-    return m;
-  }, [advancesQuery.data]);
-  const resolveText: ResolveItemText = (item, text) =>
-    resolveArtistPlaceholders(text, (slot) => (item.stageId ? (slotArtist.get(`${item.stageId}:${slot}`) ?? null) : null));
+  // Day-aware {artist N} lookup: an advance dated to the item's day wins its slot;
+  // undated advances hold their slot event-wide (lib/advances/lineup.ts).
+  const slotLookup = useMemo(() => buildSlotArtistLookup(advancesQuery.data ?? []), [advancesQuery.data]);
+  const resolveTextForDay =
+    (day: ScheduleDay): ResolveItemText =>
+    (item, text) =>
+      resolveArtistPlaceholders(text, (slot) =>
+        item.stageId ? slotLookup.resolve(day.date, item.stageId, slot) : null,
+      );
 
   if (!user || !eventParam) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
@@ -610,7 +611,7 @@ export function EventScheduleScreen() {
         editPending={editDay.isPending}
         stages={stages}
         crewTypes={crewTypesQuery.data ?? []}
-        resolveText={resolveText}
+        resolveTextForDay={resolveTextForDay}
         onSubmitDayMeta={(day, meta) => editDay.mutate({ day, meta })}
         onCloseDayForm={() => setEditingDayId(null)}
         onOpenDayForm={setEditingDayId}

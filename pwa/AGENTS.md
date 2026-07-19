@@ -221,6 +221,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
+| Lineup helpers (day-aware slots) | `src/lib/advances/lineup.ts` (`buildSlotArtistLookup` for `{artist N}`, `performanceDayKey`, `advanceHasData`/`advanceDataSummary`); slot-first editing UI in `src/features/events/LineupPanel.tsx` |
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
 | Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |

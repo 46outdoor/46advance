@@ -124,6 +124,21 @@ export async function updateAdvance(
   });
 }
 
+/** Lineup-only patch (the Lineup panel's writes): slot and/or performance day, leaving
+ * every other advance field — and its sections/content — untouched. */
+export async function updateAdvanceLineup(
+  eventId: string,
+  stageId: string,
+  advanceId: string,
+  patch: { slot: number | null; performanceDate: Date | null },
+): Promise<void> {
+  await updateDoc(advanceDoc(eventId, stageId, advanceId), {
+    slot: patch.slot,
+    performanceDate: dateToTimestamp(patch.performanceDate),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function deleteAdvance(
   eventId: string,
   stageId: string,

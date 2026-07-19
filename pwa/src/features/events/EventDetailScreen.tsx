@@ -17,6 +17,7 @@ import { generatePacket, getEventBySlugOrId, setEventLogo, updateEvent } from '.
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
+import { LineupPanel } from './LineupPanel';
 import { EventContactsPanel } from './EventContactsPanel';
 import { BookedCallsPanel } from './BookedCallsPanel';
 
@@ -151,11 +152,14 @@ export function EventDetailScreen() {
         </div>
       )}
 
-      {event && <BookedCallsPanel eventId={event.id} canEdit={canEdit} />}
-
-      {event && <StagesPanel eventId={event.id} canEdit={canEdit} />}
-
-      {event && <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />}
+      {event && (
+        <>
+          <BookedCallsPanel eventId={event.id} canEdit={canEdit} />
+          <StagesPanel eventId={event.id} canEdit={canEdit} />
+          <LineupPanel event={event} canEdit={canEdit} />
+          <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
+        </>
+      )}
     </section>
   );
 }
