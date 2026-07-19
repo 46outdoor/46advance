@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -103,21 +103,32 @@ describe('LineupPanel', () => {
     expect(await screen.findByText(/Slot conflict — 2 artists/)).toBeInTheDocument();
   });
 
-  it('shows four slots by default; the last can be added and trimmed while open', async () => {
+  it('defaults to five slots on the main stage and four on side stages', async () => {
+    vi.mocked(listStages).mockResolvedValue([stage('main', 'Main Stage'), stage('rowdy', 'Raised Rowdy')]);
     renderPanel();
-    expect(await screen.findByText(/4 · Artist 4/)).toBeInTheDocument();
-    expect(screen.queryByText(/5 · Artist 5/)).not.toBeInTheDocument();
+    await screen.findByText('Main Stage');
+    const mainCard = within(screen.getByText('Main Stage').closest('section') as HTMLElement);
+    const rowdyCard = within(screen.getByText('Raised Rowdy').closest('section') as HTMLElement);
+    expect(mainCard.getByText(/5 · Artist 5/)).toBeInTheDocument();
+    expect(rowdyCard.getByText(/4 · Artist 4/)).toBeInTheDocument();
+    expect(rowdyCard.queryByText(/5 · Artist 5/)).not.toBeInTheDocument();
+  });
+
+  it('adds and trims the last slot while it is open', async () => {
+    renderPanel();
+    expect(await screen.findByText(/5 · Artist 5/)).toBeInTheDocument();
+    expect(screen.queryByText(/6 · Artist 6/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '+ Add slot' }));
-    expect(screen.getByText(/5 · Artist 5/)).toBeInTheDocument();
+    expect(screen.getByText(/6 · Artist 6/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '− Remove slot' }));
-    expect(screen.queryByText(/5 · Artist 5/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/6 · Artist 6/)).not.toBeInTheDocument();
   });
 
   it('refuses to remove the last slot while an artist holds it', async () => {
     vi.mocked(listEventAdvances).mockResolvedValue([
-      located('main', { id: 'a', artistName: 'Staind', slot: 4 }),
+      located('main', { id: 'a', artistName: 'Staind', slot: 5 }),
     ]);
     renderPanel();
     await screen.findByText('Staind');
