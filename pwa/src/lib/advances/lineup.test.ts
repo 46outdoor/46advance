@@ -4,6 +4,7 @@ import {
   advanceDataSummary,
   advanceHasData,
   buildSlotArtistLookup,
+  findBookingTarget,
   performanceDayKey,
 } from './lineup';
 
@@ -66,6 +67,30 @@ describe('buildSlotArtistLookup', () => {
     expect(lookup.resolve('', 'main', 1)).toBe('Staind');
     expect(lookup.resolve('', 'rowdy', 1)).toBe('Atlus');
     expect(lookup.resolve('', 'main', 2)).toBeNull();
+  });
+});
+
+describe('findBookingTarget', () => {
+  const june28 = new Date(2026, 5, 28);
+  const sameDay = { stageId: 'main', advance: advance({ id: 'dated', performanceDate: june28 }) };
+  const undated = { stageId: 'main', advance: advance({ id: 'undated' }) };
+  const otherDay = {
+    stageId: 'main',
+    advance: advance({ id: 'other', performanceDate: new Date(2026, 5, 27) }),
+  };
+
+  it('prefers a same-day match, then adopts an undated one', () => {
+    expect(findBookingTarget([undated, sameDay], 'main', '2026-06-28', 'Staind')).toBe(sameDay);
+    expect(findBookingTarget([otherDay, undated], 'main', '2026-06-28', 'Staind')).toBe(undated);
+  });
+
+  it('never reuses an advance dated to a different day or another stage', () => {
+    expect(findBookingTarget([otherDay], 'main', '2026-06-28', 'Staind')).toBeNull();
+    expect(findBookingTarget([{ ...sameDay, stageId: 'rowdy' }], 'main', '2026-06-28', 'Staind')).toBeNull();
+  });
+
+  it('matches names case- and whitespace-insensitively', () => {
+    expect(findBookingTarget([undated], 'main', '', '  staind ')).toBe(undated);
   });
 });
 

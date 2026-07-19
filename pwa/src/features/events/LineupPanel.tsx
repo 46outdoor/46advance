@@ -16,7 +16,7 @@ import { createLogger } from '@/lib/logger';
 import { formatDateKey } from '@/lib/dates/formatting';
 import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
 import { slotLabel } from '@/lib/advances/advance';
-import { advanceDataSummary, advanceHasData, performanceDayKey } from '@/lib/advances/lineup';
+import { advanceDataSummary, advanceHasData, findBookingTarget, performanceDayKey } from '@/lib/advances/lineup';
 import { eventDays, type EventRecord } from '@/lib/events/event';
 import type { LocatedAdvance } from '@/lib/tracker/tracker';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
@@ -82,14 +82,7 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
     mutationFn: async ({ stageId, slot, dayKey, name }: BookInput) => {
       const trimmed = name.trim();
       const date = dayKey ? parseDateInput(dayKey) : null;
-      const candidates = located.filter(
-        (l) => l.stageId === stageId && l.advance.artistName.trim().toLowerCase() === trimmed.toLowerCase(),
-      );
-      // Same-day match first, then an undated one to adopt into the day; a match dated
-      // to a DIFFERENT day is a separate performance and gets its own advance.
-      const existing =
-        candidates.find((l) => performanceDayKey(l.advance) === dayKey) ??
-        candidates.find((l) => !performanceDayKey(l.advance));
+      const existing = findBookingTarget(located, stageId, dayKey, trimmed);
       if (existing) {
         await updateAdvanceLineup(event.id, stageId, existing.advance.id, {
           slot,
@@ -194,9 +187,11 @@ function StageLineupCard({
   onRemove: (located: LocatedAdvance, mode: 'clear' | 'delete') => void;
 }) {
   const highest = Math.max(0, ...occupants.map((l) => l.advance.slot ?? 0));
-  const [extraSlots, setExtraSlots] = useState(0);
-  // The undated pool only shows the slots actually in use.
-  const slotCount = group.canBook ? Math.max(5, highest) + extraSlots : highest;
+  // Four open rows by default (B-stages usually run four slots); "+ Add slot" extends
+  // and "− Remove slot" trims from the end — an occupied last row must lose its
+  // artist first. The undated pool only shows the slots actually in use.
+  const [baseline, setBaseline] = useState(4);
+  const slotCount = group.canBook ? Math.max(baseline, highest, 1) : highest;
 
   return (
     <section className="rounded-lg border border-line">
@@ -217,13 +212,22 @@ function StageLineupCard({
         ))}
       </ol>
       {canEdit && group.canBook && (
-        <div className="border-t border-line px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-4 border-t border-line px-3 py-2">
           <button
             type="button"
             className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted transition-colors hover:text-accent sm:min-h-0"
-            onClick={() => setExtraSlots((n) => n + 1)}
+            onClick={() => setBaseline(slotCount + 1)}
           >
             + Add slot
+          </button>
+          <button
+            type="button"
+            disabled={slotCount <= Math.max(highest, 1)}
+            title="The last slot must be open before it can be removed"
+            className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted transition-colors hover:text-accent disabled:opacity-40 sm:min-h-0"
+            onClick={() => setBaseline(Math.max(slotCount - 1, 1))}
+          >
+            − Remove slot
           </button>
         </div>
       )}
@@ -405,7 +409,7 @@ function RemoveConfirm({
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" disabled={busy} className={buttonClass} onClick={() => onRemove('delete')}>
-              Remove
+              Delete
             </button>
             <button
               type="button"

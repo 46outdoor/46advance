@@ -25,7 +25,9 @@ dependency bumps, and planning-doc updates) are omitted.
 ### Added
 
 - **Lineup panel:** the event page now has a **Lineup** section — for each show day,
-  every stage lists its numbered slots (Headliner, Direct Support, Artist N…). Type an
+  every stage lists its numbered slots (Headliner, Direct Support, Artist N… — four per
+  stage by default, with add/remove-slot controls to extend or trim from the end; an
+  occupied last slot must lose its artist before it can be removed). Type an
   artist into an open slot to book it: the artist's advance is **created automatically**
   (an existing advance with that name on the stage is re-slotted instead of duplicated).
   Removing a booked artist checks for entered advance data first — a data-less shell is

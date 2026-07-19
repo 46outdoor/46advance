@@ -43,6 +43,28 @@ export function buildSlotArtistLookup(advances: readonly StageAdvanceRef[]): Slo
   };
 }
 
+/** Where a lineup booking for `name` should land on `stageId`: an existing advance
+ * with the same artist name (case/whitespace-insensitive) dated to the SAME day is
+ * re-slotted; failing that, an undated one is adopted into the day. A same-name
+ * advance dated to a different day is a separate performance and is never reused —
+ * callers create a fresh advance when this returns null. */
+export function findBookingTarget<T extends StageAdvanceRef>(
+  advances: readonly T[],
+  stageId: string,
+  dayKey: string,
+  name: string,
+): T | null {
+  const wanted = name.trim().toLowerCase();
+  const candidates = advances.filter(
+    (a) => a.stageId === stageId && a.advance.artistName.trim().toLowerCase() === wanted,
+  );
+  return (
+    candidates.find((a) => performanceDayKey(a.advance) === dayKey) ??
+    candidates.find((a) => !performanceDayKey(a.advance)) ??
+    null
+  );
+}
+
 /** True when the advance carries entered work beyond its lineup identity (artist name,
  * slot, performance day): summary text, an advance call, a started section, or content
  * values. Subcollections (linked Drive files) aren't visible on the doc and don't
