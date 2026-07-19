@@ -29,6 +29,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Rock the Country show-day template:** seeded a "Rock the Country Show Schedule"
+  schedule template — one show day of the two-stage RTC format: parking/doors, then per
+  lineup slot a Truck Dump, a combined Set Stage / Soundcheck, and the show set (5 Main
+  Stage slots + 4 Raised Rowdy slots), with the set-change/DJ-set gaps between sets and
+  the midnight curfew as the day note. Items use `{artist N}` placeholders, so they
+  render each event's booked lineup once slots are assigned.
 - **"+1 day" schedule items:** post-show rows that spill past midnight (a 1:00 AM stage
   reset, a 12:30 AM production load out) can now stay grouped with their work day — check
   **"+1 day"** on the item and it sorts at the end of that day's card with a "+1" marker
