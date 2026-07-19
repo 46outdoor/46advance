@@ -159,6 +159,13 @@ event.
 
 > Building this list with the user — capture in progress; expect more categories below.
 
+> **Queued (2026-07-18, after the field sets are built): previous-advance reference.**
+> The same artists play multiple festivals. On an advance, below its content fields,
+> show a small read-only note per field/section — "From previous advance: …" — pulling
+> what was entered for the **same artist** (matched by name) on earlier events, labeled
+> with the source event for reference. Read-only prefill hint, not a copy; implement
+> once the remaining departments' field sets exist so the lookup covers real content.
+
 ### Section taxonomy (from the audio lead's working advance — reference)
 
 The audio advance lead's live spreadsheet (see
