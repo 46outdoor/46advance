@@ -16,7 +16,12 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Schedule templates:** saving edits to a template no longer fails with "Could not
   save" when optional fields (day titles, notes, item descriptions…) are blank.
 - **Schedule grid:** the Start/End time fields are wider so the full time ("8:00 AM")
-  is visible instead of being cut off.
+  and the picker icon are visible instead of being cut off (widened twice — the first
+  pass was still a character short).
+- **Template editor stages:** the Stage dropdown in the schedule-template editor now
+  also lists stage names already used by the template's own items, so a stage-tagged
+  item (e.g. "Main Stage") shows its stage instead of falling back to "Event-wide" —
+  and editing such a row can no longer silently drop the stored stage name.
 - **Template day labels:** day chips in the template editor now match the day's type —
   load-in days count up from the first one ("Load-in day 1" toward the show), show days
   read "Show day N", and load-out/travel days read their day position ("Day +2") instead
