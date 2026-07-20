@@ -1,7 +1,8 @@
 # 46 Advance — Forensic Remediation Plan
 
-**Date:** 2026-07-18  
-**Status:** Proposed — ready for implementation approval; no remediation code has begun.  
+**Date:** 2026-07-18; revised 2026-07-20 after inline review
+
+**Status:** Implementation-ready — awaiting explicit approval; no remediation code has begun.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -34,6 +35,27 @@ from every implementation phase and release gate in this plan.
 
 The finding remains recorded so it is not lost, but no font removal, history rewrite,
 repository-visibility change, EULA work, or legal investigation is authorized by this plan.
+
+## Findings register
+
+This register makes the plan self-contained. The detailed implementation and acceptance
+criteria live in the mapped workstreams below.
+
+| Finding | Severity | Disposition | Summary | Principal evidence | Workstream |
+| --- | --- | --- | --- | --- | --- |
+| F-1 | High | Active | Drive document metadata accepts file IDs without proving the file belongs to the authorized event/library source, allowing the broker service account to become a confused deputy. | `pwa/firestore.rules`; `pwa/functions/src/googleDrive.ts`; packet fetches in `pwa/functions/src/index.ts` | WS-A |
+| F-2 | High | Active | Authorization revocation is incomplete: an event creator can recreate removed PM membership, and revoked Google connections continue through scheduled processing. | `pwa/firestore.rules`; `pwa/functions/src/index.ts`; `pwa/functions/src/googleBookings.ts` | WS-B |
+| F-3 | High | Active | Contact ownership/link fields are mutable, enabling a linked user to rewrite `createdBy` and then satisfy the delete rule. | `pwa/firestore.rules`; contact rules tests | WS-B |
+| F-4 | High | Active | React Query and persistent Firestore caches survive account changes and can expose prior-user data in the same browser. | `pwa/src/main.tsx`; `pwa/src/services/firebase.ts`; auth/query keys | WS-C |
+| F-5 | High | Active | Logo/photo replacement can delete the durable old object before the new reference is saved; failed/cancelled drafts also orphan new uploads. | `LogoUploader.tsx`; `PhotoEditor.tsx`; branding/template/contact forms | WS-E |
+| F-6 | High | Active | Event dates and some advance-call edits use browser-local `Date` conversion despite the explicit event-timezone invariant. | `pwa/src/lib/dates/parsing.ts`; event/advance forms and services | WS-F |
+| F-7 | High | Active | Advance, stage, and quote deletion leaves nested Firestore documents and Storage objects orphaned. | advance, stage, quote, and document services | WS-E |
+| F-8 | High | Active | The raw Functions `serve` script selects the production-default project while omitting dependent emulators, so local Admin SDK calls can reach production. | `pwa/functions/package.json`; `pwa/.firebaserc` | WS-D |
+| F-9 | High | Active | Account deletion suppresses all Auth deletion errors, performs non-atomic cleanup, and can report success while the Auth account remains. | `pwa/functions/src/index.ts`; `pwa/functions/src/lib/db/chunkedBatch.ts` | WS-B |
+| F-10 | High | Active | Interactive document content retrieval has no byte cap and fully buffers/base64-encodes the response. | `pwa/functions/src/googleDrive.ts`; existing packet attachment limit | WS-A |
+| F-11 | High | Active | The mandatory predeploy health check omits `DRIVE_SA_KEY`, so deployment can pass while Drive-backed functions cannot start. | `pwa/scripts/cli/verify-secrets-health.sh`; `pwa/functions/src/googleDrive.ts` | WS-D |
+| F-12 | Medium-high | Active | Sentry is scaffolded but inactive in production, lacks release/source-map integration, and ordinary `logger.error` calls do not create incidents. | `pwa/src/lib/sentry.ts`; production deployment workflow; Vite config | WS-I |
+| F-13 | High (verification) | Deferred | Public-repository redistribution rights for tracked Nexa/Hikou font binaries require confirmation. No action is authorized by this plan. | `pwa/public/fonts/`; `pwa/src/index.css` | Deferred |
 
 ## Baseline and definition of done
 
@@ -89,16 +111,32 @@ The plan is complete only when:
 | WS-L. PWA performance, accessibility, and state UX | P2 | Route splitting, responsive/a11y gaps, draft refetch | PWA routing, layouts, modals, admin forms |
 | WS-M. Maintenance and mobile foundation | P3 | Documentation drift, formatting, release traceability, mobile contracts | Planning/docs, tooling, contracts, future mobile CI |
 
-#### Second opinion:
-
-The findings column keys every workstream to F-numbers, but F-1 through F-12 are defined
-nowhere in the repository — only F-13 gets a description, and the source review document is
-not committed. Once the review conversation is gone, "WS-C covers F-4" is unresolvable for the
-owner and for any implementing session. Add a findings appendix to this document (one row per
-finding: number, one-line description, severity, covering workstream), or commit the full
-review report under `planning/archive/reference/` and link it from the header.
-
 ## Phase 0 — Close security and production-boundary risks
+
+### Phase 0 shared prerequisite — authenticated test foundation
+
+Do not defer all authenticated browser infrastructure to WS-J. Before the WS-B and WS-C
+acceptance work begins:
+
+1. Create deterministic emulator identities for admin, organizer, PM, lead, tech, pending,
+   revoked, and cross-event users.
+2. Add one minimal authenticated Playwright fixture capable of switching between two emulator
+   users without sharing browser state.
+3. Keep this foundation small: it supports P0 regression tests, while WS-J still owns the full
+   authenticated workflow catalog and CI expansion.
+
+### Phase 0 dependency — atomic blank-event bootstrap
+
+WS-B must not tighten event-creator membership rules until the replacement creation path
+exists. Pull the blank-event portion of WS-G forward:
+
+1. Add an idempotent callable that creates the blank event and initial creator membership
+   atomically.
+2. Migrate the PWA client to the callable and verify retries cannot create duplicates.
+3. Release that client through the owner-operated Hosting workflow.
+4. Only after the Hosting release is verified may WS-B disable the legacy membership bootstrap
+   write. Do not add a temporary `getAfter()` rules path unless the callable migration proves
+   impractical.
 
 ### WS-A. Drive broker authorization and limits
 
@@ -120,10 +158,15 @@ Implementation:
    trusted metadata from that source; never accept replacement Drive metadata from the client.
 5. Make canonical document IDs deterministic where appropriate and reject mismatched
    `documentId` / `fileId` combinations.
-6. Restrict Firestore client-create rules once the callable path is live.
-7. Add an explicit maximum content size to `getArtistDocumentContent`; reject oversized and
-   unsupported files before fully buffering or base64-encoding them.
-8. Apply the same trusted-source and size rules to packet generation.
+6. Restrict Firestore client-create rules only after the callable-based PWA has been released
+   and verified through the owner-operated Hosting workflow. This is a Hosting-gated
+   enforcement flip, not a merge-time or Functions-deploy-time flip.
+7. Align `getArtistDocumentContent` with a centralized broker content-limit policy. Packet
+   generation already enforces `MAX_EMBED_BYTES` (10 MB); choose the interactive limit with the
+   base64/callable response envelope included, then place shared limits in a neutral broker
+   module rather than inventing unrelated constants.
+8. Verify packet generation continues enforcing its existing 10 MB attachment cap while using
+   the same bounded-fetch primitive; do not weaken the packet limit during consolidation.
 9. Audit existing records with a read-only script before enforcement. Quarantine or report
    unverifiable records; do not delete or rewrite production records without separate approval.
 
@@ -136,22 +179,6 @@ Acceptance criteria:
 - Rules, unit, and emulator tests cover known-file-ID attacks, cross-event access, missing
   sources, moved files, packet inclusion, and size boundaries.
 
-#### Second opinion:
-
-- Items 7–8 are half-done today: packet generation already enforces a 10 MB cap
-  (`MAX_EMBED_BYTES` in `pwa/functions/src/lib/pdf/attachments.ts`, enforced inside
-  `fetchBrokeredFileBytes`); only `getArtistDocumentContent` passes no cap (the code comments
-  "no cap on this path" in `pwa/functions/src/googleDrive.ts`). Reword item 7 to "align the
-  interactive path with the existing `MAX_EMBED_BYTES` cap" and rescope item 8 to verifying
-  that alignment, so the implementer reuses the constant instead of inventing a second limit.
-- Item 6's "once the callable path is live" understates the gate: in this project "live" means
-  deployed to Hosting, not merged — the production frontend routinely trails `main` by weeks.
-  Tightening client-create rules before the hosting release that ships the callable-based
-  clients breaks the deployed app. Tag this flip as hosting-gated (see the second opinion
-  under Cross-cutting implementation rules).
-- This workstream is several PRs, not one — see the second opinion under Recommended PR
-  sequence for a suggested split.
-
 ### WS-B. Revocation and authorization integrity
 
 **Contract change:** Disapproval or access removal must remain effective across claims,
@@ -159,10 +186,13 @@ memberships, OAuth-backed background processing, direct rules access, and future
 
 Implementation:
 
-1. Restrict creator self-membership creation to the atomic event-bootstrap path. A removed
-   creator must not be able to recreate a production-manager membership.
+1. After the Phase 0 blank-event callable is live in Hosting, restrict creator self-membership
+   creation to that server-side bootstrap path. A removed creator must not be able to recreate
+   a production-manager membership.
 2. Make contact `createdBy` and `userId` immutable for ordinary clients. Move legitimate
-   relinking or ownership changes to an admin-only callable if the product requires them.
+   relinking or ownership changes to an admin-only callable if the product requires them. The
+   current contact client updates neither field, so this rule can deploy independently of a
+   Hosting release after adversarial tests pass.
 3. Create one idempotent server-side revocation operation that:
    - marks the user unapproved,
    - updates claims without overwriting unrelated concurrent claim changes,
@@ -170,40 +200,33 @@ Implementation:
    - removes or disables event memberships according to the existing RBAC policy,
    - invalidates/removes stored OAuth credentials and connection state,
    - prevents scheduled jobs from processing the user immediately.
-4. Add active-user checks to every scheduled or queue-like Google processing path.
-5. Replace account deletion's broad Auth-error suppression with explicit error-code handling.
-6. Introduce durable deletion state and idempotent cleanup so retries can finish safely after a
+4. Make revocation immediate for callables and scheduled/background jobs by consulting the
+   authoritative user approval/revocation record. Keep the existing token-based
+   `assertApproved()` fast gate, but do not treat a decoded ID token as authoritative after an
+   administrator revokes the user.
+5. Add the same authoritative active-user check to every scheduled or queue-like Google
+   processing path.
+6. Replace account deletion's broad Auth-error suppression with explicit error-code handling.
+7. Introduce durable deletion state and idempotent cleanup so retries can finish safely after a
    partial failure. Disable/revoke access before deleting application data.
-7. Define and test whether administrator access survives the approved-claim check; keep this
+8. Define and test whether administrator access survives the approved-claim check; keep this
    behavior consistent in Functions, Firestore, Storage, and clients.
+9. Document the direct Firestore/Storage propagation bound: with claim-based rules, already
+   issued ID tokens may remain usable for at most their normal lifetime (target: no more than
+   60 minutes). If the product requires immediate direct-SDK revocation, replace claim-only
+   approval checks with an authoritative rules-readable status before declaring this complete.
 
 Acceptance criteria:
 
 - Removing an event creator's PM membership remains effective.
-- A revoked user cannot use a previously issued refresh token after the defined propagation
-  window and is ignored by scheduled integrations immediately.
+- A revoked user is blocked immediately by callables and scheduled integrations, cannot mint a
+  new valid session after refresh-token revocation, and loses claim-based direct-SDK access
+  within the documented maximum 60-minute token lifetime.
 - Contact identity fields cannot be changed through ordinary client updates.
 - Concurrent role/approval changes do not lose unrelated custom claims.
 - Account deletion never returns success while a live Auth account remains, except for the
   explicitly handled already-deleted case.
 - Rules/emulator tests reproduce and then block every original exploit path.
-
-#### Second opinion:
-
-- "After the defined propagation window" is never defined, and it is the hard part of this
-  workstream: Firebase ID tokens carry stale claims for up to an hour after refresh-token
-  revocation unless privileged paths re-check server-side. Pin the targets here: immediate for
-  callables and scheduled jobs (server-side approval/claim re-checks — `assertApproved()` from
-  PR #97 is the existing foothold), and an explicit ≤60-minute bound or revocation-aware token
-  verification for rules-enforced surfaces. Otherwise the decision silently falls to whoever
-  implements PR 3.
-- Item 1 depends on machinery built later: the "atomic event-bootstrap path" arrives with
-  WS-G.1 in PR 9, while this restriction ships in PR 2. Blank-event creation today is two
-  sequential client `setDoc` calls (`pwa/src/features/events/events-service.ts`). Either
-  reorder, or have PR 2's rules accept an atomic client batch via `getAfter()` (event and
-  membership created together) until the callable replaces it — the plan should state which.
-- Items 1–2 tighten rules the currently deployed frontend violates; both flips are
-  hosting-gated (see the Cross-cutting second opinion).
 
 ### WS-C. Cross-user cache isolation
 
@@ -220,22 +243,13 @@ Implementation:
      clients and document the offline tradeoff.
 4. Ensure optimistic mutations cannot settle into the next user's cache after sign-out.
 5. Add a two-user browser/emulator test that proves user B never renders user A's event,
-   advance, contact, document, or schedule data.
+   advance, contact, document, or schedule data, using the Phase 0 authenticated fixture.
 
 Acceptance criteria:
 
 - No prior-user protected data is rendered during or after an account switch.
 - Auth transitions cancel or isolate pending requests and optimistic mutations.
 - The chosen offline policy is documented in PWA recovery and auth guidance.
-
-#### Second opinion:
-
-Item 5 and the verification matrix's two-user browser test require authenticated Playwright
-infrastructure and deterministic emulator identities that this plan only builds in WS-J
-(PR 13, Phase 2) — today's suite is three unauthenticated smoke tests that are not wired into
-CI. Pull WS-J.3 (deterministic emulator identities) plus one minimal authenticated fixture
-forward into Phase 0 as shared infrastructure; WS-B's revocation acceptance tests want the
-same identities.
 
 ### WS-D. Production-safe local and deploy tooling
 
@@ -295,7 +309,9 @@ Implementation:
 
 1. Inventory every date input, parser, formatter, timestamp writer, schedule-template anchor,
    and PDF formatter across PWA and Functions.
-2. Separate date-only APIs from instant APIs at the type/helper level.
+2. Separate date-only APIs from instant APIs by extending the machinery already shipped in
+   PRs #97 and #100: `shiftDayKey`, the PWA/Functions zoned-time helpers, and their golden-vector
+   parity tests. Do not create a parallel date-helper layer.
 3. Replace browser-local event-date and manual advance-call conversion with explicit zoned
    helpers.
 4. Ensure event timezone is available at every editing and rendering boundary that handles an
@@ -311,26 +327,20 @@ Acceptance criteria:
 - Advance calls round-trip to the same instant and expected local event time.
 - Schedule templates and PDFs use the event's intended calendar day.
 
-#### Second opinion:
-
-The July 2026 remediation already shipped timezone machinery this workstream should extend
-rather than replace: `shiftDayKey` event-timezone day-math (PR #97) and the Functions/PWA
-`zonedTime.ts` dedup with golden-vector parity tests (PR #100). Item 2's date-only/instant
-split should build on those helpers; a parallel new helper layer would reintroduce exactly the
-drift the parity tests exist to prevent. Worth stating in the plan because the implementing
-session will not have memory of those PRs.
-
 ### WS-G. Atomic creation, slug, and schedule concurrency
 
 Implementation:
 
-1. Move blank event creation and initial membership creation into one callable/batch.
+1. Complete and retain the Phase 0 callable migration for blank event + initial membership
+   creation; keep its idempotency and authorization tests with this workstream.
 2. Reserve event slugs transactionally in a canonical slug collection. Enforce reservation on
    create, rename, archive/delete, and retry.
 3. Audit existing events for duplicate slugs before activating strict enforcement.
-4. Make manual booking attach and review-record resolution one atomic backend operation.
-5. Add a revision/version precondition to schedule-day writes, or normalize schedule items into
-   independently writable documents if the resulting data-model change is justified.
+4. Extend the transactional booking auto-attach pattern shipped in PR #97 so manual attach and
+   review-record resolution become one atomic backend operation rather than a parallel design.
+5. Add a revision/version precondition to whole-day schedule writes and return an explicit
+   conflict on stale revisions. The PR #108–#114 day-container model remains canonical;
+   normalizing items into separate documents requires a separately justified redesign.
 6. Surface a recoverable conflict instead of silently overwriting another editor's changes.
 7. Apply idempotency keys to retryable creation callables.
 
@@ -341,25 +351,13 @@ Acceptance criteria:
 - Concurrent schedule edits are merged safely or one writer receives an explicit conflict.
 - Retrying a timed-out creation request does not produce duplicate events or records.
 
-#### Second opinion:
-
-- Item 4: booking auto-attach was already made transactional in PR #97; the remaining gap is
-  manual attach and review-record resolution. Name the existing transaction so the implementer
-  extends it instead of building a parallel path.
-- Item 5: prefer the revision/version-precondition option explicitly. The alternative of
-  normalizing items into independent documents reopens a schedule data model that was
-  redesigned and migrated two weeks ago (PRs #108–#114); it should require strong
-  justification rather than reading as an equal option.
-- Item 1 is the bootstrap path WS-B.1 (PR 2) depends on — see that workstream's second opinion
-  for the ordering fix. Moving creation behind a callable and then tightening rules is also
-  hosting-gated.
-
 ### WS-H. Google integration lifecycle hardening
 
 Implementation:
 
-1. Make Calendar/Meet creation and Drive folder creation idempotent; reconcile an already-created
-   remote resource after a timeout before creating another.
+1. Extend the adopt-or-cleanup pattern shipped in PR #100. Event-calendar creation and schedule
+   reconciliation already use it; add retry reconciliation to Drive folder creation and to
+   `createAdvanceCall`'s Calendar-event/Meet insertion, which remain uncovered.
 2. Resolve event-calendar ownership explicitly. Do not assume another PM can operate on the
    first creator's private calendar without verified sharing/permissions.
 3. Paginate every Calendar and Drive list operation; remove fixed-result assumptions.
@@ -378,13 +376,6 @@ Acceptance criteria:
 - Multi-PM calendar behavior has an explicit, tested ownership and sharing model.
 - Scheduled sync paginates, checkpoints, and skips inactive users.
 - Logs contain stable error context without credentials or unnecessary Google response data.
-
-#### Second opinion:
-
-Item 1 partially exists: adopt-or-cleanup idempotency for Calendar and schedule creates
-shipped in PR #100. The uncovered residue is Drive folder creation (and Meet, if it is created
-separately). Reword to "extend the existing adopt-or-cleanup pattern to Drive folders" so a
-fresh session does not reinvent the mechanism.
 
 ### WS-I. Production observability and runtime defense
 
@@ -420,8 +411,8 @@ Implementation:
 
 1. Eliminate the four `LineupPanel` unwrapped-`act()` warnings.
 2. Add adversarial unit/rules/emulator tests alongside each P0/P1 fix.
-3. Create deterministic emulator identities for admin, organizer, PM, lead, tech, pending,
-   revoked, and cross-event users.
+3. Expand the deterministic identities and minimal authenticated fixture created in Phase 0;
+   do not build a second harness.
 4. Add authenticated Playwright flows for:
    - approval and revocation,
    - event creation and slug routing,
@@ -444,12 +435,6 @@ Acceptance criteria:
 - Test output has no React timing warnings.
 - Coverage floors cannot regress and the newly remediated service/orchestration modules have
   meaningful direct coverage.
-
-#### Second opinion:
-
-Item 3 should not wait for Phase 2: WS-C's two-user test (PR 4) and WS-B's revocation tests
-(PRs 2–3) need deterministic emulator identities in Phase 0. Move the identity fixtures (and
-one minimal authenticated Playwright fixture) forward and keep the full flow catalog here.
 
 ### WS-K. Dependency and supply-chain posture
 
@@ -542,59 +527,96 @@ Acceptance criteria:
    and approval.
 5. **Backend deployment is separate.** After merge, Functions/rules changes require the secret
    health check and explicit deployment confirmation. Never deploy Firebase Hosting.
-6. **Review and gates.** Each code branch runs relevant lint, typecheck, tests, build, rules,
+6. **Classify every deployment.** Every implementation PR must carry one of the deployment tags
+   defined below. A merge is not evidence that its client path is live.
+7. **Gate restrictive rules on the live client.** When a change adds a callable client path and
+   later removes the legacy direct-write path, use this order:
+   1. deploy the additive/backward-compatible Function after explicit confirmation;
+   2. release and verify the new PWA through the owner-operated Hosting workflow;
+   3. only then deploy the restrictive Firestore/Storage rules after explicit confirmation.
+   Record pending enforcement flips so they cannot be deployed early or forgotten.
+8. **Review and gates.** Each code branch runs relevant lint, typecheck, tests, build, rules,
    emulator, and CodeRabbit review before the user review checkpoint.
-7. **Observability during migration.** Add structured counters/logs for compatibility or
+9. **Observability during migration.** Add structured counters/logs for compatibility or
    reconciliation paths, without logging tokens or sensitive payloads.
 
-#### Second opinion:
+Deployment tags:
 
-Rules 3 and 5 miss the operational fact that makes them dangerous here: Hosting deploys are
-owner-performed and infrequent, so the production frontend routinely trails `main` by weeks
-while functions/rules deploy per merge. Every workstream that moves a client write behind a
-callable and then tightens rules (WS-A.6, WS-B.1–2, WS-G.1) has an enforcement flip that is
-only safe after the hosting release containing the new client path — not after merge. The
-July remediation hit exactly this with the uid-scoped contact-photo storage rules, which had
-to be held for the coupled Hosting deploy. Amendment: give every PR an explicit deploy tag —
-"safe to deploy on merge" vs "enforcement gated on next hosting release" — list pending flips
-in the Completion record, and schedule hosting releases at phase boundaries so gated flips do
-not pile up.
+| Tag | Meaning |
+| --- | --- |
+| `NONE` | No production deployment; tests, docs, tooling, or audit only |
+| `FUNCTIONS` | Backward-compatible Functions deployment allowed only after health check and explicit confirmation |
+| `RULES` | Backward-compatible rules deployment allowed only after tests and explicit confirmation |
+| `HOSTING` | Requires the owner-operated manual Hosting workflow; agents never deploy Hosting |
+| `HOSTING-GATED RULES` | Restrictive rules must wait for a named, verified Hosting checkpoint |
+| `MIXED` | Components have different tags and must be deployed in the documented order or split before deployment |
 
-## Recommended PR sequence
+## Recommended delivery sequence
 
-The sequence below limits overlapping files and establishes enforcement before broader cleanup:
+Change-set IDs describe order; they are not predicted GitHub PR numbers. Keep each row as one
+reviewable PR unless implementation discovery justifies a smaller split. Do not combine rows
+merely to reduce PR count.
 
-1. **PR 1 — Drive broker server authorization and payload caps** (`WS-A`)
-2. **PR 2 — Membership/contact rules and adversarial tests** (first half of `WS-B`)
-3. **PR 3 — Revocation, claims, OAuth disconnect, and account deletion** (second half of `WS-B`)
-4. **PR 4 — Auth cache isolation** (`WS-C`)
-5. **PR 5 — Emulator, secret-health, and safeguard corrections** (`WS-D`)
-6. **PR 6 — Upload lifecycle and compensation** (first half of `WS-E`)
-7. **PR 7 — Recursive/soft deletion and orphan inventory** (second half of `WS-E`)
-8. **PR 8 — Date-only and event-timezone normalization** (`WS-F`)
-9. **PR 9 — Atomic event creation and transactional slugs** (first half of `WS-G`)
-10. **PR 10 — Schedule concurrency and remaining coupled writes** (second half of `WS-G`)
-11. **PR 11 — Google lifecycle and scheduled-sync hardening** (`WS-H`)
-12. **PR 12 — Sentry, App Check observation, headers, and runtime smoke** (`WS-I`)
-13. **PR 13 — Authenticated emulator/E2E CI suite** (`WS-J`)
-14. **PR 14 — Dependency, workflow, and audit hardening** (`WS-K`)
-15. **PR 15 — Performance, accessibility, and dirty-form resilience** (`WS-L`)
-16. **PR 16 — Maintenance, release traceability, and shared-contract extraction** (`WS-M`)
+| Order | Scope | Workstream | Deploy tag and ordering |
+| --- | --- | --- | --- |
+| S0 | Deterministic emulator identities and one minimal authenticated Playwright fixture | Phase 0 / WS-J foundation | `NONE` |
+| S1 | Interactive broker content cap using a centralized bounded-fetch policy; preserve packet's existing 10 MB cap | WS-A / F-10 | `FUNCTIONS` |
+| S2 | Server-validated Drive registration callables plus PWA client migration; no restrictive rules yet | WS-A / F-1 | `MIXED`: additive `FUNCTIONS`, then hold client for H0 |
+| S3 | Idempotent atomic blank-event + creator-membership callable plus PWA client migration | Phase 0 / WS-G foundation | `MIXED`: additive `FUNCTIONS`, then hold client for H0 |
+| S4 | UID-scoped queries, auth-transition cancellation, and selected Firestore persistence policy | WS-C / F-4 | `HOSTING`; include in H0 |
+| S5 | Authoritative revocation, claim update safety, OAuth disconnect, refresh-token revocation, and durable account deletion | WS-B / F-2, F-9 | `FUNCTIONS` |
+| S6 | Immutable contact ownership/link fields plus adversarial rules tests | WS-B / F-3 | `RULES`; compatible with current client |
+| S7 | Safe emulator command, complete secret-health gate, reproducible safeguards, and dry-run script guards | WS-D / F-8, F-11 | `NONE`; affects future operator commands/deploys |
+| H0 | **Owner Hosting checkpoint:** release and verify the clients from S2–S4; record deployed commit SHA | Phase 0 | `HOSTING`; owner-operated, not an agent PR/deploy |
+| S8 | Drive registration and event-membership enforcement flips plus read-only legacy-record reports | WS-A, WS-B | `HOSTING-GATED RULES`; deploy only after H0 verification |
+| S9 | Promise-based logo/photo persistence and upload compensation | WS-E / F-5 | `HOSTING` |
+| S10 | Privileged recursive/soft deletion and read-only orphan inventory | WS-E / F-7 | `MIXED`; additive `FUNCTIONS`, client via next Hosting release; cleanup execution separately approved |
+| S11 | Date-only/instant correction using existing zoned-time helpers and parity tests | WS-F / F-6 | `MIXED`; deploy compatible Functions first, client through Hosting |
+| S12 | Transactional slugs, manual booking attach, and schedule revision conflicts | WS-G | `MIXED`; document any rule enforcement that waits for its Hosting client |
+| S13 | Google retry/idempotency, calendar ownership, pagination, checkpointing, OAuth races, retention, and redacted errors | WS-H | `FUNCTIONS` |
+| S14 | Sentry/release/source maps, App Check observation, security headers, and runtime smoke | WS-I / F-12 | `MIXED`; requires owner-provisioned secrets and Hosting workflow changes |
+| S15 | Full authenticated workflow catalog, CI smoke, warning cleanup, and Functions-test typechecking | WS-J | `NONE` |
+| S16 | Advisory policy, immutable Action/CLI versions, least-privilege workflow permissions | WS-K | `NONE` |
+| S17 | Route chunks, responsive/a11y fixes, modal semantics, and dirty-form resilience | WS-L | `HOSTING` |
+| S18 | Formatting/docs/release traceability and shared-contract extraction | WS-M | `NONE` unless release metadata changes the PWA build |
 
-PRs may be split further when a migration or review surface becomes too broad. They should not
-be merged together merely to reduce PR count.
+S2 and S3 may proceed independently after S0, but both client migrations and S4 should share
+H0 so the owner performs one deliberate Phase 0 Hosting release. S8 is blocked until H0's
+deployed SHA and smoke result are recorded.
 
-#### Second opinion:
+## Implementation kickoff
 
-- Pre-split PR 1: (1a) content-size cap on `getArtistDocumentContent` reusing
-  `MAX_EMBED_BYTES` — tiny, independent, immediate win; (1b) callable registration paths plus
-  PWA client migration; (1c) rules tightening plus the read-only audit script, explicitly
-  gated on the hosting release that ships 1b.
-- Add a small "PR 0" (or fold into PR 2): deterministic emulator identities and one minimal
-  authenticated Playwright fixture, since the acceptance tests of PRs 2–4 depend on them.
-- PR 2 restricts membership creation to a bootstrap path PR 9 builds — resolve with the
-  `getAfter()` batch guard or by reordering (see the WS-B second opinion).
-- Tag each PR "deploy on merge" vs "hosting-gated" per the Cross-cutting second opinion.
+After explicit implementation approval, begin with S0 and then S1. They are intentionally
+small and do not depend on a Hosting release.
+
+### S0 kickoff — authenticated emulator foundation
+
+- Suggested branch: `test/authenticated-emulator-fixtures`
+- Primary surfaces: `pwa/playwright.config.ts`, `pwa/tests/`, emulator startup scripts, and
+  test-only seed/auth helpers.
+- Keep all identities and data in the `demo-46advance` emulator project; add a hard assertion
+  that prevents the fixture from running against `advancethat`.
+- Initial proof: admin and two ordinary users can authenticate in isolated browser contexts,
+  retain independent auth state, and receive the expected seeded event memberships. The actual
+  cross-user query-cache regression assertion lands with S4.
+- Required gates: targeted fixture tests, existing Playwright smoke, PWA typecheck/lint, and a
+  clean shutdown that leaves no production configuration or tracked credentials.
+
+### S1 kickoff — bounded interactive broker content
+
+- Suggested branch: `fix/document-broker-size-cap`
+- Primary surfaces: `pwa/functions/src/googleDrive.ts`, the existing PDF attachment/broker
+  helper, callable tests, and the relevant callable output/error contract.
+- First decide the raw-byte limit from the callable response envelope, including base64
+  expansion. Centralize bounded fetching in a neutral helper and preserve the packet path's
+  existing 10 MB behavior.
+- Initial proof: exact-boundary content succeeds; over-limit content fails before full buffering
+  or response encoding; packet attachment tests remain unchanged in behavior.
+- Required gates: Functions lint/typecheck/test/build and the emulator-backed callable suite.
+
+Do not begin S2's Drive authorization migration until S0 is available for its adversarial
+browser/emulator coverage. S0 and S1 may be separate review branches, but only one should be
+actively edited in the shared worktree at a time unless isolated worktrees are used.
 
 ## Verification matrix
 
@@ -617,6 +639,9 @@ When P0 and P1 are complete, update this document with:
 - PR numbers and merge dates for each workstream.
 - Any data audit or migration counts, without sensitive record contents.
 - Deployment targets and health-check results.
+- The Hosting commit SHA and smoke result for each checkpoint.
+- Every pending enforcement flip, its required Hosting checkpoint, and its eventual rules
+  deployment result.
 - Before/after test counts, coverage, and production bundle sizes.
 - Remaining P2/P3 deferrals and their revisit triggers.
 - Confirmation that F-13 remains deferred or a separately authorized follow-up reference.
