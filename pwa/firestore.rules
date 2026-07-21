@@ -104,11 +104,9 @@ service cloud.firestore {
     // Bulk creation stays server-side (importDriveFolder, Admin SDK).
     match /artistDocuments/{docId} {
       allow read: if isActiveUser();
-      allow create: if isActiveUser() && (isAdmin() || isOrganizer())
-        && request.resource.data.get('fileId', '') == docId
-        && nonEmptyStr(request.resource.data, 'name')
-        && nonEmptyStr(request.resource.data, 'webViewLink')
-        && request.resource.data.importedBy == request.auth.uid;
+      // Server-only (S8): registered by the registerArtistDocument callable (Admin SDK), which
+      // verifies the file's Drive provenance under the library root first (F-1). No client create.
+      allow create: if false;
       allow update, delete: if isActiveUser() && (isAdmin() || isOrganizer());
     }
 
@@ -195,11 +193,10 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if isAdmin() || isMember(eventId);
-      allow create: if canCreateEvents()
-        && request.resource.data.createdBy == request.auth.uid
-        && nonEmptyStr(request.resource.data, 'name')
-        && fieldIn(request.resource.data, 'status', ['draft', 'active', 'archived'])
-        && !('googleCalendarId' in request.resource.data); // server-owned (createEventCalendar)
+      // Server-only (S8): events are created atomically with the creator's PM membership by the
+      // createBlankEvent / createEventFromTemplate callables (Admin SDK), so an event can never
+      // exist without its membership (WS-G). No client create.
+      allow create: if false;
       allow update: if canEditEvent(eventId)
         && request.resource.data.createdBy == resource.data.createdBy // owner immutable
         && nonEmptyStr(request.resource.data, 'name')
@@ -216,12 +213,10 @@ service cloud.firestore {
         allow read: if isAdmin()
           || (isSignedIn() && request.auth.uid == memberUid)
           || isMember(eventId);
-        allow create: if isAdmin()
-          || (memberUid == request.auth.uid
-              && request.resource.data.role == 'production-manager'
-              && request.resource.data.uid == request.auth.uid
-              && exists(/databases/$(database)/documents/events/$(eventId))
-              && eventCreatedBy(eventId) == request.auth.uid);
+        // Admin adds members; the creator's own PM membership is created server-side by the
+        // createBlankEvent callable (Admin SDK) — NOT client self-bootstrap — so a removed creator
+        // can't recreate a PM membership (WS-B, S8).
+        allow create: if isAdmin();
         allow update, delete: if isAdmin();
       }
 
@@ -258,11 +253,9 @@ service cloud.firestore {
           // packet-embedding PR; the audit fields stay immutable.
           match /documents/{docId} {
             allow read: if isAdmin() || isMember(eventId);
-            allow create: if canEditEvent(eventId)
-              && nonEmptyStr(request.resource.data, 'fileId')
-              && nonEmptyStr(request.resource.data, 'name')
-              && request.resource.data.addedBy == request.auth.uid
-              && request.resource.data.addedAt == request.time; // serverTimestamp() only
+            // Server-only (S8): included via the includeArtistDocumentOnAdvance callable (Admin
+            // SDK), which copies the canonical artistDocuments metadata (F-1). No client create.
+            allow create: if false;
             allow update: if canEditEvent(eventId)
               && keysUnchanged(['addedBy', 'addedAt', 'fileId']);
             allow delete: if canEditEvent(eventId);
@@ -320,11 +313,9 @@ service cloud.firestore {
       // Members read; PM/admin manage. Audit fields pinned + immutable.
       match /documents/{docId} {
         allow read: if isAdmin() || isMember(eventId);
-        allow create: if canEditEvent(eventId)
-          && request.resource.data.get('fileId', '') == docId // broker resolves by doc id
-          && nonEmptyStr(request.resource.data, 'name')
-          && request.resource.data.uploadedBy == request.auth.uid
-          && request.resource.data.uploadedAt == request.time; // serverTimestamp() only
+        // Server-only (S8): registered by the registerEventDocument callable (Admin SDK), which
+        // verifies the file lives in the event's linked Drive folder (F-1). No client create.
+        allow create: if false;
         allow update: if canEditEvent(eventId)
           && keysUnchanged(['uploadedBy', 'uploadedAt', 'fileId']);
         allow delete: if canEditEvent(eventId);

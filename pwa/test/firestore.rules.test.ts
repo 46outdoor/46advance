@@ -295,70 +295,23 @@ describe('firestore.rules — flags (canFlag)', () => {
   });
 });
 
-describe('firestore.rules — event creation (global capability)', () => {
-  const newEvent = (createdBy: string) => ({
-    name: 'New Fest',
-    status: 'draft',
-    createdBy,
-  });
+describe('firestore.rules — event creation is server-only (S8)', () => {
+  const newEvent = (createdBy: string) => ({ name: 'New Fest', status: 'draft', createdBy });
 
-  it('an organizer can create an event they own', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-org'), newEvent(ORGANIZER.uid)));
-  });
-
-  it('admin can create an event', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/evt-adm'), newEvent(ADMIN.uid)));
-  });
-
-  it('a plain signed-in user (no organizer claim) cannot create events', async () => {
+  it('no client can create an event directly — only the createBlankEvent/template callables', async () => {
+    await assertFails(setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-org'), newEvent(ORGANIZER.uid)));
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/evt-adm'), newEvent(ADMIN.uid)));
     await assertFails(setDoc(doc(dbFor(OUTSIDER), 'events/evt-no'), newEvent(OUTSIDER)));
-  });
-
-  it('cannot create an event owned by someone else', async () => {
-    await assertFails(setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-spoof'), newEvent('someone-else')));
-  });
-
-  it('rejects an invalid status', async () => {
-    await assertFails(
-      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-bad'), {
-        name: 'X',
-        status: 'live',
-        createdBy: ORGANIZER.uid,
-      }),
-    );
   });
 });
 
-describe('firestore.rules — creator self-bootstrap as production-manager', () => {
-  it('the event creator may add themselves as PM', async () => {
-    const db = dbFor(ORGANIZER.uid, ORGANIZER.token);
-    await assertSucceeds(setDoc(doc(db, 'events/evt-mine'), { name: 'Mine', status: 'draft', createdBy: ORGANIZER.uid }));
-    await assertSucceeds(
-      setDoc(doc(db, 'events/evt-mine/members', ORGANIZER.uid), {
-        role: 'production-manager',
-        addedBy: ORGANIZER.uid,
-        uid: ORGANIZER.uid,
-      }),
-    );
-  });
-
-  it('cannot self-bootstrap PM on an event you did not create', async () => {
-    // event-a was created by admin-1, not the organizer.
+describe('firestore.rules — creator membership is server-only (S8)', () => {
+  it('a user cannot self-bootstrap a PM membership — createBlankEvent adds it server-side', async () => {
+    // No client self-bootstrap: a removed creator can't recreate a PM membership (WS-B).
+    // (event-a was created by admin-1.)
     await assertFails(
       setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/event-a/members', ORGANIZER.uid), {
         role: 'production-manager',
-        addedBy: ORGANIZER.uid,
-        uid: ORGANIZER.uid,
-      }),
-    );
-  });
-
-  it('cannot self-bootstrap a non-PM role (e.g. grant yourself tech everywhere)', async () => {
-    const db = dbFor(ORGANIZER.uid, ORGANIZER.token);
-    await assertSucceeds(setDoc(doc(db, 'events/evt-mine2'), { name: 'Mine2', status: 'draft', createdBy: ORGANIZER.uid }));
-    await assertFails(
-      setDoc(doc(db, 'events/evt-mine2/members', ORGANIZER.uid), {
-        role: 'tech',
         addedBy: ORGANIZER.uid,
         uid: ORGANIZER.uid,
       }),
@@ -854,7 +807,7 @@ describe('firestore.rules — artistDocuments (library)', () => {
     await assertFails(updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }));
   });
 
-  it('managers record their own uploads (id = fileId, importedBy pinned); tech cannot create', async () => {
+  it('client create is denied — records come only from the registerArtistDocument callable (S8)', async () => {
     const upload = (fileId: string, over: Record<string, unknown> = {}) => ({
       fileId,
       name: 'Uploaded.pdf',
@@ -862,17 +815,10 @@ describe('firestore.rules — artistDocuments (library)', () => {
       importedBy: ADMIN.uid,
       ...over,
     });
-    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-1'), upload('up-1')));
-    await assertSucceeds(
-      setDoc(
-        doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/up-2'),
-        upload('up-2', { importedBy: ORGANIZER.uid }),
-      ),
-    );
-    // id must equal fileId; the audit field must be the caller; techs can't create.
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-3'), upload('other-id')));
+    // Even admin/organizer can no longer client-create — provenance is verified server-side.
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-1'), upload('up-1')));
     await assertFails(
-      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-4'), upload('up-4', { importedBy: 'someone' })),
+      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/up-2'), upload('up-2', { importedBy: ORGANIZER.uid })),
     );
     await assertFails(setDoc(doc(dbFor(TECH), 'artistDocuments/up-5'), upload('up-5', { importedBy: TECH })));
   });
@@ -972,16 +918,11 @@ describe('firestore.rules — event documents', () => {
     await assertFails(getDoc(doc(dbFor(OUTSIDER), docPath)));
   });
 
-  it('PM creates with pinned audit fields; forged uploadedBy/uploadedAt and tech writes fail', async () => {
+  it('client create is denied — records come only from the registerEventDocument callable (S8)', async () => {
     const at = (n: number) => `events/event-a/documents/efile-${n}`;
-    await assertSucceeds(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'efile-2' }));
-    await assertFails(setDoc(doc(dbFor(PM), at(3)), { ...validDoc(), fileId: 'efile-3', uploadedBy: 'someone-else' }));
-    await assertFails(
-      setDoc(doc(dbFor(PM), at(4)), { ...validDoc(), fileId: 'efile-4', uploadedAt: Timestamp.fromMillis(0) }),
-    );
+    // Even a PM can no longer client-create — folder membership is verified server-side.
+    await assertFails(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'efile-2' }));
     await assertFails(setDoc(doc(dbFor(TECH), at(5)), { ...validDoc(), fileId: 'efile-5', uploadedBy: TECH }));
-    // The doc id must equal the file id — the broker resolves records by doc id.
-    await assertFails(setDoc(doc(dbFor(PM), at(6)), { ...validDoc(), fileId: 'mismatched' }));
   });
 
   it('updates re-day/categorize but keep audit + fileId immutable; PM deletes', async () => {
@@ -1014,23 +955,11 @@ describe('firestore.rules — advance documents (inclusion)', () => {
     await assertFails(getDoc(doc(dbFor(OUTSIDER), docPath)));
   });
 
-  it('PM includes with addedBy pinned to the caller; forged addedBy and tech writes fail', async () => {
-    const path2 = 'events/event-a/stages/stg-a/advances/adv-1/documents/file-2';
-    await assertSucceeds(setDoc(doc(dbFor(PM), path2), { ...validDoc(), fileId: 'file-2' }));
-    await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1/documents/file-3'), {
-        ...validDoc(),
-        fileId: 'file-3',
-        addedBy: 'someone-else',
-      }),
-    );
-    await assertFails(
-      setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1/documents/file-4'), {
-        ...validDoc(),
-        fileId: 'file-4',
-        addedBy: TECH,
-      }),
-    );
+  it('client create is denied — inclusions come only from the includeArtistDocumentOnAdvance callable (S8)', async () => {
+    const at = (n: number) => `events/event-a/stages/stg-a/advances/adv-1/documents/file-${n}`;
+    // Even a PM can no longer client-create — the callable copies canonical artistDocuments metadata.
+    await assertFails(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'file-2' }));
+    await assertFails(setDoc(doc(dbFor(TECH), at(4)), { ...validDoc(), fileId: 'file-4', addedBy: TECH }));
   });
 
   it('rejects a blank fileId or name, and a forged (non-server) addedAt, on create', async () => {
