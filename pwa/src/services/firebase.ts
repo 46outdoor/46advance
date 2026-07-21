@@ -10,6 +10,8 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   connectFirestoreEmulator,
+  terminate,
+  clearIndexedDbPersistence,
 } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
@@ -37,4 +39,16 @@ if (import.meta.env.VITE_USE_EMULATORS === 'true') {
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
   connectStorageEmulator(storage, '127.0.0.1', 9199);
+}
+
+/**
+ * Clear the Firestore persistent (IndexedDB) cache so one account's cached documents can't
+ * be served to the next account on a shared browser. `terminate` is required first, which
+ * leaves the instance unusable — the caller MUST reload the app afterward to reinitialize
+ * Firestore (see AuthProvider.signOut). Best-effort: `clearIndexedDbPersistence` rejects if
+ * another tab still holds the database, so callers should catch and proceed to reload.
+ */
+export async function clearFirestoreCache(): Promise<void> {
+  await terminate(db);
+  await clearIndexedDbPersistence(db);
 }

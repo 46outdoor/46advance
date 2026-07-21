@@ -50,11 +50,28 @@ timezone handling is required for any user-facing date display.
 
 ## Offline Persistence
 
-Firestore offline persistence is enabled. Account for this in:
+Firestore offline persistence is enabled (`persistentLocalCache`) and kept for single-user
+offline continuity (personal devices). Account for this in:
 
 - Optimistic UI updates
 - Conflict resolution
 - Cache invalidation via React Query
+
+### Cross-user cache isolation (F-4)
+
+On a shared browser the persistent cache could otherwise serve one account's cached
+documents to the next. Policy:
+
+- `AuthProvider` clears the React Query cache (cancel in-flight + `clear()`) on **every auth
+  identity transition** — sign-out and account switch — before the next user's app renders.
+- **Explicit sign-out** additionally clears the Firestore IndexedDB cache via
+  `clearFirestoreCache()` in `src/services/firebase.ts` (`terminate` + `clearIndexedDbPersistence`)
+  and hard-reloads to reinitialize Firestore empty. Clearing the persistent cache is
+  best-effort — it can't run while another tab still holds the database, so the reload is the
+  backstop.
+
+Do not disable `persistentLocalCache`; do not add per-user query-key scoping as a substitute —
+the transition clear is the isolation guarantee.
 
 ## Security Rules
 
