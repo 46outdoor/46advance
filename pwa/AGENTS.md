@@ -208,6 +208,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
 | Test mocks: domain    | `src/testing/mockFactories.ts`                           |
 | Functions handler test harness | `functions/src/testing/emulatorHarness.ts` (wrap callables vs live Auth/Firestore emulators; run via `test:emulator`) |
+| Authenticated E2E (emulator) | `tests/emulator/` (deterministic personas + REST seeder + Playwright sign-in/isolated-context fixtures; run via `test:e2e:emulator`, demo-46advance only) |
 | Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
