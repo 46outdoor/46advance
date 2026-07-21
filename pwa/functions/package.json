@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:emulator": "FIREBASE_PROJECT=demo-46advance ../scripts/cli/firebase-safe.sh emulators:exec --only auth,firestore --config ../firebase.json \"vitest run --config vitest.emulator.config.ts\"",
-    "serve": "npm run build && firebase emulators:start --only functions"
+    "serve": "npm run build && FIREBASE_PROJECT=demo-46advance ../scripts/cli/firebase-safe.sh emulators:start --only functions,auth,firestore --config ../firebase.json"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
