@@ -7,7 +7,6 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { artistKey, documentTitle, type ArtistDocument } from '@/lib/documents/artistDocument';
 import { listDocumentsForArtist } from '@/lib/documents/artist-documents-service';
@@ -44,7 +43,6 @@ function OpenButton({ fileId }: { fileId: string }) {
 }
 
 export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName, canEdit }: Props) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const key = artistKey(artistName);
   const [showObsolete, setShowObsolete] = useState(false);
@@ -65,7 +63,7 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
     // Exclusion needs only the id (orphaned rows have no library doc anymore).
     mutationFn: ({ include, doc, docId }: { include: boolean; doc?: ArtistDocument; docId: string }) =>
       include && doc
-        ? includeArtistDocument(eventId, stageId, advanceId, doc, user!.uid)
+        ? includeArtistDocument(eventId, stageId, advanceId, doc.id)
         : excludeArtistDocument(eventId, stageId, advanceId, docId),
     onSuccess: invalidate,
     onError: (e) => logger.error('Failed to update included documents', e),

@@ -28,10 +28,14 @@ import { assertApproved } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
+import { getFileForRegistration, resolveArtistFolder } from './lib/broker/driveProvenance.js';
 import {
   getArtistDocumentContentInputSchema,
   importDriveFolderInputSchema,
+  includeAdvanceDocumentInputSchema,
   linkDriveFileInputSchema,
+  registerArtistDocumentInputSchema,
+  registerEventDocumentInputSchema,
   removeDriveFileInputSchema,
   savePacketToDriveInputSchema,
 } from './contracts/callables/googleDrive.js';
@@ -484,3 +488,138 @@ export const getArtistDocumentContent = onCall(
     };
   },
 );
+
+/**
+ * Register a Drive file uploaded into an event's linked folder as an event document
+ * (admin or event PM). Verifies server-side — with the caller's OAuth — that the file
+ * actually lives in the event's recorded Drive folder, and captures Google's canonical
+ * metadata; clients no longer assert the file id or its display metadata (F-1 hardening).
+ * Input: { eventId, fileId, displayName?, day?, categoryId? }.
+ */
+export const registerEventDocument = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  const { eventId, fileId, displayName, day, categoryId } = parseCallableData(
+    registerEventDocumentInputSchema,
+    request.data,
+  );
+  const db = getFirestore();
+  await enforceRateLimit(db, ['registerEventDocument', uid], 60);
+  await assertCanEditEvent(db, token, uid, eventId);
+
+  const driveFolderId = (await db.doc(`events/${eventId}`).get()).get('driveFolderId');
+  if (typeof driveFolderId !== 'string' || !driveFolderId) {
+    throw new HttpsError('failed-precondition', 'This event has no linked Drive folder.');
+  }
+
+  const client = await authedClientForUser(db, uid);
+  const file = await getFileForRegistration(google.drive({ version: 'v3', auth: client }), fileId);
+  if (!file) throw new HttpsError('not-found', 'Could not access that Drive file — re-pick it from the picker.');
+  if (!file.parents.includes(driveFolderId)) {
+    throw new HttpsError('permission-denied', "That file is not in this event's Drive folder.");
+  }
+
+  await db.doc(`events/${eventId}/documents/${file.id}`).set({
+    fileId: file.id,
+    name: file.name,
+    displayName: displayName?.trim() ? displayName.trim() : null,
+    mimeType: file.mimeType,
+    iconLink: file.iconLink,
+    webViewLink: file.webViewLink,
+    day: day ?? null,
+    categoryId: categoryId ?? null,
+    uploadedBy: uid,
+    uploadedAt: Timestamp.now(),
+  });
+  return { ok: true };
+});
+
+/**
+ * Register a Drive file uploaded into the artist library as a library document (admin or
+ * organizer). Verifies — with the docs-broker SA — that the file lives under the recorded
+ * library root folder, and derives the artist + metadata from Drive; clients no longer
+ * assert the file id, its metadata, or the artist (F-1 hardening). Input: { fileId }.
+ */
+export const registerArtistDocument = onCall({ secrets: [DRIVE_SA_KEY], timeoutSeconds: 60 }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  assertApproved(token);
+  if (token.admin !== true && token.organizer !== true) {
+    throw new HttpsError('permission-denied', 'Admin or organizer only.');
+  }
+  const { fileId } = parseCallableData(registerArtistDocumentInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['registerArtistDocument', uid], 60);
+
+  const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId');
+  if (typeof rootFolderId !== 'string' || !rootFolderId) {
+    throw new HttpsError('failed-precondition', 'The document library has not been configured yet.');
+  }
+
+  const drive = brokerDriveClient();
+  const file = await getFileForRegistration(drive, fileId);
+  if (!file) throw new HttpsError('not-found', 'Could not access that Drive file.');
+  const folder = await resolveArtistFolder(drive, file.parents[0] ?? null, rootFolderId, MAX_FOLDER_DEPTH);
+  if (!folder.underRoot) {
+    throw new HttpsError('permission-denied', 'That file is not in the document library folder.');
+  }
+
+  const artist = folder.artistName;
+  await db.doc(`artistDocuments/${file.id}`).set({
+    fileId: file.id,
+    name: file.name,
+    mimeType: file.mimeType,
+    iconLink: file.iconLink,
+    webViewLink: file.webViewLink,
+    artist,
+    artistKey: artist ? artistKey(artist) : null,
+    categoryId: null,
+    sourceFolderId: folder.artistFolderId,
+    importedBy: uid,
+    importedByEmail: token.email ?? null,
+    importedAt: Timestamp.now(),
+  });
+  return { ok: true };
+});
+
+/**
+ * Include a canonical library document on an advance (admin or event PM). Resolves the
+ * `artistDocuments` record server-side and copies its trusted display metadata — clients
+ * no longer assert the file id or its metadata (F-1 hardening). The advance-document id is
+ * the library id (= the Drive file id). Input: { eventId, stageId, advanceId, artistDocumentId }.
+ */
+export const includeArtistDocumentOnAdvance = onCall({ timeoutSeconds: 30 }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  const { eventId, stageId, advanceId, artistDocumentId } = parseCallableData(
+    includeAdvanceDocumentInputSchema,
+    request.data,
+  );
+  const db = getFirestore();
+  await enforceRateLimit(db, ['includeArtistDocumentOnAdvance', uid], 60);
+  await assertCanEditEvent(db, token, uid, eventId);
+
+  const advanceRef = db.doc(advancePath(eventId, stageId, advanceId));
+  if (!(await advanceRef.get()).exists) throw new HttpsError('not-found', 'Advance not found.');
+
+  const lib = (await db.doc(`artistDocuments/${artistDocumentId}`).get()).data();
+  if (!lib) throw new HttpsError('not-found', 'Unknown library document.');
+  const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+  const name = str(lib.name);
+  const webViewLink = str(lib.webViewLink);
+  if (!name || !webViewLink) throw new HttpsError('internal', 'Library document is missing required fields.');
+
+  await advanceRef.collection('documents').doc(artistDocumentId).set({
+    fileId: artistDocumentId,
+    name,
+    displayName: str(lib.displayName),
+    mimeType: str(lib.mimeType) ?? 'application/octet-stream',
+    iconLink: str(lib.iconLink),
+    webViewLink,
+    categoryId: str(lib.categoryId),
+    includePacket: false,
+    addedBy: uid,
+    addedAt: Timestamp.now(),
+  });
+  return { ok: true };
+});

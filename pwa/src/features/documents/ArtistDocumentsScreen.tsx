@@ -186,12 +186,10 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
 function ArtistUploadPanel({
   artistName,
   documents,
-  uid,
   onUploaded,
 }: {
   artistName: string;
   documents: readonly ArtistDocument[];
-  uid: string;
   onUploaded: () => void;
 }) {
   const [inputKey, setInputKey] = useState(0);
@@ -208,7 +206,7 @@ function ArtistUploadPanel({
       }
       const uploaded = await uploadFileToDrive(file, folderId);
       try {
-        await createArtistDocumentRecord(uploaded, artistName, folderId, uid);
+        await createArtistDocumentRecord(uploaded.fileId);
       } catch (e) {
         await deleteDriveUpload(uploaded.fileId).catch(() => undefined);
         throw e;
@@ -322,7 +320,6 @@ export function ArtistDocumentsScreen() {
         <ArtistUploadPanel
           artistName={artistName}
           documents={documents}
-          uid={user.uid}
           onUploaded={() => void invalidate()}
         />
       )}

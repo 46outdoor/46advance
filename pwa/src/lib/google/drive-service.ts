@@ -14,7 +14,10 @@ import type {
   GetDriveAccessTokenOutput,
   ImportDriveFolderInput,
   ImportDriveFolderOutput,
+  IncludeAdvanceDocumentInput,
   LinkDriveFileInput,
+  RegisterArtistDocumentInput,
+  RegisterEventDocumentInput,
   RemoveDriveFileInput,
   DriveOkOutput,
   SavePacketToDriveInput,
@@ -55,6 +58,30 @@ export async function savePacketToDrive(eventId: string, path: string): Promise<
 export async function importDriveFolder(folderId: string): Promise<ImportDriveFolderOutput> {
   const callable = httpsCallable<ImportDriveFolderInput, ImportDriveFolderOutput>(functions, 'importDriveFolder');
   return (await callable({ folderId })).data;
+}
+
+/** Register a Drive file (uploaded into the event's linked folder) as an event document.
+ * The server verifies the file's Drive provenance and captures its canonical metadata. */
+export async function registerEventDocument(input: RegisterEventDocumentInput): Promise<void> {
+  const callable = httpsCallable<RegisterEventDocumentInput, DriveOkOutput>(functions, 'registerEventDocument');
+  await callable(input);
+}
+
+/** Register a Drive file (uploaded under the library root) as a library document. The
+ * server verifies provenance and derives the artist + metadata from its Drive subfolder. */
+export async function registerArtistDocument(fileId: string): Promise<void> {
+  const callable = httpsCallable<RegisterArtistDocumentInput, DriveOkOutput>(functions, 'registerArtistDocument');
+  await callable({ fileId });
+}
+
+/** Include a canonical library document on an advance. The server copies the trusted
+ * display metadata from the `artistDocuments` record (client no longer asserts it). */
+export async function includeArtistDocumentOnAdvance(input: IncludeAdvanceDocumentInput): Promise<void> {
+  const callable = httpsCallable<IncludeAdvanceDocumentInput, DriveOkOutput>(
+    functions,
+    'includeArtistDocumentOnAdvance',
+  );
+  await callable(input);
 }
 
 /**

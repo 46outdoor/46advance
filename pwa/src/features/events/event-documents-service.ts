@@ -4,7 +4,7 @@
  * file id. Deleting removes the record only — the Drive file stays in the folder.
  * Reads/writes gated by firestore.rules (member read; PM/admin manage).
  */
-import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import {
   eventDocumentInputSchema,
@@ -12,7 +12,7 @@ import {
   type EventDocument,
   type EventDocumentInput,
 } from '@/lib/documents/eventDocument';
-import type { DriveUploadResult } from '@/lib/google/drive-service';
+import { registerEventDocument, type DriveUploadResult } from '@/lib/google/drive-service';
 
 function documentsCol(eventId: string) {
   return collection(db, 'events', eventId, 'documents');
@@ -23,25 +23,21 @@ export async function listEventDocuments(eventId: string): Promise<EventDocument
   return snap.docs.map((d) => parseEventDocument(d.id, d.data()));
 }
 
-/** Record an uploaded/linked Drive file as an event document (idempotent by file id). */
+/** Record an uploaded/linked Drive file as an event document (idempotent by file id).
+ * Server-validated: `registerEventDocument` verifies the file lives in the event's linked
+ * Drive folder and captures Google's canonical metadata (F-1). */
 export async function createEventDocument(
   eventId: string,
   file: DriveUploadResult,
   input: EventDocumentInput,
-  uid: string,
 ): Promise<void> {
   const parsed = eventDocumentInputSchema.parse(input);
-  await setDoc(doc(documentsCol(eventId), file.fileId), {
+  await registerEventDocument({
+    eventId,
     fileId: file.fileId,
-    name: file.name,
     displayName: parsed.displayName?.trim() || null,
-    mimeType: file.mimeType,
-    iconLink: file.iconLink,
-    webViewLink: file.webViewLink,
     day: parsed.day ?? null,
     categoryId: parsed.categoryId ?? null,
-    uploadedBy: uid,
-    uploadedAt: serverTimestamp(),
   });
 }
 

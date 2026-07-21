@@ -240,7 +240,7 @@ export function EventDocumentsScreen() {
     mutationFn: async ({ file, input }: { file: File; input: EventDocumentInput }) => {
       const uploaded = await uploadFileToDrive(file, eventQuery.data!.driveFolderId!);
       try {
-        await createEventDocument(eventId!, uploaded, input, user!.uid);
+        await createEventDocument(eventId!, uploaded, input);
       } catch (e) {
         // Don't strand an unrecorded file in the folder — remove it and surface the error.
         await deleteDriveUpload(uploaded.fileId).catch(() => undefined);

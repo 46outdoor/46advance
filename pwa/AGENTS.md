@@ -250,6 +250,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Google Drive (client) | `src/lib/google/drive-service.ts` (link/remove/savePacket callables + Picker), `driveFile.ts` (`DriveFileRef` type+Zod); Picker keys in `src/config/integrations.ts` |
 | Google Drive (backend) | `functions/src/googleDrive.ts` (`linkDriveFile`/`removeDriveFile`/`savePacketToDrive`/`getDriveAccessToken`/`importDriveFolder`/`getArtistDocumentContent` broker + `scheduledLibraryDriveSync` twice-daily library sync; `drive.file` scope + docs-broker SA) |
 | Drive broker bounded fetch + caps | `functions/src/lib/broker/brokerFetch.ts` (`fetchBrokeredFileBytes` size-bounded fetch; `MAX_EMBED_BYTES` packet-embed cap + `MAX_INTERACTIVE_CONTENT_BYTES` interactive-view cap) |
+| Drive document-registration provenance | `functions/src/lib/broker/driveProvenance.ts` (`getFileForRegistration` + `resolveArtistFolder`; server-side folder-membership checks for the register* callables) |
 
 ### Step 2: Resolve name variants before searching
 
