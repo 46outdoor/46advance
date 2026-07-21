@@ -6,7 +6,7 @@
 # Cloud Run revision pins a DESTROYED secret version.
 #
 # Exit codes:
-#   0  all required secrets healthy (or skipped via SKIP_SECRETS_HEALTH=1)
+#   0  all required secrets healthy
 #   1  a required secret is missing / its latest version is not ENABLED, or
 #      gcloud is unavailable / unauthenticated
 #
@@ -17,10 +17,14 @@
 # the pre-functions-deploy-secrets-check PreToolUse hook.
 set -euo pipefail
 
-# Required secrets — KEEP IN SYNC with OAUTH_SECRETS in functions/src/google.ts.
+# Required secrets — KEEP IN SYNC with the secrets bound on deployed functions:
+#   OAUTH_SECRETS (functions/src/google.ts) + DRIVE_SA_KEY (functions/src/googleDrive.ts,
+#   the docs-broker service account). A missing DRIVE_SA_KEY would let a deploy pass while
+#   getArtistDocumentContent / registerArtistDocument can't start (F-11).
 REQUIRED_SECRETS=(
   GOOGLE_OAUTH_CLIENT_ID
   GOOGLE_OAUTH_CLIENT_SECRET
+  DRIVE_SA_KEY
 )
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,12 +37,8 @@ log()  { echo "[verify-secrets-health] $*"; }
 warn() { echo "[verify-secrets-health] WARNING: $*" >&2; }
 err()  { echo "[verify-secrets-health] ERROR: $*" >&2; }
 
-# Escape hatch for non-deploy contexts (local experiments, dry runs).
-if [[ "${SKIP_SECRETS_HEALTH:-}" == "1" ]]; then
-  log "SKIP_SECRETS_HEALTH=1 — skipping secret health check."
-  exit 0
-fi
-
+# No skip/bypass: this runs only as the functions predeploy, and the whole point is that a
+# deploy cannot proceed past a missing/unhealthy required secret (F-11).
 if ! command -v gcloud >/dev/null 2>&1; then
   err "gcloud CLI not found — install + authenticate before deploying functions."
   exit 1
