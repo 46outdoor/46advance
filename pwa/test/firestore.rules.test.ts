@@ -749,6 +749,26 @@ describe('firestore.rules — global contacts directory', () => {
     // …and a non-linked, non-creator user cannot update it.
     await assertFails(updateDoc(doc(dbFor(OUTSIDER), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }));
   });
+
+  it('a linked user cannot rewrite createdBy to hijack ownership (F-3)', async () => {
+    // TECH may update c-linked (linked via userId), but seizing createdBy would then unlock the
+    // creator-only delete — createdBy is immutable to ordinary clients.
+    await assertFails(updateDoc(doc(dbFor(TECH), 'contacts/c-linked'), { createdBy: TECH }));
+  });
+
+  it('a linked user cannot repoint the userId link', async () => {
+    await assertFails(updateDoc(doc(dbFor(TECH), 'contacts/c-linked'), { userId: OUTSIDER }));
+  });
+
+  it('the creator cannot change createdBy or add a userId link via the client', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), 'contacts/c-pm'), { createdBy: OUTSIDER }));
+    await assertFails(updateDoc(doc(dbFor(PM), 'contacts/c-pm'), { userId: PM }));
+  });
+
+  it('admin can relink a contact (createdBy/userId stay admin-mutable)', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-linked'), { userId: PM }));
+    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { createdBy: OUTSIDER }));
+  });
 });
 
 describe('firestore.rules — per-event contact attachments', () => {
