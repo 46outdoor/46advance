@@ -177,6 +177,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Collection-group read for the non-admin events-list query
+    // (`collectionGroup('members').where('uid','==', me)` in events-service.listEvents):
+    // a signed-in user may list their OWN membership rows across every event, and no one
+    // else's. collectionGroup() queries only match a `/{path=**}/` rule, so this must live
+    // at the top level; direct member-doc access + all writes stay on the nested
+    // events/{eventId}/members rule below. Read-only — writes are unaffected.
+    match /{path=**}/members/{memberUid} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.uid;
+    }
+
     match /events/{eventId} {
       allow read: if isAdmin() || isMember(eventId);
       allow create: if canCreateEvents()
@@ -192,6 +202,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       // Membership: admin-managed, OR the event's creator bootstrapping as PM.
+      // NOTE: this nested rule governs DIRECT member-doc access (roster read, writes).
+      // The non-admin events-list *collection-group* query is authorized separately by
+      // the `/{path=**}/members` rule at the top of this service — nested rules do not
+      // apply to collectionGroup() queries.
       match /members/{memberUid} {
         allow read: if isAdmin()
           || (isSignedIn() && request.auth.uid == memberUid)
