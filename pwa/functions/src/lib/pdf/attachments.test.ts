@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { appendPacketAttachments, MAX_EMBED_BYTES, type PacketAttachment } from './attachments.js';
+import { appendPacketAttachments, type PacketAttachment } from './attachments.js';
+import { MAX_EMBED_BYTES } from '../broker/brokerFetch.js';
 
 /** A minimal n-page PDF buffer. */
 async function makePdf(pages: number): Promise<Buffer> {

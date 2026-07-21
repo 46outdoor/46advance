@@ -8,6 +8,7 @@
  * Pure pdf-lib with an injected byte fetcher — unit-testable without Drive.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
+import { MAX_EMBED_BYTES } from '../broker/brokerFetch.js';
 
 export interface PacketAttachment {
   artistName: string;
@@ -20,9 +21,6 @@ export type AttachmentFetcher = (
   fileId: string,
   mimeType: string,
 ) => Promise<{ data: Buffer; mimeType: string } | { tooLarge: true }>;
-
-/** Embedding cap per file — larger files are listed with an open-in-app note. */
-export const MAX_EMBED_BYTES = 10 * 1024 * 1024;
 
 const LETTER: [number, number] = [612, 792];
 const MARGIN = 36;
