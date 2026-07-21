@@ -6,8 +6,20 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import {
+  collectionGroup,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  Timestamp,
+  where,
+} from 'firebase/firestore';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const rulesPath = fileURLToPath(new URL('../firestore.rules', import.meta.url));
 
@@ -217,6 +229,38 @@ describe('firestore.rules — membership subcollection', () => {
         addedBy: 'admin-1',
       }),
     );
+  });
+});
+
+// The non-admin events list (events-service.listEvents) discovers a user's events with
+// `collectionGroup('members').where('uid','==', me)`. A doc-id-only read rule denies that
+// field-filtered collection-group list, so the `uid`-field read clause must authorize it —
+// scoped to the caller's own rows and no one else's.
+describe('firestore.rules — membership collection-group listing (events-list query)', () => {
+  const membersFor = (uid: string) =>
+    query(collectionGroup(dbFor(uid), 'members'), where('uid', '==', uid));
+
+  it('a member can list their own membership rows across every event', async () => {
+    // PM is seeded on event A (PM) and event B (tech) → both rows come back.
+    const snap = await assertSucceeds(getDocs(membersFor(PM)));
+    expect(snap.size).toBe(2);
+  });
+
+  it('an approved user with no memberships gets an empty (but allowed) list', async () => {
+    const snap = await assertSucceeds(getDocs(membersFor(OUTSIDER)));
+    expect(snap.size).toBe(0);
+  });
+
+  it('cannot list another user’s memberships via the collection-group query', async () => {
+    await assertFails(getDocs(query(collectionGroup(dbFor(PM), 'members'), where('uid', '==', TECH))));
+  });
+
+  it('an unscoped collection-group members query (no uid filter) is denied', async () => {
+    await assertFails(getDocs(query(collectionGroup(dbFor(PM), 'members'))));
+  });
+
+  it('an anonymous user cannot run the membership collection-group query', async () => {
+    await assertFails(getDocs(query(collectionGroup(dbAnon(), 'members'), where('uid', '==', PM))));
   });
 });
 

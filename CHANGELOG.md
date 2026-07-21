@@ -9,6 +9,16 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-21
+
+### Fixed
+
+- **Events list:** production managers, department leads, and techs now see the events
+  they've been added to. Their events-list query was being denied by security rules
+  (only admins could list events), so a non-admin's list came back empty despite the
+  "you'll see your events here once you're assigned a role" message. Members can now
+  list their own event memberships — and only their own.
+
 ## 2026-07-18
 
 ### Fixed
