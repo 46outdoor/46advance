@@ -7,10 +7,22 @@
  *
  * Run once, after deploying the rules:
  *   gcloud auth application-default login
- *   node --import tsx scripts/migrate-attachments-to-subcollection.ts
+ *   GOOGLE_CLOUD_PROJECT=<project> CONFIRM_PROJECT=<same project> node --import tsx scripts/migrate-attachments-to-subcollection.ts
  */
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
+// Destructive-run guard (WS-D): refuse unless the caller explicitly confirms the exact target
+// project, so this migration can never run against the wrong (e.g. production) project by accident.
+const TARGET_PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCLOUD_PROJECT ?? '';
+if (!TARGET_PROJECT || process.env.CONFIRM_PROJECT !== TARGET_PROJECT) {
+  console.error(
+    `Refusing to run: this migration deletes the legacy field on project ` +
+      `"${TARGET_PROJECT || '(GOOGLE_CLOUD_PROJECT unset)'}". Re-run with ` +
+      `GOOGLE_CLOUD_PROJECT=<project> CONFIRM_PROJECT=<same project>.`,
+  );
+  process.exit(1);
+}
 
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();

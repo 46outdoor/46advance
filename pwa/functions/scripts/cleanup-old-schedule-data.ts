@@ -7,10 +7,22 @@
  *
  * Run (from functions/):
  *   gcloud auth application-default login   # one-time
- *   GOOGLE_CLOUD_PROJECT=advancethat npx -y tsx scripts/cleanup-old-schedule-data.ts
+ *   GOOGLE_CLOUD_PROJECT=advancethat CONFIRM_PROJECT=advancethat npx -y tsx scripts/cleanup-old-schedule-data.ts
  */
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { FieldValue, getFirestore, type DocumentReference } from 'firebase-admin/firestore';
+
+// Destructive-run guard (WS-D): refuse unless the caller explicitly confirms the exact target
+// project, so this can never delete data from the wrong (e.g. production) project by accident.
+const TARGET_PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCLOUD_PROJECT ?? '';
+if (!TARGET_PROJECT || process.env.CONFIRM_PROJECT !== TARGET_PROJECT) {
+  console.error(
+    `Refusing to run: this deletes data from project ` +
+      `"${TARGET_PROJECT || '(GOOGLE_CLOUD_PROJECT unset)'}". Re-run with ` +
+      `GOOGLE_CLOUD_PROJECT=<project> CONFIRM_PROJECT=<same project>.`,
+  );
+  process.exit(1);
+}
 
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
