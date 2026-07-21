@@ -13,7 +13,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -23,10 +22,12 @@ import { db, functions, storage } from '@/services/firebase';
 import { createLogger } from '@/lib/logger';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord } from '@/lib/events/event';
-import { defaultEventSlug, slugify, uniqueSlug } from '@/lib/events/slug';
+import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
 import type { Viewer } from '@/lib/rbac/permissions';
 import type {
+  CreateBlankEventInput,
+  CreateBlankEventOutput,
   CreateEventFromTemplateInput,
   CreateEventFromTemplateOutput,
 } from '@contracts/callables/events';
@@ -38,41 +39,34 @@ const logger = createLogger('Events');
 const EVENTS_READ_CAP = 500;
 
 /**
- * Create an event, then add the creator as its production-manager.
- * Sequential (not batched): the membership rule verifies `createdBy` via get(),
- * which can only see the event once it's committed.
+ * Create a blank event + the creator's production-manager membership. Runs server-side
+ * (createBlankEvent) so the two writes commit atomically — an event can never be left
+ * without its creator membership — and the client-generated id is the idempotency key,
+ * so a retried/timed-out create returns the same event instead of duplicating it.
  */
-export async function createEvent(input: EventInput, creatorUid: string): Promise<string> {
-  const eventRef = doc(collection(db, 'events'));
-  const baseSlug = input.slug?.trim()
-    ? slugify(input.slug)
+export async function createEvent(input: EventInput): Promise<string> {
+  const eventId = doc(collection(db, 'events')).id;
+  const desiredSlug = input.slug?.trim()
+    ? input.slug
     : defaultEventSlug(input.bookingLabel ?? null, input.name, input.startDate ?? null);
-  const slug = uniqueSlug(baseSlug, await takenSlugs());
-  await setDoc(eventRef, {
+  const callable = httpsCallable<CreateBlankEventInput, CreateBlankEventOutput>(functions, 'createBlankEvent');
+  const result = await callable({
+    eventId,
     name: input.name,
-    startDate: dateToTimestamp(input.startDate ?? null),
-    endDate: dateToTimestamp(input.endDate ?? null),
+    startDate: input.startDate ? input.startDate.getTime() : null,
+    endDate: input.endDate ? input.endDate.getTime() : null,
     loadInDays: input.loadInDays ?? 0,
     loadOutDays: input.loadOutDays ?? 0,
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     driveFolderId: input.driveFolderId ?? null,
     driveFolderName: input.driveFolderName ?? null,
-    status: input.status ?? 'draft',
     departmentIds: input.departmentIds ?? [],
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
-    slug,
-    createdBy: creatorUid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    status: input.status ?? 'draft',
+    slug: desiredSlug,
   });
-  await setDoc(doc(db, 'events', eventRef.id, 'members', creatorUid), {
-    role: 'production-manager',
-    addedBy: creatorUid,
-    addedAt: serverTimestamp(),
-    uid: creatorUid,
-  });
-  return eventRef.id;
+  return result.data.eventId;
 }
 
 export async function getEvent(eventId: string): Promise<EventRecord | null> {
@@ -95,16 +89,6 @@ export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord 
     // Slug query denied (viewer isn't a member of the matching event) → try the id.
   }
   return getEvent(slugOrId);
-}
-
-/** Existing slugs for uniqueness (best-effort: non-admin creators can't list every event). */
-async function takenSlugs(): Promise<Set<string>> {
-  try {
-    const snap = await getDocs(collection(db, 'events'));
-    return new Set(snap.docs.map((d) => d.data().slug).filter((s): s is string => typeof s === 'string'));
-  } catch {
-    return new Set();
-  }
 }
 
 /** Events the viewer can see: all (admin) or those they're a member of. */
