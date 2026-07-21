@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:emulator": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:exec --only auth,firestore,storage \"playwright test --config playwright.emulator.config.ts\"",
     "test:rules": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:exec --only firestore,storage \"vitest run --config vitest.rules.config.ts\"",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
     "deadcode": "node scripts/deadcode-check.mjs",

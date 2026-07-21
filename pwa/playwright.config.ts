@@ -19,6 +19,9 @@ const dummyFirebaseEnv = {
  */
 export default defineConfig({
   testDir: './tests',
+  // The authenticated emulator suite has its own config (playwright.emulator.config.ts)
+  // and boots the Firebase emulators; keep it out of this unauthenticated smoke net.
+  testIgnore: '**/*.emulator.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
