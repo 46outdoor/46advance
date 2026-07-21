@@ -42,6 +42,34 @@ export type ImportDriveFolderInput = z.infer<typeof importDriveFolderInputSchema
 export const importDriveFolderOutputSchema = z.object({ imported: z.number(), skipped: z.number() });
 export type ImportDriveFolderOutput = z.infer<typeof importDriveFolderOutputSchema>;
 
+// Server-validated document registration (F-1): the server re-fetches Google's canonical
+// metadata and verifies the file's Drive provenance, so clients no longer assert file ids
+// or display metadata. All three return `{ ok }` (driveOkOutputSchema above).
+
+// registerEventDocument — record a file that lives in the event's linked Drive folder.
+export const registerEventDocumentInputSchema = z.object({
+  eventId: z.string().min(1),
+  fileId: z.string().min(1),
+  displayName: z.string().nullable().optional(),
+  day: z.string().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
+});
+export type RegisterEventDocumentInput = z.infer<typeof registerEventDocumentInputSchema>;
+
+// registerArtistDocument — record a file that lives under the library root folder (the
+// artist + metadata are derived server-side from its Drive subfolder).
+export const registerArtistDocumentInputSchema = z.object({ fileId: z.string().min(1) });
+export type RegisterArtistDocumentInput = z.infer<typeof registerArtistDocumentInputSchema>;
+
+// includeArtistDocumentOnAdvance — copy a canonical `artistDocuments` record onto an advance.
+export const includeAdvanceDocumentInputSchema = z.object({
+  eventId: z.string().min(1),
+  stageId: z.string().min(1),
+  advanceId: z.string().min(1),
+  artistDocumentId: z.string().min(1),
+});
+export type IncludeAdvanceDocumentInput = z.infer<typeof includeAdvanceDocumentInputSchema>;
+
 // getArtistDocumentContent — serve an artist document's bytes via the service-account broker, so
 // approved techs can view files in permission-gated Drive folders they can't open directly.
 // fileId alone serves the artist library (approved users); with `eventId`, the file may

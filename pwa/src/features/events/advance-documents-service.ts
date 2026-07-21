@@ -4,14 +4,10 @@
  * doc's id. Reads/writes gated by firestore.rules (member read; advance editors —
  * admin/event PM — curate).
  */
-import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
-import {
-  advanceDocumentPayload,
-  parseAdvanceDocument,
-  type AdvanceDocument,
-} from '@/lib/documents/advanceDocument';
-import type { ArtistDocument } from '@/lib/documents/artistDocument';
+import { parseAdvanceDocument, type AdvanceDocument } from '@/lib/documents/advanceDocument';
+import { includeArtistDocumentOnAdvance } from '@/lib/google/drive-service';
 
 function documentsCol(eventId: string, stageId: string, advanceId: string) {
   return collection(db, 'events', eventId, 'stages', stageId, 'advances', advanceId, 'documents');
@@ -29,20 +25,16 @@ export async function listAdvanceDocuments(
     .sort((a, b) => (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name));
 }
 
-/** Include a library doc on the advance (idempotent — re-including overwrites in place). */
+/** Include a library doc on the advance (idempotent — re-including overwrites in place).
+ * Server-validated: `includeArtistDocumentOnAdvance` resolves the canonical
+ * `artistDocuments` record and copies its trusted metadata (F-1). */
 export async function includeArtistDocument(
   eventId: string,
   stageId: string,
   advanceId: string,
-  document: ArtistDocument,
-  uid: string,
+  documentId: string,
 ): Promise<void> {
-  await setDoc(doc(documentsCol(eventId, stageId, advanceId), document.id), {
-    ...advanceDocumentPayload(document),
-    includePacket: false,
-    addedBy: uid,
-    addedAt: serverTimestamp(),
-  });
+  await includeArtistDocumentOnAdvance({ eventId, stageId, advanceId, artistDocumentId: documentId });
 }
 
 /** Toggle whether an included doc embeds in the generated packet (Documents PR 5). */

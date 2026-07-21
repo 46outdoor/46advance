@@ -12,14 +12,13 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import { z } from 'zod';
 import { db } from '@/services/firebase';
-import type { DriveUploadResult } from '@/lib/google/drive-service';
-import { artistKey, parseArtistDocument, type ArtistDocument } from './artistDocument';
+import { registerArtistDocument } from '@/lib/google/drive-service';
+import { parseArtistDocument, type ArtistDocument } from './artistDocument';
 
 function col() {
   return collection(db, 'artistDocuments');
@@ -52,27 +51,10 @@ export async function getDocumentsLibraryRoot(): Promise<string | null> {
 }
 
 /** Record a file uploaded to an artist's Drive subfolder as a library document.
- * Admin|organizer (firestore.rules); id = the Drive file id, like imports. */
-export async function createArtistDocumentRecord(
-  uploaded: DriveUploadResult,
-  artist: string,
-  sourceFolderId: string,
-  uid: string,
-): Promise<void> {
-  await setDoc(doc(db, 'artistDocuments', uploaded.fileId), {
-    fileId: uploaded.fileId,
-    name: uploaded.name,
-    mimeType: uploaded.mimeType,
-    iconLink: uploaded.iconLink,
-    webViewLink: uploaded.webViewLink,
-    artist,
-    artistKey: artistKey(artist),
-    categoryId: null,
-    sourceFolderId,
-    importedBy: uid,
-    importedByEmail: null,
-    importedAt: serverTimestamp(),
-  });
+ * Server-validated: `registerArtistDocument` verifies the file lives under the library
+ * root and derives the artist + canonical metadata from its Drive subfolder (F-1). */
+export async function createArtistDocumentRecord(fileId: string): Promise<void> {
+  await registerArtistDocument(fileId);
 }
 
 /** Update app-side fields — in-app title, notes, obsolete flag (Drive file untouched). Admin|organizer. */
