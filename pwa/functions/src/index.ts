@@ -30,7 +30,7 @@ import {
   setUserOrganizerInputSchema,
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
-import { createEventFromTemplateInputSchema } from './contracts/callables/events.js';
+import { createBlankEventInputSchema, createEventFromTemplateInputSchema } from './contracts/callables/events.js';
 import { slugify, uniqueSlug } from './lib/events/slug.js';
 import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
 
@@ -467,6 +467,71 @@ export const createEventFromTemplate = onCall(async (request) => {
 
   await batch.commit();
   return { eventId: eventRef.id };
+});
+
+/**
+ * Create a blank event + the creator's production-manager membership atomically
+ * (admin|organizer). The client supplies the event id, which doubles as an idempotency
+ * key: retrying a timed-out request returns the same event instead of creating a
+ * duplicate, and the event can never be committed without its creator membership (both
+ * writes ride one transaction). Dates are epoch millis. Returns { eventId }.
+ */
+export const createBlankEvent = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  assertApproved(token); // an organizer whose access was revoked can't create events
+  if (token.admin !== true && token.organizer !== true) {
+    throw new HttpsError('permission-denied', 'Admin or organizer only.');
+  }
+  const input = parseCallableData(createBlankEventInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['createBlankEvent', uid], 20);
+
+  const eventRef = db.collection('events').doc(input.eventId);
+  const existing = await eventRef.get();
+  if (existing.exists) {
+    // Idempotent retry by the same creator → return it; a different owner's id → conflict.
+    if (existing.get('createdBy') === uid) return { eventId: input.eventId };
+    throw new HttpsError('already-exists', 'That event id is already in use.');
+  }
+
+  // Best-effort unique slug (transactional slug reservation is a later step).
+  const existingSlugs = new Set(
+    (await db.collection('events').get()).docs
+      .map((d) => d.data().slug)
+      .filter((s): s is string => typeof s === 'string'),
+  );
+  const slug = uniqueSlug(slugify(input.slug || input.name), existingSlugs);
+  const now = FieldValue.serverTimestamp();
+
+  await db.runTransaction(async (tx) => {
+    if ((await tx.get(eventRef)).exists) return; // lost a concurrent race — idempotent no-op
+    tx.set(eventRef, {
+      name: input.name,
+      startDate: toTimestamp(input.startDate),
+      endDate: toTimestamp(input.endDate),
+      loadInDays: input.loadInDays ?? 0,
+      loadOutDays: input.loadOutDays ?? 0,
+      timeZone: input.timeZone ?? 'America/Chicago',
+      venue: trimmedOrNull(input.venue),
+      driveFolderId: input.driveFolderId ?? null,
+      driveFolderName: input.driveFolderName ?? null,
+      status: input.status ?? 'draft',
+      departmentIds: input.departmentIds ?? [],
+      bookingLabel: trimmedOrNull(input.bookingLabel),
+      slug,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    tx.set(eventRef.collection('members').doc(uid), {
+      role: 'production-manager',
+      addedBy: uid,
+      addedAt: now,
+      uid,
+    });
+  });
+  return { eventId: input.eventId };
 });
 
 /**

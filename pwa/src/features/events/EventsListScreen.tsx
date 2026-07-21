@@ -82,7 +82,7 @@ export function EventsListScreen() {
     mutationFn: async (input: EventInput) => {
       const id = templateId
         ? await createEventFromTemplate(templateId, input)
-        : await createEvent(input, viewer!.uid);
+        : await createEvent(input);
       await applyDefaultMasterSchedule(id, input, templateId, templatesQuery.data ?? [], viewer!.uid);
       return id;
     },
