@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AuthContext } from '@/contexts/auth-context';
 import type { AuthContextValue } from '@/contexts/auth-context';
 import {
@@ -13,11 +14,13 @@ import {
   syncUserClaims,
 } from '@/features/auth/auth-service';
 import type { User } from '@/features/auth/auth-service';
+import { clearFirestoreCache } from '@/services/firebase';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('Auth');
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
@@ -52,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return observeAuthState((nextUser) => {
+      // Cross-user cache isolation: on any identity transition away from a signed-in user
+      // (sign-out OR an account switch on a shared browser), cancel in-flight requests and
+      // drop the prior user's cached queries + optimistic mutations before the next user's
+      // app renders. Explicit sign-out also clears the Firestore persistent cache (signOut).
+      const prevUid = syncedUid.current;
+      if (prevUid && prevUid !== (nextUser?.uid ?? null)) {
+        void queryClient.cancelQueries();
+        queryClient.clear();
+      }
       setUser(nextUser);
       setEmailVerified(nextUser?.emailVerified ?? false);
       if (!nextUser) {
@@ -70,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       })();
     });
-  }, [applyClaims]);
+  }, [applyClaims, queryClient]);
 
   // Reload the user from the server (after they click the verification link) and, once
   // verified, re-sync claims so admin/approved take effect without a full re-sign-in.
@@ -95,12 +107,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: async (email, password) => {
         await signUpWithEmail(email, password);
       },
-      signOut: () => signOutUser(),
+      signOut: async () => {
+        await signOutUser();
+        // Drop in-memory query data, clear the Firestore persistent cache, and reload to a
+        // clean app so no prior-user cached documents survive on a shared browser.
+        queryClient.clear();
+        try {
+          await clearFirestoreCache();
+        } catch (err) {
+          logger.error('Failed to clear the Firestore cache on sign-out', err);
+        }
+        window.location.assign('/sign-in');
+      },
       resetPassword: (email) => sendPasswordReset(email),
       resendVerification: () => resendVerificationEmail(),
       refreshUser,
     }),
-    [user, loading, isAdmin, isOrganizer, approved, emailVerified, refreshUser],
+    [user, loading, isAdmin, isOrganizer, approved, emailVerified, refreshUser, queryClient],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
