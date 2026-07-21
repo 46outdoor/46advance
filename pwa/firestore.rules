@@ -143,9 +143,15 @@ service cloud.firestore {
       allow create: if isActiveUser()
         && request.resource.data.createdBy == request.auth.uid
         && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
+      // Ordinary clients (the creator, or a user linked via userId — e.g. editing their own
+      // profile photo) may update, but NOT rewrite the ownership/link fields: `createdBy` and
+      // `userId` are immutable to them (F-3). Otherwise a linked user could seize `createdBy`
+      // and then satisfy the creator-only delete. Legitimate relinking is admin-only (or the
+      // Admin-SDK server path, which bypasses these rules).
       allow update: if isAdmin()
-        || (isActiveUser() && resource.data.createdBy == request.auth.uid)
-        || (isActiveUser() && resource.data.userId == request.auth.uid);
+        || (isActiveUser()
+            && (resource.data.createdBy == request.auth.uid || resource.data.userId == request.auth.uid)
+            && keysUnchanged(['createdBy', 'userId']));
       allow delete: if isAdmin()
         || (isActiveUser() && resource.data.createdBy == request.auth.uid);
     }
