@@ -33,6 +33,7 @@ import { resolveDisplayName } from './lib/auth/displayName.js';
 import { createBlankEventInputSchema, createEventFromTemplateInputSchema } from './contracts/callables/events.js';
 import { slugify, uniqueSlug } from './lib/events/slug.js';
 import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
+import { OAUTH_SECRETS, disconnectGoogle } from './google.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -203,19 +204,31 @@ export const syncUserClaims = onCall(async (request) => {
 
 /**
  * Admin-only. Approves/revokes a user's access to the app. Sets the `approved` custom claim
- * and mirrors `users/{uid}.approved`. The target user picks it up on their next token
- * refresh / sign-in. Input: { uid: string, approved: boolean }.
+ * and mirrors `users/{uid}.approved`. On REVOCATION (approved=false) it also revokes the
+ * user's refresh tokens and disconnects their Google integration, so revocation is
+ * authoritative and doesn't leak through background jobs. Input: { uid, approved }.
+ *
+ * Propagation bound: revoking refresh tokens stops NEW ID tokens immediately, but an ID
+ * token already in the user's hands still satisfies the claim-based Firestore/Storage rules
+ * until it expires (~1 hour) — the documented direct-SDK propagation window. Callables use
+ * the token as a fast gate; scheduled jobs re-check the authoritative `users/{uid}.approved`
+ * record, so they ignore a revoked user immediately.
  */
-export const setUserApproved = onCall(async (request) => {
+export const setUserApproved = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   assertAdmin(request.auth);
   const { uid, approved } = parseCallableData(setUserApprovedInputSchema, request.data);
-  await enforceRateLimit(getFirestore(), ['setUserApproved', request.auth.uid], 30);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['setUserApproved', request.auth.uid], 30);
 
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
   await adminAuth.setCustomUserClaims(uid, { ...existing, approved });
-  await getFirestore().collection('users').doc(uid).set({ approved }, { merge: true });
+  await db.collection('users').doc(uid).set({ approved }, { merge: true });
 
+  if (!approved) {
+    await adminAuth.revokeRefreshTokens(uid);
+    await disconnectGoogle(db, uid);
+  }
   return { uid, approved };
 });
 
@@ -259,12 +272,29 @@ export const setUserDisplayName = onCall(async (request) => {
   return { uid, displayName: name };
 });
 
+/** True only for the Admin SDK "user already gone" error — the one Auth-deletion failure
+ * deleteUser tolerates (so retries are idempotent). Every other error must surface. */
+function isAuthUserNotFound(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: unknown }).code === 'auth/user-not-found'
+  );
+}
+
 /**
  * Admin-only. Permanently deletes an account: the Firebase Auth user + `users/{uid}`,
- * clears the person's event memberships, and unlinks (keeps) their contact as reference
- * data. Cannot delete your own account.
+ * clears event memberships, drops the Google integration, and unlinks (keeps) their contact
+ * as reference data. Cannot delete your own account.
+ *
+ * Durable + idempotent (F-9): access is revoked/disconnected first so a partial failure can't
+ * leave a usable session; the Auth account is then deleted, tolerating ONLY "already gone" —
+ * any other Auth error surfaces so the call never reports success while a live account
+ * remains; application data is cleaned last with idempotent ops, so re-running the call after
+ * any partial failure completes safely.
  */
-export const deleteUser = onCall(async (request) => {
+export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   assertAdmin(request.auth);
   const { uid } = parseCallableData(deleteUserInputSchema, request.data);
   if (uid === request.auth.uid) {
@@ -272,12 +302,21 @@ export const deleteUser = onCall(async (request) => {
   }
   const db = getFirestore();
   await enforceRateLimit(db, ['deleteUser', request.auth.uid], 30);
+  const adminAuth = getAuth();
 
-  // Remove the Auth account (tolerate one that's already gone).
+  // Revoke access + drop the Google integration BEFORE deleting anything else.
+  await adminAuth.revokeRefreshTokens(uid).catch(() => undefined);
+  await disconnectGoogle(db, uid);
+
+  // Delete the Auth account; tolerate only "already deleted". Any other error means the
+  // account may still be live — fail loudly instead of reporting success.
   try {
-    await getAuth().deleteUser(uid);
+    await adminAuth.deleteUser(uid);
   } catch (err) {
-    logger.warn('deleteUser: Auth account not deleted (may not exist)', { uid, err: String(err) });
+    if (!isAuthUserNotFound(err)) {
+      logger.error('deleteUser: Auth account deletion failed', { uid, err: String(err) });
+      throw new HttpsError('internal', 'Could not delete the Auth account — retry.');
+    }
   }
 
   // Clear event memberships (members docs mirror the uid field) + unlink their contact(s).

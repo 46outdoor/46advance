@@ -401,6 +401,11 @@ export const scheduledAdvanceCallSync = onSchedule(
     const connections = await db.collection('googleConnections').get();
     for (const conn of connections.docs) {
       const uid = conn.id;
+      // Authoritative active-user check (F-2): skip revoked/deleted users immediately — a
+      // revoked user's connection doc may linger before full disconnect, and a background job
+      // must never keep processing them just because an old token is still on file.
+      const userSnap = await db.collection('users').doc(uid).get();
+      if (!userSnap.exists || userSnap.get('approved') === false) continue;
       let client: AuthClient;
       try {
         client = await authedClientForUser(db, uid);

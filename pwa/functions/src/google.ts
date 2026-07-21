@@ -292,13 +292,13 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
  * Disconnect the caller's Google account: best-effort token revocation, then delete
  * `googleConnections/{uid}` and `googleTokens/{uid}`.
  */
-export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  assertApproved(request.auth.token);
-  const uid = request.auth.uid;
-  const db = getFirestore();
-  await enforceRateLimit(db, ['googleDisconnect', uid], 10);
-
+/**
+ * Disconnect a user's Google integration: best-effort revoke with Google, then delete the
+ * stored token + connection docs. Reused by the googleDisconnect callable and by admin
+ * revocation (setUserApproved) / account deletion (deleteUser). Callers must bind
+ * OAUTH_SECRETS (needed only when a token is present to revoke). Idempotent.
+ */
+export async function disconnectGoogle(db: Firestore, uid: string): Promise<void> {
   const tokenSnap = await db.collection('googleTokens').doc(uid).get();
   const t = tokenSnap.data() as { refreshToken?: string | null; accessToken?: string | null } | undefined;
   const revokeTarget = t?.refreshToken ?? t?.accessToken ?? null;
@@ -313,6 +313,15 @@ export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (reques
     db.collection('googleConnections').doc(uid).delete(),
     db.collection('googleTokens').doc(uid).delete(),
   ]);
+}
+
+export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  assertApproved(request.auth.token);
+  const uid = request.auth.uid;
+  const db = getFirestore();
+  await enforceRateLimit(db, ['googleDisconnect', uid], 10);
+  await disconnectGoogle(db, uid);
   return { ok: true };
 });
 

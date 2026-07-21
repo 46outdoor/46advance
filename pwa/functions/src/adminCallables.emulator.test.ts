@@ -59,6 +59,42 @@ describe('setUserApproved', () => {
       testEnv.wrap(setUserApproved)(callableRequest({ uid: 'target', approved: true })),
     ).rejects.toThrow(/sign in/i);
   });
+
+  it('revoking a user disconnects Google, clears the mirror, and preserves unrelated claims', async () => {
+    const db = getFirestore();
+    await auth().createUser({ uid: 'target', email: 'target@example.com' });
+    await auth().setCustomUserClaims('target', { approved: true, organizer: true });
+    await users().doc('target').set({ approved: true });
+    // No revokable token value → disconnectGoogle skips the Google network call.
+    await db.collection('googleTokens').doc('target').set({ accessTokenExpiry: 1 });
+    await db.collection('googleConnections').doc('target').set({ connected: true });
+
+    const res = await testEnv.wrap(setUserApproved)(
+      callableRequest({ uid: 'target', approved: false }, authContext('admin1', { admin: true })),
+    );
+
+    expect(res).toEqual({ uid: 'target', approved: false });
+    const claims = await claimsOf('target');
+    expect(claims.approved).toBe(false);
+    expect(claims.organizer).toBe(true); // unrelated claim preserved through the revoke
+    expect((await users().doc('target').get()).data()?.approved).toBe(false);
+    expect((await db.collection('googleTokens').doc('target').get()).exists).toBe(false);
+    expect((await db.collection('googleConnections').doc('target').get()).exists).toBe(false);
+  });
+
+  it('approving a user does not disconnect their Google integration', async () => {
+    const db = getFirestore();
+    await auth().createUser({ uid: 'target' });
+    await db.collection('googleTokens').doc('target').set({ accessTokenExpiry: 1 });
+    await db.collection('googleConnections').doc('target').set({ connected: true });
+
+    await testEnv.wrap(setUserApproved)(
+      callableRequest({ uid: 'target', approved: true }, authContext('admin1', { admin: true })),
+    );
+
+    expect((await db.collection('googleTokens').doc('target').get()).exists).toBe(true);
+    expect((await db.collection('googleConnections').doc('target').get()).exists).toBe(true);
+  });
 });
 
 describe('setUserOrganizer', () => {
@@ -155,6 +191,28 @@ describe('deleteUser', () => {
     await expect(
       testEnv.wrap(deleteUser)(callableRequest({ uid: 'target' }, authContext('user1', {}))),
     ).rejects.toThrow(/admin only/i);
+  });
+
+  it('drops the Google integration and is idempotent on re-run (already-gone tolerated)', async () => {
+    const db = getFirestore();
+    await auth().createUser({ uid: 'target' });
+    await users().doc('target').set({ approved: true });
+    await db.collection('googleTokens').doc('target').set({ accessTokenExpiry: 1 });
+    await db.collection('googleConnections').doc('target').set({ connected: true });
+
+    const first = await testEnv.wrap(deleteUser)(
+      callableRequest({ uid: 'target' }, authContext('admin1', { admin: true })),
+    );
+    expect(first).toEqual({ uid: 'target', deleted: true });
+    await expect(auth().getUser('target')).rejects.toThrow(); // Auth account gone
+    expect((await db.collection('googleTokens').doc('target').get()).exists).toBe(false);
+    expect((await db.collection('googleConnections').doc('target').get()).exists).toBe(false);
+
+    // Re-running after the account is already gone succeeds (idempotent), never throwing.
+    const second = await testEnv.wrap(deleteUser)(
+      callableRequest({ uid: 'target' }, authContext('admin1', { admin: true })),
+    );
+    expect(second).toEqual({ uid: 'target', deleted: true });
   });
 });
 
