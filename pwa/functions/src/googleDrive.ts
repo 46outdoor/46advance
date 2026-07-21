@@ -27,6 +27,7 @@ import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertC
 import { assertApproved } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
+import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
 import {
   getArtistDocumentContentInputSchema,
   importDriveFolderInputSchema,
@@ -465,8 +466,17 @@ export const getArtistDocumentContent = onCall(
     const storedMime = typeof doc.mimeType === 'string' ? doc.mimeType : '';
 
     const drive = brokerDriveClient();
-    const result = await fetchBrokeredFileBytes(drive, fileId, storedMime);
-    if ('tooLarge' in result) throw new HttpsError('internal', 'Unexpected size gate.'); // no cap on this path
+    // Cap the interactive response: binary files preflight/Range-bound inside the fetch;
+    // Google-native exports (no size until exported) are caught by the post-hoc length
+    // check. Either way an oversized document is rejected before it can be base64-encoded
+    // into an over-limit callable response.
+    const result = await fetchBrokeredFileBytes(drive, fileId, storedMime, MAX_INTERACTIVE_CONTENT_BYTES);
+    if ('tooLarge' in result || result.data.length > MAX_INTERACTIVE_CONTENT_BYTES) {
+      throw new HttpsError(
+        'failed-precondition',
+        'This document is too large to open in the app. Open it directly in Google Drive.',
+      );
+    }
     return {
       base64: result.data.toString('base64'),
       mimeType: result.mimeType,
@@ -474,51 +484,3 @@ export const getArtistDocumentContent = onCall(
     };
   },
 );
-
-/** Workspace types `files.export` can actually convert to PDF — `vnd.google-apps.*`
- * also covers folders and shortcuts, which would 400 on export. */
-const EXPORTABLE_GOOGLE_MIMES = new Set([
-  'application/vnd.google-apps.document',
-  'application/vnd.google-apps.spreadsheet',
-  'application/vnd.google-apps.presentation',
-  'application/vnd.google-apps.drawing',
-]);
-
-/** Fetch a file's bytes via a broker Drive client. Google-native docs (Docs/Sheets/
- * Slides — common for riders) can't be downloaded raw (`files.get?alt=media` 403s);
- * exportable ones convert to PDF, which is universally viewable and packet-embeddable.
- * With `maxBytes`, binary files preflight their metadata size and return
- * `{ tooLarge: true }` instead of buffering an oversized download, and the download
- * itself is Range-bounded to the cap in case the metadata was stale (native exports
- * have no size until exported — the caller's post-hoc length check covers those). */
-export async function fetchBrokeredFileBytes(
-  drive: drive_v3.Drive,
-  fileId: string,
-  storedMime: string,
-  maxBytes?: number,
-): Promise<{ data: Buffer; mimeType: string } | { tooLarge: true }> {
-  if (storedMime.startsWith('application/vnd.google-apps.')) {
-    if (!EXPORTABLE_GOOGLE_MIMES.has(storedMime)) {
-      throw new HttpsError('failed-precondition', 'This Google Drive item type cannot be exported.');
-    }
-    const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
-    return { data: Buffer.from(res.data as ArrayBuffer), mimeType: 'application/pdf' };
-  }
-  if (maxBytes !== undefined) {
-    const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
-    const size = Number(meta.data.size ?? 0);
-    if (size > maxBytes) return { tooLarge: true };
-  }
-  const res = await drive.files.get(
-    { fileId, alt: 'media', supportsAllDrives: true },
-    {
-      responseType: 'arraybuffer',
-      // One byte past the cap: a full-length 206/200 response means the file outgrew
-      // its preflighted metadata size, so the length check below still catches it.
-      ...(maxBytes !== undefined && { headers: { Range: `bytes=0-${maxBytes}` } }),
-    },
-  );
-  const data = Buffer.from(res.data as ArrayBuffer);
-  if (maxBytes !== undefined && data.length > maxBytes) return { tooLarge: true };
-  return { data, mimeType: storedMime || 'application/octet-stream' };
-}
