@@ -13,6 +13,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Admin — new-user approval:** registrations no longer wait to be noticed. The Admin nav link shows
+  a count badge of accounts awaiting approval, and a prominent "Pending approval" section at the top of
+  the Admin screen lists each one with a one-click **Approve** (or **Deny**, which removes the account).
+
 - **Documents:** a search box at the top of the artist library narrows the list as you
   type. An optional "also search within file names" checkbox (off by default) widens the
   search to match document filenames too — handy for tracking down a misfiled item.

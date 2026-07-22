@@ -1,13 +1,20 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { useScrolled } from '@/hooks/useScrolled';
 import { SystemDarkNudge } from '@/components/SystemDarkNudge';
+import { listUsers } from '@/lib/users/users-service';
+import { countPendingApproval } from '@/lib/users/approval';
 
 /** App frame: dark, branded chrome (sticky header that shrinks on scroll) + light content. */
 export function AppShell({ children }: { children: ReactNode }) {
   const scrolled = useScrolled(8);
   const { user, isAdmin, signOut } = useAuth();
+  // Admins see a count of accounts awaiting approval on the Admin link — a standing nudge that new
+  // registrations need action, without opening the Admin screen. Shares the ['admin','users'] cache.
+  const usersQuery = useQuery({ queryKey: ['admin', 'users'], queryFn: listUsers, enabled: isAdmin });
+  const pendingCount = usersQuery.data ? countPendingApproval(usersQuery.data) : 0;
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
       <header
@@ -45,10 +52,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <>
                 {isAdmin && (
                   <Link
-                    className="rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+                    className="inline-flex items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
                     to="/admin"
+                    aria-label={pendingCount > 0 ? `Admin — ${pendingCount} awaiting approval` : 'Admin'}
                   >
                     Admin
+                    {pendingCount > 0 && (
+                      <span
+                        className="rounded-full bg-white px-1 leading-none text-accent"
+                        title={`${pendingCount} account${pendingCount === 1 ? '' : 's'} awaiting approval`}
+                      >
+                        {pendingCount}
+                      </span>
+                    )}
                   </Link>
                 )}
                 <Link className="transition-colors hover:text-accent" to="/settings">
