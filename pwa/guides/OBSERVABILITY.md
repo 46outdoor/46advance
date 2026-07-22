@@ -20,24 +20,29 @@ from environment variables in the production build.
   the local `.map` files**, so readable stacks appear in Sentry without publishing maps as public
   Hosting assets.
 
-## To activate — set these in the production (Hosting) build environment
+## To activate — add two GitHub repo secrets
 
-The project is provisioned: org **`46-advance`**, project **`javascript-react`** (a Sentry *React*
-project). Set these where the Hosting build gets its `VITE_FIREBASE_*` vars:
+The production build runs in the **`.github/workflows/production-deploy.yml`** GitHub Actions
+workflow (manual "Run workflow" → type `deploy`). The workflow already maps the Sentry env vars into
+the build step — org (`46-advance`) and project (`javascript-react`) are hardcoded there (public, not
+secret), and the release is `github.sha`. So you only add **two repo secrets**:
 
-| Variable | Required | Value / purpose |
-| --- | --- | --- |
-| `VITE_SENTRY_DSN` | **Yes** | The React project DSN (from Sentry → project → Client Keys). **Not a secret** — it ships in the client bundle by design. Without it, everything stays a no-op. |
-| `VITE_APP_RELEASE` | No | Overrides the auto-derived git SHA (e.g. a semver/tag). |
-| `SENTRY_ORG` | For source maps | `46-advance` |
-| `SENTRY_PROJECT` | For source maps | `javascript-react` (update if you rename the project) |
-| `SENTRY_AUTH_TOKEN` | For source maps | Sentry auth token with source-map upload scope (Sentry → Settings → Auth Tokens). **Secret — never commit; keep out of the client.** |
+1. GitHub → the repo → **Settings → Secrets and variables → Actions → New repository secret**.
+2. Add **`VITE_SENTRY_DSN`** = the React project DSN (Sentry → project → **Settings → Client Keys (DSN)**).
+   This alone turns on error events. (It ends up in the client bundle — not a true secret, but a secret
+   is the tidy place for it.)
+3. Add **`SENTRY_AUTH_TOKEN`** = a Sentry auth token with source-map upload scope (Sentry → **Settings →
+   Auth Tokens**). This enables readable stack traces. **Real secret** — never commit it.
+4. Re-run the production-deploy workflow. That's it — no code change.
 
-- Only `VITE_SENTRY_DSN` is needed for events; the three `SENTRY_*` build vars enable readable stacks
-  (source-map upload). If any of the three is missing, the plugin and source-map generation stay off
-  and the build is unchanged.
-- **Do NOT** paste Sentry's quickstart `Sentry.init({...})` snippet — the SDK is already installed and
-  initialized (`initSentry()` in `src/main.tsx`) with privacy-safe config. Adding it would double-init.
+Behavior of the gates:
+- No `VITE_SENTRY_DSN` → Sentry is a complete no-op.
+- `VITE_SENTRY_DSN` but no `SENTRY_AUTH_TOKEN` → events work, stacks are minified (no source-map upload).
+- Both set → events + readable stacks. A source-map upload failure is **non-fatal** (the deploy still
+  ships; stacks stay minified until the next successful upload).
+
+> **Do NOT** paste Sentry's quickstart `Sentry.init({...})` snippet — the SDK is already installed and
+> initialized (`initSentry()` in `src/main.tsx`) with privacy-safe config. Adding it would double-init.
 
 ## Verify after the deploy
 
