@@ -37,6 +37,19 @@ describe('initSentry', () => {
     expect(Sentry.init).toHaveBeenCalledOnce();
     expect(Sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: DSN, sendDefaultPii: false }));
   });
+
+  it('isSentryActive reflects whether a DSN activated it', async () => {
+    vi.stubEnv('VITE_SENTRY_DSN', '');
+    const off = await import('@/lib/sentry');
+    off.initSentry();
+    expect(off.isSentryActive()).toBe(false);
+
+    vi.resetModules();
+    vi.stubEnv('VITE_SENTRY_DSN', DSN);
+    const on = await import('@/lib/sentry');
+    on.initSentry();
+    expect(on.isSentryActive()).toBe(true);
+  });
 });
 
 describe('log sink (DSN present)', () => {

@@ -23,6 +23,7 @@ import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
 import { CrewTypesAdmin } from './CrewTypesAdmin';
 import { DocumentLibraryAdmin } from './DocumentLibraryAdmin';
+import { ObservabilityDiagnostics } from './ObservabilityDiagnostics';
 
 const logger = createLogger('Admin');
 
@@ -280,6 +281,8 @@ export function AdminScreen() {
       <BrandingAdmin />
 
       <CrewTypesAdmin />
+
+      <ObservabilityDiagnostics />
 
       {/* Templates */}
       <div className="space-y-3">
