@@ -57,6 +57,11 @@ if (sentryUpload) {
       authToken: SENTRY_AUTH_TOKEN,
       release: { name: APP_RELEASE },
       sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+      // A Sentry source-map upload hiccup must never fail a production deploy — the app still
+      // ships; stacks just stay minified until the next successful upload. (The plugin logs it.)
+      errorHandler: () => {
+        /* swallow: non-fatal */
+      },
     }),
   );
 }
