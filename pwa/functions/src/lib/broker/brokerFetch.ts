@@ -6,6 +6,7 @@
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { drive_v3 } from 'googleapis';
+import type { Readable } from 'node:stream';
 
 /** Max raw bytes embedded per attachment in a generated packet PDF; larger files are
  * listed on the divider with an open-in-app note instead of being embedded. */
@@ -31,8 +32,9 @@ const EXPORTABLE_GOOGLE_MIMES = new Set([
  * exportable ones convert to PDF, which is universally viewable and packet-embeddable.
  * With `maxBytes`, binary files preflight their metadata size and return
  * `{ tooLarge: true }` instead of buffering an oversized download, and the download
- * itself is Range-bounded to the cap in case the metadata was stale (native exports
- * have no size until exported — the caller's post-hoc length check covers those). */
+ * itself is Range-bounded to the cap in case the metadata was stale. Native exports have
+ * no known size until produced, so with a cap they're streamed through a running byte
+ * count and aborted the moment they cross it — an oversized export never buffers whole. */
 export async function fetchBrokeredFileBytes(
   drive: drive_v3.Drive,
   fileId: string,
@@ -42,6 +44,13 @@ export async function fetchBrokeredFileBytes(
   if (storedMime.startsWith('application/vnd.google-apps.')) {
     if (!EXPORTABLE_GOOGLE_MIMES.has(storedMime)) {
       throw new HttpsError('failed-precondition', 'This Google Drive item type cannot be exported.');
+    }
+    if (maxBytes !== undefined) {
+      // Stream + count so a huge export (e.g. a giant Sheet → hundreds of MB of PDF) is
+      // aborted at the cap instead of buffering unbounded into the Function's memory.
+      const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'stream' });
+      const data = await readStreamCapped(res.data as unknown as Readable, maxBytes);
+      return data ? { data, mimeType: 'application/pdf' } : { tooLarge: true };
     }
     const res = await drive.files.export({ fileId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
     return { data: Buffer.from(res.data as ArrayBuffer), mimeType: 'application/pdf' };
@@ -63,4 +72,22 @@ export async function fetchBrokeredFileBytes(
   const data = Buffer.from(res.data as ArrayBuffer);
   if (maxBytes !== undefined && data.length > maxBytes) return { tooLarge: true };
   return { data, mimeType: storedMime || 'application/octet-stream' };
+}
+
+/** Collect a readable stream into a Buffer, aborting (destroying the stream, returning
+ * null) the instant the running total crosses `maxBytes`. Lets the caller bound the memory
+ * a size-unknown source (a Google-native export) can consume before it's rejected. */
+async function readStreamCapped(stream: Readable, maxBytes: number): Promise<Buffer | null> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+    total += buf.length;
+    if (total > maxBytes) {
+      stream.destroy();
+      return null;
+    }
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
 }
