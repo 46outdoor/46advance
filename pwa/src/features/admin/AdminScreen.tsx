@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
 import { listUsers } from '@/lib/users/users-service';
+import { countPendingApproval, isPendingApproval } from '@/lib/users/approval';
 import { userFullName, userShortName } from '@/lib/users/userName';
 import type { UserProfile } from '@/types';
 import {
@@ -174,6 +175,51 @@ export function AdminScreen() {
           Users and per-event role assignment. Membership is admin-managed (Phase 1).
         </p>
       </header>
+
+      {/* Pending approval — surfaced prominently at the top so new registrations get acted on. Only
+          shown when someone is actually waiting; the full roster below manages everyone else. */}
+      {usersQuery.data && countPendingApproval(usersQuery.data) > 0 && (
+        <div className="space-y-3 rounded-lg border-2 border-accent/60 bg-accent/5 p-4">
+          <h2 className="font-display text-xl font-bold text-accent">
+            Pending approval ({countPendingApproval(usersQuery.data)})
+          </h2>
+          <p className="text-sm text-ink-muted">
+            These accounts have registered and are blocked from the app until you approve them.
+          </p>
+          <ul className="divide-y divide-line/60">
+            {usersQuery.data.filter((u) => isPendingApproval(u)).map((u) => (
+              <li key={u.uid} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  <span className="font-medium text-ink">{userFullName(u)}</span>
+                  {u.email && <span className="ml-2 text-sm text-ink-muted">{u.email}</span>}
+                </span>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={setApproved.isPending}
+                    onClick={() => setApproved.mutate({ uid: u.uid, approved: true })}
+                    className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteAccount.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Deny and permanently delete ${userFullName(u)}'s account?`)) {
+                        deleteAccount.mutate(u.uid);
+                      }
+                    }}
+                    className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                  >
+                    Deny
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Users */}
       <div className="space-y-3">
