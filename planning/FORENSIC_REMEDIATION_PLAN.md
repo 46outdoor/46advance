@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-18; revised 2026-07-20 after inline review
 
-**Status:** Implementation-ready — awaiting explicit approval; no remediation code has begun.
+**Status:** Phase 0 COMPLETE — shipped and deployed (change-sets S0–S8 + the AC-1–AC-4
+acceptance closure), 2026-07-21/22. Phase 1 (WS-E/F/G/H/I) not started. See the **Completion
+record** at the end of this document for PR numbers, deploy results, and residual deferrals.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -43,18 +45,18 @@ criteria live in the mapped workstreams below.
 
 | Finding | Severity | Disposition | Summary | Principal evidence | Workstream |
 | --- | --- | --- | --- | --- | --- |
-| F-1 | High | Active | Drive document metadata accepts file IDs without proving the file belongs to the authorized event/library source, allowing the broker service account to become a confused deputy. | `pwa/firestore.rules`; `pwa/functions/src/googleDrive.ts`; packet fetches in `pwa/functions/src/index.ts` | WS-A |
-| F-2 | High | Active | Authorization revocation is incomplete: an event creator can recreate removed PM membership, and revoked Google connections continue through scheduled processing. | `pwa/firestore.rules`; `pwa/functions/src/index.ts`; `pwa/functions/src/googleBookings.ts` | WS-B |
-| F-3 | High | Active | Contact ownership/link fields are mutable, enabling a linked user to rewrite `createdBy` and then satisfy the delete rule. | `pwa/firestore.rules`; contact rules tests | WS-B |
-| F-4 | High | Active | React Query and persistent Firestore caches survive account changes and can expose prior-user data in the same browser. | `pwa/src/main.tsx`; `pwa/src/services/firebase.ts`; auth/query keys | WS-C |
-| F-5 | High | Active | Logo/photo replacement can delete the durable old object before the new reference is saved; failed/cancelled drafts also orphan new uploads. | `LogoUploader.tsx`; `PhotoEditor.tsx`; branding/template/contact forms | WS-E |
-| F-6 | High | Active | Event dates and some advance-call edits use browser-local `Date` conversion despite the explicit event-timezone invariant. | `pwa/src/lib/dates/parsing.ts`; event/advance forms and services | WS-F |
-| F-7 | High | Active | Advance, stage, and quote deletion leaves nested Firestore documents and Storage objects orphaned. | advance, stage, quote, and document services | WS-E |
-| F-8 | High | Active | The raw Functions `serve` script selects the production-default project while omitting dependent emulators, so local Admin SDK calls can reach production. | `pwa/functions/package.json`; `pwa/.firebaserc` | WS-D |
-| F-9 | High | Active | Account deletion suppresses all Auth deletion errors, performs non-atomic cleanup, and can report success while the Auth account remains. | `pwa/functions/src/index.ts`; `pwa/functions/src/lib/db/chunkedBatch.ts` | WS-B |
-| F-10 | High | Active | Interactive document content retrieval has no byte cap and fully buffers/base64-encodes the response. | `pwa/functions/src/googleDrive.ts`; existing packet attachment limit | WS-A |
-| F-11 | High | Active | The mandatory predeploy health check omits `DRIVE_SA_KEY`, so deployment can pass while Drive-backed functions cannot start. | `pwa/scripts/cli/verify-secrets-health.sh`; `pwa/functions/src/googleDrive.ts` | WS-D |
-| F-12 | Medium-high | Active | Sentry is scaffolded but inactive in production, lacks release/source-map integration, and ordinary `logger.error` calls do not create incidents. | `pwa/src/lib/sentry.ts`; production deployment workflow; Vite config | WS-I |
+| F-1 | High | Resolved (S2 #131, S8 #137, AC-1 #138) | Drive document metadata accepts file IDs without proving the file belongs to the authorized event/library source, allowing the broker service account to become a confused deputy. | `pwa/firestore.rules`; `pwa/functions/src/googleDrive.ts`; packet fetches in `pwa/functions/src/index.ts` | WS-A |
+| F-2 | High | Resolved (S5 #134, S8 #137, AC-1 #138, AC-3 #140; residual: claim-map atomicity accepted) | Authorization revocation is incomplete: an event creator can recreate removed PM membership, and revoked Google connections continue through scheduled processing. | `pwa/firestore.rules`; `pwa/functions/src/index.ts`; `pwa/functions/src/googleBookings.ts` | WS-B |
+| F-3 | High | Resolved (S6 #135) | Contact ownership/link fields are mutable, enabling a linked user to rewrite `createdBy` and then satisfy the delete rule. | `pwa/firestore.rules`; contact rules tests | WS-B |
+| F-4 | High | Resolved (S4 #133; deferred: UID query-key scoping — owner personal-device decision #1) | React Query and persistent Firestore caches survive account changes and can expose prior-user data in the same browser. | `pwa/src/main.tsx`; `pwa/src/services/firebase.ts`; auth/query keys | WS-C |
+| F-5 | High | Active — Phase 1 (S9/WS-E, not started) | Logo/photo replacement can delete the durable old object before the new reference is saved; failed/cancelled drafts also orphan new uploads. | `LogoUploader.tsx`; `PhotoEditor.tsx`; branding/template/contact forms | WS-E |
+| F-6 | High | Active — Phase 1 (S11/WS-F, not started) | Event dates and some advance-call edits use browser-local `Date` conversion despite the explicit event-timezone invariant. | `pwa/src/lib/dates/parsing.ts`; event/advance forms and services | WS-F |
+| F-7 | High | Active — Phase 1 (S10/WS-E, not started) | Advance, stage, and quote deletion leaves nested Firestore documents and Storage objects orphaned. | advance, stage, quote, and document services | WS-E |
+| F-8 | High | Resolved (S7 #136) | The raw Functions `serve` script selects the production-default project while omitting dependent emulators, so local Admin SDK calls can reach production. | `pwa/functions/package.json`; `pwa/.firebaserc` | WS-D |
+| F-9 | High | Resolved (S5 #134) | Account deletion suppresses all Auth deletion errors, performs non-atomic cleanup, and can report success while the Auth account remains. | `pwa/functions/src/index.ts`; `pwa/functions/src/lib/db/chunkedBatch.ts` | WS-B |
+| F-10 | High | Resolved (S1 #130, AC-2 #139 stream-caps native exports too) | Interactive document content retrieval has no byte cap and fully buffers/base64-encodes the response. | `pwa/functions/src/googleDrive.ts`; existing packet attachment limit | WS-A |
+| F-11 | High | Resolved (S7 #136; deferred: WS-D.4–6 clean-clone wrapper enforcement + dry-run defaults) | The mandatory predeploy health check omits `DRIVE_SA_KEY`, so deployment can pass while Drive-backed functions cannot start. | `pwa/scripts/cli/verify-secrets-health.sh`; `pwa/functions/src/googleDrive.ts` | WS-D |
+| F-12 | Medium-high | Active — Phase 1 (S14/WS-I, not started; needs owner-provisioned Sentry secrets) | Sentry is scaffolded but inactive in production, lacks release/source-map integration, and ordinary `logger.error` calls do not create incidents. | `pwa/src/lib/sentry.ts`; production deployment workflow; Vite config | WS-I |
 | F-13 | High (verification) | Deferred | Public-repository redistribution rights for tracked Nexa/Hikou font binaries require confirmation. No action is authorized by this plan. | `pwa/public/fonts/`; `pwa/src/index.css` | Deferred |
 
 ## Baseline and definition of done
@@ -633,6 +635,61 @@ actively edited in the shared worktree at a time unless isolated worktrees are u
 | Operations | Wrapper/safeguard tests, secret-health failure tests, workflow syntax/review, runtime smoke |
 
 ## Completion record
+
+### Phase 0 — complete (2026-07-21 / 2026-07-22)
+
+All Phase 0 change-sets and the acceptance-closure round shipped as one-PR-per-change-set with
+squash auto-merge. Backend (Functions + Firestore rules) deployed to `advancethat`; the Hosting
+release (H0) is owner-operated.
+
+**Change-sets (PR → deploy):**
+
+| Change-set | PR | Deploy result |
+| --- | --- | --- |
+| Rules fix — non-admin event-listing collection-group rule | #129 | `firestore:rules` deployed |
+| S0 authenticated emulator foundation | #128 | none |
+| S1 broker interactive-content cap (7 MB) | #130 | functions deployed |
+| S2 server-validated Drive registration callables | #131 | functions deployed (new callables' `allUsers` run.invoker verified) |
+| S3 atomic blank-event + creator-membership callable | #132 | functions deployed |
+| S4 cross-user cache isolation | #133 | client — shipped with H0 |
+| S5 authoritative revocation + durable deletion | #134 | functions deployed |
+| S6 immutable contact ownership | #135 | `firestore:rules` deployed |
+| S7 safe tooling + complete secret-health gate | #136 | none (operator tooling) |
+| H0 owner Hosting release | — | live on commit `e6c5ae9` (S2–S4 clients) |
+| S8 Drive/event/membership enforcement flips | #137 | `firestore:rules` deployed (post-H0) |
+
+**Acceptance closure** (closes gaps found in the post-implementation review; review numbering in
+parentheses maps to the plan findings above):
+
+| Item | PR | Closes | Deploy |
+| --- | --- | --- | --- |
+| AC-1 membership `isActiveUser` gate + Drive source-metadata immutability on update + dead-rule cleanup | #138 | review #7 → F-2; review #3 → F-1 | `firestore:rules` deployed |
+| AC-2 stream-cap Google-native Drive exports | #139 | review #4 → F-10 | functions deployed |
+| AC-3 authoritative callable revocation (`assertActiveUser`) | #140 | review #1/#2 → F-2 | functions deployed |
+| AC-4 read-only legacy-record provenance audit script + this record | this PR | review #8 (process) | none |
+
+**Test counts (Phase 0 end):** 134 Firestore/Storage rules tests; 57 Functions unit + 50
+emulator-backed callable tests; 269 PWA unit tests; authenticated Playwright emulator smoke (5).
+
+**Legacy-record audit:** read-only tooling delivered at
+`pwa/functions/scripts/audit-drive-record-provenance.ts` (WS-A.9) — reports pre-S2 records whose
+Drive provenance can't be verified; report-only, no deletion. The owner runs it against
+`advancethat` to produce the artifact; any cleanup is a separately-approved step.
+
+**Residual deferrals carried out of Phase 0** (not blockers; tracked for later):
+
+- F-2 — the custom-claim map update is still a non-atomic read-modify-write across concurrent
+  same-uid admin calls (Firebase Auth has no compare-and-set); very low probability, accepted.
+- F-4 — React Query keys are not UID-scoped; the auth-transition cache clear is the isolation
+  guarantee, per owner decision #1 (personal devices, not shared kiosks). Revisit if shared
+  browsers become a supported scenario.
+- F-11 / WS-D.4–6 — clean-clone wrapper-enforcement reproducibility, raw-vs-wrapper
+  Hosting-deploy assertions, and read-only/dry-run defaults for destructive scripts (the scripts
+  currently require an explicit project-confirmation instead).
+- WS-G — the blank-event idempotent-success path does not re-verify `createdBy` inside the
+  transaction; only reachable on a same-id collision between two owners (random IDs), negligible.
+
+### Phase 1 and beyond
 
 When P0 and P1 are complete, update this document with:
 
