@@ -202,6 +202,7 @@ async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: n
  * Each immediate subfolder is an artist; its ENTIRE subtree (nested subfolders included) is imported
  * under that artist. Files directly in the picked folder are unsorted. Files are linked (metadata
  * only), de-duped by Drive file id so re-import only adds new files and preserves classifications.
+ * Does NOT set the mirrored library root — that is admin-managed (config/documentsLibrary).
  */
 // 512 MiB (not the 256 MiB default): enumerates the whole library into memory like
 // scheduledLibraryDriveSync (already 512 MiB). At the default this OOMs once the library grows.
@@ -227,13 +228,9 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
   }
   const groups = await enumerateLibrary(drive, folderId, subfolders);
 
-  // The library root — recorded so uploads can create subfolders for new artists and
-  // the scheduled sync knows what to sweep.
-  await db.doc('config/documentsLibrary').set(
-    { rootFolderId: folderId, updatedAt: Timestamp.now() },
-    { merge: true },
-  );
-
+  // NOTE: does NOT touch config/documentsLibrary.rootFolderId — the mirrored library root is set
+  // deliberately by an admin (DocumentLibraryAdmin). Import pulls the picked folder's files into
+  // the library without repointing what the scheduled sync sweeps.
   const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null });
   return { imported: counts.imported, skipped: counts.skipped };
 });

@@ -22,6 +22,7 @@ import { DepartmentsAdmin } from './DepartmentsAdmin';
 import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
 import { CrewTypesAdmin } from './CrewTypesAdmin';
+import { DocumentLibraryAdmin } from './DocumentLibraryAdmin';
 
 const logger = createLogger('Admin');
 
@@ -273,6 +274,8 @@ export function AdminScreen() {
       <DepartmentsAdmin />
 
       <DocumentCategoriesAdmin />
+
+      <DocumentLibraryAdmin />
 
       <BrandingAdmin />
 
