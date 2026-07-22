@@ -35,6 +35,8 @@ export interface ArtistDocument {
   /** Set by the scheduled Drive sync when the file vanished from the library tree
    * (deleted or moved — indistinguishable); cleared if it reappears. */
   missingFromDrive: boolean;
+  /** When the sync first flagged it missing; null when present (or pre-timestamp). */
+  missingAt: Date | null;
   importedBy: string;
   importedByEmail: string | null;
   importedAt: Date | null;
@@ -60,6 +62,7 @@ const artistDocumentDocSchema = z.object({
   categoryId: z.string().nullable().optional(),
   sourceFolderId: z.string().nullable().optional(),
   missingFromDrive: z.boolean().optional(),
+  missingAt: z.instanceof(Timestamp).nullable().optional(),
   importedBy: z.string().min(1),
   importedByEmail: z.string().nullable().optional(),
   importedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -83,6 +86,7 @@ export function parseArtistDocument(id: string, data: unknown): ArtistDocument {
     categoryId: d.categoryId ?? null,
     sourceFolderId: d.sourceFolderId ?? null,
     missingFromDrive: d.missingFromDrive === true,
+    missingAt: timestampToDate(d.missingAt ?? null),
     importedBy: d.importedBy,
     importedByEmail: d.importedByEmail ?? null,
     importedAt: timestampToDate(d.importedAt ?? null),
@@ -109,7 +113,10 @@ export function isVerifiedCurrent(verifiedAt: Date | null, now: Date): boolean {
 export interface ArtistSummary {
   key: string;
   name: string;
+  /** Total documents (includes any removed-from-Drive). */
   count: number;
+  /** How many of `count` are flagged removed from Drive (a subset). */
+  removedCount: number;
 }
 
 /** Sort key that ignores a leading "The " so "The Beatles" alphabetizes under "B". */
@@ -124,8 +131,17 @@ export function artistsFromDocuments(docs: readonly ArtistDocument[]): ArtistSum
   for (const d of docs) {
     if (!d.artistKey || !d.artist) continue;
     const existing = map.get(d.artistKey);
-    if (existing) existing.count += 1;
-    else map.set(d.artistKey, { key: d.artistKey, name: d.artist, count: 1 });
+    if (existing) {
+      existing.count += 1;
+      if (d.missingFromDrive) existing.removedCount += 1;
+    } else {
+      map.set(d.artistKey, {
+        key: d.artistKey,
+        name: d.artist,
+        count: 1,
+        removedCount: d.missingFromDrive ? 1 : 0,
+      });
+    }
   }
   return [...map.values()].sort((a, b) =>
     artistSortName(a.name).localeCompare(artistSortName(b.name), undefined, { sensitivity: 'base' }),

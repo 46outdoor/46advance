@@ -53,14 +53,20 @@ describe('parseArtistDocument', () => {
 });
 
 describe('artistsFromDocuments', () => {
-  const make = (artist: string | null, key: string | null, fileId: string): ArtistDocument => ({
+  const make = (
+    artist: string | null,
+    key: string | null,
+    fileId: string,
+    missingFromDrive = false,
+  ): ArtistDocument => ({
     id: fileId,
     fileId,
     name: 'x',
     displayName: null,
     notes: null,
     sourceFolderId: null,
-    missingFromDrive: false,
+    missingFromDrive,
+    missingAt: null,
     obsolete: false,
     verifiedAt: null,
     mimeType: 'application/pdf',
@@ -82,8 +88,20 @@ describe('artistsFromDocuments', () => {
       make(null, null, '4'),
     ];
     expect(artistsFromDocuments(docs)).toEqual([
-      { key: 'jelly roll', name: 'Jelly Roll', count: 2 },
-      { key: 'rtc', name: 'RTC', count: 1 },
+      { key: 'jelly roll', name: 'Jelly Roll', count: 2, removedCount: 0 },
+      { key: 'rtc', name: 'RTC', count: 1, removedCount: 0 },
+    ]);
+  });
+
+  it('counts removed-from-Drive documents as a subset of the total', () => {
+    const docs = [
+      make('Jelly Roll', 'jelly roll', '1'),
+      make('Jelly Roll', 'jelly roll', '2', true), // removed
+      make('RTC', 'rtc', '3', true), // removed
+    ];
+    expect(artistsFromDocuments(docs)).toEqual([
+      { key: 'jelly roll', name: 'Jelly Roll', count: 2, removedCount: 1 },
+      { key: 'rtc', name: 'RTC', count: 1, removedCount: 1 },
     ]);
   });
 
@@ -110,6 +128,7 @@ describe('filterArtists', () => {
     notes: null,
     sourceFolderId: null,
     missingFromDrive: false,
+    missingAt: null,
     obsolete: false,
     verifiedAt: null,
     mimeType: 'application/pdf',

@@ -28,6 +28,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 - **Documents:** the artist list now alphabetizes ignoring a leading "The" — so "The
   Beatles" sorts under **B**.
+- **Documents — removed files:** a document deleted or moved out of the Drive library no longer just
+  quietly shows a badge in the mix. An artist's page now groups these into a distinct **"Removed from
+  Drive"** section showing **when** each went missing, the artist list flags **"· N removed"**, and
+  search still turns them up — so someone hunting for a since-deleted file learns it was removed.
 
 ### Fixed
 

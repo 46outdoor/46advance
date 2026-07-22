@@ -114,6 +114,11 @@ export function DocumentsScreen() {
             <span className="min-w-0 truncate font-semibold text-ink">{artist.name}</span>
             <span className="shrink-0 text-sm text-ink-muted">
               {artist.count} {artist.count === 1 ? 'document' : 'documents'}
+              {artist.removedCount > 0 && (
+                <span className="ml-1 text-accent" title="Files removed from Drive, kept for reference">
+                  · {artist.removedCount} removed
+                </span>
+              )}
             </span>
           </Link>
         ))}
