@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { Readable } from 'node:stream';
 import type { drive_v3 } from 'googleapis';
 import {
   fetchBrokeredFileBytes,
@@ -22,6 +23,7 @@ interface DriveStub {
 }
 
 type GetParams = { fileId: string; fields?: string; alt?: string };
+type ResponseOpts = { responseType?: string };
 
 function mockDrive(stub: DriveStub): drive_v3.Drive {
   const files = {
@@ -31,7 +33,14 @@ function mockDrive(stub: DriveStub): drive_v3.Drive {
       }
       return Promise.resolve({ data: toArrayBuffer(stub.downloadBytes ?? Buffer.alloc(0)) });
     },
-    export: () => Promise.resolve({ data: toArrayBuffer(stub.exportBytes ?? Buffer.alloc(0)) }),
+    // Mirrors googleapis: `responseType: 'stream'` yields a Readable (the capped path),
+    // otherwise an ArrayBuffer.
+    export: (_params: unknown, opts?: ResponseOpts) => {
+      const bytes = stub.exportBytes ?? Buffer.alloc(0);
+      return Promise.resolve({
+        data: opts?.responseType === 'stream' ? Readable.from([bytes]) : toArrayBuffer(bytes),
+      });
+    },
   };
   return { files } as unknown as drive_v3.Drive;
 }
@@ -63,7 +72,7 @@ describe('fetchBrokeredFileBytes — bounded fetch', () => {
     expect(result).toEqual({ tooLarge: true });
   });
 
-  it('exports a Google-native doc to PDF (no preflight; caller does the post-hoc size check)', async () => {
+  it('exports a Google-native doc to PDF under the cap (streamed)', async () => {
     const drive = mockDrive({ exportBytes: Buffer.alloc(2000, 1) });
     const result = await fetchBrokeredFileBytes(
       drive,
@@ -76,6 +85,19 @@ describe('fetchBrokeredFileBytes — bounded fetch', () => {
       expect(result.mimeType).toBe('application/pdf');
       expect(result.data.length).toBe(2000);
     }
+  });
+
+  it('caps an oversized Google-native export by streaming — aborts, no full buffer', async () => {
+    // The export has no metadata preflight, so the running byte count is the only bound:
+    // it must abort past the cap rather than buffer the whole PDF into memory.
+    const drive = mockDrive({ exportBytes: Buffer.alloc(MAX_INTERACTIVE_CONTENT_BYTES + 1, 1) });
+    const result = await fetchBrokeredFileBytes(
+      drive,
+      'huge-gdoc',
+      'application/vnd.google-apps.spreadsheet',
+      MAX_INTERACTIVE_CONTENT_BYTES,
+    );
+    expect(result).toEqual({ tooLarge: true });
   });
 
   it('rejects a non-exportable Google-native item type', async () => {
