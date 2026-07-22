@@ -13,7 +13,8 @@ import {
   type ScheduleTemplate,
 } from '@/lib/schedules/scheduleTemplate';
 import type { DepartmentRecord } from '@/lib/departments/department';
-import { emptyLogo, type Logo } from '@/lib/branding/logo';
+import { emptyLogo, supersededLogoPaths, type Logo } from '@/lib/branding/logo';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 import { SectionContentForm } from '@/components/production/SectionContentForm';
 import { ProductionContactsEditor } from '@/components/production/ProductionContactsEditor';
@@ -67,7 +68,7 @@ export function TemplateEditorScreen() {
               templateId={t.id}
               initial={t.eventLogo}
               pending={patch.isPending}
-              onSave={(eventLogo) => patch.mutate({ eventLogo })}
+              onSave={(eventLogo) => patch.mutateAsync({ eventLogo })}
             />
           </Block>
 
@@ -308,9 +309,20 @@ function EventLogoField({
   templateId: string;
   initial: Logo | null;
   pending?: boolean;
-  onSave: (logo: Logo | null) => void;
+  onSave: (logo: Logo | null) => Promise<unknown>;
 }) {
   const [logo, setLogo] = useState<Logo>(initial ?? emptyLogo());
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      await onSave(logo); // durable patch
+      // Only after the new logo is saved, delete the objects it replaced/removed (F-5).
+      await deleteStoredAssets(supersededLogoPaths(initial ?? emptyLogo(), logo));
+    } catch {
+      setError('Could not save the logo.');
+    }
+  };
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">
@@ -323,14 +335,17 @@ function EventLogoField({
         onChange={setLogo}
         disabled={pending}
       />
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => onSave(logo)}
-        className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-      >
-        Save logo
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void save()}
+          className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          Save logo
+        </button>
+        {error && <span className="text-sm text-accent">{error}</span>}
+      </div>
     </div>
   );
 }

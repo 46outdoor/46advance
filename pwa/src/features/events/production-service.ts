@@ -18,7 +18,7 @@ import {
 import { db } from '@/services/firebase';
 import type { SectionContent } from '@/lib/advances/fields';
 import type { SectionKey, SectionStatus } from '@/lib/advances/sections';
-import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
+import { deleteFile, replaceStoredAsset, uploadFile, validateUpload } from '@/lib/storage/uploads';
 import {
   emptyEventProduction,
   emptyStageProduction,
@@ -124,21 +124,28 @@ async function addAttachment(
 ): Promise<void> {
   const error = validateUpload(file);
   if (error) throw new Error(error);
-  const uploaded = await uploadFile(`${pathPrefix}/${Date.now()}_${sanitize(file.name)}`, file);
-  await addDoc(attachmentsCol(ref), {
-    name: file.name,
-    path: uploaded.path,
-    url: uploaded.url,
-    contentType: uploaded.contentType,
-    size: uploaded.size,
-    uploadedBy: uid,
-    uploadedAt: Timestamp.now(),
-  });
+  // Compensating upload (F-5): drop the object if the doc write fails so it isn't orphaned.
+  await replaceStoredAsset(
+    () => uploadFile(`${pathPrefix}/${Date.now()}_${sanitize(file.name)}`, file),
+    (uploaded) =>
+      addDoc(attachmentsCol(ref), {
+        name: file.name,
+        path: uploaded.path,
+        url: uploaded.url,
+        contentType: uploaded.contentType,
+        size: uploaded.size,
+        uploadedBy: uid,
+        uploadedAt: Timestamp.now(),
+      }),
+    null,
+  );
 }
 
 async function removeAttachment(ref: DocumentReference, attachment: ProductionAttachment): Promise<void> {
+  // Doc first, then best-effort object delete — a failed delete leaves a harmless orphan, never a
+  // record pointing at a deleted file.
   await deleteDoc(doc(attachmentsCol(ref), attachment.id));
-  await deleteFile(attachment.path);
+  await deleteFile(attachment.path).catch(() => undefined);
 }
 
 async function listAttachments(ref: DocumentReference): Promise<ProductionAttachment[]> {

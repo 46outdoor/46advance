@@ -7,10 +7,11 @@ import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateRange } from '@/lib/dates/formatting';
 import type { EventInput, EventRecord } from '@/lib/events/event';
-import { emptyLogo, type Logo } from '@/lib/branding/logo';
+import { emptyLogo, supersededLogoPaths, type Logo } from '@/lib/branding/logo';
 import { brandingKey, getBranding } from '@/lib/branding/branding-service';
 import { LogoRow } from '@/components/branding/LogoRow';
 import { LogoUploader } from '@/components/branding/LogoUploader';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { generatePacket, getEventBySlugOrId, setEventLogo, updateEvent } from './events-service';
@@ -59,7 +60,11 @@ export function EventDetailScreen() {
   });
 
   const saveLogo = useMutation({
-    mutationFn: (logo: Logo) => setEventLogo(id!, logo),
+    mutationFn: async ({ next, prev }: { next: Logo; prev: Logo }) => {
+      await setEventLogo(id!, next);
+      // Delete objects the change superseded, only after the new ref is durably saved (F-5).
+      await deleteStoredAssets(supersededLogoPaths(prev, next));
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
     },
@@ -147,7 +152,7 @@ export function EventDetailScreen() {
             eventId={event.id}
             pending={saveLogo.isPending}
             error={saveLogo.isError}
-            onChange={(logo) => saveLogo.mutate(logo)}
+            onChange={(logo) => saveLogo.mutateAsync({ next: logo, prev: event.eventLogo ?? emptyLogo() })}
           />
         </div>
       )}

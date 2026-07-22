@@ -38,6 +38,18 @@ export function parseLogo(data: unknown): Logo {
 
 export const emptyLogo = (): Logo => ({ onDark: null, onLight: null, name: null });
 
+/** The Storage paths a logo references (its two variants). */
+export function logoPaths(logo: Logo): string[] {
+  return [logo.onDark?.path, logo.onLight?.path].filter((p): p is string => !!p);
+}
+
+/** Storage paths referenced by `prev` but no longer referenced by `next` — the objects a
+ *  replace/remove superseded, safe to delete once `next` is durably persisted (F-5). */
+export function supersededLogoPaths(prev: Logo, next: Logo): string[] {
+  const kept = new Set(logoPaths(next));
+  return logoPaths(prev).filter((p) => !kept.has(p));
+}
+
 /** True if the logo has at least one usable variant. */
 export function hasLogo(logo: Logo | null | undefined): logo is Logo {
   return !!logo && (logo.onDark !== null || logo.onLight !== null);

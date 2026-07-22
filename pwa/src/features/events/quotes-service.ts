@@ -24,7 +24,7 @@ import {
   type QuoteInput,
   type QuoteStatus,
 } from '@/lib/quotes/quote';
-import { deleteFile, uploadFile } from '@/lib/storage/uploads';
+import { deleteFile, replaceStoredAsset, uploadFile } from '@/lib/storage/uploads';
 import type { GenerateQuotePdfInput, GenerateQuotePdfOutput } from '@contracts/callables/pdf';
 
 function quotesCol(eventId: string, stageId: string, advanceId: string) {
@@ -135,12 +135,17 @@ export async function attachSignedCopy(
   previousPath: string | null,
 ): Promise<void> {
   const path = `events/${eventId}/quotes/${quoteId}/signed-${Date.now()}-${file.name}`;
-  await uploadFile(path, file);
-  await updateDoc(quoteDoc(eventId, stageId, advanceId, quoteId), {
-    signedCopyPath: path,
-    updatedAt: serverTimestamp(),
-  });
-  if (previousPath) await deleteFile(previousPath).catch(() => undefined);
+  // Compensating replace (F-5): drop the new object if the doc write fails; delete the previous
+  // signed copy only after the new path is durably on the doc.
+  await replaceStoredAsset(
+    () => uploadFile(path, file),
+    (uploaded) =>
+      updateDoc(quoteDoc(eventId, stageId, advanceId, quoteId), {
+        signedCopyPath: uploaded.path,
+        updatedAt: serverTimestamp(),
+      }),
+    previousPath,
+  );
 }
 
 /** Remove the signed copy (Storage object + path on the doc). */
@@ -151,11 +156,13 @@ export async function removeSignedCopy(
   quoteId: string,
   path: string,
 ): Promise<void> {
-  await deleteFile(path).catch(() => undefined);
+  // Clear the reference first, then best-effort delete the object — a failed delete leaves a
+  // harmless orphan rather than a doc pointing at a deleted file.
   await updateDoc(quoteDoc(eventId, stageId, advanceId, quoteId), {
     signedCopyPath: null,
     updatedAt: serverTimestamp(),
   });
+  await deleteFile(path).catch(() => undefined);
 }
 
 /** Resolve a download URL for a stored file path (member-gated by storage.rules). */
