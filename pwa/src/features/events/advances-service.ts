@@ -6,7 +6,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -15,6 +14,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
+import { deleteAdvanceCascade } from './event-cleanup-service';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseAdvance, type Advance, type AdvanceInput } from '@/lib/advances/advance';
 import {
@@ -144,7 +144,9 @@ export async function deleteAdvance(
   stageId: string,
   advanceId: string,
 ): Promise<void> {
-  await deleteDoc(advanceDoc(eventId, stageId, advanceId));
+  // Server-side recursive delete (F-7): removes driveFiles/documents/quotes + quote Storage that a
+  // client-side deleteDoc would orphan.
+  await deleteAdvanceCascade(eventId, stageId, advanceId);
 }
 
 /**

@@ -34,6 +34,10 @@ dependency bumps, and planning-doc updates) are omitted.
   copy or a production attachment — no longer risks losing the previous file or leaving the
   new one orphaned when a save is cancelled or fails. The old file is kept until the new one
   is durably saved, and a failed save cleans up the upload it made.
+- **Deleting an advance, stage, or quote** now removes all of its nested data and files
+  instead of leaving them behind. Previously deleting one only removed the top record, so
+  its linked documents, drive files, quotes, production attachments, and stored files were
+  orphaned; deletion is now a server-side cascade covering the whole subtree and its Storage.
 
 ## 2026-07-21
 

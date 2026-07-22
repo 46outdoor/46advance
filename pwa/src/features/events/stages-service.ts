@@ -6,7 +6,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -14,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
+import { deleteStageCascade } from './event-cleanup-service';
 import { parseStage, type StageInput, type StageRecord } from '@/lib/events/stage';
 
 function stagesCol(eventId: string) {
@@ -60,9 +60,9 @@ export async function updateStage(
   });
 }
 
-/** Delete a stage and its advances (cascade — Firestore won't remove subcollections). */
+/** Delete a stage and its whole subtree. Server-side recursive delete (F-7): the old one-level
+ *  client cascade orphaned each advance's subcollections + the stage production record/attachments
+ *  (Firestore + Storage); the callable removes all of it. */
 export async function deleteStage(eventId: string, stageId: string): Promise<void> {
-  const advances = await getDocs(collection(db, 'events', eventId, 'stages', stageId, 'advances'));
-  await Promise.all(advances.docs.map((d) => deleteDoc(d.ref)));
-  await deleteDoc(doc(db, 'events', eventId, 'stages', stageId));
+  await deleteStageCascade(eventId, stageId);
 }

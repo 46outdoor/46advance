@@ -55,6 +55,7 @@ export { reconcileScheduleDay, removeScheduleCalendarEvent } from './googleSched
 
 // Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
 export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive, importDriveFolder, getArtistDocumentContent, scheduledLibraryDriveSync, registerEventDocument, registerArtistDocument, includeArtistDocumentOnAdvance } from './googleDrive.js';
+export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
