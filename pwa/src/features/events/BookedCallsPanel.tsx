@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
-import { formatCentralDateTime } from '@/lib/dates/timezone';
+import { formatZonedDateTime } from '@/lib/dates/timezone';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
 import type { LocatedAdvance } from '@/lib/tracker/tracker';
 import {
@@ -29,7 +29,15 @@ const REASON_LABEL: Record<NonNullable<CallBookingReason>, string> = {
   already_linked: 'The matching advance already has a call',
 };
 
-export function BookedCallsPanel({ eventId, canEdit }: { eventId: string; canEdit: boolean }) {
+export function BookedCallsPanel({
+  eventId,
+  canEdit,
+  timeZone,
+}: {
+  eventId: string;
+  canEdit: boolean;
+  timeZone: string;
+}) {
   const queryClient = useQueryClient();
   const connection = useGoogleConnection();
   const isConnected = connection.data?.connected === true;
@@ -108,6 +116,7 @@ export function BookedCallsPanel({ eventId, canEdit }: { eventId: string; canEdi
               booking={b}
               advances={advances}
               eventId={eventId}
+              timeZone={timeZone}
               onResolved={invalidate}
             />
           ))}
@@ -121,11 +130,13 @@ function BookingRow({
   booking,
   advances,
   eventId,
+  timeZone,
   onResolved,
 }: {
   booking: CallBooking;
   advances: LocatedAdvance[];
   eventId: string;
+  timeZone: string;
   onResolved: () => void;
 }) {
   const [advanceId, setAdvanceId] = useState(booking.suggestedAdvanceId ?? '');
@@ -149,7 +160,7 @@ function BookingRow({
     <li className="rounded-lg border border-line p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="font-semibold text-ink">{booking.artistName}</span>
-        <span className="text-sm text-ink-muted">{formatCentralDateTime(new Date(booking.startMillis))}</span>
+        <span className="text-sm text-ink-muted">{formatZonedDateTime(new Date(booking.startMillis), timeZone)}</span>
       </div>
       <p className="mt-0.5 text-xs text-ink-muted">
         {booking.festival && <span className="mr-2">{booking.festival}</span>}

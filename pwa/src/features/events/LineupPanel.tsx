@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { formatDateKey } from '@/lib/dates/formatting';
-import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
+import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 import { slotLabel } from '@/lib/advances/advance';
 import { advanceDataSummary, advanceHasData, findBookingTarget, performanceDayKey } from '@/lib/advances/lineup';
 import { eventDays, type EventRecord } from '@/lib/events/event';
@@ -51,13 +51,15 @@ interface LineupGroup {
 }
 
 function lineupGroups(event: EventRecord, located: readonly LocatedAdvance[]): LineupGroup[] {
-  const days = eventDays(event.startDate, event.endDate);
+  const days = eventDays(event.startDate, event.endDate, event.timeZone);
   if (days.length === 0) return [{ key: '', label: 'Lineup', canBook: true }];
   const groups: LineupGroup[] = days.map((d) => {
-    const key = dateInputValue(d);
+    const key = zonedDayKey(d, event.timeZone);
     return { key, label: formatDateKey(key), canBook: true };
   });
-  const hasUndatedSlots = located.some((l) => l.advance.slot != null && !performanceDayKey(l.advance));
+  const hasUndatedSlots = located.some(
+    (l) => l.advance.slot != null && !performanceDayKey(l.advance, event.timeZone),
+  );
   if (hasUndatedSlots) groups.push({ key: '', label: 'No day set', canBook: false });
   return groups;
 }
@@ -81,8 +83,8 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
   const book = useMutation({
     mutationFn: async ({ stageId, slot, dayKey, name }: BookInput) => {
       const trimmed = name.trim();
-      const date = dayKey ? parseDateInput(dayKey) : null;
-      const existing = findBookingTarget(located, stageId, dayKey, trimmed);
+      const date = dayKey ? dayKeyToInstant(dayKey, event.timeZone) : null;
+      const existing = findBookingTarget(located, stageId, dayKey, trimmed, event.timeZone);
       if (existing) {
         await updateAdvanceLineup(event.id, stageId, existing.advance.id, {
           slot,
@@ -153,7 +155,7 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
                     (l) =>
                       l.stageId === stage.id &&
                       l.advance.slot != null &&
-                      performanceDayKey(l.advance) === group.key,
+                      performanceDayKey(l.advance, event.timeZone) === group.key,
                   )}
                   canEdit={canEdit}
                   busy={busy}

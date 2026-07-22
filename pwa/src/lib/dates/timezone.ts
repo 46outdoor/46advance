@@ -88,37 +88,49 @@ export function dateToZonedInput(date: Date | null, timeZone = APP_TIME_ZONE): s
   return `${map.year}-${map.month}-${map.day}T${hour}:${map.minute}`;
 }
 
-const CENTRAL_DATETIME_FMT = new Intl.DateTimeFormat('en-US', {
-  timeZone: APP_TIME_ZONE,
+const DATETIME_OPTS: Intl.DateTimeFormatOptions = {
   weekday: 'short',
   month: 'short',
   day: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
   timeZoneName: 'short',
-});
+};
+const DATE_OPTS: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
 
-/** Human-readable date+time in Central with the zone label, e.g. "Wed, Jun 24, 4:00 PM CDT". */
-export function formatCentralDateTime(date: Date | null): string {
-  return date ? CENTRAL_DATETIME_FMT.format(date) : '—';
+/** Human date+time in `timeZone` with the zone label, e.g. "Wed, Jun 24, 4:00 PM CDT". Pass the
+ *  event's timeZone when rendering an event instant (advance calls), so it reads in the event's
+ *  local time regardless of the viewer's browser zone. */
+export function formatZonedDateTime(date: Date | null, timeZone = APP_TIME_ZONE): string {
+  return date ? new Intl.DateTimeFormat('en-US', { timeZone, ...DATETIME_OPTS }).format(date) : '—';
 }
 
-const CENTRAL_DATE_FMT = new Intl.DateTimeFormat('en-US', {
-  timeZone: APP_TIME_ZONE,
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-});
+/** Human date only in `timeZone`, e.g. "Wed, Jun 24". Pass the event's timeZone for a date-only
+ *  event field so the same calendar day shows for every viewer. */
+export function formatZonedDate(date: Date | null, timeZone = APP_TIME_ZONE): string {
+  return date ? new Intl.DateTimeFormat('en-US', { timeZone, ...DATE_OPTS }).format(date) : '—';
+}
+
+/** A date range in `timeZone`, e.g. "Wed, Jun 24 – Fri, Jun 26"; a single date when end is
+ *  absent or the same calendar day. Use for event start→end so it reads the same in any zone. */
+export function formatZonedDateRange(start: Date | null, end: Date | null, timeZone = APP_TIME_ZONE): string {
+  if (!start) return '—';
+  const s = formatZonedDate(start, timeZone);
+  if (!end || zonedDayKey(start, timeZone) === zonedDayKey(end, timeZone)) return s;
+  return `${s} – ${formatZonedDate(end, timeZone)}`;
+}
+
+/** Central-fixed convenience — prefer `formatZonedDateTime(date, event.timeZone)` where an event
+ *  timeZone is available. */
+export const formatCentralDateTime = (date: Date | null): string => formatZonedDateTime(date, APP_TIME_ZONE);
+/** Central-fixed convenience — prefer `formatZonedDate(date, event.timeZone)`. */
+export const formatCentralDate = (date: Date | null): string => formatZonedDate(date, APP_TIME_ZONE);
+
 const CENTRAL_TIME_FMT = new Intl.DateTimeFormat('en-US', {
   timeZone: APP_TIME_ZONE,
   hour: 'numeric',
   minute: '2-digit',
 });
-
-/** Date only, in Central, e.g. "Wed, Jun 24". */
-export function formatCentralDate(date: Date | null): string {
-  return date ? CENTRAL_DATE_FMT.format(date) : '—';
-}
 
 /** Time only, in Central, e.g. "4:00 PM" (empty string for null). */
 export function formatCentralTime(date: Date | null): string {
@@ -128,6 +140,14 @@ export function formatCentralTime(date: Date | null): string {
 /** Stable per-day key (`YYYY-MM-DD` in `timeZone`) for grouping items by day. */
 export function zonedDayKey(date: Date | null, timeZone = APP_TIME_ZONE): string {
   return date ? dateToZonedInput(date, timeZone).slice(0, 10) : '';
+}
+
+/** A date-only calendar day (`YYYY-MM-DD`) → the instant at midnight that day in `timeZone`. Use
+ *  for a date-only event field (event start/end, advance performanceDate): storing midnight in the
+ *  EVENT zone (not the browser's) keeps the calendar day stable across editor/viewer zones (F-6).
+ *  Read the day back with `zonedDayKey(instant, timeZone)`. */
+export function dayKeyToInstant(dayKey: string, timeZone = APP_TIME_ZONE): Date | null {
+  return dayKey ? zonedInputToDate(`${dayKey}T00:00`, timeZone) : null;
 }
 
 /** Shift a `YYYY-MM-DD` day key by whole calendar days (UTC arithmetic — DST-safe). */

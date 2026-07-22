@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
-import { formatDateRange } from '@/lib/dates/formatting';
+import { formatZonedDateRange } from '@/lib/dates/timezone';
 import type { EventInput, EventRecord } from '@/lib/events/event';
 import { emptyLogo, supersededLogoPaths, type Logo } from '@/lib/branding/logo';
 import { brandingKey, getBranding } from '@/lib/branding/branding-service';
@@ -159,7 +159,7 @@ export function EventDetailScreen() {
 
       {event && (
         <>
-          <BookedCallsPanel eventId={event.id} canEdit={canEdit} />
+          <BookedCallsPanel eventId={event.id} canEdit={canEdit} timeZone={event.timeZone} />
           <StagesPanel eventId={event.id} canEdit={canEdit} />
           <LineupPanel event={event} canEdit={canEdit} />
           <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
@@ -259,7 +259,9 @@ function EventDetailHeader({
           )}
         </div>
       </div>
-      <p className="text-ink-muted">{formatDateRange(event.startDate, event.endDate)}</p>
+      <p className="text-ink-muted">
+        {formatZonedDateRange(event.startDate, event.endDate, event.timeZone)}
+      </p>
       {event.venue && <p className="text-ink-muted">{event.venue}</p>}
       <LogoRow eventLogo={event.eventLogo} defaults={defaultLogos} className="pt-1" />
       {packetError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}

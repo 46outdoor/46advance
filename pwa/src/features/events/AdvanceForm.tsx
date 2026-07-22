@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { advanceInputSchema, type AdvanceInput } from '@/lib/advances/advance';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
-import { dateInputValue, dateTimeInputValue, parseDateInput, parseDateTimeInput } from '@/lib/dates/parsing';
+import { dateToZonedInput, dayKeyToInstant, zonedDayKey, zonedInputToDate } from '@/lib/dates/timezone';
 
 interface AdvanceFormProps {
   initial?: {
@@ -17,6 +17,9 @@ interface AdvanceFormProps {
   };
   /** The event's performance days; when present, the date becomes a day dropdown. */
   days?: Date[];
+  /** The event's timezone — performanceDate (date-only) and advanceCallAt (instant) are read/written
+   *  in it, so the same day/time round-trips regardless of the editor's browser zone (F-6). */
+  timeZone: string;
   submitLabel: string;
   pending?: boolean;
   error?: string | null;
@@ -27,16 +30,31 @@ interface AdvanceFormProps {
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
 /** Performance day: a dropdown of the event's days when known, else a free date input. */
-function DaySelect({ days, value, onChange }: { days?: Date[]; value: string; onChange: (v: string) => void }) {
+function DaySelect({
+  days,
+  value,
+  timeZone,
+  onChange,
+}: {
+  days?: Date[];
+  value: string;
+  timeZone: string;
+  onChange: (v: string) => void;
+}) {
   if (days && days.length > 0) {
     return (
       <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">— Select a day —</option>
         {days.map((day) => {
-          const v = dateInputValue(day);
+          const v = zonedDayKey(day, timeZone);
           return (
             <option key={v} value={v}>
-              {day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              {new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+              }).format(day)}
             </option>
           );
         })}
@@ -47,15 +65,24 @@ function DaySelect({ days, value, onChange }: { days?: Date[]; value: string; on
 }
 
 /** Create/edit form for an advance. Validates with advanceInputSchema. */
-export function AdvanceForm({ initial, days, submitLabel, pending, error, onSubmit, onCancel }: AdvanceFormProps) {
+export function AdvanceForm({
+  initial,
+  days,
+  timeZone,
+  submitLabel,
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: AdvanceFormProps) {
   const [artistName, setArtistName] = useState(initial?.artistName ?? '');
-  const [performanceDate, setPerformanceDate] = useState(dateInputValue(initial?.performanceDate ?? null));
+  const [performanceDate, setPerformanceDate] = useState(zonedDayKey(initial?.performanceDate ?? null, timeZone));
   const [slot, setSlot] = useState<number | null>(initial?.slot ?? null);
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [additions, setAdditions] = useState(initial?.additions ?? '');
   const [concerns, setConcerns] = useState(initial?.concerns ?? '');
   const [pendingItems, setPendingItems] = useState(initial?.pending ?? '');
-  const [advanceCallAt, setAdvanceCallAt] = useState(dateTimeInputValue(initial?.advanceCallAt ?? null));
+  const [advanceCallAt, setAdvanceCallAt] = useState(dateToZonedInput(initial?.advanceCallAt ?? null, timeZone));
   const [advanceCallLink, setAdvanceCallLink] = useState(initial?.advanceCallLink ?? '');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -63,13 +90,13 @@ export function AdvanceForm({ initial, days, submitLabel, pending, error, onSubm
     e.preventDefault();
     const parsed = advanceInputSchema.safeParse({
       artistName,
-      performanceDate: parseDateInput(performanceDate),
+      performanceDate: dayKeyToInstant(performanceDate, timeZone),
       slot,
       notes: notes.trim() || undefined,
       additions: additions.trim() || undefined,
       concerns: concerns.trim() || undefined,
       pending: pendingItems.trim() || undefined,
-      advanceCallAt: parseDateTimeInput(advanceCallAt),
+      advanceCallAt: zonedInputToDate(advanceCallAt, timeZone),
       advanceCallLink: advanceCallLink.trim() || undefined,
     });
     if (!parsed.success) {
@@ -88,7 +115,7 @@ export function AdvanceForm({ initial, days, submitLabel, pending, error, onSubm
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Performance day</span>
-        <DaySelect days={days} value={performanceDate} onChange={setPerformanceDate} />
+        <DaySelect days={days} value={performanceDate} timeZone={timeZone} onChange={setPerformanceDate} />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Slot</span>

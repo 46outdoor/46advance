@@ -59,10 +59,15 @@ export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const fmtDate = (v: unknown): string | null => (v instanceof Timestamp ? PACKET_DATE_FMT.format(v.toDate()) : null);
-const fmtRange = (a: unknown, b: unknown): string | null => {
-  const x = fmtDate(a);
-  const y = fmtDate(b);
+// Event dates (date-only) render in the EVENT's timezone so the PDF shows the intended calendar
+// day regardless of the Cloud Functions server zone (F-6).
+const packetDateFmt = (timeZone: string): Intl.DateTimeFormat =>
+  new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric', year: 'numeric' });
+const fmtDate = (v: unknown, timeZone: string): string | null =>
+  v instanceof Timestamp ? packetDateFmt(timeZone).format(v.toDate()) : null;
+const fmtRange = (a: unknown, b: unknown, timeZone: string): string | null => {
+  const x = fmtDate(a, timeZone);
+  const y = fmtDate(b, timeZone);
   if (x && y) return `${x} – ${y}`;
   return x ?? y ?? null;
 };
@@ -771,7 +776,7 @@ export const generatePacket = onCall(
         .sort((a, b) => String(a.artistName ?? '').localeCompare(String(b.artistName ?? '')))
         .map((a) => ({
           artistName: String(a.artistName ?? ''),
-          performanceDate: fmtDate(a.performanceDate),
+          performanceDate: fmtDate(a.performanceDate, String(ev.timeZone ?? 'America/Chicago')),
           stage: a.stage ?? null,
           notes: a.notes ?? null,
           additions: a.additions ?? null,
@@ -791,7 +796,11 @@ export const generatePacket = onCall(
   const logos = await resolvePacketLogos(db, ev);
 
   const data: PacketData = {
-    event: { name: String(ev.name ?? ''), venue: ev.venue ?? null, dateRange: fmtRange(ev.startDate, ev.endDate) },
+    event: {
+      name: String(ev.name ?? ''),
+      venue: ev.venue ?? null,
+      dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
+    },
     departments,
     eventProduction: {
       info: ep.info ?? {},
@@ -879,7 +888,11 @@ export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }
   const statusLabel = String(q.status ?? 'draft');
 
   const data: QuotePdfData = {
-    event: { name: String(ev.name ?? ''), venue: ev.venue ?? null, dateRange: fmtRange(ev.startDate, ev.endDate) },
+    event: {
+      name: String(ev.name ?? ''),
+      venue: ev.venue ?? null,
+      dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
+    },
     artistName: String(adv.artistName ?? ''),
     quote: {
       title: String(q.title ?? 'Quote'),

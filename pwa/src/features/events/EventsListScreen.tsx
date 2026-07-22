@@ -4,12 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canCreateEvents } from '@/lib/rbac/permissions';
-import { formatDateRange } from '@/lib/dates/formatting';
 import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listTemplates } from '@/lib/templates/templates-service';
 import type { TemplateRecord } from '@/lib/templates/template';
-import { APP_TIME_ZONE } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, formatZonedDateRange } from '@/lib/dates/timezone';
 import { resolveTemplateDays } from '@/lib/schedules/scheduleTemplate';
 import {
   getDefaultMasterTemplate,
@@ -215,7 +214,9 @@ export function EventsListScreen() {
                 <h2 className="font-display text-lg font-bold text-brand">{e.name}</h2>
                 <EventStatusBadge status={e.status} />
               </div>
-              <p className="mt-1 text-sm text-ink-muted">{formatDateRange(e.startDate, e.endDate)}</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                {formatZonedDateRange(e.startDate, e.endDate, e.timeZone ?? APP_TIME_ZONE)}
+              </p>
               {e.venue && <p className="text-sm text-ink-muted">{e.venue}</p>}
             </Link>
           </li>

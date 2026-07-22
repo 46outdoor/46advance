@@ -38,6 +38,11 @@ dependency bumps, and planning-doc updates) are omitted.
   instead of leaving them behind. Previously deleting one only removed the top record, so
   its linked documents, drive files, quotes, production attachments, and stored files were
   orphaned; deletion is now a server-side cascade covering the whole subtree and its Storage.
+- **Timezones:** event dates, performance days, and advance-call times now read and save in
+  the **event's** timezone rather than the editor's or viewer's browser zone. Previously the
+  same event date could shift by a day (and slide the schedule) depending on who opened it,
+  advance-call times were entered inconsistently, and PDF/Meet dates used the server zone —
+  a date/time now shows the same to everyone, no matter where they are.
 
 ## 2026-07-21
 

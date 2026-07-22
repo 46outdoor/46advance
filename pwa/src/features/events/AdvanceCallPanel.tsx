@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { downloadIcs } from '@/lib/calendar/ics';
-import { dateToZonedInput, zonedInputToDate, formatCentralDateTime } from '@/lib/dates/timezone';
+import { dateToZonedInput, zonedInputToDate, formatZonedDateTime } from '@/lib/dates/timezone';
 import { createAdvanceCall, useGoogleConnection } from '@/lib/google';
 
 const logger = createLogger('AdvanceCall');
@@ -24,6 +24,8 @@ interface Props {
   link: string | null;
   /** True when the call was created via Google (has a calendar event). */
   viaGoogle: boolean;
+  /** The event's timezone — the call time is entered/shown in it, not the browser's (F-6). */
+  timeZone: string;
   canEdit: boolean;
   onCreated: () => void;
 }
@@ -36,18 +38,19 @@ export function AdvanceCallPanel({
   at,
   link,
   viaGoogle,
+  timeZone,
   canEdit,
   onCreated,
 }: Props) {
   const connection = useGoogleConnection();
   const isConnected = connection.data?.connected === true;
-  // The datetime-local value is wall-clock interpreted in Central (not the browser's zone).
-  const [when, setWhen] = useState(() => dateToZonedInput(at));
+  // The datetime-local value is wall-clock interpreted in the EVENT's zone (not the browser's).
+  const [when, setWhen] = useState(() => dateToZonedInput(at, timeZone));
   const [duration, setDuration] = useState(30);
 
   const create = useMutation({
     mutationFn: () => {
-      const start = zonedInputToDate(when);
+      const start = zonedInputToDate(when, timeZone);
       if (!start) throw new Error('Pick a date and time first.');
       return createAdvanceCall({ eventId, stageId, advanceId, startMillis: start.getTime(), durationMinutes: duration });
     },
@@ -72,7 +75,7 @@ export function AdvanceCallPanel({
 
       {hasCall ? (
         <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
-          {at && <span className="text-ink-muted">{formatCentralDateTime(at)}</span>}
+          {at && <span className="text-ink-muted">{formatZonedDateTime(at, timeZone)}</span>}
           {link && (
             <a href={link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
               Join

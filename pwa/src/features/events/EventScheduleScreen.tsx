@@ -15,8 +15,7 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateKey } from '@/lib/dates/formatting';
-import { dateInputValue } from '@/lib/dates/parsing';
-import { APP_TIME_ZONE } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, zonedDayKey } from '@/lib/dates/timezone';
 import { SCHEDULE_ITEM_TYPES } from '@/lib/schedules/itemTypes';
 import {
   resolveArtistPlaceholders,
@@ -521,7 +520,10 @@ export function EventScheduleScreen() {
 
   // Day-aware {artist N} lookup: an advance dated to the item's day wins its slot;
   // undated advances hold their slot event-wide (lib/advances/lineup.ts).
-  const slotLookup = useMemo(() => buildSlotArtistLookup(advancesQuery.data ?? []), [advancesQuery.data]);
+  const slotLookup = useMemo(
+    () => buildSlotArtistLookup(advancesQuery.data ?? [], eventQuery.data?.timeZone ?? APP_TIME_ZONE),
+    [advancesQuery.data, eventQuery.data?.timeZone],
+  );
   const resolveTextForDay =
     (day: ScheduleDay): ResolveItemText =>
     (item, text) =>
@@ -580,7 +582,7 @@ export function EventScheduleScreen() {
         dayCount={days.length}
         shiftPending={shiftDays.isPending}
         onShift={(d) => shiftDays.mutate(d)}
-        defaultDate={dateInputValue(eventQuery.data?.startDate ?? null)}
+        defaultDate={zonedDayKey(eventQuery.data?.startDate ?? null, eventQuery.data?.timeZone ?? APP_TIME_ZONE)}
         createPending={createDay.isPending}
         onCreateDay={(meta) => createDay.mutate(meta)}
       />
