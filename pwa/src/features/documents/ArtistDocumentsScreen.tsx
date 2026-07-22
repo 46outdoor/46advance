@@ -91,7 +91,7 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
               title="The Drive file was deleted or moved out of the library folder"
               className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-accent"
             >
-              Missing from Drive
+              Removed from Drive{doc.missingAt ? ` · ${doc.missingAt.toLocaleDateString()}` : ''}
             </span>
           )}
           <span
@@ -294,8 +294,24 @@ export function ArtistDocumentsScreen() {
   });
 
   const documents = documentsQuery.data ?? [];
+  const presentDocs = documents.filter((d) => !d.missingFromDrive);
+  const removedDocs = documents.filter((d) => d.missingFromDrive);
   const categories = categoriesQuery.data ?? [];
   const artistName = documents[0]?.artist ?? decodedKey;
+
+  const renderRow = (doc: ArtistDocument) => (
+    <DocumentRow
+      key={doc.id}
+      doc={doc}
+      categories={categories}
+      canManage={canManage}
+      pending={update.isPending || remove.isPending || setVerified.isPending}
+      onSetCategory={(categoryId) => setCategory.mutate({ id: doc.id, categoryId })}
+      onUpdate={(fields) => update.mutate({ id: doc.id, fields })}
+      onSetVerified={(verified) => setVerified.mutate({ id: doc.id, verified })}
+      onRemove={() => remove.mutate(doc.id)}
+    />
+  );
 
   return (
     <section className="space-y-6">
@@ -324,21 +340,20 @@ export function ArtistDocumentsScreen() {
         />
       )}
 
-      <div className="space-y-2">
-        {documents.map((doc) => (
-          <DocumentRow
-            key={doc.id}
-            doc={doc}
-            categories={categories}
-            canManage={canManage}
-            pending={update.isPending || remove.isPending || setVerified.isPending}
-            onSetCategory={(categoryId) => setCategory.mutate({ id: doc.id, categoryId })}
-            onUpdate={(fields) => update.mutate({ id: doc.id, fields })}
-            onSetVerified={(verified) => setVerified.mutate({ id: doc.id, verified })}
-            onRemove={() => remove.mutate(doc.id)}
-          />
-        ))}
-      </div>
+      <div className="space-y-2">{presentDocs.map(renderRow)}</div>
+
+      {removedDocs.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="font-display text-lg font-bold text-ink-muted">
+            Removed from Drive ({removedDocs.length})
+          </h2>
+          <p className="text-sm text-ink-muted">
+            These files were deleted or moved out of the library folder in Google Drive. They're kept
+            here so a search still turns them up and you can see they once existed (and when they went).
+          </p>
+          {removedDocs.map(renderRow)}
+        </div>
+      )}
     </section>
   );
 }

@@ -320,6 +320,7 @@ async function upsertLibrary(
         const patch: Record<string, unknown> = { sourceFolderId: group.folderId };
         if (current.missingFromDrive === true) {
           patch.missingFromDrive = false;
+          patch.missingAt = null; // reappeared — clear the removal timestamp
           restored += 1;
         }
         batch.set(ref, patch, { merge: true });
@@ -349,7 +350,13 @@ async function upsertLibrary(
   if (reconcileMissing) {
     for (const [id, data] of existingDocs) {
       if (seen.has(id) || data.missingFromDrive === true) continue;
-      batch.set(db.collection('artistDocuments').doc(id), { missingFromDrive: true }, { merge: true });
+      // First sync that no longer sees the file — record WHEN it went missing (the loop skips docs
+      // already flagged, so this stamps the transition once and isn't overwritten on later syncs).
+      batch.set(
+        db.collection('artistDocuments').doc(id),
+        { missingFromDrive: true, missingAt: Timestamp.now() },
+        { merge: true },
+      );
       flagged += 1;
       await bump();
     }
