@@ -17,7 +17,8 @@ vi.mock('firebase/storage', () => ({
 }));
 
 const deleteObjectMock = vi.mocked(deleteObject);
-const deletedPaths = (): string[] => deleteObjectMock.mock.calls.map((c) => (c[0] as { path: string }).path);
+const deletedPaths = (): string[] =>
+  deleteObjectMock.mock.calls.map((c) => (c[0] as unknown as { path: string }).path);
 
 /** A File whose `.size` we can set (File.size is otherwise read-only in jsdom). */
 function fileOf(name: string, size: number, type = ''): File {
