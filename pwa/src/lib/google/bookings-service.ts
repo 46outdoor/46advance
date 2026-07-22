@@ -9,7 +9,6 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  Timestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -17,6 +16,8 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
 import { parseCallBooking, type CallBooking } from './callBooking';
 import type {
+  AttachCallBookingInput,
+  AttachCallBookingOutput,
   SyncAdvanceCallBookingsInput,
   SyncAdvanceCallBookingsOutput,
 } from '@contracts/callables/google';
@@ -47,26 +48,23 @@ export async function listNeedsReviewBookings(eventId: string): Promise<CallBook
     .sort((a, b) => a.startMillis - b.startMillis);
 }
 
-/** Attach a booking to an advance: writes the call time + Meet link, then marks it attached. */
+/**
+ * Attach a booking to an advance ATOMICALLY via the server (WS-G). Replaces the old two client
+ * `updateDoc`s, which stomped the advance with no read-back (clobbering a concurrent cron attach)
+ * and could half-write. The callable re-reads the booking for the call time + Meet link, claims
+ * the advance + flips the booking in one transaction, and returns any booking it displaced back
+ * to the review queue.
+ */
 export async function attachBooking(args: {
   eventId: string;
   stageId: string;
   advanceId: string;
   booking: CallBooking;
-}): Promise<void> {
+}): Promise<AttachCallBookingOutput> {
   const { eventId, stageId, advanceId, booking } = args;
-  await updateDoc(doc(db, 'events', eventId, 'stages', stageId, 'advances', advanceId), {
-    advanceCallAt: Timestamp.fromMillis(booking.startMillis),
-    advanceCallLink: booking.meetLink,
-    googleCalendarEventId: booking.calendarEventId,
-    updatedAt: serverTimestamp(),
-  });
-  await updateDoc(doc(db, 'events', eventId, 'callBookings', booking.calendarEventId), {
-    status: 'attached',
-    matchedAdvanceId: advanceId,
-    matchedStageId: stageId,
-    updatedAt: serverTimestamp(),
-  });
+  const callable = httpsCallable<AttachCallBookingInput, AttachCallBookingOutput>(functions, 'attachCallBooking');
+  const res = await callable({ eventId, stageId, advanceId, bookingId: booking.calendarEventId });
+  return res.data;
 }
 
 /** Dismiss a booking from the review queue (won't reappear on future syncs). */

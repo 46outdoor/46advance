@@ -13,9 +13,9 @@ import {
   getDoc,
   getDocs,
   collection,
+  runTransaction,
   serverTimestamp,
   setDoc,
-  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -97,7 +97,7 @@ function toDayDoc(input: ScheduleDayInput, existingItems: readonly ScheduleDayIt
 }
 
 /** A parsed day serialized back to its doc shape under `date` (redate/shift carry-over —
- * items pass through unchanged, calendar ids included). */
+ * items pass through unchanged, calendar ids included; the revision counter travels with it). */
 function parsedDayDoc(day: ScheduleDay, date: string) {
   return {
     date,
@@ -106,7 +106,40 @@ function parsedDayDoc(day: ScheduleDay, date: string) {
     description: day.description,
     notes: day.notes,
     items: day.items,
+    revision: day.revision,
   };
+}
+
+/** Thrown when a whole-day save loses the optimistic-concurrency check — the day was changed
+ * (or deleted) by someone else since it was loaded. The UI refetches and asks the user to
+ * reapply, rather than silently clobbering the other edit (WS-G). */
+export class ScheduleDayConflictError extends Error {
+  constructor(
+    message = 'This schedule day changed since you opened it. Your view has been refreshed — reapply your edit.',
+  ) {
+    super(message);
+    this.name = 'ScheduleDayConflictError';
+  }
+}
+
+/** Whole-day update guarded by the `revision` counter: reads the fresh doc in a transaction,
+ * aborts (ScheduleDayConflictError) if its revision moved since `day` was loaded, otherwise
+ * writes `buildFields(fresh)` with `revision + 1`. `buildFields` receives the FRESH day so a
+ * content save can carry server-owned per-item calendar ids the reconcile may have written
+ * since load (those aren't a user conflict — only the user-editable fields are guarded). */
+async function updateDayWithRevision(
+  eventId: string,
+  day: ScheduleDay,
+  buildFields: (fresh: ScheduleDay) => Record<string, unknown>,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = dayDoc(eventId, day.id);
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new ScheduleDayConflictError('This schedule day no longer exists — it was deleted.');
+    const fresh = parseScheduleDay(snap.id, snap.data());
+    if (fresh.revision !== day.revision) throw new ScheduleDayConflictError();
+    tx.update(ref, { ...buildFields(fresh), revision: fresh.revision + 1, updatedAt: serverTimestamp() });
+  });
 }
 
 /** Editable input snapshot of a parsed day (drops the server-owned per-item calendar
@@ -148,6 +181,7 @@ export async function createScheduleDay(
   if (existing.exists()) throw new Error('That date already has a schedule day.');
   await setDoc(ref, {
     ...toDayDoc(parsed, []),
+    revision: 0,
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -156,18 +190,19 @@ export async function createScheduleDay(
 }
 
 /** Whole-day save (metadata + items) — the inline editor's save path. The date must be
- * unchanged (re-dating re-keys the doc; use `redateScheduleDay`). */
+ * unchanged (re-dating re-keys the doc; use `saveScheduleDayMeta`). Guarded by the day's
+ * `revision` (WS-G): if another editor (or a redate) changed the day since it was loaded, the
+ * save aborts with `ScheduleDayConflictError` instead of overwriting their items. Server-owned
+ * per-item calendar ids are carried from the FRESH doc, so a concurrent reconcile isn't
+ * reverted. */
 export async function saveScheduleDay(
   eventId: string,
   day: ScheduleDay,
   input: ScheduleDayInput,
 ): Promise<void> {
   const parsed = scheduleDayInputSchema.parse(input);
-  if (parsed.date !== day.id) throw new Error('Use redateScheduleDay to change a day’s date.');
-  await updateDoc(dayDoc(eventId, day.id), {
-    ...toDayDoc(parsed, day.items),
-    updatedAt: serverTimestamp(),
-  });
+  if (parsed.date !== day.id) throw new Error('Use saveScheduleDayMeta to change a day’s date.');
+  await updateDayWithRevision(eventId, day, (fresh) => toDayDoc(parsed, fresh.items));
 }
 
 /** Delete a day, removing its pushed items' calendar events first (their stored ids are
@@ -230,7 +265,9 @@ export async function saveScheduleDayMeta(
     notes: parsed.notes?.trim() || null,
   };
   if (parsed.date === day.id) {
-    await updateDoc(dayDoc(eventId, day.id), { ...fields, updatedAt: serverTimestamp() });
+    // Same-date metadata edit rides the same revision guard as a content save, so a concurrent
+    // whole-day save can't silently lose one or the other's fields.
+    await updateDayWithRevision(eventId, day, () => fields);
     return day.id;
   }
   const target = dayDoc(eventId, parsed.date);
@@ -307,6 +344,7 @@ export async function applyTemplateDaysToEvent(
         description: day.description,
         notes: day.notes,
         items,
+        revision: 0,
         createdBy: uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

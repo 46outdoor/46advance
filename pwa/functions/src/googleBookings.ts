@@ -21,7 +21,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
-import { syncAdvanceCallBookingsInputSchema } from './contracts/callables/google.js';
+import { attachCallBookingInputSchema, syncAdvanceCallBookingsInputSchema } from './contracts/callables/google.js';
 import { logger } from 'firebase-functions/v2';
 import { google, type calendar_v3 } from 'googleapis';
 import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
@@ -382,6 +382,75 @@ export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutS
   await assertCanEditEvent(db, token, uid, eventId);
   const client = await authedClientForUser(db, uid);
   return syncEventBookings(db, client, eventId);
+});
+
+/**
+ * Manually attach a reviewed booking to an advance, ATOMICALLY (WS-G). The old client path was
+ * two separate `updateDoc`s with no read-back: it blindly stomped the advance's call fields even
+ * if the cron auto-attach had just claimed it for a DIFFERENT booking, and a failure between the
+ * two writes could leave a linked advance still sitting in the review queue. This callable does
+ * both writes in one transaction and — when it displaces a booking that was already attached to
+ * this advance — returns THAT booking to the review queue instead of silently orphaning it. The
+ * server re-reads the booking doc for the call time + Meet link (source of truth), not the client.
+ * Admin or the event's production manager only. Returns { attached, requeuedBookingId }.
+ */
+export const attachCallBooking = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  const { eventId, stageId, advanceId, bookingId } = parseCallableData(attachCallBookingInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['attachCallBooking', uid], 60);
+  await assertCanEditEvent(db, token, uid, eventId);
+
+  const bookingRef = db.doc(`events/${eventId}/callBookings/${bookingId}`);
+  const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
+
+  return db.runTransaction(async (tx) => {
+    // --- reads (all before any write) ---
+    const [bookingSnap, advanceSnap] = await tx.getAll(bookingRef, advanceRef);
+    if (!bookingSnap.exists) throw new HttpsError('not-found', 'Booking not found.');
+    if (!advanceSnap.exists) throw new HttpsError('not-found', 'Advance not found.');
+    const startMillis = typeof bookingSnap.get('startMillis') === 'number'
+      ? (bookingSnap.get('startMillis') as number) : null;
+    if (startMillis === null) throw new HttpsError('failed-precondition', 'Booking has no start time.');
+    const meetLink = typeof bookingSnap.get('meetLink') === 'string' ? (bookingSnap.get('meetLink') as string) : null;
+
+    // A booking already attached to THIS advance (different from the one we're attaching) is
+    // displaced — read it so we can requeue it rather than leaking it out of the review queue.
+    const prevLinked = typeof advanceSnap.get('googleCalendarEventId') === 'string'
+      ? (advanceSnap.get('googleCalendarEventId') as string) : null;
+    const displacedId = prevLinked && prevLinked !== bookingId ? prevLinked : null;
+    const displacedRef = displacedId ? db.doc(`events/${eventId}/callBookings/${displacedId}`) : null;
+    const displacedSnap = displacedRef ? await tx.get(displacedRef) : null;
+
+    // --- writes ---
+    const nowTs = FieldValue.serverTimestamp();
+    tx.set(
+      advanceRef,
+      {
+        advanceCallAt: Timestamp.fromMillis(startMillis),
+        advanceCallLink: meetLink,
+        googleCalendarEventId: bookingId,
+        updatedAt: nowTs,
+      },
+      { merge: true },
+    );
+    tx.set(
+      bookingRef,
+      { status: 'attached', matchedAdvanceId: advanceId, matchedStageId: stageId, reason: null, updatedAt: nowTs },
+      { merge: true },
+    );
+    let requeuedBookingId: string | null = null;
+    if (displacedRef && displacedSnap?.exists && displacedSnap.get('status') === 'attached') {
+      tx.set(
+        displacedRef,
+        { status: 'needs_review', reason: 'already_linked', matchedAdvanceId: null, matchedStageId: null, updatedAt: nowTs },
+        { merge: true },
+      );
+      requeuedBookingId = displacedId;
+    }
+    return { attached: true, requeuedBookingId };
+  });
 });
 
 /**

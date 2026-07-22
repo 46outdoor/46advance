@@ -26,6 +26,14 @@ describe('parseScheduleDay', () => {
     expect(day.notes).toBeNull();
     expect(day.items).toEqual([]);
     expect(day.createdAt).toBeNull();
+    expect(day.revision).toBe(0); // absent on pre-S12 docs → treated as 0 (WS-G)
+  });
+
+  it('reads the revision counter when present', () => {
+    const day = parseScheduleDay('2026-07-14', {
+      date: '2026-07-14', dayType: 'show', createdBy: 'u1', revision: 5,
+    });
+    expect(day.revision).toBe(5);
   });
 
   it('normalizes item defaults (pushToCalendar on, empty fields/crew, null optionals)', () => {

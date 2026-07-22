@@ -31,7 +31,7 @@ import {
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
 import { createBlankEventInputSchema, createEventFromTemplateInputSchema } from './contracts/callables/events.js';
-import { slugify, uniqueSlug } from './lib/events/slug.js';
+import { reserveEventSlug } from './lib/events/slug.js';
 import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
 import { OAUTH_SECRETS, disconnectGoogle } from './google.js';
 
@@ -56,6 +56,12 @@ export { reconcileScheduleDay, removeScheduleCalendarEvent } from './googleSched
 // Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
 export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive, importDriveFolder, getArtistDocumentContent, scheduledLibraryDriveSync, registerEventDocument, registerArtistDocument, includeArtistDocumentOnAdvance } from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
+
+// Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.
+export { renameEventSlug } from './eventSlug.js';
+
+// Atomic manual booking attach (WS-G). ./googleBookings.ts.
+export { attachCallBooking } from './googleBookings.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -462,16 +468,13 @@ export const createEventFromTemplate = onCall(async (request) => {
   const now = FieldValue.serverTimestamp();
   const batch = new ChunkedBatch(db);
 
-  // Readable URL slug: prefer the client-computed one (booking label/name + year), else the
-  // name; enforce uniqueness across events.
-  const existingSlugs = new Set(
-    (await db.collection('events').get()).docs
-      .map((d) => d.data().slug)
-      .filter((s): s is string => typeof s === 'string'),
-  );
-  const slug = uniqueSlug(slugify(input.slug || input.name), existingSlugs);
-
   const eventRef = db.collection('events').doc();
+  // Readable URL slug — transactionally reserved against `slugs/{slug}` (WS-G), replacing the
+  // old non-transactional scan of the events collection. Reserving before the seed batch means
+  // a rare batch failure leaves only an unused reservation (self-healing — keyed by this event
+  // id, so a retry reuses it), never a duplicate slug.
+  const slug = await reserveEventSlug(db, input.slug || input.name, eventRef.id);
+
   batch.set(eventRef, {
     name: input.name,
     startDate: input.startDate,
@@ -540,13 +543,9 @@ export const createBlankEvent = onCall(async (request) => {
     throw new HttpsError('already-exists', 'That event id is already in use.');
   }
 
-  // Best-effort unique slug (transactional slug reservation is a later step).
-  const existingSlugs = new Set(
-    (await db.collection('events').get()).docs
-      .map((d) => d.data().slug)
-      .filter((s): s is string => typeof s === 'string'),
-  );
-  const slug = uniqueSlug(slugify(input.slug || input.name), existingSlugs);
+  // Transactionally reserved unique slug (WS-G) — keyed by this event id, so an idempotent
+  // create retry (same eventId) reuses its reservation instead of allocating a new one.
+  const slug = await reserveEventSlug(db, input.slug || input.name, eventRef.id);
   const now = FieldValue.serverTimestamp();
 
   await db.runTransaction(async (tx) => {

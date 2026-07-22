@@ -43,6 +43,17 @@ dependency bumps, and planning-doc updates) are omitted.
   same event date could shift by a day (and slide the schedule) depending on who opened it,
   advance-call times were entered inconsistently, and PDF/Meet dates used the server zone —
   a date/time now shows the same to everyone, no matter where they are.
+- **Event URLs:** an event's web-address slug is now reserved uniquely on the server, so two
+  events created (or renamed) at the same time can no longer end up sharing a slug and
+  resolving to the wrong event. Renaming a slug is also checked for uniqueness — previously
+  it wasn't checked at all.
+- **Booked calls:** attaching a booked call to an advance is now a single atomic server action.
+  It no longer overwrites a call the automatic sync just attached; if your attach displaces a
+  call that was already on that advance, the displaced one returns to the review queue instead
+  of silently disappearing.
+- **Schedule:** two people editing the same schedule day at once no longer silently overwrite
+  each other. A save that would clobber someone else's just-saved changes is now rejected, your
+  view refreshes to the latest, and you reapply — the other edit is preserved.
 
 ## 2026-07-21
 

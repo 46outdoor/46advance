@@ -598,6 +598,35 @@ describe('firestore.rules — schedule days (redesign)', () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { notes: 'Dock 2 only until noon.' }));
     await assertSucceeds(deleteDoc(doc(dbFor(PM), dayPath)));
   });
+
+  it('optimistic-concurrency: a revision write must increment by exactly 1 (WS-G)', async () => {
+    // Seed doc has no revision → treated as 0; the next write must be 1.
+    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { revision: 1 }));
+    // From revision 1: a stale (no-op) or wrong bump is rejected; only +1 succeeds.
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { revision: 1 }));
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { revision: 5 }));
+    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { revision: 2 }));
+  });
+
+  it('back-compat: a write that omits revision is unaffected by the guard', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { notes: 'no revision field written' }));
+  });
+});
+
+describe('firestore.rules — slug reservations (server-only, WS-G)', () => {
+  const slugPath = 'slugs/rtc-ashland-26';
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), slugPath), { eventId: 'event-a' });
+    });
+  });
+
+  it('no client — not even an admin or PM — can read or write the reservation collection', async () => {
+    await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), slugPath)));
+    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'slugs/new'), { eventId: 'event-a' }));
+    await assertFails(getDoc(doc(dbFor(PM), slugPath)));
+    await assertFails(deleteDoc(doc(dbFor(PM), slugPath)));
+  });
 });
 
 describe('firestore.rules — stages', () => {

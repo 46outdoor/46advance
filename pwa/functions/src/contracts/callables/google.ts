@@ -45,3 +45,21 @@ export const syncAdvanceCallBookingsOutputSchema = z.object({
   needsReview: z.number(),
 });
 export type SyncAdvanceCallBookingsOutput = z.infer<typeof syncAdvanceCallBookingsOutputSchema>;
+
+// attachCallBooking — manually attach a reviewed booking to an advance, ATOMICALLY (WS-G).
+// Replaces the old two-write client path: the server re-reads the booking (source of truth
+// for the call time / Meet link) and claims the advance + flips the booking in one
+// transaction. `bookingId` is the booking's calendarEventId (its doc id).
+export const attachCallBookingInputSchema = z.object({
+  eventId: z.string().min(1),
+  stageId: z.string().min(1),
+  advanceId: z.string().min(1),
+  bookingId: z.string().min(1),
+});
+export type AttachCallBookingInput = z.infer<typeof attachCallBookingInputSchema>;
+export const attachCallBookingOutputSchema = z.object({
+  attached: z.boolean(),
+  /** A previously-linked booking this attach displaced back to the review queue, if any. */
+  requeuedBookingId: z.string().nullable(),
+});
+export type AttachCallBookingOutput = z.infer<typeof attachCallBookingOutputSchema>;

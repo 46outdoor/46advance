@@ -215,6 +215,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Per-event membership IO | `src/lib/rbac/membership.ts`                           |
 | Callable authorization (approved gate) | `functions/src/lib/auth/authorize.ts` (`assertApproved`/`assertAdmin` — Admin-SDK callables re-assert the rules' `isActiveUser`/admin gates) |
 | Event slug/id resolution (hook) | `src/features/events/useResolvedEvent.ts` (resolve a slug-or-id route param → canonical event; key sub-queries on `event.id`) |
+| Event slug reservation (server, WS-G) | `functions/src/lib/events/slug.ts` (`reserveEventSlug`/`findFreeSlug` transactional claim against the `slugs/{slug}` collection — locked server-only) + `functions/src/eventSlug.ts` (`renameEventSlug` callable). Client rename wrapper: `renameEventSlug` in `src/features/events/events-service.ts` |
 | PWA stale-chunk recovery | `src/lib/pwa/recovery.ts` (`isDynamicImportError`/`recoverFromStaleChunk`) + `src/lib/pwa/lazyWithRetry.tsx` (resilient lazy routes) |
 | Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
 | Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
@@ -239,10 +240,10 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
 | iCalendar (.ics) builder | `src/lib/calendar/ics.ts` (pure VEVENT + download) |
 | Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
-| Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron) |
+| Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron; `attachCallBooking` atomic manual attach, WS-G) |
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
 | Schedule days (model + registries) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/archive/feature/SCHEDULE_REDESIGN.md` |
-| Schedules data access (redesign) | `src/features/events/schedule-days-service.ts` (day CRUD, whole-day save, redate/shift; `EventScheduleScreen` at `/events/:id/schedule`). Old `schedule-service.ts` removed; calendar push callables return with the PR-4 rework |
+| Schedules data access (redesign) | `src/features/events/schedule-days-service.ts` (day CRUD, whole-day save, redate/shift; whole-day save is guarded by the `revision` optimistic-concurrency counter → `ScheduleDayConflictError` on lost update, WS-G; `EventScheduleScreen` at `/events/:id/schedule`). Old `schedule-service.ts` removed; calendar push callables return with the PR-4 rework |
 | Schedule grid UI (shared) | `src/components/schedules/` (`ScheduleDayCard` day container + grid, `ScheduleItemRowEditor` inline editor, `CrewLines` view/edit, `ScheduleTypeDot` dot+legend, `SectionFieldInput`) |
 | Crew types config IO | `src/lib/schedules/crew-types-service.ts` (`getCrewTypes`/`setCrewTypes`; admin screen `src/features/admin/CrewTypesAdmin.tsx`) |
 | Schedule templates (redesign) | `src/lib/schedules/scheduleTemplate.ts` (day-first model, master composition `resolveTemplateDays`, editor bridges) + `src/lib/schedules/schedule-templates-service.ts` (CRUD, default-master); editor `src/features/scheduleTemplates/`; apply/import `src/features/events/` (`applyTemplateDaysToEvent`, `ImportScheduleTemplatePanel`) |

@@ -14,7 +14,8 @@ import { LogoUploader } from '@/components/branding/LogoUploader';
 import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
-import { generatePacket, getEventBySlugOrId, setEventLogo, updateEvent } from './events-service';
+import { slugify } from '@/lib/events/slug';
+import { generatePacket, getEventBySlugOrId, renameEventSlug, setEventLogo, updateEvent } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
@@ -51,7 +52,13 @@ export function EventDetailScreen() {
   const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
 
   const update = useMutation({
-    mutationFn: (input: EventInput) => updateEvent(id!, input),
+    mutationFn: async (input: EventInput) => {
+      await updateEvent(id!, input);
+      // Slug is server-owned (reserved transactionally, WS-G): route an actual change through the
+      // rename callable instead of the plain event write. Skipped when unchanged to avoid a round-trip.
+      const desired = input.slug?.trim();
+      if (desired && slugify(desired) !== (event?.slug ?? '')) await renameEventSlug(id!, desired);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['events'] });
       setEditing(false);
