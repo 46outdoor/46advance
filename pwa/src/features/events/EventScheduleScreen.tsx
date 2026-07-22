@@ -43,6 +43,7 @@ import {
   removeScheduleCalendarEvent,
   saveScheduleDay,
   saveScheduleDayMeta,
+  ScheduleDayConflictError,
   shiftScheduleDays,
 } from './schedule-days-service';
 
@@ -78,7 +79,17 @@ function makeItemFilter(type: string, stage: string) {
 function useScheduleDayMutations(eventId: string | null, uid: string | undefined, onDaySettled: () => void) {
   const queryClient = useQueryClient();
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
-  const onError = (what: string) => (e: unknown) => logger.error(`Failed to ${what}`, e);
+  // A concurrency conflict (WS-G) isn't a failure to log-and-alarm — refetch server truth (which
+  // reverts the optimistic edit so the user sees it didn't stick) and warn; anything else is a
+  // real error.
+  const onError = (what: string) => (e: unknown) => {
+    if (e instanceof ScheduleDayConflictError) {
+      invalidate();
+      logger.warn(e.message);
+    } else {
+      logger.error(`Failed to ${what}`, e);
+    }
+  };
   const syncDay = (dayId: string) => {
     void reconcileScheduleDayCalendar(eventId!, dayId)
       .then((r) => {

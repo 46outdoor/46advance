@@ -70,6 +70,10 @@ export interface ScheduleDay {
   description: string | null;
   notes: string | null;
   items: ScheduleDayItem[];
+  /** Monotonic optimistic-concurrency counter (WS-G). A whole-day save reads this, aborts if it
+   *  moved, and writes `revision + 1` — so two editors saving the same day can't silently clobber
+   *  each other's items. Absent on pre-S12 docs → treated as 0. */
+  revision: number;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -111,6 +115,7 @@ const dayDocSchema = z.object({
   description: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   items: z.array(scheduleDayItemDocSchema).optional(),
+  revision: z.number().int().nonnegative().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -151,6 +156,7 @@ export function parseScheduleDay(id: string, data: unknown): ScheduleDay {
     description: doc.description ?? null,
     notes: doc.notes ?? null,
     items: (doc.items ?? []).map(parseItem),
+    revision: doc.revision ?? 0,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),

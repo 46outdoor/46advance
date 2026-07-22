@@ -22,7 +22,7 @@ import { db, functions, storage } from '@/services/firebase';
 import { createLogger } from '@/lib/logger';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord } from '@/lib/events/event';
-import { defaultEventSlug, slugify } from '@/lib/events/slug';
+import { defaultEventSlug } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
 import type { Viewer } from '@/lib/rbac/permissions';
 import type {
@@ -30,6 +30,8 @@ import type {
   CreateBlankEventOutput,
   CreateEventFromTemplateInput,
   CreateEventFromTemplateOutput,
+  RenameEventSlugInput,
+  RenameEventSlugOutput,
 } from '@contracts/callables/events';
 import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pdf';
 
@@ -113,6 +115,11 @@ export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
   return events.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Update an event's editable fields. The `slug` is NOT written here (WS-G): it's reserved
+ * transactionally against the `slugs/{slug}` collection, so a change goes through
+ * `renameEventSlug` (a callable) — never a plain client write that could duplicate a slug.
+ */
 export async function updateEvent(eventId: string, input: EventInput): Promise<void> {
   await updateDoc(doc(db, 'events', eventId), {
     name: input.name,
@@ -125,11 +132,22 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     driveFolderId: input.driveFolderId ?? null,
     driveFolderName: input.driveFolderName ?? null,
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
-    ...(input.slug?.trim() ? { slug: slugify(input.slug) } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.departmentIds ? { departmentIds: input.departmentIds } : {}),
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Rename an event's URL slug transactionally (WS-G). The server reserves the new
+ * `slugs/{slug}`, releases the old reservation, and updates `events/{id}.slug` in one commit,
+ * so two renames (or a rename racing a create) can't land on the same slug. Returns the slug
+ * actually assigned — de-duplicated with a `-2` suffix on collision — and is idempotent when
+ * the desired value already resolves to the event's current slug.
+ */
+export async function renameEventSlug(eventId: string, slug: string): Promise<string> {
+  const callable = httpsCallable<RenameEventSlugInput, RenameEventSlugOutput>(functions, 'renameEventSlug');
+  return (await callable({ eventId, slug })).data.slug;
 }
 
 /**

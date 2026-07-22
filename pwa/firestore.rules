@@ -181,6 +181,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Canonical event-slug reservations (WS-G): doc id = the slug, body `{ eventId }`. The
+    // uniqueness lock behind event URLs — claimed/released ONLY by the Admin SDK (createBlankEvent,
+    // createEventFromTemplate, renameEventSlug), which bypasses these rules. Never client-touchable;
+    // slug resolution (getEventBySlugOrId) queries the events collection, not this one.
+    match /slugs/{slug} {
+      allow read, write: if false;
+    }
+
     // Collection-group read for the non-admin events-list query
     // (`collectionGroup('members').where('uid','==', me)` in events-service.listEvents):
     // a signed-in user may list their OWN membership rows across every event, and no one
@@ -228,9 +236,10 @@ service cloud.firestore {
         // Advances live under a stage. Member read; PM/admin write (section
         // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
         match /advances/{advanceId} {
-          // `googleCalendarEventId` is NOT locked: attachBooking() (bookings-service)
-          // writes it client-side on attach. Linked Drive files live in the `driveFiles`
-          // subcollection below (server-owned), not on this doc.
+          // `googleCalendarEventId` is NOT locked yet: manual attach is moving server-side to the
+          // atomic attachCallBooking callable (WS-G), but the pre-Hosting client still writes it
+          // here — lock it (and callBookings below) once the new client ships. Linked Drive files
+          // live in the `driveFiles` subcollection below (server-owned), not on this doc.
           allow read: if isAdmin() || isMember(eventId);
           allow create: if canEditEvent(eventId)
             && request.resource.data.createdBy == request.auth.uid
@@ -347,12 +356,20 @@ service cloud.firestore {
           && request.resource.data.createdBy == request.auth.uid;
         allow update: if canEditEvent(eventId)
           && validDayShape()
-          && keysUnchanged(['createdBy']);
+          && keysUnchanged(['createdBy'])
+          // Optimistic-concurrency guard (WS-G): a client writing `revision` must increment it by
+          // exactly 1, so a stale whole-day overwrite (lost update) is rejected server-side. A
+          // client that omits `revision` (the pre-Hosting client; the Admin-SDK reconcile bypasses
+          // rules) is unaffected — drop the `!('revision' in …)` escape once every client writes it.
+          && (!('revision' in request.resource.data)
+              || request.resource.data.revision == resource.data.get('revision', 0) + 1);
         allow delete: if canEditEvent(eventId);
       }
 
       // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
-      // PM/admin resolve (attach/dismiss) from the review queue. Member read.
+      // PM/admin resolve from the review queue. Member read. Manual ATTACH is moving to the atomic
+      // attachCallBooking callable (WS-G); dismiss stays a client update. The client write stays
+      // open until the new client ships, then tighten to dismiss-only (server owns attach).
       match /callBookings/{bookingId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create, update, delete: if canEditEvent(eventId);

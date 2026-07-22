@@ -5,7 +5,7 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createBlankEvent } from './index';
+import { createBlankEvent, renameEventSlug } from './index';
 import { authContext, callableRequest, clearEmulators, testEnv } from './testing/emulatorHarness';
 
 if (getApps().length === 0) initializeApp();
@@ -80,16 +80,85 @@ describe('createBlankEvent', () => {
     ).rejects.toMatchObject({ code: 'already-exists' });
   });
 
-  it('dedupes the slug against existing events', async () => {
-    await db.doc('events/existing').set({ name: 'X', status: 'active', createdBy: 'someone', slug: 'alpha-festival' });
+  it('reserves the chosen slug in the slugs collection (WS-G)', async () => {
+    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput(), ORGANIZER));
+    const reservation = await db.doc('slugs/alpha-festival').get();
+    expect(reservation.exists).toBe(true);
+    expect(reservation.get('eventId')).toBe('evt-new');
+  });
+
+  it('dedupes the slug against an existing reservation', async () => {
+    await db.doc('slugs/alpha-festival').set({ eventId: 'other-event' });
     await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-2' }), ORGANIZER));
-    const evt = await db.doc('events/evt-2').get();
-    expect(evt.get('slug')).toBe('alpha-festival-2');
+    expect((await db.doc('events/evt-2').get()).get('slug')).toBe('alpha-festival-2');
+    expect((await db.doc('slugs/alpha-festival-2').get()).get('eventId')).toBe('evt-2');
+  });
+
+  it('two events desiring the same slug get distinct reservations', async () => {
+    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-a' }), ORGANIZER));
+    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-b' }), ORGANIZER));
+    expect((await db.doc('events/evt-a').get()).get('slug')).toBe('alpha-festival');
+    expect((await db.doc('events/evt-b').get()).get('slug')).toBe('alpha-festival-2');
+  });
+
+  it('an idempotent retry reuses the reservation (no duplicate slug allocated)', async () => {
+    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput(), ORGANIZER));
+    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput(), ORGANIZER)); // retry
+    expect((await db.doc('events/evt-new').get()).get('slug')).toBe('alpha-festival');
+    expect((await db.doc('slugs/alpha-festival-2').get()).exists).toBe(false);
   });
 
   it('an admin can create a blank event', async () => {
     const res = await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-admin' }), ADMIN));
     expect(res).toEqual({ eventId: 'evt-admin' });
+  });
+});
+
+// Transactional slug rename (WS-G): reserve the new slug, release the old, update the event — all
+// in one commit, gated to the event's PM/admin.
+describe('renameEventSlug', () => {
+  beforeEach(async () => {
+    await clearEmulators();
+    await db.doc(`users/${ORGANIZER.uid}`).set({ approved: true });
+    await db.doc(`users/${APPROVED.uid}`).set({ approved: true });
+  });
+
+  const makeEvent = (id = 'evt-r'): Promise<unknown> =>
+    testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: id, slug: 'first-slug' }), ORGANIZER));
+
+  it('moves the reservation: reserves new, releases old, updates the event', async () => {
+    await makeEvent();
+    const res = await testEnv.wrap(renameEventSlug)(
+      callableRequest({ eventId: 'evt-r', slug: 'Second Slug' }, ORGANIZER),
+    );
+    expect(res).toEqual({ slug: 'second-slug' });
+    expect((await db.doc('events/evt-r').get()).get('slug')).toBe('second-slug');
+    expect((await db.doc('slugs/second-slug').get()).get('eventId')).toBe('evt-r');
+    expect((await db.doc('slugs/first-slug').get()).exists).toBe(false); // released
+  });
+
+  it('dedupes against an existing reservation', async () => {
+    await makeEvent();
+    await db.doc('slugs/taken').set({ eventId: 'other' });
+    const res = await testEnv.wrap(renameEventSlug)(callableRequest({ eventId: 'evt-r', slug: 'taken' }, ORGANIZER));
+    expect(res.slug).toBe('taken-2');
+    expect((await db.doc('slugs/taken').get()).get('eventId')).toBe('other'); // untouched
+  });
+
+  it('is a no-op when the slug already resolves to the current one', async () => {
+    await makeEvent();
+    const res = await testEnv.wrap(renameEventSlug)(
+      callableRequest({ eventId: 'evt-r', slug: 'first-slug' }, ORGANIZER),
+    );
+    expect(res).toEqual({ slug: 'first-slug' });
+    expect((await db.doc('slugs/first-slug').get()).get('eventId')).toBe('evt-r');
+  });
+
+  it('rejects a caller who is not the event PM/admin', async () => {
+    await makeEvent();
+    await expect(
+      testEnv.wrap(renameEventSlug)(callableRequest({ eventId: 'evt-r', slug: 'x' }, APPROVED)),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 });
 

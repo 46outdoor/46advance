@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugify, uniqueSlug } from './slug';
+import { slugCandidates, slugify } from './slug';
 
 describe('slugify (functions)', () => {
   it('lowercases, hyphenates, trims', () => {
@@ -8,9 +8,21 @@ describe('slugify (functions)', () => {
   });
 });
 
-describe('uniqueSlug (functions)', () => {
-  it('returns the base when free, suffixes on collision', () => {
-    expect(uniqueSlug('rtc-ashland-26', [])).toBe('rtc-ashland-26');
-    expect(uniqueSlug('rtc-ashland-26', ['rtc-ashland-26'])).toBe('rtc-ashland-26-2');
+describe('slugCandidates (functions)', () => {
+  function take(base: string, n: number): string[] {
+    const out: string[] = [];
+    for (const c of slugCandidates(base)) {
+      out.push(c);
+      if (out.length === n) break;
+    }
+    return out;
+  }
+
+  it('yields the base first, then -2, -3, … on collision', () => {
+    expect(take('rtc-ashland-26', 3)).toEqual(['rtc-ashland-26', 'rtc-ashland-26-2', 'rtc-ashland-26-3']);
+  });
+
+  it('falls back to the `event` stem so a slug is never empty', () => {
+    expect(take('', 2)).toEqual(['event-2', 'event-3']);
   });
 });

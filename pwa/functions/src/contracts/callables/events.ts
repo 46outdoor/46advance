@@ -46,3 +46,17 @@ export type CreateBlankEventInput = z.infer<typeof createBlankEventInputSchema>;
 
 export const createBlankEventOutputSchema = z.object({ eventId: z.string().min(1) });
 export type CreateBlankEventOutput = z.infer<typeof createBlankEventOutputSchema>;
+
+// renameEventSlug — transactionally move an event's slug reservation (WS-G): reserve the new
+// `slugs/{slug}`, release the old, and update `events/{id}.slug` in one commit. `slug` is the
+// desired (pre-slugified) value; the server re-slugifies and de-duplicates, so the returned
+// slug may differ (a `-2` suffix on collision). Idempotent when it already resolves to the
+// event's current slug.
+export const renameEventSlugInputSchema = z.object({
+  eventId: z.string().min(1),
+  slug: z.string().min(1),
+});
+export type RenameEventSlugInput = z.infer<typeof renameEventSlugInputSchema>;
+
+export const renameEventSlugOutputSchema = z.object({ slug: z.string().min(1) });
+export type RenameEventSlugOutput = z.infer<typeof renameEventSlugOutputSchema>;
