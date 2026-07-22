@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@sentry/react', () => ({
   init: vi.fn(),
   captureException: vi.fn(),
+  captureMessage: vi.fn(),
   addBreadcrumb: vi.fn(),
 }));
 
-// Each test re-imports a fresh module graph so the module-level `initialized`
-// flag + logger sink reset between cases.
+// Each test re-imports a fresh module graph so the module-level `initialized` flag + logger sink
+// reset between cases.
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
@@ -17,8 +18,10 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+const DSN = 'https://key@o1.ingest.sentry.io/1';
+
 describe('initSentry', () => {
-  it('is a no-op when no DSN is configured', async () => {
+  it('is a no-op when no DSN is configured (inert until provisioned)', async () => {
     vi.stubEnv('VITE_SENTRY_DSN', '');
     const Sentry = await import('@sentry/react');
     const { initSentry } = await import('@/lib/sentry');
@@ -26,37 +29,78 @@ describe('initSentry', () => {
     expect(Sentry.init).not.toHaveBeenCalled();
   });
 
-  it('initializes Sentry and routes log lines to breadcrumbs when a DSN is set', async () => {
-    vi.stubEnv('VITE_SENTRY_DSN', 'https://key@o1.ingest.sentry.io/1');
+  it('initializes with the DSN and PII disabled when configured', async () => {
+    vi.stubEnv('VITE_SENTRY_DSN', DSN);
     const Sentry = await import('@sentry/react');
     const { initSentry } = await import('@/lib/sentry');
-    const { createLogger } = await import('@/lib/logger');
-
     initSentry();
     expect(Sentry.init).toHaveBeenCalledOnce();
-
-    createLogger('Feature').warn('heads up', { code: 1 });
-    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
-      expect.objectContaining({ category: 'Feature', level: 'warning', message: 'heads up' }),
-    );
+    expect(Sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: DSN, sendDefaultPii: false }));
   });
 });
 
-describe('captureExceptionToSentry', () => {
-  it('sends a single event after init', async () => {
-    vi.stubEnv('VITE_SENTRY_DSN', 'https://key@o1.ingest.sentry.io/1');
+describe('log sink (DSN present)', () => {
+  async function setup() {
+    vi.stubEnv('VITE_SENTRY_DSN', DSN);
     const Sentry = await import('@sentry/react');
-    const { initSentry, captureExceptionToSentry } = await import('@/lib/sentry');
+    const { initSentry } = await import('@/lib/sentry');
+    const { createLogger } = await import('@/lib/logger');
     initSentry();
-    captureExceptionToSentry(new Error('boom'), { source: 'test' });
-    expect(Sentry.captureException).toHaveBeenCalledOnce();
+    return { Sentry, log: createLogger('Feature') };
+  }
+
+  it('breadcrumbs non-error levels without creating an event', async () => {
+    const { Sentry, log } = await setup();
+    log.warn('heads up', { code: 1 });
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'Feature', level: 'warning', message: 'heads up' }),
+    );
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
   });
 
-  it('is a no-op before init / without a DSN', async () => {
+  it('turns an error-level line carrying an Error into an exception event (F-12)', async () => {
+    const { Sentry, log } = await setup();
+    const err = new Error('boom');
+    log.error('it broke', { error: err, source: 'X' });
+    expect(Sentry.captureException).toHaveBeenCalledWith(err, { extra: { source: 'X' } });
+    expect(Sentry.addBreadcrumb).toHaveBeenCalled(); // still adds the trailing breadcrumb
+  });
+
+  it('turns an error-level line without an Error into a message event', async () => {
+    const { Sentry, log } = await setup();
+    log.error('bad thing', { code: 500 });
+    expect(Sentry.captureMessage).toHaveBeenCalledWith('[Feature] bad thing', { level: 'error', extra: { code: 500 } });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('captureError — exactly one event (no double-report from error boundaries)', () => {
+  it('routes through the logger sink to a single captureException', async () => {
+    vi.stubEnv('VITE_SENTRY_DSN', DSN);
+    const Sentry = await import('@sentry/react');
+    const { initSentry } = await import('@/lib/sentry');
+    const { captureError } = await import('@/lib/errorCapture');
+    initSentry();
+
+    const err = new Error('render failed');
+    captureError(err, { source: 'AppErrorBoundary', componentStack: '...' });
+
+    expect(Sentry.captureException).toHaveBeenCalledOnce();
+    expect(Sentry.captureException).toHaveBeenCalledWith(err, {
+      extra: { source: 'AppErrorBoundary', componentStack: '...' },
+    });
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it('captures nothing when Sentry is not initialized', async () => {
     vi.stubEnv('VITE_SENTRY_DSN', '');
     const Sentry = await import('@sentry/react');
-    const { captureExceptionToSentry } = await import('@/lib/sentry');
-    captureExceptionToSentry(new Error('boom'));
+    const { initSentry } = await import('@/lib/sentry');
+    const { captureError } = await import('@/lib/errorCapture');
+    initSentry();
+    captureError(new Error('boom'), { source: 'X' });
     expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
   });
 });

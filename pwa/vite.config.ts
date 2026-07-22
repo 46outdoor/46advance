@@ -1,31 +1,72 @@
 import { defineConfig, configDefaults } from 'vitest/config';
+import type { PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { execSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-    VitePWA({
-      registerType: 'prompt',
-      manifest: {
-        name: '46 Advance',
-        short_name: '46 Advance',
-        description: 'Festival artist advance management for 46 Entertainment',
-        theme_color: '#0a0a0a',
-        background_color: '#0a0a0a',
-        display: 'standalone',
-        icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      workbox: { navigateFallbackDenylist: [/^\/__/] },
+// Commit-derived release so a Sentry event correlates to the exact build (F-12). CI/Hosting can
+// pass VITE_APP_RELEASE explicitly; otherwise fall back to the short git SHA (or 'dev' outside a repo).
+function resolveRelease(): string {
+  if (process.env.VITE_APP_RELEASE) return process.env.VITE_APP_RELEASE;
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+const APP_RELEASE = resolveRelease();
+
+// Source-map upload is wired but INERT until the Sentry org/project/token are provisioned — the
+// plugin (and hidden source maps) engage only when all three env vars are present, so an
+// un-configured build is unchanged. Maps are uploaded then deleted, never published as public assets.
+const SENTRY_ORG = process.env.SENTRY_ORG;
+const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
+const SENTRY_AUTH_TOKEN = process.env.SENTRY_AUTH_TOKEN;
+const sentryUpload = Boolean(SENTRY_ORG && SENTRY_PROJECT && SENTRY_AUTH_TOKEN);
+
+const plugins: PluginOption[] = [
+  react(),
+  tailwindcss(),
+  VitePWA({
+    registerType: 'prompt',
+    manifest: {
+      name: '46 Advance',
+      short_name: '46 Advance',
+      description: 'Festival artist advance management for 46 Entertainment',
+      theme_color: '#0a0a0a',
+      background_color: '#0a0a0a',
+      display: 'standalone',
+      icons: [
+        { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+    workbox: { navigateFallbackDenylist: [/^\/__/] },
+  }),
+];
+if (sentryUpload) {
+  // Must be last so it sees the final bundle.
+  plugins.push(
+    sentryVitePlugin({
+      org: SENTRY_ORG,
+      project: SENTRY_PROJECT,
+      authToken: SENTRY_AUTH_TOKEN,
+      release: { name: APP_RELEASE },
+      sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
     }),
-  ],
+  );
+}
+
+export default defineConfig({
+  plugins,
+  define: {
+    // Exposed as import.meta.env.VITE_APP_RELEASE (read by lib/sentry.ts) even when not set in the env.
+    'import.meta.env.VITE_APP_RELEASE': JSON.stringify(APP_RELEASE),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -36,6 +77,9 @@ export default defineConfig({
   },
   server: { port: 4646, strictPort: true },
   build: {
+    // Generate source maps only when uploading them to Sentry — 'hidden' emits maps with no public
+    // //# sourceMappingURL reference; the plugin uploads then deletes them, so they never ship.
+    sourcemap: sentryUpload ? 'hidden' : false,
     rollupOptions: {
       output: {
         // Route code is already lazy-loaded; split the heavy vendor deps into their
