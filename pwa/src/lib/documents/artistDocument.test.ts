@@ -3,6 +3,7 @@ import {
   artistKey,
   artistsFromDocuments,
   documentTitle,
+  filterArtists,
   isVerifiedCurrent,
   parseArtistDocument,
   type ArtistDocument,
@@ -84,5 +85,61 @@ describe('artistsFromDocuments', () => {
       { key: 'jelly roll', name: 'Jelly Roll', count: 2 },
       { key: 'rtc', name: 'RTC', count: 1 },
     ]);
+  });
+
+  it('sorts ignoring a leading "The" (so "The Beatles" lands under B)', () => {
+    const docs = [
+      make('The Beatles', 'the beatles', '1'),
+      make('Aaron Lewis', 'aaron lewis', '2'),
+      make('Church', 'church', '3'),
+    ];
+    expect(artistsFromDocuments(docs).map((a) => a.name)).toEqual([
+      'Aaron Lewis',
+      'The Beatles',
+      'Church',
+    ]);
+  });
+});
+
+describe('filterArtists', () => {
+  const doc = (artist: string, key: string, fileId: string, name: string): ArtistDocument => ({
+    id: fileId,
+    fileId,
+    name,
+    displayName: null,
+    notes: null,
+    sourceFolderId: null,
+    missingFromDrive: false,
+    obsolete: false,
+    verifiedAt: null,
+    mimeType: 'application/pdf',
+    iconLink: null,
+    webViewLink: 'https://drive/x',
+    artist,
+    artistKey: key,
+    categoryId: null,
+    importedBy: 'u',
+    importedByEmail: null,
+    importedAt: null,
+  });
+  const docs = [
+    doc('Jelly Roll', 'jelly roll', '1', 'Rider.pdf'),
+    doc('Aaron Lewis', 'aaron lewis', '2', 'Lauren Alaina Stage Plot.pdf'),
+    doc('RTC', 'rtc', '3', 'inputlist.pdf'),
+  ];
+  const artists = artistsFromDocuments(docs);
+
+  it('returns all artists for a blank query', () => {
+    expect(filterArtists(artists, docs, '   ', false)).toHaveLength(3);
+  });
+
+  it('matches artist names case-insensitively; file names are off by default', () => {
+    expect(filterArtists(artists, docs, 'JELLY', false).map((a) => a.name)).toEqual(['Jelly Roll']);
+    // "Lauren" only appears in a FILE filed under Aaron Lewis — not matched with the flag off.
+    expect(filterArtists(artists, docs, 'lauren', false)).toHaveLength(0);
+  });
+
+  it('also matches within file names when includeFileNames is on (finds misfiled items)', () => {
+    expect(filterArtists(artists, docs, 'lauren', true).map((a) => a.name)).toEqual(['Aaron Lewis']);
   });
 });

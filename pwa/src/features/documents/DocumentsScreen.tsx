@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { artistsFromDocuments } from '@/lib/documents/artistDocument';
+import { artistsFromDocuments, filterArtists } from '@/lib/documents/artistDocument';
 import { listArtistDocuments } from '@/lib/documents/artist-documents-service';
 import { importDriveFolder, pickDriveFolder } from '@/lib/google';
 
@@ -16,6 +16,8 @@ export function DocumentsScreen() {
   const queryClient = useQueryClient();
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchFiles, setSearchFiles] = useState(false);
 
   const documentsQuery = useQuery({ queryKey: ['artistDocuments'], queryFn: listArtistDocuments });
 
@@ -47,6 +49,7 @@ export function DocumentsScreen() {
 
   const documents = documentsQuery.data ?? [];
   const artists = artistsFromDocuments(documents);
+  const filteredArtists = filterArtists(artists, documents, search, searchFiles);
 
   return (
     <section className="space-y-6">
@@ -70,6 +73,27 @@ export function DocumentsScreen() {
       {importMessage && <p className="text-sm text-ink-muted">{importMessage}</p>}
       {importError && <p className="text-sm text-accent">{importError}</p>}
 
+      {documents.length > 0 && (
+        <div className="space-y-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search artists…"
+            className="min-h-[44px] w-full rounded-lg border border-line bg-transparent px-4 py-2 text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none"
+          />
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              checked={searchFiles}
+              onChange={(e) => setSearchFiles(e.target.checked)}
+              className="h-4 w-4 accent-accent"
+            />
+            Also search within file names (for misfiled documents)
+          </label>
+        </div>
+      )}
+
       {documentsQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {documentsQuery.isError && <p className="text-sm text-accent">Failed to load documents.</p>}
 
@@ -81,7 +105,7 @@ export function DocumentsScreen() {
       )}
 
       <div className="space-y-2">
-        {artists.map((artist) => (
+        {filteredArtists.map((artist) => (
           <Link
             key={artist.key}
             to={`/documents/artists/${encodeURIComponent(artist.key)}`}
@@ -94,6 +118,10 @@ export function DocumentsScreen() {
           </Link>
         ))}
       </div>
+
+      {documents.length > 0 && filteredArtists.length === 0 && (
+        <p className="text-sm text-ink-muted">No artists match “{search.trim()}”.</p>
+      )}
     </section>
   );
 }

@@ -9,6 +9,25 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-22
+
+### Added
+
+- **Documents:** a search box at the top of the artist library narrows the list as you
+  type. An optional "also search within file names" checkbox (off by default) widens the
+  search to match document filenames too — handy for tracking down a misfiled item.
+
+### Changed
+
+- **Documents:** the artist list now alphabetizes ignoring a leading "The" — so "The
+  Beatles" sorts under **B**.
+
+### Fixed
+
+- **Documents:** "Import from Drive" no longer fails on larger libraries. The import
+  ran out of memory once the library grew past a few hundred documents, which the app
+  mislabeled as a "Connect Google Drive in Settings first" error.
+
 ## 2026-07-21
 
 ### Fixed

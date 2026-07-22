@@ -112,7 +112,13 @@ export interface ArtistSummary {
   count: number;
 }
 
-/** Group documents into distinct artists (by key), sorted by name. Unsorted docs are excluded. */
+/** Sort key that ignores a leading "The " so "The Beatles" alphabetizes under "B". */
+export function artistSortName(name: string): string {
+  return name.replace(/^the\s+/i, '');
+}
+
+/** Group documents into distinct artists (by key), sorted by name (ignoring a leading "The").
+ *  Unsorted docs are excluded. */
 export function artistsFromDocuments(docs: readonly ArtistDocument[]): ArtistSummary[] {
   const map = new Map<string, ArtistSummary>();
   for (const d of docs) {
@@ -121,5 +127,31 @@ export function artistsFromDocuments(docs: readonly ArtistDocument[]): ArtistSum
     if (existing) existing.count += 1;
     else map.set(d.artistKey, { key: d.artistKey, name: d.artist, count: 1 });
   }
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...map.values()].sort((a, b) =>
+    artistSortName(a.name).localeCompare(artistSortName(b.name), undefined, { sensitivity: 'base' }),
+  );
+}
+
+/**
+ * Filter artist summaries by a search term (case-insensitive). By default matches on the artist
+ * name only; when `includeFileNames` is true an artist ALSO matches if any of its documents' title
+ * or Drive filename contains the term — useful for tracking down a misfiled document.
+ */
+export function filterArtists(
+  artists: readonly ArtistSummary[],
+  docs: readonly ArtistDocument[],
+  query: string,
+  includeFileNames: boolean,
+): ArtistSummary[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...artists];
+  const fileMatchKeys = new Set<string>();
+  if (includeFileNames) {
+    for (const d of docs) {
+      if (!d.artistKey) continue;
+      const title = (d.displayName ?? d.name).toLowerCase();
+      if (title.includes(q) || d.name.toLowerCase().includes(q)) fileMatchKeys.add(d.artistKey);
+    }
+  }
+  return artists.filter((a) => a.name.toLowerCase().includes(q) || fileMatchKeys.has(a.key));
 }
