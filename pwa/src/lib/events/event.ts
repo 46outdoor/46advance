@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { APP_TIME_ZONE } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, dayKeyToInstant, shiftDayKey, zonedDayKey } from '@/lib/dates/timezone';
 import { logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
 
 export const EVENT_STATUSES = ['draft', 'active', 'archived'] as const;
@@ -118,16 +118,18 @@ export const eventInputSchema = z
   );
 export type EventInput = z.infer<typeof eventInputSchema>;
 
-/** The event's calendar days, start→end inclusive (local-midnight Dates; capped at 31). */
-export function eventDays(start?: Date | null, end?: Date | null): Date[] {
+/** The event's calendar days, start→end inclusive, enumerated in the event's timezone (each is
+ *  that day's midnight instant in `timeZone`; capped at 31). Zone-aware so the day list + its keys
+ *  match the schedule/advance day keys regardless of the viewer's browser zone (F-6). */
+export function eventDays(start: Date | null | undefined, end: Date | null | undefined, timeZone: string): Date[] {
   if (!start) return [];
+  const endKey = zonedDayKey(end ?? start, timeZone);
   const days: Date[] = [];
-  const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = end ?? start;
-  const stop = new Date(last.getFullYear(), last.getMonth(), last.getDate());
-  while (d <= stop && days.length < 31) {
-    days.push(new Date(d));
-    d.setDate(d.getDate() + 1);
+  let key = zonedDayKey(start, timeZone);
+  while (key <= endKey && days.length < 31) {
+    const instant = dayKeyToInstant(key, timeZone);
+    if (instant) days.push(instant);
+    key = shiftDayKey(key, 1);
   }
   return days;
 }

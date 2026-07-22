@@ -7,7 +7,7 @@
  * same convention the advance form's day dropdown uses and matches schedule-day keys
  * for same-timezone teams.
  */
-import { dateInputValue } from '@/lib/dates/parsing';
+import { zonedDayKey } from '@/lib/dates/timezone';
 import type { Advance } from './advance';
 
 /** An advance located on its stage (the subcollection parent). */
@@ -16,9 +16,10 @@ export interface StageAdvanceRef {
   advance: Pick<Advance, 'artistName' | 'slot' | 'performanceDate'>;
 }
 
-/** The advance's day key ('YYYY-MM-DD'), or '' when it has no performance day. */
-export function performanceDayKey(advance: Pick<Advance, 'performanceDate'>): string {
-  return dateInputValue(advance.performanceDate);
+/** The advance's day key ('YYYY-MM-DD') in the event's timezone, or '' when it has no performance
+ *  day. Zone-aware so it matches the schedule day keys regardless of the viewer's browser zone. */
+export function performanceDayKey(advance: Pick<Advance, 'performanceDate'>, timeZone: string): string {
+  return zonedDayKey(advance.performanceDate, timeZone);
 }
 
 export interface SlotArtistLookup {
@@ -28,12 +29,15 @@ export interface SlotArtistLookup {
 }
 
 /** Build the day-aware `{artist N}` lookup from an event's advances. */
-export function buildSlotArtistLookup(advances: readonly StageAdvanceRef[]): SlotArtistLookup {
+export function buildSlotArtistLookup(
+  advances: readonly StageAdvanceRef[],
+  timeZone: string,
+): SlotArtistLookup {
   const dated = new Map<string, string>();
   const undated = new Map<string, string>();
   for (const { stageId, advance } of advances) {
     if (advance.slot == null || !advance.artistName) continue;
-    const dayKey = performanceDayKey(advance);
+    const dayKey = performanceDayKey(advance, timeZone);
     if (dayKey) dated.set(`${stageId}:${advance.slot}:${dayKey}`, advance.artistName);
     else undated.set(`${stageId}:${advance.slot}`, advance.artistName);
   }
@@ -53,14 +57,15 @@ export function findBookingTarget<T extends StageAdvanceRef>(
   stageId: string,
   dayKey: string,
   name: string,
+  timeZone: string,
 ): T | null {
   const wanted = name.trim().toLowerCase();
   const candidates = advances.filter(
     (a) => a.stageId === stageId && a.advance.artistName.trim().toLowerCase() === wanted,
   );
   return (
-    candidates.find((a) => performanceDayKey(a.advance) === dayKey) ??
-    candidates.find((a) => !performanceDayKey(a.advance)) ??
+    candidates.find((a) => performanceDayKey(a.advance, timeZone) === dayKey) ??
+    candidates.find((a) => !performanceDayKey(a.advance, timeZone)) ??
     null
   );
 }

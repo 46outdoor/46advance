@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
-import { formatDate } from '@/lib/dates/formatting';
 import {
   canFinalizeSection,
   canUnlockSection,
@@ -15,6 +14,7 @@ import {
 } from '@/lib/advances/sections';
 import { slotLabel, type Advance, type AdvanceInput } from '@/lib/advances/advance';
 import { eventDays, type EventRecord } from '@/lib/events/event';
+import { APP_TIME_ZONE, formatZonedDate } from '@/lib/dates/timezone';
 import type { SectionContent } from '@/lib/advances/fields';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import type { Logo } from '@/lib/branding/logo';
@@ -37,6 +37,20 @@ import { DriveFilesPanel } from './DriveFilesPanel';
 import { AdvanceDocumentsPanel } from './AdvanceDocumentsPanel';
 
 const logger = createLogger('Advances');
+
+/** Derived event/branding values for the screen, hoisted out of the component so their
+ *  optional-chaining branches don't count against its complexity. */
+function advanceDetailDerived(
+  event: EventRecord | null | undefined,
+  branding: { defaultLogos: Logo[] } | undefined,
+) {
+  return {
+    timeZone: event?.timeZone ?? APP_TIME_ZONE,
+    enabledIds: new Set(event?.departmentIds ?? []),
+    parentEventLogo: event?.eventLogo ?? null,
+    defaultLogos: branding?.defaultLogos ?? [],
+  };
+}
 
 export function AdvanceDetailScreen() {
   const { eventId: eventParam, stageId, advanceId } = useParams();
@@ -112,10 +126,11 @@ export function AdvanceDetailScreen() {
 
   // One section per enabled department (ordered), status from the advance.
   const departments = departmentsQuery.data ?? [];
-  const enabledIds = new Set(eventQuery.data?.departmentIds ?? []);
+  const { timeZone, enabledIds, parentEventLogo, defaultLogos } = advanceDetailDerived(
+    eventQuery.data,
+    brandingQuery.data,
+  );
   const sectionRows = departments.filter((d) => enabledIds.has(d.id));
-  const parentEventLogo = eventQuery.data?.eventLogo ?? null;
-  const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
     <section className="space-y-6">
@@ -132,6 +147,7 @@ export function AdvanceDetailScreen() {
       {advance && !editing && (
         <AdvanceHeader
           advance={advance}
+          timeZone={timeZone}
           eventId={eventId}
           stageId={stageId}
           advanceId={advanceId}
@@ -221,8 +237,10 @@ function AdvanceHeader({
   onEdit,
   onDelete,
   onCreated,
+  timeZone,
 }: {
   advance: Advance;
+  timeZone: string;
   eventId: string;
   stageId: string;
   advanceId: string;
@@ -262,7 +280,7 @@ function AdvanceHeader({
       </div>
       <p className="text-ink-muted">
         {advance.slot && <span className="mr-3">{slotLabel(advance.slot)}</span>}
-        {advance.performanceDate && <span>{formatDate(advance.performanceDate)}</span>}
+        {advance.performanceDate && <span>{formatZonedDate(advance.performanceDate, timeZone)}</span>}
       </p>
       {advance.notes && <p className="whitespace-pre-line text-sm text-ink">{advance.notes}</p>}
       <div className="space-y-1 pt-1">
@@ -278,6 +296,7 @@ function AdvanceHeader({
         at={advance.advanceCallAt}
         link={advance.advanceCallLink}
         viaGoogle={advance.googleCalendarEventId !== null}
+        timeZone={timeZone}
         canEdit={canEdit}
         onCreated={onCreated}
       />
@@ -300,13 +319,15 @@ function AdvanceEditPanel({
   onSubmit: (input: AdvanceInput) => void;
   onCancel: () => void;
 }) {
-  const days = eventDays(event?.startDate, event?.endDate);
+  const timeZone = event?.timeZone ?? APP_TIME_ZONE;
+  const days = eventDays(event?.startDate, event?.endDate, timeZone);
   return (
     <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
       <h2 className="mb-3 font-display text-lg font-bold text-brand">Edit artist advance</h2>
       <AdvanceForm
         initial={advance}
         days={days}
+        timeZone={timeZone}
         submitLabel="Save changes"
         pending={pending}
         error={error}

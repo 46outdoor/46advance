@@ -4,9 +4,14 @@ import {
   tzOffsetMillis,
   zonedInputToDate,
   dateToZonedInput,
+  dayKeyToInstant,
+  zonedDayKey,
   formatCentralDateTime,
   formatCentralDate,
   formatCentralTime,
+  formatZonedDate,
+  formatZonedDateRange,
+  formatZonedDateTime,
   shiftDayKey,
 } from './timezone';
 
@@ -63,5 +68,47 @@ describe('timezone — Central (America/Chicago) conversions', () => {
     expect(shiftDayKey('2026-06-30', 1)).toBe('2026-07-01'); // month rollover
     expect(shiftDayKey('2026-03-08', 1)).toBe('2026-03-09'); // spring-forward day: still +1 calendar day
     expect(shiftDayKey('2026-06-26', 0)).toBe('2026-06-26');
+  });
+});
+
+describe('date-only helpers are event-zone-based across zones + DST (F-6)', () => {
+  const ZONES = ['America/Chicago', 'UTC', 'America/Los_Angeles', 'America/New_York'];
+
+  it('dayKeyToInstant → zonedDayKey round-trips to the same day in every zone, incl. DST boundaries', () => {
+    for (const tz of ZONES) {
+      for (const key of ['2026-06-28', '2026-01-15', '2026-03-08', '2026-11-01']) {
+        expect(zonedDayKey(dayKeyToInstant(key, tz), tz)).toBe(key);
+      }
+    }
+  });
+
+  it('the same day key maps to a DIFFERENT instant per zone (midnight is zone-local)', () => {
+    const chi = dayKeyToInstant('2026-06-28', 'America/Chicago')!;
+    const la = dayKeyToInstant('2026-06-28', 'America/Los_Angeles')!;
+    const utc = dayKeyToInstant('2026-06-28', 'UTC')!;
+    expect(chi.getTime()).not.toBe(la.getTime());
+    expect(chi.getTime()).not.toBe(utc.getTime());
+    expect(la.getTime() - chi.getTime()).toBe(2 * HOUR); // PDT midnight is 2h after CDT midnight
+  });
+
+  it('an event-zone-midnight instant reads as the same calendar day for every viewer', () => {
+    const instant = dayKeyToInstant('2026-07-14', 'America/New_York');
+    expect(zonedDayKey(instant, 'America/New_York')).toBe('2026-07-14');
+    expect(formatZonedDate(instant, 'America/New_York')).toContain('Jul 14');
+  });
+
+  it('formatZonedDateRange collapses a single day and joins a range', () => {
+    const tz = 'America/Chicago';
+    const d1 = dayKeyToInstant('2026-06-26', tz);
+    const d2 = dayKeyToInstant('2026-06-28', tz);
+    expect(formatZonedDateRange(d1, d1, tz)).toBe(formatZonedDate(d1, tz));
+    expect(formatZonedDateRange(d1, d2, tz)).toContain('–');
+    expect(formatZonedDateRange(null, null, tz)).toBe('—');
+  });
+
+  it('formatZonedDateTime renders an instant in the given zone with its label', () => {
+    const at = new Date(Date.UTC(2026, 5, 24, 21, 0)); // 4pm CDT / 2pm PDT
+    expect(formatZonedDateTime(at, 'America/Chicago')).toContain('CDT');
+    expect(formatZonedDateTime(at, 'America/Los_Angeles')).toContain('PDT');
   });
 });

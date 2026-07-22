@@ -370,6 +370,7 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
   const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventSnap.data()?.name ?? 'Event'));
 
   const artistName = String(advanceSnap.data()?.artistName ?? 'Artist');
+  const eventTz = String(eventSnap.data()?.timeZone ?? TIME_ZONE);
   const start = new Date(startMillis);
   const end = new Date(startMillis + durationMinutes * 60 * 1000);
   const calendar = google.calendar({ version: 'v3', auth: client });
@@ -378,8 +379,8 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
     conferenceDataVersion: 1,
     requestBody: {
       summary: `Advance call — ${artistName}`,
-      start: { dateTime: start.toISOString(), timeZone: TIME_ZONE },
-      end: { dateTime: end.toISOString(), timeZone: TIME_ZONE },
+      start: { dateTime: start.toISOString(), timeZone: eventTz },
+      end: { dateTime: end.toISOString(), timeZone: eventTz },
       conferenceData: { createRequest: { requestId: `advance-${advanceId}-${startMillis}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } },
     },
   });

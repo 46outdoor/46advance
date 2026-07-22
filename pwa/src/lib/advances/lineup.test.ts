@@ -7,6 +7,11 @@ import {
   findBookingTarget,
   performanceDayKey,
 } from './lineup';
+import { dayKeyToInstant } from '@/lib/dates/timezone';
+
+// A non-Central event zone proves day keys derive from the EVENT zone, not the test runner's.
+const TZ = 'America/Los_Angeles';
+const on = (dayKey: string): Date | null => dayKeyToInstant(dayKey, TZ);
 
 const advance = (over: Partial<Advance> = {}): Advance => ({
   id: 'a1',
@@ -29,41 +34,50 @@ const advance = (over: Partial<Advance> = {}): Advance => ({
 });
 
 describe('performanceDayKey', () => {
-  it('formats the local calendar date', () => {
-    expect(performanceDayKey({ performanceDate: new Date(2026, 5, 28) })).toBe('2026-06-28');
+  it('formats the performance date as its day key in the event zone', () => {
+    expect(performanceDayKey({ performanceDate: on('2026-06-28') }, TZ)).toBe('2026-06-28');
   });
 
   it('is empty for undated advances', () => {
-    expect(performanceDayKey({ performanceDate: null })).toBe('');
+    expect(performanceDayKey({ performanceDate: null }, TZ)).toBe('');
   });
 });
 
 describe('buildSlotArtistLookup', () => {
   it('resolves a dated advance only on its day', () => {
-    const lookup = buildSlotArtistLookup([
-      { stageId: 'main', advance: advance({ performanceDate: new Date(2026, 5, 27), artistName: 'Kid Rock' }) },
-      { stageId: 'main', advance: advance({ performanceDate: new Date(2026, 5, 28), artistName: 'Staind' }) },
-    ]);
+    const lookup = buildSlotArtistLookup(
+      [
+        { stageId: 'main', advance: advance({ performanceDate: on('2026-06-27'), artistName: 'Kid Rock' }) },
+        { stageId: 'main', advance: advance({ performanceDate: on('2026-06-28'), artistName: 'Staind' }) },
+      ],
+      TZ,
+    );
     expect(lookup.resolve('2026-06-27', 'main', 1)).toBe('Kid Rock');
     expect(lookup.resolve('2026-06-28', 'main', 1)).toBe('Staind');
     expect(lookup.resolve('2026-06-29', 'main', 1)).toBeNull();
   });
 
   it('falls back to an undated advance for any day, with dated matches winning', () => {
-    const lookup = buildSlotArtistLookup([
-      { stageId: 'main', advance: advance({ artistName: 'House DJ' }) },
-      { stageId: 'main', advance: advance({ performanceDate: new Date(2026, 5, 28), artistName: 'Staind' }) },
-    ]);
+    const lookup = buildSlotArtistLookup(
+      [
+        { stageId: 'main', advance: advance({ artistName: 'House DJ' }) },
+        { stageId: 'main', advance: advance({ performanceDate: on('2026-06-28'), artistName: 'Staind' }) },
+      ],
+      TZ,
+    );
     expect(lookup.resolve('2026-06-27', 'main', 1)).toBe('House DJ');
     expect(lookup.resolve('2026-06-28', 'main', 1)).toBe('Staind');
   });
 
   it('scopes slots per stage and ignores slotless advances', () => {
-    const lookup = buildSlotArtistLookup([
-      { stageId: 'main', advance: advance({ artistName: 'Staind' }) },
-      { stageId: 'rowdy', advance: advance({ artistName: 'Atlus' }) },
-      { stageId: 'main', advance: advance({ slot: null, artistName: 'Unbooked' }) },
-    ]);
+    const lookup = buildSlotArtistLookup(
+      [
+        { stageId: 'main', advance: advance({ artistName: 'Staind' }) },
+        { stageId: 'rowdy', advance: advance({ artistName: 'Atlus' }) },
+        { stageId: 'main', advance: advance({ slot: null, artistName: 'Unbooked' }) },
+      ],
+      TZ,
+    );
     expect(lookup.resolve('', 'main', 1)).toBe('Staind');
     expect(lookup.resolve('', 'rowdy', 1)).toBe('Atlus');
     expect(lookup.resolve('', 'main', 2)).toBeNull();
@@ -71,26 +85,22 @@ describe('buildSlotArtistLookup', () => {
 });
 
 describe('findBookingTarget', () => {
-  const june28 = new Date(2026, 5, 28);
-  const sameDay = { stageId: 'main', advance: advance({ id: 'dated', performanceDate: june28 }) };
+  const sameDay = { stageId: 'main', advance: advance({ id: 'dated', performanceDate: on('2026-06-28') }) };
   const undated = { stageId: 'main', advance: advance({ id: 'undated' }) };
-  const otherDay = {
-    stageId: 'main',
-    advance: advance({ id: 'other', performanceDate: new Date(2026, 5, 27) }),
-  };
+  const otherDay = { stageId: 'main', advance: advance({ id: 'other', performanceDate: on('2026-06-27') }) };
 
   it('prefers a same-day match, then adopts an undated one', () => {
-    expect(findBookingTarget([undated, sameDay], 'main', '2026-06-28', 'Staind')).toBe(sameDay);
-    expect(findBookingTarget([otherDay, undated], 'main', '2026-06-28', 'Staind')).toBe(undated);
+    expect(findBookingTarget([undated, sameDay], 'main', '2026-06-28', 'Staind', TZ)).toBe(sameDay);
+    expect(findBookingTarget([otherDay, undated], 'main', '2026-06-28', 'Staind', TZ)).toBe(undated);
   });
 
   it('never reuses an advance dated to a different day or another stage', () => {
-    expect(findBookingTarget([otherDay], 'main', '2026-06-28', 'Staind')).toBeNull();
-    expect(findBookingTarget([{ ...sameDay, stageId: 'rowdy' }], 'main', '2026-06-28', 'Staind')).toBeNull();
+    expect(findBookingTarget([otherDay], 'main', '2026-06-28', 'Staind', TZ)).toBeNull();
+    expect(findBookingTarget([{ ...sameDay, stageId: 'rowdy' }], 'main', '2026-06-28', 'Staind', TZ)).toBeNull();
   });
 
   it('matches names case- and whitespace-insensitively', () => {
-    expect(findBookingTarget([undated], 'main', '', '  staind ')).toBe(undated);
+    expect(findBookingTarget([undated], 'main', '', '  staind ', TZ)).toBe(undated);
   });
 });
 

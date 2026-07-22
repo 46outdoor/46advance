@@ -4,8 +4,7 @@ import { pickDriveFolder } from '@/lib/google';
 import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } from '@/lib/events/event';
 import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { DepartmentRecord } from '@/lib/departments/department';
-import { dateInputValue, parseDateInput } from '@/lib/dates/parsing';
-import { APP_TIME_ZONE, COMMON_TIME_ZONES } from '@/lib/dates/timezone';
+import { APP_TIME_ZONE, COMMON_TIME_ZONES, dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 
 interface EventFormProps {
   initial?: {
@@ -88,16 +87,37 @@ function DriveFolderField({
 }
 
 /** Slug field state: tracks the booking label / name / year until the user edits it directly. */
-function useEventSlug(initialSlug: string | null | undefined, name: string, bookingLabel: string, start: string) {
+function useEventSlug(
+  initialSlug: string | null | undefined,
+  name: string,
+  bookingLabel: string,
+  start: string,
+  timeZone: string,
+) {
   const [slug, setSlug] = useState(initialSlug ?? '');
   const [touched, setTouched] = useState(Boolean(initialSlug));
-  const value = touched ? slug : defaultEventSlug(bookingLabel.trim() || null, name, parseDateInput(start));
+  const value = touched
+    ? slug
+    : defaultEventSlug(bookingLabel.trim() || null, name, dayKeyToInstant(start, timeZone));
   return {
     value,
     onChange: (next: string) => {
       setSlug(next);
       setTouched(true);
     },
+  };
+}
+
+/** Initial event-date form values, derived in the event's zone (F-6). Hoisted out of the
+ *  component so its optional-chaining branches don't count against EventForm's complexity. */
+function initialEventDates(
+  initial: { startDate: Date | null; endDate: Date | null; timeZone?: string } | undefined,
+): { timeZone: string; start: string; end: string } {
+  const timeZone = initial?.timeZone ?? APP_TIME_ZONE;
+  return {
+    timeZone,
+    start: zonedDayKey(initial?.startDate ?? null, timeZone),
+    end: zonedDayKey(initial?.endDate ?? null, timeZone),
   };
 }
 
@@ -112,12 +132,15 @@ export function EventForm({
   onSubmit,
   onCancel,
 }: EventFormProps) {
+  // Event dates are shown + collected in the EVENT's zone (not the browser's), so the same calendar
+  // day is stored and read regardless of the editor's timezone (F-6). Date-only → event-zone midnight.
+  const dates = initialEventDates(initial);
   const [name, setName] = useState(initial?.name ?? '');
-  const [start, setStart] = useState(dateInputValue(initial?.startDate ?? null));
-  const [end, setEnd] = useState(dateInputValue(initial?.endDate ?? null));
+  const [start, setStart] = useState(dates.start);
+  const [end, setEnd] = useState(dates.end);
   const [loadInDays, setLoadInDays] = useState(() => initial?.loadInDays ?? 0);
   const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
-  const [timeZone, setTimeZone] = useState(() => initial?.timeZone ?? APP_TIME_ZONE);
+  const [timeZone, setTimeZone] = useState(dates.timeZone);
   const [venue, setVenue] = useState(initial?.venue ?? '');
   const [driveFolder, setDriveFolder] = useState<{ id: string; name: string } | null>(
     initial?.driveFolderId ? { id: initial.driveFolderId, name: initial.driveFolderName ?? 'Drive folder' } : null,
@@ -138,14 +161,14 @@ export function EventForm({
       return next;
     });
 
-  const slugField = useEventSlug(initial?.slug, name, bookingLabel, start);
+  const slugField = useEventSlug(initial?.slug, name, bookingLabel, start, timeZone);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const parsed = eventInputSchema.safeParse({
       name,
-      startDate: parseDateInput(start),
-      endDate: parseDateInput(end),
+      startDate: dayKeyToInstant(start, timeZone),
+      endDate: dayKeyToInstant(end, timeZone),
       loadInDays,
       loadOutDays,
       timeZone,

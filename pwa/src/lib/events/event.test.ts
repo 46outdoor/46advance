@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
 import { eventDays, eventInputSchema, parseEvent } from './event';
+import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 
 describe('parseEvent', () => {
   it('normalizes timestamps and passes through fields', () => {
@@ -44,18 +45,20 @@ describe('eventInputSchema', () => {
 });
 
 describe('eventDays', () => {
-  it('lists each calendar day from start to end inclusive', () => {
-    const days = eventDays(new Date(2026, 5, 26), new Date(2026, 5, 28)); // Fri–Sun
-    expect(days.map((d) => d.getDate())).toEqual([26, 27, 28]);
+  // A non-Central event zone proves the days derive from the EVENT zone, not the test runner's.
+  const TZ = 'America/Los_Angeles';
+
+  it('lists each calendar day from start to end inclusive, in the event zone', () => {
+    const days = eventDays(dayKeyToInstant('2026-06-26', TZ), dayKeyToInstant('2026-06-28', TZ), TZ); // Fri–Sun
+    expect(days.map((d) => zonedDayKey(d, TZ))).toEqual(['2026-06-26', '2026-06-27', '2026-06-28']);
   });
 
   it('returns a single day when end is null', () => {
-    expect(eventDays(new Date(2026, 5, 26), null)).toHaveLength(1);
+    expect(eventDays(dayKeyToInstant('2026-06-26', TZ), null, TZ)).toHaveLength(1);
   });
 
   it('returns [] when there is no start', () => {
-    expect(eventDays(null, null)).toEqual([]);
-    expect(eventDays()).toEqual([]);
+    expect(eventDays(null, null, TZ)).toEqual([]);
   });
 });
 
