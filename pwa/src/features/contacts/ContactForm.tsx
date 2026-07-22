@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { contactInputSchema, type Contact, type ContactInput, type ContactPhoto } from '@/lib/contacts/contact';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { PhotoEditor } from '@/components/contacts/PhotoEditor';
 
 interface ContactFormProps {
@@ -43,6 +44,13 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
     onSubmit(parsed.data);
   };
 
+  // Explicit abandon: drop a photo uploaded during this session but never persisted, so a
+  // cancelled edit doesn't orphan it (F-5). The originally-saved photo is left untouched.
+  const cancel = () => {
+    if (photo && photo.path !== initial?.photo?.path) void deleteStoredAssets([photo.path]);
+    onCancel?.();
+  };
+
   return (
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={submit}>
       <div className="sm:col-span-2">
@@ -81,7 +89,7 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
           {pending ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          <button type="button" onClick={cancel} className="text-sm text-ink-muted hover:text-ink">
             Cancel
           </button>
         )}

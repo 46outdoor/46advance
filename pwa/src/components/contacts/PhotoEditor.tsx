@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { useAuth } from '@/contexts/auth-context';
-import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
+import { deleteFile, uploadFile, validateUpload, type UploadedFile } from '@/lib/storage/uploads';
 import { downscaleImage } from '@/lib/storage/image';
 import { ContactAvatar } from './ContactAvatar';
 import type { ContactPhoto, CropRect } from '@/lib/contacts/contact';
@@ -104,21 +104,24 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
       return;
     }
     setBusy(true);
+    let uploaded: UploadedFile | undefined;
     try {
       if (editing.file && user) {
-        const prev = photo;
         const ext = editing.file.name.split('.').pop()?.toLowerCase() || 'png';
         // Downscale large camera photos before upload; the ratio-based crop rect stays valid.
         const scaled = await downscaleImage(editing.file);
         // Uploader-scoped path (contacts/photos/{uid}/…) so storage.rules can confine writes.
-        const uploaded = await uploadFile(`contacts/photos/${user.uid}/${Date.now()}.${ext}`, scaled);
+        uploaded = await uploadFile(`contacts/photos/${user.uid}/${Date.now()}.${ext}`, scaled);
+        // Persist/stage the new ref first; the parent deletes the superseded photo once durable.
         await onChange({ path: uploaded.path, url: uploaded.url, crop });
-        if (prev) await deleteFile(prev.path).catch(() => undefined);
       } else if (photo) {
         await onChange({ ...photo, crop });
       }
       cancel();
     } catch {
+      // Upload or the parent's durable save failed — drop the new object so it isn't orphaned (F-5);
+      // the previous photo is untouched.
+      if (uploaded) await deleteFile(uploaded.path).catch(() => undefined);
       setError('Could not save the photo. Please try again.');
     } finally {
       setBusy(false);
@@ -126,9 +129,12 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
   };
 
   const remove = async () => {
-    const prev = photo;
-    await onChange(null);
-    if (prev) await deleteFile(prev.path).catch(() => undefined);
+    // Persist/stage the removal; the parent deletes the removed object once that's durable.
+    try {
+      await onChange(null);
+    } catch {
+      setError('Could not remove the photo. Please try again.');
+    }
   };
 
   return (

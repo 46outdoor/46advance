@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { deleteFile, uploadFile, validateUpload } from '@/lib/storage/uploads';
+import { deleteFile, uploadFile, validateUpload, type UploadedFile } from '@/lib/storage/uploads';
 import type { Logo } from '@/lib/branding/logo';
 
 interface Props {
   logo: Logo;
   /** Storage path prefix, e.g. `branding/<id>` or `templates/<id>/logo`. */
   pathPrefix: string;
-  onChange: (logo: Logo) => void;
+  /**
+   * Persist (immediate-save parent) or stage (draft parent) the new logo. The uploader AWAITS it
+   * and, if it rejects, deletes the just-uploaded object so a failed save can't orphan it (F-5).
+   * The uploader never deletes the previous object — the parent owns that (see `supersededLogoPaths`),
+   * so a cancelled/failed edit never destroys the already-persisted logo.
+   */
+  onChange: (logo: Logo) => void | Promise<void>;
   disabled?: boolean;
 }
 
@@ -29,13 +35,17 @@ export function LogoUploader({ logo, pathPrefix, onChange, disabled }: Props) {
     }
     setError(null);
     setBusy(variant);
+    let uploaded: UploadedFile | undefined;
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const uploaded = await uploadFile(`${pathPrefix}/${variant}-${Date.now()}.${ext}`, file);
-      const prev = logo[variant];
-      onChange({ ...logo, [variant]: { path: uploaded.path, url: uploaded.url } });
-      if (prev) await deleteFile(prev.path).catch(() => undefined);
+      uploaded = await uploadFile(`${pathPrefix}/${variant}-${Date.now()}.${ext}`, file);
+      // Persist/stage the new ref FIRST; the parent deletes the superseded object only once this
+      // resolves durably. The previous logo is never touched here.
+      await onChange({ ...logo, [variant]: { path: uploaded.path, url: uploaded.url } });
     } catch {
+      // Upload or the parent's durable save failed. If we uploaded, drop the new object so a failed
+      // save can't orphan it (F-5); the previous logo stays intact.
+      if (uploaded) await deleteFile(uploaded.path).catch(() => undefined);
       setError('Upload failed. Please try again.');
     } finally {
       setBusy(null);
@@ -43,9 +53,12 @@ export function LogoUploader({ logo, pathPrefix, onChange, disabled }: Props) {
   };
 
   const remove = async (variant: 'onDark' | 'onLight'): Promise<void> => {
-    const prev = logo[variant];
-    onChange({ ...logo, [variant]: null });
-    if (prev) await deleteFile(prev.path).catch(() => undefined);
+    // Stage/persist the removal; the parent deletes the removed object once that's durable.
+    try {
+      await onChange({ ...logo, [variant]: null });
+    } catch {
+      setError('Could not save. Please try again.');
+    }
   };
 
   return (

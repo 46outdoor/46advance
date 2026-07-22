@@ -4,7 +4,9 @@ import {
   emptyLogo,
   hasLogo,
   logoForBackground,
+  logoPaths,
   parseLogo,
+  supersededLogoPaths,
   type Logo,
 } from './logo';
 
@@ -47,5 +49,20 @@ describe('branding/logo', () => {
   it('parseLogo normalizes missing variants/name to null', () => {
     expect(parseLogo({ onDark: img('d') })).toEqual({ onDark: img('d'), onLight: null, name: null });
     expect(parseLogo({})).toEqual({ onDark: null, onLight: null, name: null });
+  });
+
+  it('logoPaths lists the referenced variant paths', () => {
+    expect(logoPaths({ onDark: img('d'), onLight: img('l'), name: null }).sort()).toEqual(['d', 'l']);
+    expect(logoPaths(emptyLogo())).toEqual([]);
+  });
+
+  it('supersededLogoPaths returns paths dropped between prev and next (F-5)', () => {
+    const prev: Logo = { onDark: img('old-d'), onLight: img('keep'), name: null };
+    // onDark replaced (old-d → new-d), onLight unchanged (keep) → only old-d is superseded.
+    const next: Logo = { onDark: img('new-d'), onLight: img('keep'), name: null };
+    expect(supersededLogoPaths(prev, next)).toEqual(['old-d']);
+    // Removing a variant supersedes its path; adding one supersedes nothing.
+    expect(supersededLogoPaths(prev, { onDark: null, onLight: img('keep'), name: null })).toEqual(['old-d']);
+    expect(supersededLogoPaths(emptyLogo(), next)).toEqual([]);
   });
 });

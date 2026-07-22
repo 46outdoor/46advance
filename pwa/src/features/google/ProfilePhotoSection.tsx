@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { getMyContact, setContactPhoto } from '@/lib/contacts/contacts-service';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { PhotoEditor } from '@/components/contacts/PhotoEditor';
 import type { ContactPhoto } from '@/lib/contacts/contact';
 
@@ -20,7 +21,12 @@ export function ProfilePhotoSection() {
   const contact = contactQuery.data;
 
   const save = useMutation({
-    mutationFn: (photo: ContactPhoto | null) => setContactPhoto(contact!.id, photo),
+    mutationFn: async (photo: ContactPhoto | null) => {
+      const prev = contact?.photo ?? null;
+      await setContactPhoto(contact!.id, photo);
+      // Delete the superseded object only after the new ref is durably saved (F-5).
+      if (prev && prev.path !== photo?.path) await deleteStoredAssets([prev.path]);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['my-contact', user?.uid] });
       void queryClient.invalidateQueries({ queryKey: ['contacts'] });

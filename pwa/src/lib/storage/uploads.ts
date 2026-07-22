@@ -38,3 +38,34 @@ export async function uploadFile(path: string, file: File | Blob): Promise<Uploa
 export async function deleteFile(path: string): Promise<void> {
   await deleteObject(ref(storage, path));
 }
+
+/**
+ * Replace a stored asset with compensation (F-5). Uploads the new object, runs the caller's
+ * durable `persist`, then deletes the OLD object only after persistence SUCCEEDS. If `persist`
+ * throws, the NEW object is deleted instead (never the old) — so a failed metadata write can't
+ * orphan the upload, and a failed save can never destroy the previously-persisted asset. Returns
+ * whatever `persist` returns. For immediate-save flows (services, immediate-save parents).
+ */
+export async function replaceStoredAsset<T>(
+  upload: () => Promise<UploadedFile>,
+  persist: (uploaded: UploadedFile) => Promise<T>,
+  previousPath: string | null,
+): Promise<T> {
+  const uploaded = await upload();
+  let result: T;
+  try {
+    result = await persist(uploaded);
+  } catch (err) {
+    await deleteFile(uploaded.path).catch(() => undefined); // compensate: don't orphan the new object
+    throw err;
+  }
+  if (previousPath && previousPath !== uploaded.path) {
+    await deleteFile(previousPath).catch(() => undefined); // old object, only after the new ref is durable
+  }
+  return result;
+}
+
+/** Best-effort delete of every non-empty path (superseded or abandoned assets); never throws. */
+export async function deleteStoredAssets(paths: readonly (string | null | undefined)[]): Promise<void> {
+  await Promise.all(paths.map((p) => (p ? deleteFile(p).catch(() => undefined) : Promise.resolve())));
+}

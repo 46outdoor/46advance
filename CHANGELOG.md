@@ -30,6 +30,10 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Documents:** "Import from Drive" no longer fails on larger libraries. The import
   ran out of memory once the library grew past a few hundred documents, which the app
   mislabeled as a "Connect Google Drive in Settings first" error.
+- **Assets:** replacing a logo or a profile/contact photo — or attaching a signed quote
+  copy or a production attachment — no longer risks losing the previous file or leaving the
+  new one orphaned when a save is cancelled or fails. The old file is kept until the new one
+  is durably saved, and a failed save cleans up the upload it made.
 
 ## 2026-07-21
 

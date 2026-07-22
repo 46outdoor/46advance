@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
-import { emptyLogo, type Logo } from '@/lib/branding/logo';
+import { emptyLogo, logoPaths, type Logo } from '@/lib/branding/logo';
 import { brandingKey, getBranding, setDefaultLogos } from '@/lib/branding/branding-service';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 
 const logger = createLogger('Branding');
@@ -21,7 +22,13 @@ export function BrandingAdmin() {
   }, [brandingQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => setDefaultLogos(logos),
+    mutationFn: async () => {
+      const original = brandingQuery.data?.defaultLogos ?? [];
+      await setDefaultLogos(logos);
+      // After the draft is durably saved, delete objects the edit replaced/removed (F-5).
+      const kept = new Set(logos.flatMap(logoPaths));
+      await deleteStoredAssets(original.flatMap(logoPaths).filter((p) => !kept.has(p)));
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: brandingKey() }),
     onError: (err) => logger.error('Failed to save default logos', err),
   });

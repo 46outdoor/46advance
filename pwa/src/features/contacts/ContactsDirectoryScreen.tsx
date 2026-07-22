@@ -20,6 +20,7 @@ import {
   listContacts,
   updateContact,
 } from '@/lib/contacts/contacts-service';
+import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { ContactForm } from './ContactForm';
 
 const logger = createLogger('Contacts');
@@ -129,7 +130,19 @@ export function ContactsDirectoryScreen() {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: ContactInput }) => updateContact(id, input),
+    mutationFn: async ({
+      id,
+      input,
+      prevPhotoPath,
+    }: {
+      id: string;
+      input: ContactInput;
+      prevPhotoPath: string | null;
+    }) => {
+      await updateContact(id, input);
+      // Delete the replaced photo only after the update is durably saved (F-5).
+      if (prevPhotoPath && prevPhotoPath !== input.photo?.path) await deleteStoredAssets([prevPhotoPath]);
+    },
     onSuccess: () => {
       void invalidate();
       setEditingId(null);
@@ -248,7 +261,9 @@ export function ContactsDirectoryScreen() {
                     deleting={remove.isPending}
                     onEdit={() => setEditingId(contact.id)}
                     onDelete={() => remove.mutate(contact.id)}
-                    onSubmitEdit={(input) => update.mutate({ id: contact.id, input })}
+                    onSubmitEdit={(input) =>
+                      update.mutate({ id: contact.id, input, prevPhotoPath: contact.photo?.path ?? null })
+                    }
                     onCancelEdit={() => setEditingId(null)}
                   />
                 </div>
