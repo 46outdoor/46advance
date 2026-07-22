@@ -21,6 +21,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
+import { withGoogleRetry } from './lib/google/retry.js';
 import { attachCallBookingInputSchema, syncAdvanceCallBookingsInputSchema } from './contracts/callables/google.js';
 import { logger } from 'firebase-functions/v2';
 import { google, type calendar_v3 } from 'googleapis';
@@ -304,15 +305,28 @@ export async function syncEventBookings(
 
   const now = Date.now();
   const calendar = google.calendar({ version: 'v3', auth: client });
-  const res = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin: new Date(now - WINDOW_PAST_MS).toISOString(),
-    timeMax: new Date(now + WINDOW_FUTURE_MS).toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-    maxResults: 250,
-    q: 'Advance',
-  });
+  // Page through ALL matching calendar events, not just the first 250 (WS-H): a busy festival can
+  // have more advance bookings in the window than one page holds, and the overflow was silently dropped.
+  const calendarItems: calendar_v3.Schema$Event[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await withGoogleRetry(
+      () =>
+        calendar.events.list({
+          calendarId: 'primary',
+          timeMin: new Date(now - WINDOW_PAST_MS).toISOString(),
+          timeMax: new Date(now + WINDOW_FUTURE_MS).toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 250,
+          q: 'Advance',
+          pageToken,
+        }),
+      { label: 'events.list' },
+    );
+    calendarItems.push(...(res.data.items ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
 
   const existingSnap = await db.collection(`events/${eventId}/callBookings`).get();
   const existing = new Map<string, DocumentData>(existingSnap.docs.map((d) => [d.id, d.data()]));
@@ -322,7 +336,7 @@ export async function syncEventBookings(
   let attached = 0;
   let needsReview = 0;
 
-  for (const item of res.data.items ?? []) {
+  for (const item of calendarItems) {
     const b = parseBooking(item);
     if (!b) continue;
 
@@ -496,7 +510,9 @@ export const scheduledAdvanceCallSync = onSchedule(
             logger.info('advance-call sync', { uid, eventId, ...r });
           }
         } catch (err) {
-          logger.error('advance-call sync failed', { uid, eventId, err });
+          // Log only the message (WS-H): a raw gaxios error object carries the request's
+          // Authorization: Bearer <access_token> header + the Google response body into Cloud Logging.
+          logger.error('advance-call sync failed', { uid, eventId, error: String(err) });
         }
       }
     }

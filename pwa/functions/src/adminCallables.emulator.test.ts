@@ -177,6 +177,27 @@ describe('deleteUser', () => {
     expect((await contacts().doc('c1').get()).data()?.userId).toBeNull(); // contact unlinked, not deleted
   });
 
+  it('forgets event calendars the deleted user owned in their personal Google account (WS-H)', async () => {
+    const db = getFirestore();
+    await auth().createUser({ uid: 'target' });
+    await users().doc('target').set({ approved: true });
+    // An event whose Google calendar the departing user created (owner recorded) + one owned by someone else.
+    await db.collection('events').doc('owned').set({
+      name: 'Owned', status: 'active', createdBy: 'x', googleCalendarId: 'cal-owned', googleCalendarOwnerUid: 'target',
+    });
+    await db.collection('events').doc('other').set({
+      name: 'Other', status: 'active', createdBy: 'x', googleCalendarId: 'cal-other', googleCalendarOwnerUid: 'someone',
+    });
+
+    await testEnv.wrap(deleteUser)(callableRequest({ uid: 'target' }, authContext('admin1', { admin: true })));
+
+    const owned = await db.collection('events').doc('owned').get();
+    expect(owned.get('googleCalendarId')).toBeUndefined(); // reference cleared → a later reconcile recreates one
+    expect(owned.get('googleCalendarOwnerUid')).toBeUndefined();
+    const other = await db.collection('events').doc('other').get();
+    expect(other.get('googleCalendarId')).toBe('cal-other'); // untouched — a different owner
+  });
+
   it('refuses to delete your own account', async () => {
     await auth().createUser({ uid: 'admin1' });
     await expect(

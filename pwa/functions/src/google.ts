@@ -18,9 +18,12 @@ import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
+import { logger } from 'firebase-functions';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
+import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
+import { deterministicCalendarEventId, insertCalendarEventIdempotent } from './lib/google/calendarEvents.js';
 import {
   createEventCalendarInputSchema,
   createAdvanceCallInputSchema,
@@ -162,9 +165,10 @@ export async function ensureEventCalendar(
   if (typeof existing === 'string' && existing.length > 0) return existing;
 
   const calendar = google.calendar({ version: 'v3', auth: client });
-  const created = await calendar.calendars.insert({
-    requestBody: { summary: `46 Advance — ${eventName}`, timeZone: TIME_ZONE },
-  });
+  const created = await withGoogleRetry(
+    () => calendar.calendars.insert({ requestBody: { summary: `46 Advance — ${eventName}`, timeZone: TIME_ZONE } }),
+    { label: 'calendars.insert' },
+  );
   const calendarId = created.data.id;
   if (!calendarId) throw new HttpsError('internal', 'Could not create the event calendar.');
 
@@ -199,7 +203,13 @@ export const googleAuthUrl = onCall({ secrets: OAUTH_SECRETS }, async (request) 
   const db = getFirestore();
   await enforceRateLimit(db, ['googleAuthUrl', request.auth.uid], 10);
   const stateRef = db.collection('googleOAuthStates').doc();
-  await stateRef.set({ uid: request.auth.uid, createdAt: FieldValue.serverTimestamp() });
+  // `expiresAt` lets an optional native Firestore TTL policy auto-expire abandoned states; the
+  // retention sweep prunes them by `createdAt` regardless (WS-H).
+  await stateRef.set({
+    uid: request.auth.uid,
+    createdAt: FieldValue.serverTimestamp(),
+    expiresAt: Timestamp.fromMillis(Date.now() + STATE_TTL_MS),
+  });
 
   const url = oauthClient().generateAuthUrl({
     access_type: 'offline',
@@ -315,6 +325,42 @@ export async function disconnectGoogle(db: Firestore, uid: string): Promise<void
   ]);
 }
 
+/**
+ * Best-effort delete of `calendarEventIds` on `eventId`'s Google calendar, using `uid`'s token.
+ * NEVER throws — a Firestore delete callable must not fail because the caller isn't Google-connected
+ * or an event is already gone. No-op when the event has no calendar or the caller has no token. Used
+ * by the server-side cascade deletes (eventCleanup) so deleting an advance/stage doesn't leave
+ * orphaned Google Calendar events (WS-H).
+ */
+export async function bestEffortDeleteCalendarEvents(
+  db: Firestore,
+  uid: string,
+  eventId: string,
+  calendarEventIds: readonly (string | null | undefined)[],
+): Promise<void> {
+  const ids = calendarEventIds.filter((x): x is string => typeof x === 'string' && x.length > 0);
+  if (ids.length === 0) return;
+  const calendarId = (await db.doc(`events/${eventId}`).get()).data()?.googleCalendarId;
+  if (typeof calendarId !== 'string' || !calendarId) return;
+  let client: AuthClient;
+  try {
+    client = await authedClientForUser(db, uid);
+  } catch {
+    return; // caller isn't Google-connected — nothing to clean up with, and that's acceptable
+  }
+  const calendar = google.calendar({ version: 'v3', auth: client });
+  for (const id of ids) {
+    try {
+      await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId: id }), { label: 'events.delete' });
+    } catch (e) {
+      const status = googleErrorStatus(e);
+      if (status !== 404 && status !== 410) {
+        logger.warn('Best-effort calendar event delete failed', { calendarEventId: id, error: String(e) });
+      }
+    }
+  }
+}
+
 export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   await assertActiveUser(request.auth);
@@ -374,10 +420,13 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
   const start = new Date(startMillis);
   const end = new Date(startMillis + durationMinutes * 60 * 1000);
   const calendar = google.calendar({ version: 'v3', auth: client });
-  const inserted = await calendar.events.insert({
+  // Deterministic event id (advance + start time) so a retried/lost-response insert reuses the
+  // same event instead of creating a duplicate call on the shared calendar (WS-H).
+  const inserted = await insertCalendarEventIdempotent(calendar, {
     calendarId,
     conferenceDataVersion: 1,
     requestBody: {
+      id: deterministicCalendarEventId(`advance-${advanceId}-${startMillis}`),
       summary: `Advance call — ${artistName}`,
       start: { dateTime: start.toISOString(), timeZone: eventTz },
       end: { dateTime: end.toISOString(), timeZone: eventTz },
@@ -386,18 +435,18 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
   });
 
   const link =
-    inserted.data.hangoutLink ??
-    inserted.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ??
+    inserted.hangoutLink ??
+    inserted.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ??
     null;
 
   await advanceRef.set(
     {
       advanceCallAt: Timestamp.fromMillis(startMillis),
       advanceCallLink: link,
-      googleCalendarEventId: inserted.data.id ?? null,
+      googleCalendarEventId: inserted.id ?? null,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
-  return { link, calendarId, calendarEventId: inserted.data.id ?? null };
+  return { link, calendarId, calendarEventId: inserted.id ?? null };
 });
