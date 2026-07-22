@@ -16,6 +16,9 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Documents:** a search box at the top of the artist library narrows the list as you
   type. An optional "also search within file names" checkbox (off by default) widens the
   search to match document filenames too — handy for tracking down a misfiled item.
+- **Admin → Document library:** the mirrored Google Drive folder is now set in the admin
+  section. "Import from Drive" pulls files in but no longer silently repoints the whole
+  library to whatever folder you happened to pick.
 
 ### Changed
 
