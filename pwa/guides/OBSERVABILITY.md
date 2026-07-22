@@ -22,19 +22,29 @@ from environment variables in the production build.
 
 ## To activate — set these in the production (Hosting) build environment
 
-| Variable | Required | Purpose |
+The project is provisioned: org **`46-advance`**, project **`javascript-react`** (a Sentry *React*
+project). Set these where the Hosting build gets its `VITE_FIREBASE_*` vars:
+
+| Variable | Required | Value / purpose |
 | --- | --- | --- |
-| `VITE_SENTRY_DSN` | **Yes** | The Sentry **React** project's DSN. Without it, everything stays a no-op. |
+| `VITE_SENTRY_DSN` | **Yes** | The React project DSN (from Sentry → project → Client Keys). **Not a secret** — it ships in the client bundle by design. Without it, everything stays a no-op. |
 | `VITE_APP_RELEASE` | No | Overrides the auto-derived git SHA (e.g. a semver/tag). |
-| `SENTRY_ORG` | For source maps | Sentry org slug (e.g. `46-advance`). |
-| `SENTRY_PROJECT` | For source maps | The React project's slug. |
-| `SENTRY_AUTH_TOKEN` | For source maps | Sentry auth token with source-map upload scope. Keep secret (never commit). |
+| `SENTRY_ORG` | For source maps | `46-advance` |
+| `SENTRY_PROJECT` | For source maps | `javascript-react` (update if you rename the project) |
+| `SENTRY_AUTH_TOKEN` | For source maps | Sentry auth token with source-map upload scope (Sentry → Settings → Auth Tokens). **Secret — never commit; keep out of the client.** |
 
 - Only `VITE_SENTRY_DSN` is needed for events; the three `SENTRY_*` build vars enable readable stacks
   (source-map upload). If any of the three is missing, the plugin and source-map generation stay off
   and the build is unchanged.
-- Verify activation with a deliberate test exception in production → it should appear in Sentry as a
-  **release-correlated event with readable source frames**.
+- **Do NOT** paste Sentry's quickstart `Sentry.init({...})` snippet — the SDK is already installed and
+  initialized (`initSentry()` in `src/main.tsx`) with privacy-safe config. Adding it would double-init.
+
+## Verify after the deploy
+
+Sign in as an admin → **Admin → Observability**. It shows whether Sentry is **active** in the build,
+and **"Send a test event"** fires a deliberate, production-safe captured error (it reports without
+breaking anything). Confirm it lands in Sentry **Issues** as a **release-correlated event with
+readable source frames** (frames are readable only once the `SENTRY_*` source-map vars are set).
 
 ## Deliberately NOT in this change-set (owner / Hosting-workflow scoped)
 

@@ -43,6 +43,12 @@ function detailExtra(detail: unknown): Record<string, unknown> | undefined {
   return detail === undefined ? undefined : { detail };
 }
 
+/** Whether Sentry initialized (a DSN was present at startup). The admin diagnostics reads this to
+ *  show status and to keep a test event meaningful (it would otherwise be a silent no-op). */
+export function isSentryActive(): boolean {
+  return initialized;
+}
+
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
   if (!dsn || initialized) return;
