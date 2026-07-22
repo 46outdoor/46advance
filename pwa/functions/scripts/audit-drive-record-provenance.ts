@@ -20,11 +20,14 @@
  *      service account, that the file is still reachable and still lives under the expected
  *      library-root / event folder — exactly the check the register callable performs.
  *
- * Run:
- *   gcloud auth application-default login
- *   GOOGLE_CLOUD_PROJECT=<project> \
- *     [DRIVE_SA_KEY="$(cat path/to/docs-broker-sa.json)"] \
- *     node --import tsx scripts/audit-drive-record-provenance.ts
+ * Run (from functions/, matching the sibling scripts — tsx is fetched by npx, not a dep):
+ *   gcloud auth application-default login   # one-time; an account with Firestore read on the project
+ *   # structural pass only (no Drive check, no key needed):
+ *   GOOGLE_CLOUD_PROJECT=advancethat npx -y tsx scripts/audit-drive-record-provenance.ts
+ *   # full pass — pull the broker key straight from Secret Manager (no local file):
+ *   GOOGLE_CLOUD_PROJECT=advancethat \
+ *     DRIVE_SA_KEY="$(gcloud secrets versions access latest --secret=DRIVE_SA_KEY --project=advancethat)" \
+ *     npx -y tsx scripts/audit-drive-record-provenance.ts
  *
  * DRIVE_SA_KEY is optional: without it the Drive-membership pass is skipped and only the
  * structural signal is reported (the run says so explicitly).
