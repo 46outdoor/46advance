@@ -6,7 +6,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   runTransaction,
@@ -16,6 +15,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
+import { deleteQuoteCascade } from './event-cleanup-service';
 import {
   parseQuote,
   isDecisionStatus,
@@ -122,7 +122,8 @@ export async function deleteQuote(
   advanceId: string,
   quoteId: string,
 ): Promise<void> {
-  await deleteDoc(quoteDoc(eventId, stageId, advanceId, quoteId));
+  // Server-side delete (F-7): also removes the signed copy + generated PDFs in Storage.
+  await deleteQuoteCascade(eventId, stageId, advanceId, quoteId);
 }
 
 /** Upload (or replace) the signed copy for a quote; stores its Storage path on the doc. */
