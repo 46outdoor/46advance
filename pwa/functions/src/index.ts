@@ -63,6 +63,9 @@ export { renameEventSlug } from './eventSlug.js';
 // Atomic manual booking attach (WS-G). ./googleBookings.ts.
 export { attachCallBooking } from './googleBookings.js';
 
+// Daily data-retention sweep (WS-H): prune abandoned OAuth states, expired rate limits, stale bookings.
+export { scheduledDataRetention } from './retention.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 // Event dates (date-only) render in the EVENT's timezone so the PDF shows the intended calendar
@@ -331,14 +334,29 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
     }
   }
 
-  // Clear event memberships (members docs mirror the uid field) + unlink their contact(s).
+  // Clear event memberships (members docs mirror the uid field) + unlink their contact(s), and
+  // forget any event calendars this now-gone user created in their personal Google account — the
+  // token is revoked, so the app can never write to them again. Clearing the reference lets a later
+  // reconcile recreate a calendar under a still-connected PM (WS-H).
   const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
   const contacts = await db.collection('contacts').where('userId', '==', uid).get();
+  const ownedCalendars = await db.collection('events').where('googleCalendarOwnerUid', '==', uid).get();
 
   const batch = new ChunkedBatch(db);
   memberships.forEach((m) => batch.delete(m.ref));
   contacts.forEach((c) =>
     batch.set(c.ref, { userId: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true }),
+  );
+  ownedCalendars.forEach((e) =>
+    batch.set(
+      e.ref,
+      {
+        googleCalendarId: FieldValue.delete(),
+        googleCalendarOwnerUid: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    ),
   );
   batch.delete(db.collection('users').doc(uid));
   await batch.commit();

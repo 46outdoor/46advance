@@ -27,6 +27,7 @@ import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertC
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
+import { withGoogleRetry } from './lib/google/retry.js';
 import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
 import { getFileForRegistration, resolveArtistFolder } from './lib/broker/driveProvenance.js';
 import {
@@ -164,15 +165,19 @@ async function listChildren(drive: drive_v3.Drive, parentId: string, foldersOnly
   const out: drive_v3.Schema$File[] = [];
   let pageToken: string | undefined;
   do {
-    const res = await drive.files.list({
-      q,
-      fields: 'nextPageToken, files(id,name,mimeType,iconLink,webViewLink)',
-      spaces: 'drive',
-      pageSize: 200,
-      pageToken,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
+    const res = await withGoogleRetry(
+      () =>
+        drive.files.list({
+          q,
+          fields: 'nextPageToken, files(id,name,mimeType,iconLink,webViewLink)',
+          spaces: 'drive',
+          pageSize: 200,
+          pageToken,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+        }),
+      { label: 'drive.files.list' },
+    );
     out.push(...(res.data.files ?? []));
     pageToken = res.data.nextPageToken ?? undefined;
   } while (pageToken);
@@ -226,12 +231,13 @@ export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds
   } catch {
     throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
   }
-  const groups = await enumerateLibrary(drive, folderId, subfolders);
+  const { groups, complete } = await enumerateLibrary(drive, folderId, subfolders);
 
   // NOTE: does NOT touch config/documentsLibrary.rootFolderId — the mirrored library root is set
   // deliberately by an admin (DocumentLibraryAdmin). Import pulls the picked folder's files into
-  // the library without repointing what the scheduled sync sweeps.
-  const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null });
+  // the library without repointing what the scheduled sync sweeps. Only reconcile removals when the
+  // pick enumerated completely, so a mid-import Drive glitch can't false-flag files as missing.
+  const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null }, complete);
   return { imported: counts.imported, skipped: counts.skipped };
 });
 
@@ -248,21 +254,32 @@ async function enumerateLibrary(
   drive: drive_v3.Drive,
   rootFolderId: string,
   subfolders?: drive_v3.Schema$File[],
-): Promise<LibraryGroup[]> {
+): Promise<{ groups: LibraryGroup[]; complete: boolean }> {
   const folders = subfolders ?? (await listChildren(drive, rootFolderId, true));
   const rootFiles = await listChildren(drive, rootFolderId, false);
-  return [
-    { artist: null, folderId: rootFolderId, files: rootFiles },
-    ...(await Promise.all(
-      folders
-        .filter((f) => f.id)
-        .map(async (f) => ({
-          artist: f.name ?? 'Unknown',
-          folderId: f.id as string,
-          files: await collectAllFiles(drive, f.id as string, 0),
-        })),
-    )),
-  ];
+  const groups: LibraryGroup[] = [{ artist: null, folderId: rootFolderId, files: rootFiles }];
+  // Enumerate each artist folder independently: a transient Drive error on one folder is logged and
+  // that folder skipped (complete=false) instead of aborting the whole sweep. An INCOMPLETE
+  // enumeration must NOT drive the missing-from-Drive reconciliation — it would false-flag the
+  // skipped folder's files as removed — so the caller gates that on `complete` (WS-H).
+  let complete = true;
+  const enumerated = await Promise.all(
+    folders
+      .filter((f) => f.id)
+      .map(async (f): Promise<LibraryGroup | null> => {
+        try {
+          return { artist: f.name ?? 'Unknown', folderId: f.id as string, files: await collectAllFiles(drive, f.id as string, 0) };
+        } catch (e) {
+          logger.warn('Library sync: skipping a folder that failed to enumerate', { folderId: f.id, error: String(e) });
+          return null;
+        }
+      }),
+  );
+  for (const g of enumerated) {
+    if (g) groups.push(g);
+    else complete = false;
+  }
+  return { groups, complete };
 }
 
 /** Upsert enumerated library files into `artistDocuments`: new files become records
@@ -274,6 +291,7 @@ async function upsertLibrary(
   db: Firestore,
   groups: readonly LibraryGroup[],
   attribution: { uid: string; email: string | null },
+  reconcileMissing = true,
 ): Promise<{ imported: number; skipped: number; flagged: number; restored: number }> {
   const existingSnap = await db.collection('artistDocuments').get();
   const existingDocs = new Map(existingSnap.docs.map((d) => [d.id, d.data()]));
@@ -326,11 +344,15 @@ async function upsertLibrary(
       await bump();
     }
   }
-  for (const [id, data] of existingDocs) {
-    if (seen.has(id) || data.missingFromDrive === true) continue;
-    batch.set(db.collection('artistDocuments').doc(id), { missingFromDrive: true }, { merge: true });
-    flagged += 1;
-    await bump();
+  // Only reconcile removals when the enumeration was COMPLETE — a partial sweep (a folder failed, or
+  // an import of just one subfolder) must not flag everything it didn't see as missing (WS-H).
+  if (reconcileMissing) {
+    for (const [id, data] of existingDocs) {
+      if (seen.has(id) || data.missingFromDrive === true) continue;
+      batch.set(db.collection('artistDocuments').doc(id), { missingFromDrive: true }, { merge: true });
+      flagged += 1;
+      await bump();
+    }
   }
   if (ops > 0) await batch.commit();
   return { imported, skipped, flagged, restored };
@@ -357,10 +379,16 @@ export const scheduledLibraryDriveSync = onSchedule(
       logger.info('Library Drive sync skipped — no root folder recorded yet.');
       return;
     }
-    const drive = brokerDriveClient();
-    const groups = await enumerateLibrary(drive, root);
-    const counts = await upsertLibrary(db, groups, { uid: 'drive-sync', email: null });
-    logger.info('Library Drive sync complete', counts);
+    // Whole-run guard (WS-H): a root-level failure logs cleanly instead of crashing the function;
+    // per-folder failures inside enumerateLibrary are already isolated + gate removal reconciliation.
+    try {
+      const drive = brokerDriveClient();
+      const { groups, complete } = await enumerateLibrary(drive, root);
+      const counts = await upsertLibrary(db, groups, { uid: 'drive-sync', email: null }, complete);
+      logger.info('Library Drive sync complete', { ...counts, complete });
+    } catch (e) {
+      logger.error('Library Drive sync failed', { error: String(e) });
+    }
   },
 );
 
@@ -432,11 +460,16 @@ export const savePacketToDrive = onCall(
     const root = await ensureFolder(drive, APP_FOLDER, null);
     const eventFolder = await ensureFolder(drive, eventName, root);
 
-    const created = await drive.files.create({
-      requestBody: { name: `${eventName} — packet — ${packetStamp()}.pdf`, parents: [eventFolder] },
-      media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
-      fields: 'id,webViewLink',
-    });
+    // A fresh Readable per attempt (a stream can't be re-consumed) so a transient failure can retry.
+    const created = await withGoogleRetry(
+      () =>
+        drive.files.create({
+          requestBody: { name: `${eventName} — packet — ${packetStamp()}.pdf`, parents: [eventFolder] },
+          media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
+          fields: 'id,webViewLink',
+        }),
+      { label: 'drive.files.create' },
+    );
     return { saved: true, webViewLink: created.data.webViewLink ?? null, fileId: created.data.id ?? null };
   },
 );

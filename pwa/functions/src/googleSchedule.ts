@@ -21,6 +21,8 @@ import {
   removeScheduleCalendarEventInputSchema,
 } from './contracts/callables/schedules.js';
 import { google, type calendar_v3 } from 'googleapis';
+import { withGoogleRetry } from './lib/google/retry.js';
+import { deterministicCalendarEventId, insertCalendarEventIdempotent } from './lib/google/calendarEvents.js';
 import { shiftDayKey, zonedDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
 import {
   OAUTH_SECRETS,
@@ -171,7 +173,7 @@ async function deleteCalendarEvent(
   eventId: string,
 ): Promise<void> {
   try {
-    await calendar.events.delete({ calendarId, eventId });
+    await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId }), { label: 'events.delete' });
   } catch (e) {
     if (!isNotFoundError(e)) throw e;
   }
@@ -193,23 +195,30 @@ async function tryDeleteCalendarEvent(
 
 /** Create or update the calendar event for an item. Recreates only after a confirmed
  * not-found (the stored event was deleted out-of-band) — transient/permission errors
- * propagate rather than minting a duplicate event. */
+ * propagate rather than minting a duplicate event. The insert uses a deterministic id
+ * (from `seedId`, the item id) so a lost-response retry reuses the same event (WS-H). */
 async function upsertCalendarEvent(
   calendar: calendar_v3.Calendar,
   calendarId: string,
   body: calendar_v3.Schema$Event,
   existing: string | null,
+  seedId: string,
 ): Promise<string | null> {
   if (existing) {
     try {
-      await calendar.events.update({ calendarId, eventId: existing, requestBody: body });
+      await withGoogleRetry(() => calendar.events.update({ calendarId, eventId: existing, requestBody: body }), {
+        label: 'events.update',
+      });
       return existing;
     } catch (e) {
       if (!isNotFoundError(e)) throw e;
     }
   }
-  const created = await calendar.events.insert({ calendarId, requestBody: body });
-  return created.data.id ?? null;
+  const created = await insertCalendarEventIdempotent(calendar, {
+    calendarId,
+    requestBody: { ...body, id: deterministicCalendarEventId(`sched-${seedId}`) },
+  });
+  return created.id ?? null;
 }
 
 interface ItemResult {
@@ -240,7 +249,7 @@ async function reconcileItems(
       results.push({ id, calendarEventId: null, changed: existing !== null, created: false });
       continue;
     }
-    const calEventId = calendarId ? await upsertCalendarEvent(calendar, calendarId, body, existing) : null;
+    const calEventId = calendarId ? await upsertCalendarEvent(calendar, calendarId, body, existing, id) : null;
     // Every pushed item counts as changed (an in-place update keeps its id).
     results.push({ id, calendarEventId: calEventId, changed: calEventId !== null, created: existing === null && calEventId !== null });
   }

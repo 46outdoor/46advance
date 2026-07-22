@@ -54,6 +54,15 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Schedule:** two people editing the same schedule day at once no longer silently overwrite
   each other. A save that would clobber someone else's just-saved changes is now rejected, your
   view refreshes to the latest, and you reapply — the other edit is preserved.
+- **Google Calendar:** a hiccup while creating an advance-call or schedule event no longer risks
+  leaving a duplicate on the calendar — a retried request now reuses the same event. Transient
+  Google errors are also retried automatically instead of failing the action outright.
+- **Booked calls:** the sync now reads every matching booking in the window, not just the first
+  250 — a busy festival's later bookings are no longer silently missed.
+- **Deleting an advance or stage** now also removes its Google Calendar event(s), instead of
+  leaving them stranded on the event's calendar.
+- **Document library sync:** one unreadable Drive folder no longer aborts the whole twice-daily
+  sync, and an incomplete scan no longer mislabels files as "removed from Drive."
 
 ## 2026-07-21
 
