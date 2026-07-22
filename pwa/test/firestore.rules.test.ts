@@ -221,6 +221,12 @@ describe('firestore.rules — membership subcollection', () => {
     await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/members', PM)));
   });
 
+  it('a revoked (approved:false) member cannot read even their OWN membership row (F-7)', async () => {
+    // PENDING is a seeded member of event-a, but a revoked account is blocked from ALL app
+    // data — the own-membership read path requires isActiveUser(), not just sign-in.
+    await assertFails(getDoc(doc(dbFor(PENDING, { approved: false }), 'events/event-a/members', PENDING)));
+  });
+
   it('only admin can write membership', async () => {
     await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/members', 'x'), { role: 'tech', addedBy: PM }));
     await assertSucceeds(
@@ -261,6 +267,14 @@ describe('firestore.rules — membership collection-group listing (events-list q
 
   it('an anonymous user cannot run the membership collection-group query', async () => {
     await assertFails(getDocs(query(collectionGroup(dbAnon(), 'members'), where('uid', '==', PM))));
+  });
+
+  it('a revoked (approved:false) user cannot list even their own membership rows (F-7)', async () => {
+    // PENDING is seeded on event-a; the events-list query is gated on isActiveUser(), so a
+    // revoked account can no longer enumerate which events it belongs to.
+    await assertFails(
+      getDocs(query(collectionGroup(dbFor(PENDING, { approved: false }), 'members'), where('uid', '==', PENDING))),
+    );
   });
 });
 
@@ -807,6 +821,21 @@ describe('firestore.rules — artistDocuments (library)', () => {
     await assertFails(updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }));
   });
 
+  it('trusted Drive source metadata is immutable to clients — only classification/annotation may change (F-3)', async () => {
+    const ref = doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1');
+    // Curation still works: (re)classify, rename the display label, annotate, mark verified.
+    await assertSucceeds(
+      updateDoc(ref, { categoryId: 'tech-rider', displayName: 'Rider (final)', verifiedAt: serverTimestamp() }),
+    );
+    // The canonical source fields the callable recorded cannot be rewritten client-side —
+    // else a client could repoint the name/link/provenance to a file it never proved (F-1/F-3).
+    await assertFails(updateDoc(ref, { webViewLink: 'https://evil/phish' }));
+    await assertFails(updateDoc(ref, { name: 'Swapped.pdf' }));
+    await assertFails(updateDoc(ref, { fileId: 'other-file' }));
+    await assertFails(updateDoc(ref, { artistKey: 'someone-else' }));
+    await assertFails(updateDoc(ref, { sourceFolderId: 'attacker-folder' }));
+  });
+
   it('client create is denied — records come only from the registerArtistDocument callable (S8)', async () => {
     const upload = (fileId: string, over: Record<string, unknown> = {}) => ({
       fileId,
@@ -925,10 +954,13 @@ describe('firestore.rules — event documents', () => {
     await assertFails(setDoc(doc(dbFor(TECH), at(5)), { ...validDoc(), fileId: 'efile-5', uploadedBy: TECH }));
   });
 
-  it('updates re-day/categorize but keep audit + fileId immutable; PM deletes', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { day: null, categoryId: 'cat-1' }));
+  it('updates re-day/categorize/rename but keep audit + Drive source metadata immutable; PM deletes', async () => {
+    await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { day: null, categoryId: 'cat-1', displayName: 'Site plan' }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { uploadedBy: 'someone-else' }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { fileId: 'other' }));
+    // Drive source metadata is server-recorded and immutable to clients (F-3).
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { name: 'Swapped.pdf' }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { webViewLink: 'https://evil/x' }));
     await assertSucceeds(deleteDoc(doc(dbFor(PM), docPath)));
   });
 });
@@ -971,11 +1003,14 @@ describe('firestore.rules — advance documents (inclusion)', () => {
     );
   });
 
-  it('updates keep addedBy/addedAt/fileId immutable; PM can toggle includePacket and delete', async () => {
+  it('updates keep audit + Drive source metadata immutable; PM can toggle includePacket and delete', async () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { includePacket: true }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { addedBy: 'someone-else' }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { addedAt: serverTimestamp() }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { fileId: 'other' }));
+    // The copied Drive source metadata is immutable to clients (F-3).
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { name: 'Swapped.pdf' }));
+    await assertFails(updateDoc(doc(dbFor(PM), docPath), { webViewLink: 'https://evil/x' }));
     await assertFails(updateDoc(doc(dbFor(TECH), docPath), { includePacket: true }));
     await assertSucceeds(deleteDoc(doc(dbFor(PM), docPath)));
   });
