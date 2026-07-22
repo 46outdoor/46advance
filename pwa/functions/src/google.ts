@@ -19,7 +19,7 @@ import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
-import { assertApproved } from './lib/auth/authorize.js';
+import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
   createEventCalendarInputSchema,
@@ -114,7 +114,7 @@ export async function assertCanEditEvent(
   uid: string,
   eventId: string,
 ): Promise<void> {
-  assertApproved(token);
+  await assertActiveUser({ uid, token });
   if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists || member.data()?.role !== 'production-manager') {
@@ -195,7 +195,7 @@ export async function ensureEventCalendar(
  */
 export const googleAuthUrl = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  assertApproved(request.auth.token);
+  await assertActiveUser(request.auth);
   const db = getFirestore();
   await enforceRateLimit(db, ['googleAuthUrl', request.auth.uid], 10);
   const stateRef = db.collection('googleOAuthStates').doc();
@@ -317,7 +317,7 @@ export async function disconnectGoogle(db: Firestore, uid: string): Promise<void
 
 export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  assertApproved(request.auth.token);
+  await assertActiveUser(request.auth);
   const uid = request.auth.uid;
   const db = getFirestore();
   await enforceRateLimit(db, ['googleDisconnect', uid], 10);

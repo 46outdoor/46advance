@@ -20,7 +20,7 @@ import { fetchBrokeredFileBytes, MAX_EMBED_BYTES } from './lib/broker/brokerFetc
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
-import { assertApproved, assertAdmin } from './lib/auth/authorize.js';
+import { assertActiveUser, assertAdmin } from './lib/auth/authorize.js';
 import { ChunkedBatch, type BatchLike } from './lib/db/chunkedBatch.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
@@ -439,7 +439,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Sign in required.');
   }
   const { uid, token } = request.auth;
-  assertApproved(token); // an organizer whose access was revoked can't create events
+  await assertActiveUser({ uid, token }); // an organizer whose access was revoked can't create events
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
@@ -518,7 +518,7 @@ export const createEventFromTemplate = onCall(async (request) => {
 export const createBlankEvent = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  assertApproved(token); // an organizer whose access was revoked can't create events
+  await assertActiveUser({ uid, token }); // an organizer whose access was revoked can't create events
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
@@ -584,7 +584,7 @@ async function loadAuthorizedEvent(
   uid: string,
   token: DecodedIdToken,
 ): Promise<FirebaseFirestore.DocumentSnapshot> {
-  assertApproved(token); // pending/revoked accounts can't act, mirroring firestore.rules
+  await assertActiveUser({ uid, token }); // pending/revoked accounts can't act, mirroring firestore.rules
   const eventSnap = await db.doc(`events/${eventId}`).get();
   if (!eventSnap.exists) {
     throw new HttpsError('not-found', 'Event not found.');

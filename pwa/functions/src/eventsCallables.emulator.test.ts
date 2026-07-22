@@ -28,6 +28,10 @@ const baseInput = (over: Record<string, unknown> = {}) => ({
 describe('createBlankEvent', () => {
   beforeEach(async () => {
     await clearEmulators();
+    // The authoritative active-user gate (assertActiveUser) reads users/{uid}; an approved
+    // non-admin must have a record, mirroring production where syncUserClaims writes it.
+    await db.doc(`users/${ORGANIZER.uid}`).set({ approved: true });
+    await db.doc(`users/${APPROVED.uid}`).set({ approved: true });
   });
 
   it('rejects unauthenticated calls', async () => {
@@ -86,5 +90,35 @@ describe('createBlankEvent', () => {
   it('an admin can create a blank event', async () => {
     const res = await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-admin' }), ADMIN));
     expect(res).toEqual({ eventId: 'evt-admin' });
+  });
+});
+
+// AC-3 / F-1: a protected callable must consult the authoritative users/{uid} record, not just
+// trust the caller's ID token — an admin's revocation has to take effect immediately, not after
+// the ≤60-min token lifetime. createBlankEvent stands in for every resource-scoped callable
+// (they all share assertActiveUser). ORGANIZER's token still carries approved:true (stale).
+describe('createBlankEvent — authoritative revocation (AC-3)', () => {
+  beforeEach(async () => {
+    await clearEmulators();
+  });
+
+  it('rejects a stale approved token once the users record is revoked (approved:false)', async () => {
+    await db.doc(`users/${ORGANIZER.uid}`).set({ approved: false });
+    await expect(
+      testEnv.wrap(createBlankEvent)(callableRequest(baseInput(), ORGANIZER)),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('rejects a caller with no users record at all (deleted account — fail-closed)', async () => {
+    await expect(
+      testEnv.wrap(createBlankEvent)(callableRequest(baseInput(), ORGANIZER)),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('still allows an admin with no users record (anti-lockout floor — decision #2)', async () => {
+    const res = await testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: 'evt-admin-floor' }), ADMIN),
+    );
+    expect(res).toEqual({ eventId: 'evt-admin-floor' });
   });
 });
