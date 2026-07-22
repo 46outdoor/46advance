@@ -24,6 +24,9 @@ async function seedEventAndDay(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event', timeZone: 'America/Chicago' });
   await db.doc(`events/${EVENT_ID}/members/${PM.uid}`).set({ role: 'production-manager', uid: PM.uid });
   await db.doc(`events/${EVENT_ID}/members/${TECH.uid}`).set({ role: 'tech', uid: TECH.uid });
+  // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
+  await db.doc(`users/${PM.uid}`).set({ approved: true });
+  await db.doc(`users/${TECH.uid}`).set({ approved: true });
   await db.doc(`events/${EVENT_ID}/scheduleDays/${DAY_ID}`).set({
     date: DAY_ID,
     dayType: 'loadIn',

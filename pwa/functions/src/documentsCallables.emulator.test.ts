@@ -25,6 +25,9 @@ const OUTSIDER = authContext('outsider-uid', { approved: true });
 async function seed(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event' });
   await db.doc(`events/${EVENT_ID}/members/${MEMBER.uid}`).set({ role: 'tech', uid: MEMBER.uid });
+  // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
+  await db.doc(`users/${MEMBER.uid}`).set({ approved: true });
+  await db.doc(`users/${OUTSIDER.uid}`).set({ approved: true });
   await db.doc(`events/${EVENT_ID}/documents/efile-1`).set({
     fileId: 'efile-1',
     name: 'SitePlan.pdf',
@@ -81,6 +84,9 @@ async function seedAdvanceAndLibrary(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event' });
   await db.doc(`events/${EVENT_ID}/members/${PM.uid}`).set({ role: 'production-manager', uid: PM.uid });
   await db.doc(`events/${EVENT_ID}/members/${TECH.uid}`).set({ role: 'tech', uid: TECH.uid });
+  // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
+  await db.doc(`users/${PM.uid}`).set({ approved: true });
+  await db.doc(`users/${TECH.uid}`).set({ approved: true });
   await db.doc(`events/${EVENT_ID}/stages/stg-1`).set({ name: 'Main', order: 0 });
   await db
     .doc(`events/${EVENT_ID}/stages/stg-1/advances/adv-1`)

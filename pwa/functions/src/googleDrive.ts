@@ -24,7 +24,7 @@ import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
 import { google, type drive_v3 } from 'googleapis';
 import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
-import { assertApproved } from './lib/auth/authorize.js';
+import { assertActiveUser } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
@@ -51,7 +51,7 @@ function advancePath(eventId: string, stageId: string, advanceId: string): strin
 /** Read-level gate (member or admin), mirroring firestore.rules `isMember` — including the
  *  `approved` account requirement, since the Admin SDK bypasses rules. */
 async function assertEventMember(db: Firestore, token: DecodedIdToken, uid: string, eventId: string): Promise<void> {
-  assertApproved(token);
+  await assertActiveUser({ uid, token });
   if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
@@ -82,7 +82,7 @@ export function brokerDriveClient(): drive_v3.Drive {
  */
 export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  assertApproved(request.auth.token);
+  await assertActiveUser(request.auth);
   const db = getFirestore();
   await enforceRateLimit(db, ['getDriveAccessToken', request.auth.uid], 30);
   const client = await authedClientForUser(db, request.auth.uid); // throws failed-precondition if not connected
@@ -206,7 +206,7 @@ async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: n
 export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  assertApproved(token);
+  await assertActiveUser({ uid, token });
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
@@ -452,7 +452,7 @@ export const getArtistDocumentContent = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
-    assertApproved(token);
+    await assertActiveUser({ uid, token });
     const { fileId, eventId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
@@ -543,7 +543,7 @@ export const registerEventDocument = onCall({ secrets: OAUTH_SECRETS, timeoutSec
 export const registerArtistDocument = onCall({ secrets: [DRIVE_SA_KEY], timeoutSeconds: 60 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  assertApproved(token);
+  await assertActiveUser({ uid, token });
   if (token.admin !== true && token.organizer !== true) {
     throw new HttpsError('permission-denied', 'Admin or organizer only.');
   }
