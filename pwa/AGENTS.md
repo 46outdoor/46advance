@@ -193,6 +193,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Date parsing          | `src/lib/dates/parsing.ts`                               |
 | Error capture         | `src/lib/errorCapture.ts`                                |
 | Logging               | `src/lib/logger.ts`                                      |
+| Observability (Sentry) | `src/lib/sentry.ts` (`initSentry` — inert until `VITE_SENTRY_DSN`; logger.error → event, WS-I/F-12); activation + required secrets in `guides/OBSERVABILITY.md` |
 | Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
 | Rate limiting (in-memory)   | `functions/src/lib/security/rateLimit.ts` (backend — low-stakes paths) |
 | Chunked Firestore batch (backend) | `functions/src/lib/db/chunkedBatch.ts` (`ChunkedBatch` / `BatchLike` — auto-splits >400-op seeds/cleanups under the 500 cap) |

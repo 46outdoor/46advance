@@ -1,10 +1,13 @@
 /**
  * Canonical error reporting. Route all caught errors through `captureError`
- * (see AGENTS.md / .claude/rules/security.md). It logs via the logger and
- * forwards to Sentry once wired.
+ * (see AGENTS.md / .claude/rules/security.md).
+ *
+ * captureError funnels through the logger, whose Sentry sink (lib/sentry.ts) turns an
+ * error-level line into exactly ONE Sentry event — so the logger stays the single place that
+ * knows about the SDK, and there is no double-report when a React error boundary also calls
+ * captureError.
  */
 import { createLogger } from '@/lib/logger';
-import { captureExceptionToSentry } from '@/lib/sentry';
 
 const logger = createLogger('errorCapture');
 
@@ -15,6 +18,7 @@ export interface ErrorContext {
 
 export function captureError(error: unknown, context?: ErrorContext): void {
   const label = context?.source ? `[${context.source}] captured error` : 'captured error';
-  logger.error(label, error);
-  captureExceptionToSentry(error, context);
+  // The `error` is wrapped alongside the context so the Sentry sink can call captureException with
+  // the real Error (readable stack) and attach the rest as `extra`.
+  logger.error(label, { error, ...(context ?? {}) });
 }
