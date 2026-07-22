@@ -203,7 +203,9 @@ async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: n
  * under that artist. Files directly in the picked folder are unsorted. Files are linked (metadata
  * only), de-duped by Drive file id so re-import only adds new files and preserves classifications.
  */
-export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300 }, async (request) => {
+// 512 MiB (not the 256 MiB default): enumerates the whole library into memory like
+// scheduledLibraryDriveSync (already 512 MiB). At the default this OOMs once the library grows.
+export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
   await assertActiveUser({ uid, token });
