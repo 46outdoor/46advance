@@ -39,10 +39,6 @@ service cloud.firestore {
       return isAdmin() || isApproved();
     }
 
-    function canCreateEvents() {
-      return isActiveUser() && (isAdmin() || isOrganizer());
-    }
-
     function memberPath(eventId) {
       return /databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid);
     }
@@ -63,10 +59,6 @@ service cloud.firestore {
       return isAdmin()
         || hasEventRole(eventId, 'production-manager')
         || hasEventRole(eventId, 'department-lead');
-    }
-
-    function eventCreatedBy(eventId) {
-      return get(/databases/$(database)/documents/events/$(eventId)).data.createdBy;
     }
 
     // ---- Document shape validators (mirror the client Zod parsers in src/lib/*) ----
@@ -107,7 +99,15 @@ service cloud.firestore {
       // Server-only (S8): registered by the registerArtistDocument callable (Admin SDK), which
       // verifies the file's Drive provenance under the library root first (F-1). No client create.
       allow create: if false;
-      allow update, delete: if isActiveUser() && (isAdmin() || isOrganizer());
+      // Curation only: admin/organizer may (re)classify + annotate (categoryId, displayName, notes,
+      // obsolete, verifiedAt). The trusted Drive source metadata the callable recorded is immutable
+      // to clients (F-3/WS-A) — else a client could repoint name/link/mime to a file it never proved
+      // provenance for. Relinking is server-only (re-register via the callable).
+      allow update: if isActiveUser() && (isAdmin() || isOrganizer())
+        && keysUnchanged(['fileId', 'name', 'mimeType', 'iconLink', 'webViewLink',
+                          'artist', 'artistKey', 'sourceFolderId',
+                          'importedBy', 'importedByEmail', 'importedAt']);
+      allow delete: if isActiveUser() && (isAdmin() || isOrganizer());
     }
 
     // Event templates (blueprints): any approved user reads (event-create picker);
@@ -188,7 +188,7 @@ service cloud.firestore {
     // at the top level; direct member-doc access + all writes stay on the nested
     // events/{eventId}/members rule below. Read-only — writes are unaffected.
     match /{path=**}/members/{memberUid} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.uid;
+      allow read: if isActiveUser() && request.auth.uid == resource.data.uid;
     }
 
     match /events/{eventId} {
@@ -211,7 +211,7 @@ service cloud.firestore {
       // apply to collectionGroup() queries.
       match /members/{memberUid} {
         allow read: if isAdmin()
-          || (isSignedIn() && request.auth.uid == memberUid)
+          || (isActiveUser() && request.auth.uid == memberUid)
           || isMember(eventId);
         // Admin adds members; the creator's own PM membership is created server-side by the
         // createBlankEvent callable (Admin SDK) — NOT client self-bootstrap — so a removed creator
@@ -256,8 +256,11 @@ service cloud.firestore {
             // Server-only (S8): included via the includeArtistDocumentOnAdvance callable (Admin
             // SDK), which copies the canonical artistDocuments metadata (F-1). No client create.
             allow create: if false;
+            // Only `includePacket` (packet-embed toggle) is client-editable curation; the audit
+            // fields AND the copied Drive source metadata are immutable to clients (F-3/WS-A).
             allow update: if canEditEvent(eventId)
-              && keysUnchanged(['addedBy', 'addedAt', 'fileId']);
+              && keysUnchanged(['fileId', 'name', 'mimeType', 'iconLink', 'webViewLink',
+                                'addedBy', 'addedAt']);
             allow delete: if canEditEvent(eventId);
           }
 
@@ -316,8 +319,11 @@ service cloud.firestore {
         // Server-only (S8): registered by the registerEventDocument callable (Admin SDK), which
         // verifies the file lives in the event's linked Drive folder (F-1). No client create.
         allow create: if false;
+        // Client curation is limited to day / categoryId / displayName; the audit fields AND the
+        // Drive source metadata the callable recorded are immutable to clients (F-3/WS-A).
         allow update: if canEditEvent(eventId)
-          && keysUnchanged(['uploadedBy', 'uploadedAt', 'fileId']);
+          && keysUnchanged(['fileId', 'name', 'mimeType', 'iconLink', 'webViewLink',
+                            'uploadedBy', 'uploadedAt']);
         allow delete: if canEditEvent(eventId);
       }
 
