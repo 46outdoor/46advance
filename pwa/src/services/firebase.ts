@@ -4,6 +4,7 @@
  * Set VITE_USE_EMULATORS=true to point at the local emulators.
  */
 import { initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import {
   initializeFirestore,
@@ -27,6 +28,19 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
+
+// App Check (WS-I): attests requests come from the genuine app. INERT until a reCAPTCHA v3 site key
+// is provisioned via VITE_APPCHECK_SITE_KEY, and skipped under the emulators. Enforcement is enabled
+// separately in the Firebase console ("observe first" → validate → enforce), so shipping this can't
+// lock anyone out before enforcement is deliberately turned on.
+const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
+if (appCheckSiteKey && import.meta.env.VITE_USE_EMULATORS !== 'true') {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),

@@ -51,14 +51,25 @@ and **"Send a test event"** fires a deliberate, production-safe captured error (
 breaking anything). Confirm it lands in Sentry **Issues** as a **release-correlated event with
 readable source frames** (frames are readable only once the `SENTRY_*` source-map vars are set).
 
-## Deliberately NOT in this change-set (owner / Hosting-workflow scoped)
+## Runtime defense (WS-I) — scaffolded, activation is owner-config
 
-The rest of WS-I is Firebase **Hosting-workflow** work, which agents must not deploy:
+These ship in the repo but are **inert / observe-only** until you activate them; none can lock anyone
+out before you deliberately enforce.
 
-- **App Check** progressive rollout (observe → validate → enforce) on callable/Firestore/Storage.
-- **Security headers** — CSP, `frame-ancestors`, MIME-sniffing, referrer, permissions-policy — set
-  in the Hosting config after testing Auth, the Google Picker, Sentry, and PWA flows.
-- **Post-deploy health/smoke check** against the deployed URL.
+- **Security headers** — set in `firebase.json` hosting config (apply on the next Hosting release):
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS are
+  **enforced**; the **CSP ships as `Content-Security-Policy-Report-Only`** (observe-only) so it can't
+  break Auth/Picker/Sentry flows. Watch the browser console (or wire a report endpoint) for CSP
+  violations, tune the policy in `firebase.json`, then rename the header to `Content-Security-Policy`
+  to enforce. A config test (`test/security-headers.config.test.ts`) + the post-deploy smoke assert it.
+- **App Check** — the client initializes App Check (reCAPTCHA v3) **only when `VITE_APPCHECK_SITE_KEY`
+  is set** (a GitHub repo secret, like the Sentry vars). To roll out: register a reCAPTCHA v3 key +
+  the app in Firebase → App Check, set the secret, ship a Hosting release (tokens now attach — observe
+  in the console), then **enable enforcement** per surface (Callable/Firestore/Storage) in the console.
+  Skipped under the emulators.
+- **Post-deploy smoke** — `scripts/cli/post-deploy-smoke.sh` runs as the final step of
+  `production-deploy.yml`: it fails the deploy job if the live site doesn't serve the app shell +
+  bundled assets + the security headers, so a broken release surfaces instead of silently going live.
 
 ## Cloud Functions
 

@@ -55,6 +55,9 @@ jobs:
           SENTRY_ORG: 46-advance
           SENTRY_PROJECT: javascript-react
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # App Check (WS-I): reCAPTCHA v3 site key. Inert until set; enforcement is enabled in the
+          # Firebase console separately, so this can't lock anyone out before it's deliberately on.
+          VITE_APPCHECK_SITE_KEY: ${{ secrets.VITE_APPCHECK_SITE_KEY }}
       # Firebase's OAuth token endpoint intermittently returns a transient
       # "Premature close" during service-account auth, failing the deploy even
       # though the credential is valid (history shows ~1-in-4 runs flaking, with
@@ -104,6 +107,12 @@ jobs:
           channelId: live
           entryPoint: pwa
           firebaseToolsVersion: "14"
+      # Runtime smoke check (WS-I): confirm the live site serves the app shell + assets + security
+      # headers. Runs only if some deploy attempt succeeded; a failure fails the job (visible), so a
+      # broken release doesn't silently go live.
+      - name: Post-deploy runtime smoke
+        if: steps.deploy1.outcome == 'success' || steps.deploy2.outcome == 'success' || steps.deploy3.outcome == 'success'
+        run: ./scripts/cli/post-deploy-smoke.sh https://advancethat.web.app
 # TODO(Phase 0/U): set repo secrets VITE_FIREBASE_* + FIREBASE_SERVICE_ACCOUNT before first run.
 # Phase 13: also set VITE_GOOGLE_PICKER_API_KEY (Google Picker API key) so Drive attach works in prod.
 # WS-I observability (optional): add repo secret VITE_SENTRY_DSN to turn on Sentry error events, and

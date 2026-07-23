@@ -18,6 +18,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Changed
 
+- **Hardening (WS-I):** the app now ships browser security headers — MIME-sniffing/framing/referrer/
+  permissions-policy + HSTS enforced, and a Content-Security-Policy in **report-only** to start — plus
+  an App Check scaffold (inert until a reCAPTCHA key is provisioned) and a post-deploy smoke check that
+  fails a release if the live site isn't serving the app + its headers.
 - **Events — calendar naming:** changing an event's short code or name now also renames its Google
   Calendar to match. Previously the name was set only when the calendar was first created, so a later
   short-code (or name) change never reached the calendar.
