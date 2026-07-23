@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { describeCallableError } from '@/lib/errors/callableError';
 import { artistsFromDocuments, filterArtists } from '@/lib/documents/artistDocument';
 import { listArtistDocuments } from '@/lib/documents/artist-documents-service';
 import { importDriveFolder, pickDriveFolder } from '@/lib/google';
@@ -31,7 +32,7 @@ export function DocumentsScreen() {
     onError: (err) => {
       logger.error('Failed to import Drive folder', err);
       setImportMessage(null);
-      setImportError('Could not import. Connect Google Drive in Settings first.');
+      setImportError(describeCallableError(err, 'Could not import from Drive. Please try again.'));
     },
   });
 
@@ -43,7 +44,7 @@ export function DocumentsScreen() {
       if (folder) importMutation.mutate(folder.id);
     } catch (err) {
       logger.error('Failed to open the Drive folder picker', err);
-      setImportError('Could not open the Drive picker. Connect Google Drive in Settings first.');
+      setImportError(describeCallableError(err, 'Could not open the Drive picker. Please try again.'));
     }
   };
 
