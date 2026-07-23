@@ -1,0 +1,23 @@
+{
+  // Type-checks the Playwright specs, emulator fixtures/seeder/personas, and the
+  // Playwright configs — none of which are in tsconfig.app.json (src) or
+  // tsconfig.node.json (vite/vitest configs), so they currently escape `tsc -b`.
+  // Run standalone via `typecheck:tests`; DOM lib because Playwright page.evaluate
+  // callbacks run in the browser (WS-J).
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
+  },
+  "include": ["tests", "playwright.config.ts", "playwright.emulator.config.ts"]
+}

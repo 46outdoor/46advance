@@ -737,9 +737,12 @@ post-revoke) — only the app-side references are cleared.
 | Change-set | Workstream | PR | Notes |
 | --- | --- | --- | --- |
 | S16 supply-chain: pin Actions to commit SHAs, exact Firebase CLI (14.27.0), least-privilege workflow permissions, audit-summary visibility + release-blocking policy, PWA advisories cleared (npm audit fix → 0), nodemailer 6→9 (high fix), ts-deepmerge exception documented | WS-K | #165 | `NONE` deploy (CI/tooling) |
-| S17 perf/a11y/UX: per-screen route chunks (feature barrels → module imports), ThemeSpecimen out of prod bundle, responsive wrapping header, admin-table scroll containment, photo-cropper dialog semantics (focus trap + Escape + focus restore), dirty-form hydrate-once refetch guard, axe a11y harness + PR-checklist QA | WS-L | #TBD | `HOSTING` (client ships on Hosting) |
+| S17 perf/a11y/UX: per-screen route chunks (feature barrels → module imports), ThemeSpecimen out of prod bundle, responsive wrapping header, admin-table scroll containment, photo-cropper dialog semantics (focus trap + Escape + focus restore), dirty-form hydrate-once refetch guard, axe a11y harness + PR-checklist QA | WS-L | #168 | `HOSTING` (client ships on Hosting) |
+| S15 test assurance: LineupPanel `act()` warnings eliminated (await the post-mutation refetch settle, not just the service mock; suite-wide 300 tests, 0 timing warnings); Functions **and** PWA test/harness typechecking (new `tsconfig.test.json` + `typecheck:tests` in both, wired into CI `functions`/`quality` — caught a latent unused-var); authenticated Chromium emulator smoke wired into CI as the new `e2e-emulator` gate (auth+firestore+storage, seeded personas); +1 functions-free critical-path spec (event slug↔id routing + not-found) | WS-J | #TBD | `NONE` deploy (tests/CI) |
 
-(S15/WS-J, S18/WS-M to follow.)
+**WS-J deferred flows (need the functions emulator this lane doesn't boot):** event **creation** + slug **rename** (slug-reservation callables), approval/revocation (claims callables), document registration, schedule calendar-push conflict. Adding them means booting `functions` (built) alongside auth/firestore. The per-member event-**list** scoping test stays blocked on the WS-B `collectionGroup('members')` rules finding (documented in `auth-isolation.emulator.spec.ts`). Not a silent cap — tracked here.
+
+(S18/WS-M to follow.)
 
 After all approved work is complete, move this file to `planning/archive/fix/` and update
 `planning/README.md`.
