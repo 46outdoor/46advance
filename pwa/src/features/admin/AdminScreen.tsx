@@ -22,6 +22,7 @@ import {
 import { DepartmentsAdmin } from './DepartmentsAdmin';
 import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
+import { PacketNamingAdmin } from './PacketNamingAdmin';
 import { CrewTypesAdmin } from './CrewTypesAdmin';
 import { DocumentLibraryAdmin } from './DocumentLibraryAdmin';
 import { ObservabilityDiagnostics } from './ObservabilityDiagnostics';
@@ -368,6 +369,8 @@ export function AdminScreen() {
       <DocumentLibraryAdmin />
 
       <BrandingAdmin />
+
+      <PacketNamingAdmin />
 
       <CrewTypesAdmin />
 

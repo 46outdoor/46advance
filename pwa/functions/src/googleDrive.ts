@@ -35,6 +35,7 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { withGoogleRetry } from './lib/google/retry.js';
 import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
+import { packetBaseName } from './lib/pdf/packetFilename.js';
 import {
   classifyFolderFile,
   driveErrorReason,
@@ -517,10 +518,6 @@ async function ensureFolder(
   return created.data.id;
 }
 
-function packetStamp(): string {
-  return new Intl.DateTimeFormat('en-CA').format(new Date()); // YYYY-MM-DD
-}
-
 /**
  * Copy an already-generated packet (Storage) into the caller's Drive under
  * `46 Advance / {event name}`. Member-gated (anyone who can view the event may save their own
@@ -544,6 +541,7 @@ export const savePacketToDrive = onCall(
     const eventSnap = await db.doc(`events/${eventId}`).get();
     if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
     const eventName = String(eventSnap.data()?.name ?? 'Event');
+    const packetName = await packetBaseName(db, eventSnap.data() ?? {});
 
     const fileRef = getStorage().bucket(STORAGE_BUCKET).file(path);
     const [exists] = await fileRef.exists();
@@ -565,7 +563,7 @@ export const savePacketToDrive = onCall(
       () =>
         drive.files.create({
           requestBody: {
-            name: `${eventName} — packet — ${packetStamp()}.pdf`,
+            name: `${packetName}.pdf`,
             parents: [eventFolder],
           },
           media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
