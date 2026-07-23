@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               Advance
             </span>
           </Link>
-          <nav className="ml-auto flex items-center gap-4 text-sm">
+          <nav className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm">
             <Link className="transition-colors hover:text-accent" to="/events">
               Events
             </Link>

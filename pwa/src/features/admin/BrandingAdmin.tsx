@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { emptyLogo, logoPaths, type Logo } from '@/lib/branding/logo';
@@ -15,10 +15,16 @@ export function BrandingAdmin() {
   const queryClient = useQueryClient();
   const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
   const [logos, setLogos] = useState<Logo[]>([]);
+  // Hydrate the draft once, not on every refetch — a refetch-on-window-focus must not overwrite
+  // in-progress edits (WS-L). The form is the source of truth until the user saves or reloads.
+  const hydrated = useRef(false);
 
   // Hydrate local draft once branding loads (and on refetch).
   useEffect(() => {
-    if (brandingQuery.data) setLogos(brandingQuery.data.defaultLogos);
+    if (brandingQuery.data && !hydrated.current) {
+      setLogos(brandingQuery.data.defaultLogos);
+      hydrated.current = true;
+    }
   }, [brandingQuery.data]);
 
   const save = useMutation({

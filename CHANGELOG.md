@@ -18,6 +18,11 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Changed
 
+- **Performance & accessibility (WS-L):** each screen now loads as its own code chunk (faster first
+  paint), the top nav wraps cleanly on narrow screens instead of overflowing, the admin users table
+  scrolls within its own box, and the photo cropper is now keyboard-accessible (traps focus, closes on
+  Escape, restores focus). Unsaved admin drafts (branding, crew types) no longer get wiped by a
+  background refresh.
 - **Hardening (WS-I):** the app now ships browser security headers — MIME-sniffing/framing/referrer/
   permissions-policy + HSTS enforced, and a Content-Security-Policy in **report-only** to start — plus
   an App Check scaffold (inert until a reCAPTCHA key is provisioned) and a post-deploy smoke check that

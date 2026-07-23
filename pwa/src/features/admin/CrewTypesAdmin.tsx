@@ -3,7 +3,7 @@
  * Stagehands, Riggers / Climbers, … (planning/archive/feature/SCHEDULE_REDESIGN.md decision 21).
  * Follows the BrandingAdmin pattern: local draft, explicit save.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { crewTypesKey, getCrewTypes, setCrewTypes } from '@/lib/schedules/crew-types-service';
@@ -17,10 +17,15 @@ export function CrewTypesAdmin() {
   const queryClient = useQueryClient();
   const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
   const [types, setTypes] = useState<string[]>([]);
+  // Hydrate once — a refetch-on-focus must not clobber in-progress edits (WS-L).
+  const hydrated = useRef(false);
 
   // Hydrate the local draft once the config loads (and on refetch).
   useEffect(() => {
-    if (crewTypesQuery.data) setTypes(crewTypesQuery.data);
+    if (crewTypesQuery.data && !hydrated.current) {
+      setTypes(crewTypesQuery.data);
+      hydrated.current = true;
+    }
   }, [crewTypesQuery.data]);
 
   const save = useMutation({
