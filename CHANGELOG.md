@@ -9,6 +9,14 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-23
+
+### Changed
+
+- **Events — calendar naming:** changing an event's short code or name now also renames its Google
+  Calendar to match. Previously the name was set only when the calendar was first created, so a later
+  short-code (or name) change never reached the calendar.
+
 ## 2026-07-22
 
 ### Added
