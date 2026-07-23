@@ -60,6 +60,9 @@ jobs:
       - run: npm ci
       - run: npm run lint -- --max-warnings 0
       - run: npm run typecheck
+      # `tsc -b` covers src + vite/vitest configs only; type-check the Playwright
+      # specs and emulator harness (tests/) separately so they can't rot (WS-J).
+      - run: npm run typecheck:tests
       - run: npm run arch:check
       - run: npm run deadcode
 
@@ -141,6 +144,9 @@ jobs:
           cache-dependency-path: pwa/functions/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      # Deploy build excludes tests; typecheck them separately so type errors in
+      # specs and the emulator harness can't rot undetected (WS-J).
+      - run: npm run typecheck:tests
       - run: npm run test
       - run: npm run build
 
@@ -174,13 +180,47 @@ jobs:
         run: npm install -g firebase-tools@14.27.0
       - run: npm run test:emulator
 
+  # Authenticated critical-path smoke: real sign-in flows in Chromium against the
+  # Auth + Firestore + Storage emulators (deterministic personas seeded via REST).
+  # Kept small and stable — the slower cross-browser / a11y / offline suites stay
+  # separately triggerable until they're stable enough to gate (WS-J).
+  e2e-emulator:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pwa
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Cache Firestore emulator
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+      - run: npm ci
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@14.27.0
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:emulator
+
   # Required status check for branch protection on `main`. Always runs so the
   # check reports on every PR (incl. doc-only). Passes when each gate job either
   # succeeded or was skipped (doc-only change); fails if any gate job failed or
   # change detection itself failed.
   ci-summary:
     name: CI Summary
-    needs: [changes, quality, test, build, rules-tests, functions, functions-emulator]
+    needs: [changes, quality, test, build, rules-tests, functions, functions-emulator, e2e-emulator]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -197,7 +237,8 @@ jobs:
             "build:${{ needs.build.result }}" \
             "rules-tests:${{ needs.rules-tests.result }}" \
             "functions:${{ needs.functions.result }}" \
-            "functions-emulator:${{ needs.functions-emulator.result }}"; do
+            "functions-emulator:${{ needs.functions-emulator.result }}" \
+            "e2e-emulator:${{ needs.e2e-emulator.result }}"; do
             name="${entry%%:*}"; res="${entry##*:}"
             if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
               echo "::error::Gate job '$name' resulted in: $res"
