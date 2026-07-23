@@ -27,7 +27,8 @@ build time.
 
 Backend deploys log in as the Firebase owner account (`jared@yourstagemanager.com`). Restrictive
 rules that depend on a live client follow the gated order in the remediation plan
-(§ Cross-cutting rule 7): additive Function → verified Hosting release → restrictive rules.
+(`archive/fix/FORENSIC_REMEDIATION_PLAN.md` § Cross-cutting rule 7): additive Function → verified
+Hosting release → restrictive rules.
 
 ## Rollback
 

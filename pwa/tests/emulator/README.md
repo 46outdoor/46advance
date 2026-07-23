@@ -2,7 +2,7 @@
 
 The authenticated test foundation the P0 remediation work builds on. It seeds
 deterministic identities into the Firebase **emulators** and signs them in through
-the real UI. See `planning/FORENSIC_REMEDIATION_PLAN.md` → Phase 0 shared prerequisite.
+the real UI. See `planning/archive/fix/FORENSIC_REMEDIATION_PLAN.md` → Phase 0 shared prerequisite.
 
 ## Run
 
