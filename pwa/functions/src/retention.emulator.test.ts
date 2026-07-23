@@ -27,8 +27,12 @@ describe('runRetentionSweep', () => {
   beforeEach(clearEmulators);
 
   it('prunes abandoned OAuth states, expired rate limits, and stale bookings — keeps the rest', async () => {
-    await db.doc('googleOAuthStates/old').set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 2 * HOUR) });
-    await db.doc('googleOAuthStates/fresh').set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 5 * 60 * 1000) });
+    await db
+      .doc('googleOAuthStates/old')
+      .set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 2 * HOUR) });
+    await db
+      .doc('googleOAuthStates/fresh')
+      .set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 5 * 60 * 1000) });
 
     await db.doc('rateLimits/ret-expired').set({ expiresAt: Timestamp.fromMillis(NOW - 1000) });
     await db.doc('rateLimits/ret-valid').set({ expiresAt: Timestamp.fromMillis(NOW + HOUR) });
@@ -55,7 +59,9 @@ describe('runRetentionSweep', () => {
   });
 
   it('is idempotent — a second sweep prunes nothing new', async () => {
-    await db.doc('googleOAuthStates/old').set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 2 * HOUR) });
+    await db
+      .doc('googleOAuthStates/old')
+      .set({ uid: 'u', createdAt: Timestamp.fromMillis(NOW - 2 * HOUR) });
     await runRetentionSweep(db, NOW);
     const again = await runRetentionSweep(db, NOW);
     expect(again).toEqual({ states: 0, limits: 0, bookings: 0 });

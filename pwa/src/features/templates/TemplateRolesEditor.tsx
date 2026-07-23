@@ -54,7 +54,11 @@ export function TemplateRolesEditor({ users, initial, pending, onSave }: Props) 
             </option>
           ))}
         </select>
-        <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as EventRole)}>
+        <select
+          className={inputClass}
+          value={role}
+          onChange={(e) => setRole(e.target.value as EventRole)}
+        >
           {EVENT_ROLES.map((r) => (
             <option key={r} value={r}>
               {formatEventRole(r)}

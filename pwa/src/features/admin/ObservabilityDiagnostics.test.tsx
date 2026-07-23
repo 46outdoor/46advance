@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ObservabilityDiagnostics } from '@/features/admin/ObservabilityDiagnostics';
 
 const captureError = vi.fn();
-vi.mock('@/lib/errorCapture', () => ({ captureError: (...args: unknown[]) => captureError(...args) }));
+vi.mock('@/lib/errorCapture', () => ({
+  captureError: (...args: unknown[]) => captureError(...args),
+}));
 
 const isSentryActive = vi.fn<() => boolean>();
 vi.mock('@/lib/sentry', () => ({ isSentryActive: () => isSentryActive() }));

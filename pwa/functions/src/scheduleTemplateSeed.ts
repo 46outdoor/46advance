@@ -9,7 +9,12 @@
  * Master templates expand their refs one level deep; duplicate refs apply once.
  */
 import { randomUUID } from 'node:crypto';
-import { FieldValue, type DocumentData, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
+import {
+  FieldValue,
+  type DocumentData,
+  type DocumentReference,
+  type Firestore,
+} from 'firebase-admin/firestore';
 import type { BatchLike } from './lib/db/chunkedBatch.js';
 import { shiftDayKey, zonedDayKey } from './lib/dates/zonedTime.js';
 
@@ -77,7 +82,9 @@ async function expandTemplates(db: Firestore, ids: string[]): Promise<DocumentDa
     if (data.kind === 'master') {
       seen.add(snap.id);
       ordered.push(data); // its inline days apply first (they own metadata)
-      const refIds = asArray(data.refs).filter((r): r is string => typeof r === 'string' && !seen.has(r));
+      const refIds = asArray(data.refs).filter(
+        (r): r is string => typeof r === 'string' && !seen.has(r),
+      );
       const refs = await Promise.all(refIds.map((id) => col.doc(id).get()));
       for (const ref of refs) {
         if (!ref.exists || seen.has(ref.id)) continue;
@@ -131,7 +138,8 @@ export async function seedScheduleFromTemplates(
         existing.items.push(...items);
       } else {
         byOffset.set(day.offset, {
-          dayType: typeof day.dayType === 'string' && DAY_TYPES.has(day.dayType) ? day.dayType : 'show',
+          dayType:
+            typeof day.dayType === 'string' && DAY_TYPES.has(day.dayType) ? day.dayType : 'show',
           title: asStringOrNull(day.title),
           description: asStringOrNull(day.description),
           notes: asStringOrNull(day.notes),

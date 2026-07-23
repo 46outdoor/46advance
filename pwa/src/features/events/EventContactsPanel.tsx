@@ -40,7 +40,9 @@ function CrewCard({
         <div>
           <h3 className="font-semibold text-ink">{contact?.name ?? 'Unknown contact'}</h3>
           <p className="text-sm text-ink-muted">
-            {attachment.roleLabel && <span className="font-medium text-accent">{attachment.roleLabel}</span>}
+            {attachment.roleLabel && (
+              <span className="font-medium text-accent">{attachment.roleLabel}</span>
+            )}
             {!contact && <span>No longer in the directory</span>}
           </p>
         </div>
@@ -96,7 +98,9 @@ function CrewCard({
           </div>
         ) : (
           <>
-            {attachment.notes && <p className="whitespace-pre-line text-sm text-ink-muted">{attachment.notes}</p>}
+            {attachment.notes && (
+              <p className="whitespace-pre-line text-sm text-ink-muted">{attachment.notes}</p>
+            )}
             {canEdit && (
               <button
                 type="button"
@@ -130,7 +134,11 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
     queryFn: () => listEventContacts(eventId),
     enabled: !!eventId,
   });
-  const directoryQuery = useQuery({ queryKey: ['contacts'], queryFn: () => listContacts(), enabled: canEdit });
+  const directoryQuery = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => listContacts(),
+    enabled: canEdit,
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event-contacts', eventId] });
 
@@ -207,7 +215,11 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
           </button>
           {available.length === 0 && directoryQuery.data && (
             <span className="text-sm text-ink-muted">
-              All directory contacts are attached. <Link to="/contacts" className="text-accent hover:underline">Add more</Link>.
+              All directory contacts are attached.{' '}
+              <Link to="/contacts" className="text-accent hover:underline">
+                Add more
+              </Link>
+              .
             </span>
           )}
         </div>

@@ -36,7 +36,8 @@ export function MasterTemplateRefs({
     <div className="space-y-2 rounded-lg border border-line p-3">
       <h2 className="text-sm font-bold text-ink">Composed templates</h2>
       <p className="text-xs text-ink-muted">
-        Applied in order — the first template that defines a day owns its header; later ones add items to it.
+        Applied in order — the first template that defines a day owns its header; later ones add
+        items to it.
       </p>
       {refs.length === 0 && <p className="text-sm text-ink-muted">Nothing composed yet.</p>}
       <ol className="space-y-1">
@@ -45,8 +46,14 @@ export function MasterTemplateRefs({
           return (
             <li key={id} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="w-5 text-right text-xs text-ink-muted tabular-nums">{i + 1}.</span>
-              <span className="font-semibold text-ink">{tpl ? tpl.name : `Missing template (${id})`}</span>
-              {tpl && <span className="text-xs text-ink-muted">{scheduleTemplateCategoryLabel(tpl.category)}</span>}
+              <span className="font-semibold text-ink">
+                {tpl ? tpl.name : `Missing template (${id})`}
+              </span>
+              {tpl && (
+                <span className="text-xs text-ink-muted">
+                  {scheduleTemplateCategoryLabel(tpl.category)}
+                </span>
+              )}
               <span className="flex gap-1">
                 <button
                   type="button"
@@ -66,7 +73,11 @@ export function MasterTemplateRefs({
                 >
                   ↓
                 </button>
-                <button type="button" className={buttonClass} onClick={() => onChange(refs.filter((r) => r !== id))}>
+                <button
+                  type="button"
+                  className={buttonClass}
+                  onClick={() => onChange(refs.filter((r) => r !== id))}
+                >
                   Remove
                 </button>
               </span>

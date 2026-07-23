@@ -59,9 +59,16 @@ function blankItem(): ScheduleDayItem {
 }
 
 /** Placeholders can't resolve in a template (no event lineup) — show the slot label. */
-const resolveNothing = (_item: ScheduleDayItem, text: string) => resolveArtistPlaceholders(text, () => null);
+const resolveNothing = (_item: ScheduleDayItem, text: string) =>
+  resolveArtistPlaceholders(text, () => null);
 
-function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTemplates: ScheduleTemplate[] }) {
+function Editor({
+  template,
+  allTemplates,
+}: {
+  template: ScheduleTemplate;
+  allTemplates: ScheduleTemplate[];
+}) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(template.name);
   const [category, setCategory] = useState<ScheduleTemplateCategory>(template.category);
@@ -123,7 +130,9 @@ function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTem
 
   const setDayItems = (offset: number, items: ScheduleDayItem[]) =>
     setDays((prev) =>
-      prev.map((d) => (d.offset === offset ? { ...d, items: items.map(dayItemToTemplateItem) } : d)),
+      prev.map((d) =>
+        d.offset === offset ? { ...d, items: items.map(dayItemToTemplateItem) } : d,
+      ),
     );
 
   return (
@@ -131,7 +140,11 @@ function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTem
       <div className="flex flex-wrap items-end gap-3">
         <label className="block text-sm">
           <span className="mb-1 block font-semibold text-ink">Name</span>
-          <input className={`${inputClass} w-80`} value={name} onChange={(e) => setName(e.target.value)} />
+          <input
+            className={`${inputClass} w-80`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </label>
         {template.kind === 'standard' ? (
           <label className="block text-sm">
@@ -150,7 +163,11 @@ function Editor({ template, allTemplates }: { template: ScheduleTemplate; allTem
           </label>
         ) : (
           <label className="inline-flex min-h-11 items-center gap-2 text-sm text-ink sm:min-h-0">
-            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={isDefault}
+              onChange={(e) => setIsDefault(e.target.checked)}
+            />
             Default master (auto-applied when creating an event)
           </label>
         )}

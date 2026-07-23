@@ -28,7 +28,11 @@ export function signInWithEmail(email: string, password: string): Promise<UserCr
   return signInWithEmailAndPassword(auth, email, password);
 }
 
-export async function signUpWithEmail(email: string, password: string, name: string): Promise<UserCredential> {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  name: string,
+): Promise<UserCredential> {
   // Stash the name before creating the account (see `pendingDisplayName`), then persist it to the
   // Auth profile so it survives future sessions too.
   pendingDisplayName = name.trim() || null;
@@ -65,7 +69,10 @@ export function sendPasswordReset(email: string): Promise<void> {
 export async function syncUserClaims(): Promise<SyncUserClaimsOutput> {
   const displayName = pendingDisplayName ?? auth.currentUser?.displayName ?? null;
   pendingDisplayName = null;
-  const callable = httpsCallable<SyncUserClaimsInput, SyncUserClaimsOutput>(functions, 'syncUserClaims');
+  const callable = httpsCallable<SyncUserClaimsInput, SyncUserClaimsOutput>(
+    functions,
+    'syncUserClaims',
+  );
   const result = await callable({ displayName });
   return result.data;
 }

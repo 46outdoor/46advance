@@ -89,14 +89,20 @@ describe('createBlankEvent', () => {
 
   it('dedupes the slug against an existing reservation', async () => {
     await db.doc('slugs/alpha-festival').set({ eventId: 'other-event' });
-    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-2' }), ORGANIZER));
+    await testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: 'evt-2' }), ORGANIZER),
+    );
     expect((await db.doc('events/evt-2').get()).get('slug')).toBe('alpha-festival-2');
     expect((await db.doc('slugs/alpha-festival-2').get()).get('eventId')).toBe('evt-2');
   });
 
   it('two events desiring the same slug get distinct reservations', async () => {
-    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-a' }), ORGANIZER));
-    await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-b' }), ORGANIZER));
+    await testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: 'evt-a' }), ORGANIZER),
+    );
+    await testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: 'evt-b' }), ORGANIZER),
+    );
     expect((await db.doc('events/evt-a').get()).get('slug')).toBe('alpha-festival');
     expect((await db.doc('events/evt-b').get()).get('slug')).toBe('alpha-festival-2');
   });
@@ -109,7 +115,9 @@ describe('createBlankEvent', () => {
   });
 
   it('an admin can create a blank event', async () => {
-    const res = await testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: 'evt-admin' }), ADMIN));
+    const res = await testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: 'evt-admin' }), ADMIN),
+    );
     expect(res).toEqual({ eventId: 'evt-admin' });
   });
 });
@@ -124,7 +132,9 @@ describe('renameEventSlug', () => {
   });
 
   const makeEvent = (id = 'evt-r'): Promise<unknown> =>
-    testEnv.wrap(createBlankEvent)(callableRequest(baseInput({ eventId: id, slug: 'first-slug' }), ORGANIZER));
+    testEnv.wrap(createBlankEvent)(
+      callableRequest(baseInput({ eventId: id, slug: 'first-slug' }), ORGANIZER),
+    );
 
   it('moves the reservation: reserves new, releases old, updates the event', async () => {
     await makeEvent();
@@ -140,7 +150,9 @@ describe('renameEventSlug', () => {
   it('dedupes against an existing reservation', async () => {
     await makeEvent();
     await db.doc('slugs/taken').set({ eventId: 'other' });
-    const res = await testEnv.wrap(renameEventSlug)(callableRequest({ eventId: 'evt-r', slug: 'taken' }, ORGANIZER));
+    const res = await testEnv.wrap(renameEventSlug)(
+      callableRequest({ eventId: 'evt-r', slug: 'taken' }, ORGANIZER),
+    );
     expect(res.slug).toBe('taken-2');
     expect((await db.doc('slugs/taken').get()).get('eventId')).toBe('other'); // untouched
   });

@@ -51,7 +51,10 @@ export async function createEvent(input: EventInput): Promise<string> {
   const desiredSlug = input.slug?.trim()
     ? input.slug
     : defaultEventSlug(input.bookingLabel ?? null, input.name, input.startDate ?? null);
-  const callable = httpsCallable<CreateBlankEventInput, CreateBlankEventOutput>(functions, 'createBlankEvent');
+  const callable = httpsCallable<CreateBlankEventInput, CreateBlankEventOutput>(
+    functions,
+    'createBlankEvent',
+  );
   const result = await callable({
     eventId,
     name: input.name,
@@ -83,7 +86,9 @@ export async function getEvent(eventId: string): Promise<EventRecord | null> {
  */
 export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord | null> {
   try {
-    const snap = await getDocs(query(collection(db, 'events'), where('slug', '==', slugOrId), limit(1)));
+    const snap = await getDocs(
+      query(collection(db, 'events'), where('slug', '==', slugOrId), limit(1)),
+    );
     if (!snap.empty) {
       const d = snap.docs[0];
       return parseEvent(d.id, d.data());
@@ -98,7 +103,9 @@ export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord 
 export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
   let events: EventRecord[];
   if (viewer.isAdmin) {
-    const snap = await getDocs(query(collection(db, 'events'), orderBy('name'), limit(EVENTS_READ_CAP)));
+    const snap = await getDocs(
+      query(collection(db, 'events'), orderBy('name'), limit(EVENTS_READ_CAP)),
+    );
     if (snap.size >= EVENTS_READ_CAP) {
       logger.warn(`Admin events list hit the ${EVENTS_READ_CAP}-event read cap — add pagination.`);
     }
@@ -148,7 +155,10 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
  * the desired value already resolves to the event's current slug.
  */
 export async function renameEventSlug(eventId: string, slug: string): Promise<string> {
-  const callable = httpsCallable<RenameEventSlugInput, RenameEventSlugOutput>(functions, 'renameEventSlug');
+  const callable = httpsCallable<RenameEventSlugInput, RenameEventSlugOutput>(
+    functions,
+    'renameEventSlug',
+  );
   return (await callable({ eventId, slug })).data.slug;
 }
 
@@ -180,7 +190,10 @@ export async function generatePacket(eventId: string): Promise<GeneratedPacket> 
 }
 
 /** Create an event from a template (clones the blueprint server-side). Returns the new id. */
-export async function createEventFromTemplate(templateId: string, input: EventInput): Promise<string> {
+export async function createEventFromTemplate(
+  templateId: string,
+  input: EventInput,
+): Promise<string> {
   const callable = httpsCallable<CreateEventFromTemplateInput, CreateEventFromTemplateOutput>(
     functions,
     'createEventFromTemplate',

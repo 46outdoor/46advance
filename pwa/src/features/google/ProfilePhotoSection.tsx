@@ -43,8 +43,14 @@ export function ProfilePhotoSection() {
       )}
       {contact && (
         <div className="space-y-1">
-          <PhotoEditor photo={contact.photo} name={contact.name} onChange={(p) => save.mutateAsync(p)} />
-          <p className="text-sm text-ink-muted">Shown beside your name in the Contacts directory.</p>
+          <PhotoEditor
+            photo={contact.photo}
+            name={contact.name}
+            onChange={(p) => save.mutateAsync(p)}
+          />
+          <p className="text-sm text-ink-muted">
+            Shown beside your name in the Contacts directory.
+          </p>
         </div>
       )}
     </div>

@@ -78,7 +78,9 @@ export function DepartmentsAdmin() {
       </div>
 
       {departmentsQuery.isLoading && <p className="text-sm text-ink-muted">Loading departments…</p>}
-      {departmentsQuery.isError && <p className="text-sm text-accent">Failed to load departments.</p>}
+      {departmentsQuery.isError && (
+        <p className="text-sm text-accent">Failed to load departments.</p>
+      )}
 
       {departments.length > 0 && (
         <ul className="divide-y divide-line/60 text-sm">

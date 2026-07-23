@@ -98,10 +98,15 @@ const showDayRows = (callTime: string, lunchStart: string): Row[] => [
   prod('Artist load outs', '23:00', '01:00'),
 ];
 /** Post-show reset for the next show — stays on the show day's card as a "+1" row. */
-const overnightReset = prod('Reset stage / dock for the next show', '01:00', '01:30', { plus1: true });
+const overnightReset = prod('Reset stage / dock for the next show', '01:00', '01:30', {
+  plus1: true,
+});
 /** Final night's post-show load out + EOD — "+1" rows on the last show day's card. */
 const finalNightRows: Row[] = [
-  prod('Production load out — all LX + video', '00:30', '03:00', { endEstimated: true, plus1: true }),
+  prod('Production load out — all LX + video', '00:30', '03:00', {
+    endEstimated: true,
+    plus1: true,
+  }),
   eod('03:00', { plus1: true }),
 ];
 
@@ -114,7 +119,9 @@ const DAYS: DayBlock[] = [
     title: 'Staging Travel',
     rows: [
       travel('Stage hand arrival', 'Stagehands', { desc: 'Stageline · times vary' }),
-      travel('Stageline staffing arrival', 'Stageline staffing', { desc: 'Stageline · times vary' }),
+      travel('Stageline staffing arrival', 'Stageline staffing', {
+        desc: 'Stageline · times vary',
+      }),
       eod(undefined, { desc: 'Times vary' }),
     ],
   },
@@ -242,7 +249,9 @@ async function upsert(name: string, days: DayBlock[], creatorUid: string): Promi
   if (!existing.empty) {
     // Merge without createdBy — a reseed refreshes content, not attribution.
     await existing.docs[0].ref.set(content, { merge: true });
-    console.log(`Updated "${name}" (${existing.docs[0].id}) in place: ${itemCount} items across ${days.length} day(s).`);
+    console.log(
+      `Updated "${name}" (${existing.docs[0].id}) in place: ${itemCount} items across ${days.length} day(s).`,
+    );
     return;
   }
   const ref = await db.collection('scheduleTemplates').add({

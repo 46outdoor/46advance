@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import { slotLabel } from '@/lib/advances/advance';
 
-const defaultSelectClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
+const defaultSelectClass =
+  'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
 export function SlotSelect({
   slot,

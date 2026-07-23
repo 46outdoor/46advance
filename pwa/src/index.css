@@ -4,21 +4,27 @@
    company's licensed brand fonts. Files in public/fonts. */
 @font-face {
   font-family: 'Nexa';
-  src: url('/fonts/Nexa/Nexa-Book.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Book.woff') format('woff');
+  src:
+    url('/fonts/Nexa/Nexa-Book.woff2') format('woff2'),
+    url('/fonts/Nexa/Nexa-Book.woff') format('woff');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Nexa';
-  src: url('/fonts/Nexa/Nexa-Bold.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Bold.woff') format('woff');
+  src:
+    url('/fonts/Nexa/Nexa-Bold.woff2') format('woff2'),
+    url('/fonts/Nexa/Nexa-Bold.woff') format('woff');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Nexa';
-  src: url('/fonts/Nexa/Nexa-Black.woff2') format('woff2'), url('/fonts/Nexa/Nexa-Black.woff') format('woff');
+  src:
+    url('/fonts/Nexa/Nexa-Black.woff2') format('woff2'),
+    url('/fonts/Nexa/Nexa-Black.woff') format('woff');
   font-weight: 900;
   font-style: normal;
   font-display: swap;

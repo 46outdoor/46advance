@@ -13,7 +13,14 @@ interface StageFormProps {
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
 /** Create/edit form for a stage. */
-export function StageForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: StageFormProps) {
+export function StageForm({
+  initial,
+  submitLabel,
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: StageFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -33,7 +40,12 @@ export function StageForm({ initial, submitLabel, pending, error, onSubmit, onCa
     <form className="grid gap-3 sm:grid-cols-2 sm:items-end" onSubmit={submit}>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Stage name</span>
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Stage" />
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Main Stage"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Notes</span>
@@ -48,11 +60,17 @@ export function StageForm({ initial, submitLabel, pending, error, onSubmit, onCa
           {pending ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-ink-muted hover:text-ink"
+          >
             Cancel
           </button>
         )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError || error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

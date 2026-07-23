@@ -56,7 +56,10 @@ export const notifyOnRegistration = onDocumentCreated(
       });
       logger.info('Registration notification sent', { uid: event.params.uid, to: NOTIFY_TO });
     } catch (err) {
-      logger.error('Registration notification failed', { uid: event.params.uid, error: String(err) });
+      logger.error('Registration notification failed', {
+        uid: event.params.uid,
+        error: String(err),
+      });
     }
   },
 );

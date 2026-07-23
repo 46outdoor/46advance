@@ -39,7 +39,10 @@ export type SavePacketToDriveOutput = z.infer<typeof savePacketToDriveOutputSche
 // importDriveFolder — import an artist-docs folder (per-artist subfolders) into the library.
 export const importDriveFolderInputSchema = z.object({ folderId: z.string().min(1) });
 export type ImportDriveFolderInput = z.infer<typeof importDriveFolderInputSchema>;
-export const importDriveFolderOutputSchema = z.object({ imported: z.number(), skipped: z.number() });
+export const importDriveFolderOutputSchema = z.object({
+  imported: z.number(),
+  skipped: z.number(),
+});
 export type ImportDriveFolderOutput = z.infer<typeof importDriveFolderOutputSchema>;
 
 // validateLibraryFolder — verify (via the docs-broker SA) that a candidate library-root id is a
@@ -47,7 +50,12 @@ export type ImportDriveFolderOutput = z.infer<typeof importDriveFolderOutputSche
 // { ok:true, name } on success, else { ok:false, reason } with a coarse (non-leaking) reason.
 export const validateLibraryFolderInputSchema = z.object({ folderId: z.string().min(1) });
 export type ValidateLibraryFolderInput = z.infer<typeof validateLibraryFolderInputSchema>;
-export const validateLibraryFolderReasonSchema = z.enum(['not_found', 'not_a_folder', 'trashed', 'inaccessible']);
+export const validateLibraryFolderReasonSchema = z.enum([
+  'not_found',
+  'not_a_folder',
+  'trashed',
+  'inaccessible',
+]);
 export type ValidateLibraryFolderReason = z.infer<typeof validateLibraryFolderReasonSchema>;
 export const validateLibraryFolderOutputSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), name: z.string() }),

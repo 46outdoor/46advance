@@ -37,14 +37,20 @@ export async function runRetentionSweep(db: Firestore, nowMs: number): Promise<R
 
   // 1) Abandoned OAuth CSRF states (created but never consumed by the callback).
   const stateCutoff = Timestamp.fromMillis(nowMs - OAUTH_STATE_MAX_AGE_MS);
-  const staleStates = await db.collection('googleOAuthStates').where('createdAt', '<', stateCutoff).get();
+  const staleStates = await db
+    .collection('googleOAuthStates')
+    .where('createdAt', '<', stateCutoff)
+    .get();
   staleStates.forEach((d) => {
     batch.delete(d.ref);
     counts.states += 1;
   });
 
   // 2) Expired distributed rate-limit counters.
-  const expiredLimits = await db.collection('rateLimits').where('expiresAt', '<', Timestamp.fromMillis(nowMs)).get();
+  const expiredLimits = await db
+    .collection('rateLimits')
+    .where('expiresAt', '<', Timestamp.fromMillis(nowMs))
+    .get();
   expiredLimits.forEach((d) => {
     batch.delete(d.ref);
     counts.limits += 1;
@@ -57,7 +63,8 @@ export async function runRetentionSweep(db: Firestore, nowMs: number): Promise<R
   const allBookings = await db.collectionGroup('callBookings').get();
   allBookings.forEach((d) => {
     if (d.get('status') === 'attached') return;
-    const startMillis = typeof d.get('startMillis') === 'number' ? (d.get('startMillis') as number) : 0;
+    const startMillis =
+      typeof d.get('startMillis') === 'number' ? (d.get('startMillis') as number) : 0;
     if (startMillis > 0 && startMillis < bookingCutoff) {
       batch.delete(d.ref);
       counts.bookings += 1;

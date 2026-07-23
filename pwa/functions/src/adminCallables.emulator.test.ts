@@ -143,7 +143,10 @@ describe('setUserDisplayName', () => {
   it('a blank name clears to null', async () => {
     await auth().createUser({ uid: 'target' });
     const res = await testEnv.wrap(setUserDisplayName)(
-      callableRequest({ uid: 'target', displayName: '   ' }, authContext('admin1', { admin: true })),
+      callableRequest(
+        { uid: 'target', displayName: '   ' },
+        authContext('admin1', { admin: true }),
+      ),
     );
     expect(res).toEqual({ uid: 'target', displayName: null });
     expect((await users().doc('target').get()).data()?.displayName).toBeNull();
@@ -162,7 +165,12 @@ describe('deleteUser', () => {
   it('an admin deletes the account, memberships, and unlinks the contact', async () => {
     await auth().createUser({ uid: 'target' });
     await users().doc('target').set({ email: 'target@example.com', approved: true });
-    await getFirestore().collection('events').doc('e1').collection('members').doc('target').set({ uid: 'target' });
+    await getFirestore()
+      .collection('events')
+      .doc('e1')
+      .collection('members')
+      .doc('target')
+      .set({ uid: 'target' });
     await contacts().doc('c1').set({ name: 'Target', userId: 'target' });
 
     const res = await testEnv.wrap(deleteUser)(
@@ -172,7 +180,12 @@ describe('deleteUser', () => {
     expect(res).toEqual({ uid: 'target', deleted: true });
     await expect(auth().getUser('target')).rejects.toThrow(); // Auth account gone
     expect((await users().doc('target').get()).exists).toBe(false);
-    const member = await getFirestore().collection('events').doc('e1').collection('members').doc('target').get();
+    const member = await getFirestore()
+      .collection('events')
+      .doc('e1')
+      .collection('members')
+      .doc('target')
+      .get();
     expect(member.exists).toBe(false); // membership cleared
     expect((await contacts().doc('c1').get()).data()?.userId).toBeNull(); // contact unlinked, not deleted
   });
@@ -183,13 +196,23 @@ describe('deleteUser', () => {
     await users().doc('target').set({ approved: true });
     // An event whose Google calendar the departing user created (owner recorded) + one owned by someone else.
     await db.collection('events').doc('owned').set({
-      name: 'Owned', status: 'active', createdBy: 'x', googleCalendarId: 'cal-owned', googleCalendarOwnerUid: 'target',
+      name: 'Owned',
+      status: 'active',
+      createdBy: 'x',
+      googleCalendarId: 'cal-owned',
+      googleCalendarOwnerUid: 'target',
     });
     await db.collection('events').doc('other').set({
-      name: 'Other', status: 'active', createdBy: 'x', googleCalendarId: 'cal-other', googleCalendarOwnerUid: 'someone',
+      name: 'Other',
+      status: 'active',
+      createdBy: 'x',
+      googleCalendarId: 'cal-other',
+      googleCalendarOwnerUid: 'someone',
     });
 
-    await testEnv.wrap(deleteUser)(callableRequest({ uid: 'target' }, authContext('admin1', { admin: true })));
+    await testEnv.wrap(deleteUser)(
+      callableRequest({ uid: 'target' }, authContext('admin1', { admin: true })),
+    );
 
     const owned = await db.collection('events').doc('owned').get();
     expect(owned.get('googleCalendarId')).toBeUndefined(); // reference cleared → a later reconcile recreates one
@@ -279,7 +302,10 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
   it('leaves a brand-new non-allowlisted account pending (approved=false)', async () => {
     await auth().createUser({ uid: 'me', email: 'stranger@example.com' });
     const res = await testEnv.wrap(syncUserClaims)(
-      callableRequest({}, authContext('me', { email: 'stranger@example.com', email_verified: true })),
+      callableRequest(
+        {},
+        authContext('me', { email: 'stranger@example.com', email_verified: true }),
+      ),
     );
 
     expect(res).toMatchObject({ isAdmin: false, approved: false });
@@ -288,7 +314,9 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
 
   it('auto-approves a verified new user whose email matches an ADMIN-added contact', async () => {
     await users().doc('admin1').set({ isAdmin: true, organizer: false, approved: true });
-    await contacts().doc('c1').set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
+    await contacts()
+      .doc('c1')
+      .set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
     await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
 
     const res = await testEnv.wrap(syncUserClaims)(
@@ -312,7 +340,9 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
 
   it('does NOT auto-approve when the matching contact was created by a regular member', async () => {
     await users().doc('member1').set({ isAdmin: false, organizer: false, approved: true });
-    await contacts().doc('c1').set({ name: 'Someone', email: 'tech@crew.com', createdBy: 'member1' });
+    await contacts()
+      .doc('c1')
+      .set({ name: 'Someone', email: 'tech@crew.com', createdBy: 'member1' });
     await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
 
     const res = await testEnv.wrap(syncUserClaims)(
@@ -324,7 +354,9 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
 
   it('does NOT auto-approve on a contact match until the email is verified', async () => {
     await users().doc('admin1').set({ isAdmin: true, approved: true });
-    await contacts().doc('c1').set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
+    await contacts()
+      .doc('c1')
+      .set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
     await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
 
     const res = await testEnv.wrap(syncUserClaims)(

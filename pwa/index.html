@@ -6,17 +6,25 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0a" />
-    <meta name="description" content="Event-production advance management for 46 Entertainment — artist advances, production details, quotes, contacts, and Google Calendar/Meet advance calls for live events." />
+    <meta
+      name="description"
+      content="Event-production advance management for 46 Entertainment — artist advances, production details, quotes, contacts, and Google Calendar/Meet advance calls for live events."
+    />
     <title>46 Advance</title>
     <style>
-      html { color-scheme: light; }
-      html.dark { color-scheme: dark; }
+      html {
+        color-scheme: light;
+      }
+      html.dark {
+        color-scheme: dark;
+      }
     </style>
     <script>
       // Apply the saved theme before first paint to avoid a flash (default: light).
       (function () {
         try {
-          if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+          if (localStorage.getItem('theme') === 'dark')
+            document.documentElement.classList.add('dark');
         } catch (e) {}
       })();
     </script>
@@ -29,19 +37,43 @@
         var RE = /dynamically imported module|Importing a module script failed/i;
         function heal() {
           try {
-            var k = 'pwa:last-recovery', now = Date.now();
+            var k = 'pwa:last-recovery',
+              now = Date.now();
             if (now - (+sessionStorage.getItem(k) || 0) < 20000) return;
             sessionStorage.setItem(k, String(now));
           } catch (e) {}
-          var done = function () { location.reload(); };
+          var done = function () {
+            location.reload();
+          };
           var jobs = [];
-          if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (c) { return caches.delete(c); })); }));
-          if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+          if (window.caches)
+            jobs.push(
+              caches.keys().then(function (ks) {
+                return Promise.all(
+                  ks.map(function (c) {
+                    return caches.delete(c);
+                  }),
+                );
+              }),
+            );
+          if (navigator.serviceWorker)
+            jobs.push(
+              navigator.serviceWorker.getRegistrations().then(function (rs) {
+                return Promise.all(
+                  rs.map(function (r) {
+                    return r.unregister();
+                  }),
+                );
+              }),
+            );
           Promise.all(jobs).then(done, done);
         }
-        window.addEventListener('error', function (e) { if (e && e.message && RE.test(e.message)) heal(); });
+        window.addEventListener('error', function (e) {
+          if (e && e.message && RE.test(e.message)) heal();
+        });
         window.addEventListener('unhandledrejection', function (e) {
-          var r = e && e.reason; var m = r && (r.message || r);
+          var r = e && e.reason;
+          var m = r && (r.message || r);
           if (m && RE.test(String(m))) heal();
         });
       })();
@@ -51,12 +83,21 @@
     <div id="root">
       <!-- Static fallback shown before the app mounts and to non-JS crawlers (e.g. Google's
            OAuth verifier): describes the app's purpose without requiring login or JavaScript. -->
-      <main style="font-family: system-ui, sans-serif; max-width: 42rem; margin: 0 auto; padding: 4rem 1.5rem; color: #262626">
+      <main
+        style="
+          font-family: system-ui, sans-serif;
+          max-width: 42rem;
+          margin: 0 auto;
+          padding: 4rem 1.5rem;
+          color: #262626;
+        "
+      >
         <h1 style="font-size: 2rem; margin: 0 0 0.5rem">46 Advance</h1>
         <p style="line-height: 1.6; color: #525763">
-          Event-production advance management for 46 Entertainment — the internal tool our production
-          team uses to organize artist advances, production details, quotes, contacts, and scheduling
-          (including Google Calendar and Google Meet advance calls) for live events and festivals.
+          Event-production advance management for 46 Entertainment — the internal tool our
+          production team uses to organize artist advances, production details, quotes, contacts,
+          and scheduling (including Google Calendar and Google Meet advance calls) for live events
+          and festivals.
         </p>
         <p style="margin-top: 1rem">
           <a href="/sign-in">Sign in</a> &middot; <a href="/privacy">Privacy Policy</a>

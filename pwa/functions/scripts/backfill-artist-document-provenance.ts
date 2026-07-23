@@ -38,7 +38,9 @@ if (!TARGET_PROJECT || process.env.CONFIRM_PROJECT !== TARGET_PROJECT) {
 
 const SA_KEY = process.env.DRIVE_SA_KEY;
 if (!SA_KEY) {
-  console.error('Refusing to run: DRIVE_SA_KEY is required to re-resolve each file\'s library folder.');
+  console.error(
+    "Refusing to run: DRIVE_SA_KEY is required to re-resolve each file's library folder.",
+  );
   process.exit(1);
 }
 
@@ -64,7 +66,8 @@ async function main(): Promise<void> {
   const db = getFirestore();
   const drive = brokerClient();
 
-  const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId') as string | undefined;
+  const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId') as
+    string | undefined;
   if (!rootFolderId) {
     console.error('Refusing to run: config/documentsLibrary.rootFolderId is not configured.');
     process.exit(1);
@@ -86,11 +89,18 @@ async function main(): Promise<void> {
 
     const file = await getFileForRegistration(drive, doc.id);
     if (!file) {
-      console.log(`  SKIP ${doc.ref.path} — file not accessible to the broker (deleted/moved; review candidate)`);
+      console.log(
+        `  SKIP ${doc.ref.path} — file not accessible to the broker (deleted/moved; review candidate)`,
+      );
       skipped += 1;
       continue;
     }
-    const folder = await resolveArtistFolder(drive, file.parents[0] ?? null, rootFolderId, MAX_FOLDER_DEPTH);
+    const folder = await resolveArtistFolder(
+      drive,
+      file.parents[0] ?? null,
+      rootFolderId,
+      MAX_FOLDER_DEPTH,
+    );
     if (!folder.underRoot) {
       console.log(`  SKIP ${doc.ref.path} — file not under the library root (review candidate)`);
       skipped += 1;
@@ -101,12 +111,15 @@ async function main(): Promise<void> {
     // sits directly in root is legitimately "unsorted" — artistFolderId/artistName null — so
     // leave those be rather than stamping nulls).
     const update: Record<string, unknown> = {};
-    if (!data.sourceFolderId && folder.artistFolderId) update.sourceFolderId = folder.artistFolderId;
+    if (!data.sourceFolderId && folder.artistFolderId)
+      update.sourceFolderId = folder.artistFolderId;
     if (!data.artist && folder.artistName) update.artist = folder.artistName;
     if (!data.artistKey && folder.artistName) update.artistKey = artistKey(folder.artistName);
 
     if (Object.keys(update).length === 0) {
-      console.log(`  SKIP ${doc.ref.path} — under root but unsorted (no artist subfolder to derive from)`);
+      console.log(
+        `  SKIP ${doc.ref.path} — under root but unsorted (no artist subfolder to derive from)`,
+      );
       skipped += 1;
       continue;
     }

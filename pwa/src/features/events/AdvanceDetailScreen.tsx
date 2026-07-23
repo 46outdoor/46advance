@@ -109,8 +109,15 @@ export function AdvanceDetailScreen() {
   });
 
   const saveContent = useMutation({
-    mutationFn: ({ deptId, content, bump }: { deptId: string; content: SectionContent; bump: boolean }) =>
-      updateSectionContent(eventId!, stageId!, advanceId!, deptId, content, bump),
+    mutationFn: ({
+      deptId,
+      content,
+      bump,
+    }: {
+      deptId: string;
+      content: SectionContent;
+      bump: boolean;
+    }) => updateSectionContent(eventId!, stageId!, advanceId!, deptId, content, bump),
     onSuccess: () => invalidate(),
     onError: (err) => logger.error('Failed to save section content', err),
   });
@@ -134,7 +141,10 @@ export function AdvanceDetailScreen() {
 
   return (
     <section className="space-y-6">
-      <Link to={`/events/${eventParam}/stages/${stageId}`} className="text-sm text-ink-muted hover:text-accent">
+      <Link
+        to={`/events/${eventParam}/stages/${stageId}`}
+        className="text-sm text-ink-muted hover:text-accent"
+      >
         ← Stage
       </Link>
 
@@ -196,8 +206,19 @@ export function AdvanceDetailScreen() {
             artistName={advance.artistName}
             canEdit={canEdit}
           />
-          <DriveFilesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} canEdit={canEdit} />
-          <QuotesPanel eventId={eventId} stageId={stageId} advanceId={advanceId} uid={user.uid} canEdit={canEdit} />
+          <DriveFilesPanel
+            eventId={eventId}
+            stageId={stageId}
+            advanceId={advanceId}
+            canEdit={canEdit}
+          />
+          <QuotesPanel
+            eventId={eventId}
+            stageId={stageId}
+            advanceId={advanceId}
+            uid={user.uid}
+            canEdit={canEdit}
+          />
         </>
       )}
     </section>
@@ -218,7 +239,9 @@ function AdvanceLoadStatus({
       {isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {isError && <p className="text-sm text-accent">Failed to load this advance.</p>}
       {notFound && (
-        <p className="text-sm text-ink-muted">Artist advance not found, or you don’t have access.</p>
+        <p className="text-sm text-ink-muted">
+          Artist advance not found, or you don’t have access.
+        </p>
       )}
     </>
   );
@@ -257,7 +280,9 @@ function AdvanceHeader({
     <header className="space-y-2">
       <LogoRow eventLogo={eventLogo} defaults={defaultLogos} size="sm" />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-3xl font-black tracking-tight text-brand">{advance.artistName}</h1>
+        <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+          {advance.artistName}
+        </h1>
         {canEdit && (
           <div className="flex items-center gap-2">
             <button
@@ -280,7 +305,9 @@ function AdvanceHeader({
       </div>
       <p className="text-ink-muted">
         {advance.slot && <span className="mr-3">{slotLabel(advance.slot)}</span>}
-        {advance.performanceDate && <span>{formatZonedDate(advance.performanceDate, timeZone)}</span>}
+        {advance.performanceDate && (
+          <span>{formatZonedDate(advance.performanceDate, timeZone)}</span>
+        )}
       </p>
       {advance.notes && <p className="whitespace-pre-line text-sm text-ink">{advance.notes}</p>}
       <div className="space-y-1 pt-1">
@@ -394,4 +421,3 @@ function SummaryField({ label, value }: { label: string; value: string | null })
     </p>
   );
 }
-

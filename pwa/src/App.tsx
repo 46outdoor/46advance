@@ -19,13 +19,19 @@ const PrivacyScreen = lazyWithRetry(() =>
 );
 // Dev-only theme specimen: gated on DEV so Vite drops the import (and its chunk) from prod (WS-L).
 const ThemeSpecimen = import.meta.env.DEV
-  ? lazyWithRetry(() => import('@/routes/ThemeSpecimen').then((m) => ({ default: m.ThemeSpecimen })))
+  ? lazyWithRetry(() =>
+      import('@/routes/ThemeSpecimen').then((m) => ({ default: m.ThemeSpecimen })),
+    )
   : null;
 
 // Screens import from their MODULE paths (not the feature barrels) so each route splits into its own
 // chunk — importing a barrel pulls every screen in that feature into one chunk (WS-L).
-const SignInScreen = lazyWithRetry(() => import('@/features/auth/SignInScreen').then((m) => ({ default: m.SignInScreen })));
-const SignUpScreen = lazyWithRetry(() => import('@/features/auth/SignUpScreen').then((m) => ({ default: m.SignUpScreen })));
+const SignInScreen = lazyWithRetry(() =>
+  import('@/features/auth/SignInScreen').then((m) => ({ default: m.SignInScreen })),
+);
+const SignUpScreen = lazyWithRetry(() =>
+  import('@/features/auth/SignUpScreen').then((m) => ({ default: m.SignUpScreen })),
+);
 const ForgotPasswordScreen = lazyWithRetry(() =>
   import('@/features/auth/ForgotPasswordScreen').then((m) => ({ default: m.ForgotPasswordScreen })),
 );
@@ -41,13 +47,17 @@ const EventDetailScreen = lazyWithRetry(() =>
   import('@/features/events/EventDetailScreen').then((m) => ({ default: m.EventDetailScreen })),
 );
 const EventProductionScreen = lazyWithRetry(() =>
-  import('@/features/events/EventProductionScreen').then((m) => ({ default: m.EventProductionScreen })),
+  import('@/features/events/EventProductionScreen').then((m) => ({
+    default: m.EventProductionScreen,
+  })),
 );
 const EventScheduleScreen = lazyWithRetry(() =>
   import('@/features/events/EventScheduleScreen').then((m) => ({ default: m.EventScheduleScreen })),
 );
 const EventDocumentsScreen = lazyWithRetry(() =>
-  import('@/features/events/EventDocumentsScreen').then((m) => ({ default: m.EventDocumentsScreen })),
+  import('@/features/events/EventDocumentsScreen').then((m) => ({
+    default: m.EventDocumentsScreen,
+  })),
 );
 const StageDetailScreen = lazyWithRetry(() =>
   import('@/features/events/StageDetailScreen').then((m) => ({ default: m.StageDetailScreen })),
@@ -57,35 +67,49 @@ const AdvanceDetailScreen = lazyWithRetry(() =>
 );
 
 const TemplatesListScreen = lazyWithRetry(() =>
-  import('@/features/templates/TemplatesListScreen').then((m) => ({ default: m.TemplatesListScreen })),
+  import('@/features/templates/TemplatesListScreen').then((m) => ({
+    default: m.TemplatesListScreen,
+  })),
 );
 const TemplateEditorScreen = lazyWithRetry(() =>
-  import('@/features/templates/TemplateEditorScreen').then((m) => ({ default: m.TemplateEditorScreen })),
+  import('@/features/templates/TemplateEditorScreen').then((m) => ({
+    default: m.TemplateEditorScreen,
+  })),
 );
 
 const ScheduleTemplatesListScreen = lazyWithRetry(() =>
-  import('@/features/scheduleTemplates/ScheduleTemplatesListScreen').then((m) => ({ default: m.ScheduleTemplatesListScreen })),
+  import('@/features/scheduleTemplates/ScheduleTemplatesListScreen').then((m) => ({
+    default: m.ScheduleTemplatesListScreen,
+  })),
 );
 const ScheduleTemplateEditorScreen = lazyWithRetry(() =>
-  import('@/features/scheduleTemplates/ScheduleTemplateEditorScreen').then((m) => ({ default: m.ScheduleTemplateEditorScreen })),
+  import('@/features/scheduleTemplates/ScheduleTemplateEditorScreen').then((m) => ({
+    default: m.ScheduleTemplateEditorScreen,
+  })),
 );
 
 const TrackerOverviewScreen = lazyWithRetry(() =>
-  import('@/features/tracker/TrackerOverviewScreen').then((m) => ({ default: m.TrackerOverviewScreen })),
+  import('@/features/tracker/TrackerOverviewScreen').then((m) => ({
+    default: m.TrackerOverviewScreen,
+  })),
 );
 const EventTrackerScreen = lazyWithRetry(() =>
   import('@/features/tracker/EventTrackerScreen').then((m) => ({ default: m.EventTrackerScreen })),
 );
 
 const ContactsDirectoryScreen = lazyWithRetry(() =>
-  import('@/features/contacts/ContactsDirectoryScreen').then((m) => ({ default: m.ContactsDirectoryScreen })),
+  import('@/features/contacts/ContactsDirectoryScreen').then((m) => ({
+    default: m.ContactsDirectoryScreen,
+  })),
 );
 
 const DocumentsScreen = lazyWithRetry(() =>
   import('@/features/documents/DocumentsScreen').then((m) => ({ default: m.DocumentsScreen })),
 );
 const ArtistDocumentsScreen = lazyWithRetry(() =>
-  import('@/features/documents/ArtistDocumentsScreen').then((m) => ({ default: m.ArtistDocumentsScreen })),
+  import('@/features/documents/ArtistDocumentsScreen').then((m) => ({
+    default: m.ArtistDocumentsScreen,
+  })),
 );
 
 const SettingsScreen = lazyWithRetry(() =>
@@ -168,7 +192,9 @@ export function App() {
             }
           />
           {/* Dev-only specimen route; never registered in production bundles. */}
-          {import.meta.env.DEV && ThemeSpecimen && <Route path="/__theme" element={<ThemeSpecimen />} />}
+          {import.meta.env.DEV && ThemeSpecimen && (
+            <Route path="/__theme" element={<ThemeSpecimen />} />
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -45,7 +45,9 @@ describe('getArtistDocumentContent — event-document gates', () => {
 
   it('rejects unauthenticated calls', async () => {
     await expect(
-      testEnv.wrap(getArtistDocumentContent)(callableRequest({ fileId: 'efile-1', eventId: EVENT_ID })),
+      testEnv.wrap(getArtistDocumentContent)(
+        callableRequest({ fileId: 'efile-1', eventId: EVENT_ID }),
+      ),
     ).rejects.toMatchObject({ code: 'unauthenticated' });
   });
 
@@ -82,7 +84,9 @@ const ADMIN = authContext('admin-uid', { admin: true, approved: true });
 
 async function seedAdvanceAndLibrary(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event' });
-  await db.doc(`events/${EVENT_ID}/members/${PM.uid}`).set({ role: 'production-manager', uid: PM.uid });
+  await db
+    .doc(`events/${EVENT_ID}/members/${PM.uid}`)
+    .set({ role: 'production-manager', uid: PM.uid });
   await db.doc(`events/${EVENT_ID}/members/${TECH.uid}`).set({ role: 'tech', uid: TECH.uid });
   // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
   await db.doc(`users/${PM.uid}`).set({ approved: true });
@@ -110,22 +114,35 @@ describe('includeArtistDocumentOnAdvance', () => {
   });
   const req = (over: Record<string, string> = {}, ctx = PM) =>
     callableRequest(
-      { eventId: EVENT_ID, stageId: 'stg-1', advanceId: 'adv-1', artistDocumentId: 'lib-1', ...over },
+      {
+        eventId: EVENT_ID,
+        stageId: 'stg-1',
+        advanceId: 'adv-1',
+        artistDocumentId: 'lib-1',
+        ...over,
+      },
       ctx,
     );
 
   it('rejects unauthenticated calls', async () => {
     await expect(
       testEnv.wrap(includeArtistDocumentOnAdvance)(
-        callableRequest({ eventId: EVENT_ID, stageId: 'stg-1', advanceId: 'adv-1', artistDocumentId: 'lib-1' }),
+        callableRequest({
+          eventId: EVENT_ID,
+          stageId: 'stg-1',
+          advanceId: 'adv-1',
+          artistDocumentId: 'lib-1',
+        }),
       ),
     ).rejects.toMatchObject({ code: 'unauthenticated' });
   });
 
   it('a tech (non-editor) cannot include a document', async () => {
-    await expect(testEnv.wrap(includeArtistDocumentOnAdvance)(req({}, TECH))).rejects.toMatchObject({
-      code: 'permission-denied',
-    });
+    await expect(testEnv.wrap(includeArtistDocumentOnAdvance)(req({}, TECH))).rejects.toMatchObject(
+      {
+        code: 'permission-denied',
+      },
+    );
   });
 
   it('an unknown library document → not-found', async () => {
@@ -171,7 +188,9 @@ describe('registerEventDocument — gates (pre-Drive)', () => {
 
   it('a tech (non-editor) cannot register', async () => {
     await expect(
-      testEnv.wrap(registerEventDocument)(callableRequest({ eventId: EVENT_ID, fileId: 'f1' }, TECH)),
+      testEnv.wrap(registerEventDocument)(
+        callableRequest({ eventId: EVENT_ID, fileId: 'f1' }, TECH),
+      ),
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 

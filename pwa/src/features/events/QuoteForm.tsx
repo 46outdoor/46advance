@@ -36,7 +36,14 @@ const toDraft = (item: QuoteLineItem): DraftLine => ({
 const emptyLine = (): DraftLine => ({ description: '', quantity: '1', unitPrice: '0' });
 
 /** Create/edit form for a quote, with a line-item editor + live total. */
-export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: QuoteFormProps) {
+export function QuoteForm({
+  initial,
+  submitLabel,
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: QuoteFormProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [lines, setLines] = useState<DraftLine[]>(
@@ -47,7 +54,8 @@ export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCa
   const setLine = (i: number, patch: Partial<DraftLine>) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const addLine = () => setLines((prev) => [...prev, emptyLine()]);
-  const removeLine = (i: number) => setLines((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+  const removeLine = (i: number) =>
+    setLines((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
 
   const parsedLines: QuoteLineItem[] = lines.map((l) => ({
     description: l.description.trim(),
@@ -75,7 +83,12 @@ export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCa
     <form className="space-y-3" onSubmit={submit}>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Title</span>
-        <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Backline rental" />
+        <input
+          className={inputClass}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Backline rental"
+        />
       </label>
 
       <div className="space-y-2">
@@ -108,7 +121,9 @@ export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCa
               placeholder="Unit"
               aria-label="Unit price"
             />
-            <span className="col-span-1 text-right text-sm text-ink-muted">{formatMoney(lineItemTotal(parsedLines[i]))}</span>
+            <span className="col-span-1 text-right text-sm text-ink-muted">
+              {formatMoney(lineItemTotal(parsedLines[i]))}
+            </span>
             <button
               type="button"
               onClick={() => removeLine(i)}
@@ -130,7 +145,12 @@ export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCa
 
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Notes</span>
-        <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
 
       <div className="flex items-center gap-3">
@@ -142,11 +162,17 @@ export function QuoteForm({ initial, submitLabel, pending, error, onSubmit, onCa
           {pending ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-ink-muted hover:text-ink"
+          >
             Cancel
           </button>
         )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError || error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

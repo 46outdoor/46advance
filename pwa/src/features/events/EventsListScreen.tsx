@@ -82,7 +82,13 @@ export function EventsListScreen() {
       const id = templateId
         ? await createEventFromTemplate(templateId, input)
         : await createEvent(input);
-      await applyDefaultMasterSchedule(id, input, templateId, templatesQuery.data ?? [], viewer!.uid);
+      await applyDefaultMasterSchedule(
+        id,
+        input,
+        templateId,
+        templatesQuery.data ?? [],
+        viewer!.uid,
+      );
       return id;
     },
     onSuccess: (id) => {
@@ -126,7 +132,9 @@ export function EventsListScreen() {
         <div className="space-y-3 rounded-lg border border-line bg-surface-muted/40 p-4">
           {(templatesQuery.data ?? []).length > 0 && (
             <label className="block text-sm">
-              <span className="mb-1 block font-semibold text-ink">Start from template (optional)</span>
+              <span className="mb-1 block font-semibold text-ink">
+                Start from template (optional)
+              </span>
               <select
                 className="w-72 rounded border border-line px-3 py-2 outline-none focus:border-brand"
                 value={templateId}

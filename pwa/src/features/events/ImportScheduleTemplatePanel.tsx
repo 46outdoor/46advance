@@ -34,7 +34,10 @@ export function ImportScheduleTemplatePanel({
 }) {
   const queryClient = useQueryClient();
   const [importId, setImportId] = useState('');
-  const templatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates });
+  const templatesQuery = useQuery({
+    queryKey: ['scheduleTemplates'],
+    queryFn: listScheduleTemplates,
+  });
   const templates = templatesQuery.data ?? [];
 
   const importTemplate = useMutation({
@@ -89,12 +92,16 @@ export function ImportScheduleTemplatePanel({
         {importTemplate.isPending ? 'Importing…' : 'Import'}
       </button>
       {!eventStart && (
-        <span className="text-sm text-ink-muted">Set the event’s start date first — template days anchor to it.</span>
+        <span className="text-sm text-ink-muted">
+          Set the event’s start date first — template days anchor to it.
+        </span>
       )}
       {importTemplate.isSuccess && <span className="text-sm text-status-complete">Imported.</span>}
       {importTemplate.isError && (
         <span className="text-sm text-accent">
-          {importTemplate.error instanceof Error ? importTemplate.error.message : 'Could not import.'}
+          {importTemplate.error instanceof Error
+            ? importTemplate.error.message
+            : 'Could not import.'}
         </span>
       )}
     </div>

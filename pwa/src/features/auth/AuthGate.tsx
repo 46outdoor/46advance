@@ -27,7 +27,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!approved) {
     return (
       <AuthGateCard>
-        <h1 className="font-display text-xl font-black tracking-tight text-brand">Account pending approval</h1>
+        <h1 className="font-display text-xl font-black tracking-tight text-brand">
+          Account pending approval
+        </h1>
         <p className="text-sm text-ink-muted">
           Your account ({user.email}) is awaiting admin approval. You’ll get access once an
           administrator approves it.
@@ -95,7 +97,7 @@ function VerifyEmailScreen({ email }: { email: string | null }) {
     try {
       await refreshUser();
       // If still unverified, refreshUser leaves this screen mounted — tell the user.
-      setNotice("Still not verified. Click the link in the email, then try again.");
+      setNotice('Still not verified. Click the link in the email, then try again.');
     } catch {
       setNotice('Could not check verification status. Try again.');
     } finally {
@@ -105,7 +107,9 @@ function VerifyEmailScreen({ email }: { email: string | null }) {
 
   return (
     <AuthGateCard>
-      <h1 className="font-display text-xl font-black tracking-tight text-brand">Verify your email</h1>
+      <h1 className="font-display text-xl font-black tracking-tight text-brand">
+        Verify your email
+      </h1>
       <p className="text-sm text-ink-muted">
         We sent a verification link to {email ?? 'your email'}. Click it to activate your account,
         then continue.

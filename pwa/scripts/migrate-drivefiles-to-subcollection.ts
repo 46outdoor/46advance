@@ -43,7 +43,9 @@ async function main(): Promise<void> {
     for (const f of raw) {
       const fileId = (f as { fileId?: unknown }).fileId;
       if (typeof fileId !== 'string' || fileId.length === 0) continue;
-      batch.set(adv.ref.collection('driveFiles').doc(fileId), f as Record<string, unknown>, { merge: true });
+      batch.set(adv.ref.collection('driveFiles').doc(fileId), f as Record<string, unknown>, {
+        merge: true,
+      });
       count++;
     }
     batch.update(adv.ref, { driveFiles: FieldValue.delete() });

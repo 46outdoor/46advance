@@ -24,14 +24,7 @@ export interface PersonaClaims {
 }
 
 export type PersonaKey =
-  | 'admin'
-  | 'organizer'
-  | 'pm'
-  | 'lead'
-  | 'tech'
-  | 'crossEvent'
-  | 'pending'
-  | 'revoked';
+  'admin' | 'organizer' | 'pm' | 'lead' | 'tech' | 'crossEvent' | 'pending' | 'revoked';
 
 export interface Persona {
   key: PersonaKey;

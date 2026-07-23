@@ -22,7 +22,9 @@ const TECH = authContext('tech-uid', { approved: true });
 
 async function seedEventAndDay(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event', timeZone: 'America/Chicago' });
-  await db.doc(`events/${EVENT_ID}/members/${PM.uid}`).set({ role: 'production-manager', uid: PM.uid });
+  await db
+    .doc(`events/${EVENT_ID}/members/${PM.uid}`)
+    .set({ role: 'production-manager', uid: PM.uid });
   await db.doc(`events/${EVENT_ID}/members/${TECH.uid}`).set({ role: 'tech', uid: TECH.uid });
   // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
   await db.doc(`users/${PM.uid}`).set({ approved: true });
@@ -68,7 +70,9 @@ describe('reconcileScheduleDay', () => {
 
   it('rejects a non-PM member (tech)', async () => {
     await expect(
-      testEnv.wrap(reconcileScheduleDay)(callableRequest({ eventId: EVENT_ID, dayId: DAY_ID }, TECH)),
+      testEnv.wrap(reconcileScheduleDay)(
+        callableRequest({ eventId: EVENT_ID, dayId: DAY_ID }, TECH),
+      ),
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
@@ -77,7 +81,9 @@ describe('reconcileScheduleDay', () => {
       testEnv.wrap(reconcileScheduleDay)(callableRequest({ eventId: EVENT_ID }, ADMIN)),
     ).rejects.toMatchObject({ code: 'invalid-argument' });
     await expect(
-      testEnv.wrap(reconcileScheduleDay)(callableRequest({ eventId: EVENT_ID, dayId: '2026-01-01' }, ADMIN)),
+      testEnv.wrap(reconcileScheduleDay)(
+        callableRequest({ eventId: EVENT_ID, dayId: '2026-01-01' }, ADMIN),
+      ),
     ).rejects.toMatchObject({ code: 'not-found' });
   });
 

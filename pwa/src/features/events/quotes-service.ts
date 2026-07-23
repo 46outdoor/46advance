@@ -182,7 +182,10 @@ export async function generateQuotePdf(
   advanceId: string,
   quoteId: string,
 ): Promise<string> {
-  const callable = httpsCallable<GenerateQuotePdfInput, GenerateQuotePdfOutput>(functions, 'generateQuotePdf');
+  const callable = httpsCallable<GenerateQuotePdfInput, GenerateQuotePdfOutput>(
+    functions,
+    'generateQuotePdf',
+  );
   const { path, url } = (await callable({ eventId, stageId, advanceId, quoteId })).data;
   // Prefer the server's signed, expiring URL (shareable with the artist); fall back
   // to a member-gated download if signing isn't configured.

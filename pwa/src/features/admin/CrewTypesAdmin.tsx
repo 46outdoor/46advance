@@ -44,8 +44,8 @@ export function CrewTypesAdmin() {
     <div className="space-y-4">
       <h2 className="font-display text-xl font-bold text-brand">Crew types</h2>
       <p className="text-sm text-ink-muted">
-        The crew types offered on labor crew lines in schedules and schedule templates
-        (e.g. "(24) Stagehands · 10h").
+        The crew types offered on labor crew lines in schedules and schedule templates (e.g. "(24)
+        Stagehands · 10h").
       </p>
       <ul className="space-y-2">
         {types.map((type, i) => (
@@ -54,7 +54,9 @@ export function CrewTypesAdmin() {
               className={inputClass}
               value={type}
               aria-label={`Crew type ${i + 1}`}
-              onChange={(e) => editTypes((prev) => prev.map((t, j) => (j === i ? e.target.value : t)))}
+              onChange={(e) =>
+                editTypes((prev) => prev.map((t, j) => (j === i ? e.target.value : t)))
+              }
             />
             <button
               type="button"

@@ -12,7 +12,11 @@ import {
   setArtistDocumentVerified,
   updateArtistDocument,
 } from '@/lib/documents/artist-documents-service';
-import { documentTitle, isVerifiedCurrent, type ArtistDocument } from '@/lib/documents/artistDocument';
+import {
+  documentTitle,
+  isVerifiedCurrent,
+  type ArtistDocument,
+} from '@/lib/documents/artistDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
 import {
@@ -24,7 +28,8 @@ import {
 
 const logger = createLogger('Documents');
 
-const inputClass = 'w-full rounded border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
+const inputClass =
+  'w-full rounded border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
 const chipButton =
   'min-h-[44px] rounded border border-line px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
 
@@ -34,13 +39,26 @@ interface RowProps {
   canManage: boolean;
   pending: boolean;
   onSetCategory: (categoryId: string | null) => void;
-  onUpdate: (fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean }) => void;
+  onUpdate: (fields: {
+    displayName?: string | null;
+    notes?: string | null;
+    obsolete?: boolean;
+  }) => void;
   onSetVerified: (verified: boolean) => void;
   onRemove: () => void;
 }
 
 /** One document row: in-app title (overrides the Drive name), category, notes, obsolete tag. */
-function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpdate, onSetVerified, onRemove }: RowProps) {
+function DocumentRow({
+  doc,
+  categories,
+  canManage,
+  pending,
+  onSetCategory,
+  onUpdate,
+  onSetVerified,
+  onRemove,
+}: RowProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(doc.displayName ?? '');
   const [notes, setNotes] = useState(doc.notes ?? '');
@@ -67,7 +85,9 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
   };
 
   return (
-    <article className={`rounded-lg border px-4 py-3 ${doc.obsolete ? 'border-line/60 bg-surface-muted/30' : 'border-line'}`}>
+    <article
+      className={`rounded-lg border px-4 py-3 ${doc.obsolete ? 'border-line/60 bg-surface-muted/30' : 'border-line'}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
@@ -127,10 +147,20 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
             <button type="button" onClick={() => setEditing((v) => !v)} className={chipButton}>
               Edit
             </button>
-            <button type="button" disabled={pending} onClick={() => onSetVerified(!verified)} className={chipButton}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onSetVerified(!verified)}
+              className={chipButton}
+            >
               {verified ? 'Unverify' : 'Verify current'}
             </button>
-            <button type="button" disabled={pending} onClick={() => onUpdate({ obsolete: !doc.obsolete })} className={chipButton}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onUpdate({ obsolete: !doc.obsolete })}
+              className={chipButton}
+            >
               {doc.obsolete ? 'Mark current' : 'Mark obsolete'}
             </button>
             <button type="button" disabled={pending} onClick={onRemove} className={chipButton}>
@@ -151,12 +181,24 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
       {editing && canManage && (
         <div className="mt-3 space-y-2">
           <label className="block text-sm">
-            <span className="mb-1 block text-ink-muted">In-app title (blank = Drive name “{doc.name}”)</span>
-            <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={doc.name} />
+            <span className="mb-1 block text-ink-muted">
+              In-app title (blank = Drive name “{doc.name}”)
+            </span>
+            <input
+              className={inputClass}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={doc.name}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-ink-muted">Notes</span>
-            <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <textarea
+              className={inputClass}
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </label>
           <div className="flex gap-2">
             <button
@@ -167,14 +209,20 @@ function DocumentRow({ doc, categories, canManage, pending, onSetCategory, onUpd
             >
               Save
             </button>
-            <button type="button" onClick={() => setEditing(false)} className="text-sm text-ink-muted hover:text-ink">
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-sm text-ink-muted hover:text-ink"
+            >
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {!editing && doc.notes && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{doc.notes}</p>}
+      {!editing && doc.notes && (
+        <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{doc.notes}</p>
+      )}
     </article>
   );
 }
@@ -201,7 +249,8 @@ function ArtistUploadPanel({
       let folderId = targetFolderId;
       if (!folderId) {
         const root = await getDocumentsLibraryRoot();
-        if (!root) throw new Error('Import the library first — its root folder isn’t recorded yet.');
+        if (!root)
+          throw new Error('Import the library first — its root folder isn’t recorded yet.');
         folderId = await createDriveFolder(artistName, root);
       }
       const uploaded = await uploadFileToDrive(file, folderId);
@@ -263,9 +312,13 @@ export function ArtistDocumentsScreen() {
     queryKey: ['artistDocuments', 'artist', decodedKey],
     queryFn: () => listDocumentsForArtist(decodedKey),
   });
-  const categoriesQuery = useQuery({ queryKey: ['documentCategories'], queryFn: listDocumentCategories });
+  const categoriesQuery = useQuery({
+    queryKey: ['documentCategories'],
+    queryFn: listDocumentCategories,
+  });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['artistDocuments', 'artist', decodedKey] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['artistDocuments', 'artist', decodedKey] });
 
   const setCategory = useMutation({
     mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) =>
@@ -275,14 +328,20 @@ export function ArtistDocumentsScreen() {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, fields }: { id: string; fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean } }) =>
-      updateArtistDocument(id, fields),
+    mutationFn: ({
+      id,
+      fields,
+    }: {
+      id: string;
+      fields: { displayName?: string | null; notes?: string | null; obsolete?: boolean };
+    }) => updateArtistDocument(id, fields),
     onSuccess: () => void invalidate(),
     onError: (err) => logger.error('Failed to update document', err),
   });
 
   const setVerified = useMutation({
-    mutationFn: ({ id, verified }: { id: string; verified: boolean }) => setArtistDocumentVerified(id, verified),
+    mutationFn: ({ id, verified }: { id: string; verified: boolean }) =>
+      setArtistDocumentVerified(id, verified),
     onSuccess: () => void invalidate(),
     onError: (err) => logger.error('Failed to set verification', err),
   });
@@ -316,7 +375,10 @@ export function ArtistDocumentsScreen() {
   return (
     <section className="space-y-6">
       <div>
-        <Link to="/documents" className="text-sm text-ink-muted transition-colors hover:text-accent">
+        <Link
+          to="/documents"
+          className="text-sm text-ink-muted transition-colors hover:text-accent"
+        >
           ← Documents
         </Link>
       </div>
@@ -348,8 +410,9 @@ export function ArtistDocumentsScreen() {
             Removed from Drive ({removedDocs.length})
           </h2>
           <p className="text-sm text-ink-muted">
-            These files were deleted or moved out of the library folder in Google Drive. They're kept
-            here so a search still turns them up and you can see they once existed (and when they went).
+            These files were deleted or moved out of the library folder in Google Drive. They're
+            kept here so a search still turns them up and you can see they once existed (and when
+            they went).
           </p>
           {removedDocs.map(renderRow)}
         </div>

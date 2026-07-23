@@ -26,7 +26,10 @@ export async function signIn(page: Page, persona: Persona): Promise<void> {
  * /sign-in (AuthProvider clears the caches and hard-navigates there). */
 export async function signOut(page: Page): Promise<void> {
   await page.getByRole('button', { name: /sign out/i }).click();
-  await page.waitForURL((url) => url.pathname.includes('/sign-in'), { waitUntil: 'load', timeout: 15_000 });
+  await page.waitForURL((url) => url.pathname.includes('/sign-in'), {
+    waitUntil: 'load',
+    timeout: 15_000,
+  });
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Email').waitFor({ state: 'visible', timeout: 15_000 });
 }

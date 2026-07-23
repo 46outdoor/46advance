@@ -9,7 +9,9 @@ const STYLES: Record<EventStatus, string> = {
 /** Small lifecycle badge for an event's status (distinct from section status colors). */
 export function EventStatusBadge({ status }: { status: EventStatus }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}>
+    <span
+      className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}
+    >
       {status}
     </span>
   );

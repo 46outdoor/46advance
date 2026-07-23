@@ -14,7 +14,10 @@ const logger = createLogger('Advances');
 
 function sectionProgress(a: Advance): { complete: number; total: number } {
   const keys = Object.keys(a.sections);
-  return { complete: keys.filter((k) => a.sections[k].status === 'complete').length, total: keys.length };
+  return {
+    complete: keys.filter((k) => a.sections[k].status === 'complete').length,
+    total: keys.length,
+  };
 }
 
 /** Advances list + create, embedded on the stage detail page. */
@@ -87,8 +90,12 @@ export function AdvancesPanel({
         </div>
       )}
 
-      {advancesQuery.isLoading && <p className="text-sm text-ink-muted">Loading artist advances…</p>}
-      {advancesQuery.isError && <p className="text-sm text-accent">Failed to load artist advances.</p>}
+      {advancesQuery.isLoading && (
+        <p className="text-sm text-ink-muted">Loading artist advances…</p>
+      )}
+      {advancesQuery.isError && (
+        <p className="text-sm text-accent">Failed to load artist advances.</p>
+      )}
       {advancesQuery.data && advances.length === 0 && (
         <p className="text-sm text-ink-muted">No artist advances yet.</p>
       )}
@@ -105,8 +112,8 @@ export function AdvancesPanel({
                 {a.slot && <span className="ml-2 text-sm text-ink-muted">{slotLabel(a.slot)}</span>}
                 {a.performanceDate && (
                   <span className="ml-2 text-sm text-ink-muted">
-                  {formatZonedDate(a.performanceDate, eventQuery.data?.timeZone ?? APP_TIME_ZONE)}
-                </span>
+                    {formatZonedDate(a.performanceDate, eventQuery.data?.timeZone ?? APP_TIME_ZONE)}
+                  </span>
                 )}
               </span>
               <span className="shrink-0 text-xs text-ink-muted">

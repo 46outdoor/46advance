@@ -4,7 +4,11 @@
  * types currently visible under its filters.
  */
 import { useState } from 'react';
-import { scheduleItemTypeDef, scheduleItemTypeLabel, type ScheduleItemType } from '@/lib/schedules/itemTypes';
+import {
+  scheduleItemTypeDef,
+  scheduleItemTypeLabel,
+  type ScheduleItemType,
+} from '@/lib/schedules/itemTypes';
 
 interface TypeRef {
   type: ScheduleItemType;
@@ -23,7 +27,10 @@ export function ScheduleTypeDot({ type, customLabel }: TypeRef) {
       onClick={() => setOpen((o) => !o)}
       onBlur={() => setOpen(false)}
     >
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: scheduleItemTypeDef(type).color }} />
+      <span
+        className="h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: scheduleItemTypeDef(type).color }}
+      />
       {open && (
         <span className="absolute bottom-full left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2 py-0.5 text-[0.65rem] font-semibold text-surface">
           {label}

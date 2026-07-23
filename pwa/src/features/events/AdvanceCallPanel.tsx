@@ -52,7 +52,13 @@ export function AdvanceCallPanel({
     mutationFn: () => {
       const start = zonedInputToDate(when, timeZone);
       if (!start) throw new Error('Pick a date and time first.');
-      return createAdvanceCall({ eventId, stageId, advanceId, startMillis: start.getTime(), durationMinutes: duration });
+      return createAdvanceCall({
+        eventId,
+        stageId,
+        advanceId,
+        startMillis: start.getTime(),
+        durationMinutes: duration,
+      });
     },
     onSuccess: () => onCreated(),
     onError: (e) => logger.error('Failed to create Google Meet advance call', e),
@@ -77,7 +83,12 @@ export function AdvanceCallPanel({
         <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
           {at && <span className="text-ink-muted">{formatZonedDateTime(at, timeZone)}</span>}
           {link && (
-            <a href={link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
               Join
             </a>
           )}
@@ -85,7 +96,13 @@ export function AdvanceCallPanel({
             <button
               type="button"
               onClick={() =>
-                downloadIcs({ uid: `${title}-${at.getTime()}@46advance`, title, start: at, durationMinutes: duration, url: link })
+                downloadIcs({
+                  uid: `${title}-${at.getTime()}@46advance`,
+                  title,
+                  start: at,
+                  durationMinutes: duration,
+                  url: link,
+                })
               }
               className="text-accent hover:underline"
             >
@@ -127,7 +144,11 @@ export function AdvanceCallPanel({
                 onClick={() => create.mutate()}
                 className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {create.isPending ? 'Creating…' : hasCall ? 'New Google Meet' : 'Create Google Meet'}
+                {create.isPending
+                  ? 'Creating…'
+                  : hasCall
+                    ? 'New Google Meet'
+                    : 'Create Google Meet'}
               </button>
             </div>
           ) : (
@@ -135,12 +156,15 @@ export function AdvanceCallPanel({
               <Link to="/settings" className="text-accent hover:underline">
                 Connect Google
               </Link>{' '}
-              to create a Meet link for this call. You can still add an existing link by editing the advance.
+              to create a Meet link for this call. You can still add an existing link by editing the
+              advance.
             </p>
           )}
           {create.isError && (
             <p className="mt-1 text-xs text-accent">
-              {create.error instanceof Error ? create.error.message : 'Could not create the Meet link.'}
+              {create.error instanceof Error
+                ? create.error.message
+                : 'Could not create the Meet link.'}
             </p>
           )}
         </div>

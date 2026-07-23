@@ -29,7 +29,9 @@ if (getApps().length === 0) initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 
 async function main(): Promise<void> {
-  console.log(`Slug reservation backfill — project: ${PROJECT} — mode: ${COMMIT ? 'COMMIT' : 'REPORT-ONLY'}`);
+  console.log(
+    `Slug reservation backfill — project: ${PROJECT} — mode: ${COMMIT ? 'COMMIT' : 'REPORT-ONLY'}`,
+  );
 
   const events = (await db.collection('events').get()).docs;
   const bySlug = new Map<string, string[]>(); // slug -> [eventId, …]
@@ -43,7 +45,9 @@ async function main(): Promise<void> {
   //    create/rename could produce). These need a manual rename before enforcement is airtight.
   const dups = [...bySlug.entries()].filter(([, ids]) => ids.length > 1);
   console.log(`\n=== Duplicate slugs: ${dups.length} ===`);
-  dups.forEach(([slug, ids]) => console.log(`  "${slug}" → ${ids.join(', ')}  (reservation → ${ids[0]})`));
+  dups.forEach(([slug, ids]) =>
+    console.log(`  "${slug}" → ${ids.join(', ')}  (reservation → ${ids[0]})`),
+  );
 
   // 2) Backfill — reserve every event slug that has no reservation doc yet. A reservation that
   //    already exists is left as-is (idempotent); a mismatched owner is flagged, never overwritten.
@@ -56,7 +60,8 @@ async function main(): Promise<void> {
     const snap = await ref.get();
     if (snap.exists) {
       if (snap.get('eventId') === owner) alreadyOk += 1;
-      else conflicts.push(`"${slug}" reserved by ${snap.get('eventId')}, event doc owner is ${owner}`);
+      else
+        conflicts.push(`"${slug}" reserved by ${snap.get('eventId')}, event doc owner is ${owner}`);
       continue;
     }
     toWrite += 1;
@@ -65,7 +70,9 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n=== Summary ===`);
-  console.log(`  events with a slug:     ${[...bySlug.values()].reduce((n, ids) => n + ids.length, 0)}`);
+  console.log(
+    `  events with a slug:     ${[...bySlug.values()].reduce((n, ids) => n + ids.length, 0)}`,
+  );
   console.log(`  distinct slugs:         ${bySlug.size}`);
   console.log(`  duplicates:             ${dups.length}`);
   console.log(`  reservations already ok:${alreadyOk}`);
@@ -74,7 +81,10 @@ async function main(): Promise<void> {
     console.log(`  owner conflicts:        ${conflicts.length}`);
     conflicts.forEach((c) => console.log(`    ${c}`));
   }
-  if (!COMMIT) console.log('\nReport only — nothing was modified. Re-run with --commit to write reservations.');
+  if (!COMMIT)
+    console.log(
+      '\nReport only — nothing was modified. Re-run with --commit to write reservations.',
+    );
 }
 
 main().catch((err) => {

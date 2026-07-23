@@ -29,7 +29,8 @@ export const renameEventSlug = onCall(async (request) => {
     // --- reads (all before any write, per the transaction contract) ---
     const eventSnap = await tx.get(eventRef);
     if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-    const currentSlug = typeof eventSnap.get('slug') === 'string' ? (eventSnap.get('slug') as string) : null;
+    const currentSlug =
+      typeof eventSnap.get('slug') === 'string' ? (eventSnap.get('slug') as string) : null;
 
     const { slug: chosen, claimRef } = await findFreeSlug(tx, db, base, eventId);
     if (chosen === currentSlug) return { slug: chosen }; // no-op rename to the current slug

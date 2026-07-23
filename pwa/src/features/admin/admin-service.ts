@@ -65,22 +65,40 @@ export async function removeEventMember(eventId: string, uid: string): Promise<v
 }
 
 /** Admin-only: grant/revoke a user's global `organizer` capability (event creation). */
-export async function setUserOrganizer(uid: string, organizer: boolean): Promise<SetUserOrganizerOutput> {
-  const callable = httpsCallable<SetUserOrganizerInput, SetUserOrganizerOutput>(functions, 'setUserOrganizer');
+export async function setUserOrganizer(
+  uid: string,
+  organizer: boolean,
+): Promise<SetUserOrganizerOutput> {
+  const callable = httpsCallable<SetUserOrganizerInput, SetUserOrganizerOutput>(
+    functions,
+    'setUserOrganizer',
+  );
   const result = await callable({ uid, organizer });
   return result.data;
 }
 
 /** Admin-only: approve/revoke a user's access to the app. */
-export async function setUserApproved(uid: string, approved: boolean): Promise<SetUserApprovedOutput> {
-  const callable = httpsCallable<SetUserApprovedInput, SetUserApprovedOutput>(functions, 'setUserApproved');
+export async function setUserApproved(
+  uid: string,
+  approved: boolean,
+): Promise<SetUserApprovedOutput> {
+  const callable = httpsCallable<SetUserApprovedInput, SetUserApprovedOutput>(
+    functions,
+    'setUserApproved',
+  );
   const result = await callable({ uid, approved });
   return result.data;
 }
 
 /** Admin-only: set a user's display name (empty string clears it → falls back to email). */
-export async function setUserDisplayName(uid: string, displayName: string): Promise<SetUserDisplayNameOutput> {
-  const callable = httpsCallable<SetUserDisplayNameInput, SetUserDisplayNameOutput>(functions, 'setUserDisplayName');
+export async function setUserDisplayName(
+  uid: string,
+  displayName: string,
+): Promise<SetUserDisplayNameOutput> {
+  const callable = httpsCallable<SetUserDisplayNameInput, SetUserDisplayNameOutput>(
+    functions,
+    'setUserDisplayName',
+  );
   const result = await callable({ uid, displayName });
   return result.data;
 }

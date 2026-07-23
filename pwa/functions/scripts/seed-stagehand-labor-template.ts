@@ -24,7 +24,8 @@ const CREATOR_EMAIL = 'jared@46entertainment.com';
 const LUNCH_NOTE = '30 minute working lunch';
 
 /** Call types become the item titles (the labor section has no call-type field). */
-type CallType = 'Stagehands' | 'Riggers / Climbers' | 'Fork / Lull Operators' | 'Spot Op' | 'Cam Op';
+type CallType =
+  'Stagehands' | 'Riggers / Climbers' | 'Fork / Lull Operators' | 'Spot Op' | 'Cam Op';
 
 interface Call {
   type: CallType;
@@ -65,7 +66,13 @@ const DAYS: DayBlock[] = [
     dayOffset: -1,
     label: 'Production Load in Day',
     calls: [
-      { type: 'Stagehands', count: 28, start: '08:00', end: '18:00', note: 'Lighting / Audio / Video' },
+      {
+        type: 'Stagehands',
+        count: 28,
+        start: '08:00',
+        end: '18:00',
+        note: 'Lighting / Audio / Video',
+      },
       { type: 'Fork / Lull Operators', count: 3, start: '08:00', end: '18:00' },
       { type: 'Riggers / Climbers', count: 2, start: '08:00', end: '18:00' },
     ],
@@ -171,11 +178,16 @@ async function main(): Promise<void> {
     updatedAt: FieldValue.serverTimestamp(),
   };
 
-  const existing = await db.collection('scheduleTemplates').where('name', '==', TEMPLATE_NAME).get();
+  const existing = await db
+    .collection('scheduleTemplates')
+    .where('name', '==', TEMPLATE_NAME)
+    .get();
   if (!existing.empty) {
     // Merge without createdBy — a reseed refreshes content, not attribution.
     await existing.docs[0].ref.set(content, { merge: true });
-    console.log(`Updated "${TEMPLATE_NAME}" (${existing.docs[0].id}) in place: ${itemCount} items across ${days.length} days.`);
+    console.log(
+      `Updated "${TEMPLATE_NAME}" (${existing.docs[0].id}) in place: ${itemCount} items across ${days.length} days.`,
+    );
     return;
   }
 
@@ -184,7 +196,9 @@ async function main(): Promise<void> {
     createdBy: creator.uid,
     createdAt: FieldValue.serverTimestamp(),
   });
-  console.log(`Created "${TEMPLATE_NAME}" (${ref.id}): ${itemCount} items across ${days.length} days.`);
+  console.log(
+    `Created "${TEMPLATE_NAME}" (${ref.id}): ${itemCount} items across ${days.length} days.`,
+  );
 }
 
 main().catch((err) => {

@@ -35,7 +35,10 @@ export function TemplateEditorScreen() {
   });
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
   const usersQuery = useQuery({ queryKey: ['admin', 'users'], queryFn: listUsers });
-  const scheduleTemplatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates });
+  const scheduleTemplatesQuery = useQuery({
+    queryKey: ['scheduleTemplates'],
+    queryFn: listScheduleTemplates,
+  });
 
   const patch = useMutation({
     mutationFn: (data: Record<string, unknown>) => patchTemplate(templateId!, data),
@@ -60,7 +63,12 @@ export function TemplateEditorScreen() {
 
       {t && (
         <>
-          <NameField key={t.id} initial={t.name} pending={patch.isPending} onSave={(name) => patch.mutate({ name })} />
+          <NameField
+            key={t.id}
+            initial={t.name}
+            pending={patch.isPending}
+            onSave={(name) => patch.mutate({ name })}
+          />
 
           <Block title="Event logo">
             <EventLogoField
@@ -83,7 +91,12 @@ export function TemplateEditorScreen() {
           </Block>
 
           <Block title="Stages">
-            <StagesEditor key={`s-${t.id}`} initial={t.stages} pending={patch.isPending} onSave={(stages) => patch.mutate({ stages })} />
+            <StagesEditor
+              key={`s-${t.id}`}
+              initial={t.stages}
+              pending={patch.isPending}
+              onSave={(stages) => patch.mutate({ stages })}
+            />
           </Block>
 
           <Block title="Default roles">
@@ -107,7 +120,9 @@ export function TemplateEditorScreen() {
           </Block>
 
           <Block title="Event production defaults">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Site / production info</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+              Site / production info
+            </h3>
             <SectionContentForm
               key={`ep-${t.id}`}
               fields={EVENT_PRODUCTION_FIELDS}
@@ -116,7 +131,9 @@ export function TemplateEditorScreen() {
               pending={patch.isPending}
               onSave={(info) => patch.mutate({ 'eventProduction.info': info })}
             />
-            <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-muted">Contacts</h3>
+            <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-muted">
+              Contacts
+            </h3>
             <ProductionContactsEditor
               key={`epc-${t.id}`}
               initial={t.eventProduction.contacts}
@@ -144,7 +161,9 @@ export function TemplateEditorScreen() {
                 <h3 className="mb-2 font-display text-lg font-bold text-brand">{stage.name}</h3>
                 {enabledDepts.map((dept) => (
                   <div key={dept.id} className="mb-3">
-                    <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-muted">{dept.name}</h4>
+                    <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-muted">
+                      {dept.name}
+                    </h4>
                     <SectionContentForm
                       key={`${t.id}-${stage.id}-${dept.id}`}
                       fields={getDepartmentFields(dept.id, 'production')}
@@ -152,7 +171,9 @@ export function TemplateEditorScreen() {
                       readOnly={false}
                       pending={patch.isPending}
                       onSave={(content) =>
-                        patch.mutate({ [`stageProduction.${stage.id}.content.${dept.id}`]: content })
+                        patch.mutate({
+                          [`stageProduction.${stage.id}.content.${dept.id}`]: content,
+                        })
                       }
                     />
                   </div>
@@ -175,7 +196,15 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function NameField({ initial, pending, onSave }: { initial: string; pending?: boolean; onSave: (name: string) => void }) {
+function NameField({
+  initial,
+  pending,
+  onSave,
+}: {
+  initial: string;
+  pending?: boolean;
+  onSave: (name: string) => void;
+}) {
   const [name, setName] = useState(initial);
   return (
     <div className="flex items-end gap-2">
@@ -266,10 +295,13 @@ function ScheduleTemplatesField({
   return (
     <div className="space-y-2">
       <p className="text-sm text-ink-muted">
-        Auto-applied to the schedule when an event is created from this template (you can still import more later).
+        Auto-applied to the schedule when an event is created from this template (you can still
+        import more later).
       </p>
       {all.length === 0 ? (
-        <p className="text-sm text-ink-muted">No schedule templates yet (create them in Admin → Schedule templates).</p>
+        <p className="text-sm text-ink-muted">
+          No schedule templates yet (create them in Admin → Schedule templates).
+        </p>
       ) : (
         <div className="space-y-1 text-sm">
           {all.map((st) => (

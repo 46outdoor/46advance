@@ -28,9 +28,13 @@ export const removeScheduleCalendarEventInputSchema = z.object({
   eventId: z.string().min(1),
   calendarEventId: z.string().min(1),
 });
-export type RemoveScheduleCalendarEventInput = z.infer<typeof removeScheduleCalendarEventInputSchema>;
+export type RemoveScheduleCalendarEventInput = z.infer<
+  typeof removeScheduleCalendarEventInputSchema
+>;
 export const removeScheduleCalendarEventOutputSchema = z.object({
   removed: z.boolean(),
   reason: z.string().optional(),
 });
-export type RemoveScheduleCalendarEventOutput = z.infer<typeof removeScheduleCalendarEventOutputSchema>;
+export type RemoveScheduleCalendarEventOutput = z.infer<
+  typeof removeScheduleCalendarEventOutputSchema
+>;

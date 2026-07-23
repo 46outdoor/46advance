@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
 import { listUsers } from '@/lib/users/users-service';
-import { countPendingApproval, isPendingApproval } from '@/lib/users/approval';
+import { isPendingApproval } from '@/lib/users/approval';
 import { userFullName, userShortName } from '@/lib/users/userName';
 import type { UserProfile } from '@/types';
 import {
@@ -52,7 +52,12 @@ function UserNameCell({
         className="w-36 rounded border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand"
       />
       {dirty && (
-        <button type="button" disabled={pending} onClick={() => onSave(name)} className={cellButton}>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onSave(name)}
+          className={cellButton}
+        >
           Save
         </button>
       )}
@@ -78,7 +83,12 @@ function UserActionsCell({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <button type="button" disabled={!email || resetting} onClick={onResetPassword} className={cellButton}>
+      <button
+        type="button"
+        disabled={!email || resetting}
+        onClick={onResetPassword}
+        className={cellButton}
+      >
         Reset password
       </button>
       {!isSelf && (
@@ -91,6 +101,65 @@ function UserActionsCell({
           Delete
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Pending-approval queue — surfaced prominently at the top so new registrations get acted on.
+ * Renders nothing when no one is waiting; the full roster below manages everyone else.
+ */
+function PendingApprovalPanel({
+  users,
+  approving,
+  denying,
+  onApprove,
+  onDeny,
+}: {
+  users: UserProfile[];
+  approving: boolean;
+  denying: boolean;
+  onApprove: (uid: string) => void;
+  onDeny: (user: UserProfile) => void;
+}) {
+  const pending = users.filter((u) => isPendingApproval(u));
+  if (pending.length === 0) return null;
+  return (
+    <div className="space-y-3 rounded-lg border-2 border-accent/60 bg-accent/5 p-4">
+      <h2 className="font-display text-xl font-bold text-accent">
+        Pending approval ({pending.length})
+      </h2>
+      <p className="text-sm text-ink-muted">
+        These accounts have registered and are blocked from the app until you approve them.
+      </p>
+      <ul className="divide-y divide-line/60">
+        {pending.map((u) => (
+          <li key={u.uid} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span>
+              <span className="font-medium text-ink">{userFullName(u)}</span>
+              {u.email && <span className="ml-2 text-sm text-ink-muted">{u.email}</span>}
+            </span>
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={approving}
+                onClick={() => onApprove(u.uid)}
+                className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={denying}
+                onClick={() => onDeny(u)}
+                className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                Deny
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -145,13 +214,15 @@ export function AdminScreen() {
   });
 
   const setApproved = useMutation({
-    mutationFn: ({ uid, approved }: { uid: string; approved: boolean }) => setUserApproved(uid, approved),
+    mutationFn: ({ uid, approved }: { uid: string; approved: boolean }) =>
+      setUserApproved(uid, approved),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
     onError: (err) => logger.error('Failed to update approval', err),
   });
 
   const setName = useMutation({
-    mutationFn: ({ uid, displayName }: { uid: string; displayName: string }) => setUserDisplayName(uid, displayName),
+    mutationFn: ({ uid, displayName }: { uid: string; displayName: string }) =>
+      setUserDisplayName(uid, displayName),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
     onError: (err) => logger.error('Failed to set display name', err),
   });
@@ -176,146 +247,116 @@ export function AdminScreen() {
         </p>
       </header>
 
-      {/* Pending approval — surfaced prominently at the top so new registrations get acted on. Only
-          shown when someone is actually waiting; the full roster below manages everyone else. */}
-      {usersQuery.data && countPendingApproval(usersQuery.data) > 0 && (
-        <div className="space-y-3 rounded-lg border-2 border-accent/60 bg-accent/5 p-4">
-          <h2 className="font-display text-xl font-bold text-accent">
-            Pending approval ({countPendingApproval(usersQuery.data)})
-          </h2>
-          <p className="text-sm text-ink-muted">
-            These accounts have registered and are blocked from the app until you approve them.
-          </p>
-          <ul className="divide-y divide-line/60">
-            {usersQuery.data.filter((u) => isPendingApproval(u)).map((u) => (
-              <li key={u.uid} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>
-                  <span className="font-medium text-ink">{userFullName(u)}</span>
-                  {u.email && <span className="ml-2 text-sm text-ink-muted">{u.email}</span>}
-                </span>
-                <span className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={setApproved.isPending}
-                    onClick={() => setApproved.mutate({ uid: u.uid, approved: true })}
-                    className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deleteAccount.isPending}
-                    onClick={() => {
-                      if (window.confirm(`Deny and permanently delete ${userFullName(u)}'s account?`)) {
-                        deleteAccount.mutate(u.uid);
-                      }
-                    }}
-                    className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                  >
-                    Deny
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <PendingApprovalPanel
+        users={usersQuery.data ?? []}
+        approving={setApproved.isPending}
+        denying={deleteAccount.isPending}
+        onApprove={(uid) => setApproved.mutate({ uid, approved: true })}
+        onDeny={(u) => {
+          if (window.confirm(`Deny and permanently delete ${userFullName(u)}'s account?`)) {
+            deleteAccount.mutate(u.uid);
+          }
+        }}
+      />
 
       {/* Users */}
       <div className="space-y-3">
         <h2 className="font-display text-xl font-bold text-brand">Users</h2>
         {usersQuery.isLoading && <p className="text-sm text-ink-muted">Loading users…</p>}
-        {usersQuery.isError && (
-          <p className="text-sm text-accent">Failed to load users.</p>
-        )}
+        {usersQuery.isError && <p className="text-sm text-accent">Failed to load users.</p>}
         {usersQuery.data && (
           <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-ink-muted">
-                <th className="py-2 pr-4 font-semibold">Name</th>
-                <th className="py-2 pr-4 font-semibold">Email</th>
-                <th className="py-2 pr-4 font-semibold">UID</th>
-                <th className="py-2 pr-4 font-semibold">Admin</th>
-                <th className="py-2 pr-4 font-semibold">Approved</th>
-                <th className="py-2 pr-4 font-semibold">Organizer</th>
-                <th className="py-2 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usersQuery.data.map((u) => (
-                <tr key={u.uid} className="border-b border-line/60">
-                  <td className="py-2 pr-4">
-                    <UserNameCell
-                      user={u}
-                      pending={setName.isPending}
-                      onSave={(displayName) => setName.mutate({ uid: u.uid, displayName })}
-                    />
-                  </td>
-                  <td className="py-2 pr-4">{u.email ?? '—'}</td>
-                  <td className="py-2 pr-4 font-mono text-xs text-ink-muted">{u.uid}</td>
-                  <td className="py-2 pr-4">{u.isAdmin ? 'Yes' : 'No'}</td>
-                  <td className="py-2 pr-4">
-                    {u.isAdmin ? (
-                      <span className="text-ink-muted">Yes</span>
-                    ) : (
-                      <>
-                        <span className="mr-2">{u.approved ? 'Yes' : 'No'}</span>
-                        <button
-                          type="button"
-                          disabled={setApproved.isPending}
-                          onClick={() => setApproved.mutate({ uid: u.uid, approved: !u.approved })}
-                          className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                        >
-                          {u.approved ? 'Revoke' : 'Approve'}
-                        </button>
-                      </>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <span className="mr-2">{u.organizer ? 'Yes' : 'No'}</span>
-                    <button
-                      type="button"
-                      disabled={setOrganizer.isPending}
-                      onClick={() => setOrganizer.mutate({ uid: u.uid, organizer: !u.organizer })}
-                      className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                    >
-                      {u.organizer ? 'Revoke' : 'Grant'}
-                    </button>
-                  </td>
-                  <td className="py-2">
-                    <UserActionsCell
-                      email={u.email}
-                      isSelf={u.uid === user?.uid}
-                      resetting={resetPassword.isPending}
-                      deleting={deleteAccount.isPending}
-                      onResetPassword={() => {
-                        if (u.email && window.confirm(`Send a password reset email to ${u.email}?`)) {
-                          resetPassword.mutate(u.email);
-                        }
-                      }}
-                      onDelete={() => {
-                        if (
-                          window.confirm(
-                            `Permanently delete ${userFullName(u)}? The account is removed; their contact is kept.`,
-                          )
-                        ) {
-                          deleteAccount.mutate(u.uid);
-                        }
-                      }}
-                    />
-                  </td>
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-muted">
+                  <th className="py-2 pr-4 font-semibold">Name</th>
+                  <th className="py-2 pr-4 font-semibold">Email</th>
+                  <th className="py-2 pr-4 font-semibold">UID</th>
+                  <th className="py-2 pr-4 font-semibold">Admin</th>
+                  <th className="py-2 pr-4 font-semibold">Approved</th>
+                  <th className="py-2 pr-4 font-semibold">Organizer</th>
+                  <th className="py-2 font-semibold">Actions</th>
                 </tr>
-              ))}
-              {usersQuery.data.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-3 text-ink-muted">
-                    No users yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {usersQuery.data.map((u) => (
+                  <tr key={u.uid} className="border-b border-line/60">
+                    <td className="py-2 pr-4">
+                      <UserNameCell
+                        user={u}
+                        pending={setName.isPending}
+                        onSave={(displayName) => setName.mutate({ uid: u.uid, displayName })}
+                      />
+                    </td>
+                    <td className="py-2 pr-4">{u.email ?? '—'}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-ink-muted">{u.uid}</td>
+                    <td className="py-2 pr-4">{u.isAdmin ? 'Yes' : 'No'}</td>
+                    <td className="py-2 pr-4">
+                      {u.isAdmin ? (
+                        <span className="text-ink-muted">Yes</span>
+                      ) : (
+                        <>
+                          <span className="mr-2">{u.approved ? 'Yes' : 'No'}</span>
+                          <button
+                            type="button"
+                            disabled={setApproved.isPending}
+                            onClick={() =>
+                              setApproved.mutate({ uid: u.uid, approved: !u.approved })
+                            }
+                            className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                          >
+                            {u.approved ? 'Revoke' : 'Approve'}
+                          </button>
+                        </>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className="mr-2">{u.organizer ? 'Yes' : 'No'}</span>
+                      <button
+                        type="button"
+                        disabled={setOrganizer.isPending}
+                        onClick={() => setOrganizer.mutate({ uid: u.uid, organizer: !u.organizer })}
+                        className="rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                      >
+                        {u.organizer ? 'Revoke' : 'Grant'}
+                      </button>
+                    </td>
+                    <td className="py-2">
+                      <UserActionsCell
+                        email={u.email}
+                        isSelf={u.uid === user?.uid}
+                        resetting={resetPassword.isPending}
+                        deleting={deleteAccount.isPending}
+                        onResetPassword={() => {
+                          if (
+                            u.email &&
+                            window.confirm(`Send a password reset email to ${u.email}?`)
+                          ) {
+                            resetPassword.mutate(u.email);
+                          }
+                        }}
+                        onDelete={() => {
+                          if (
+                            window.confirm(
+                              `Permanently delete ${userFullName(u)}? The account is removed; their contact is kept.`,
+                            )
+                          ) {
+                            deleteAccount.mutate(u.uid);
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+                {usersQuery.data.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-3 text-ink-muted">
+                      No users yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -353,7 +394,8 @@ export function AdminScreen() {
         <h2 className="font-display text-xl font-bold text-brand">Schedule templates</h2>
         <div className="rounded-lg border border-line p-4">
           <p className="text-sm text-ink-muted">
-            Reusable schedule blueprints (Production, Show, Stagehand…) you can import into any event's schedule.
+            Reusable schedule blueprints (Production, Show, Stagehand…) you can import into any
+            event's schedule.
           </p>
           <Link
             to="/schedule-templates"
@@ -440,7 +482,8 @@ export function AdminScreen() {
         {trimmedEventId && (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-ink">
-              Members of {eventsQuery.data?.find((e) => e.id === trimmedEventId)?.name ?? trimmedEventId}
+              Members of{' '}
+              {eventsQuery.data?.find((e) => e.id === trimmedEventId)?.name ?? trimmedEventId}
             </h3>
             {membersQuery.isLoading && <p className="text-sm text-ink-muted">Loading members…</p>}
             {membersQuery.data && membersQuery.data.length === 0 && (

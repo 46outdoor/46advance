@@ -34,7 +34,12 @@ export async function includeArtistDocument(
   advanceId: string,
   documentId: string,
 ): Promise<void> {
-  await includeArtistDocumentOnAdvance({ eventId, stageId, advanceId, artistDocumentId: documentId });
+  await includeArtistDocumentOnAdvance({
+    eventId,
+    stageId,
+    advanceId,
+    artistDocumentId: documentId,
+  });
 }
 
 /** Toggle whether an included doc embeds in the generated packet (Documents PR 5). */

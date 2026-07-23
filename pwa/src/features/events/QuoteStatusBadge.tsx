@@ -12,7 +12,9 @@ const STYLES: Record<QuoteStatus, string> = {
 /** Quote lifecycle pill: draft · sent · approved · rejected. */
 export function QuoteStatusBadge({ status }: { status: QuoteStatus }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}>
+    <span
+      className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}
+    >
       {QUOTE_STATUS_LABELS[status]}
     </span>
   );

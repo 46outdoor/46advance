@@ -31,19 +31,28 @@ export const renameEventCalendarOnChange = onDocumentUpdated(
     try {
       client = await authedClientForUser(db, plan.ownerUid);
     } catch {
-      logger.info('Event calendar rename skipped — owner not Google-connected', { calendarId: plan.calendarId });
+      logger.info('Event calendar rename skipped — owner not Google-connected', {
+        calendarId: plan.calendarId,
+      });
       return;
     }
 
     try {
       const calendar = google.calendar({ version: 'v3', auth: client });
       await withGoogleRetry(
-        () => calendar.calendars.patch({ calendarId: plan.calendarId, requestBody: { summary: plan.summary } }),
+        () =>
+          calendar.calendars.patch({
+            calendarId: plan.calendarId,
+            requestBody: { summary: plan.summary },
+          }),
         { label: 'calendars.patch' },
       );
       logger.info('Event calendar renamed', { calendarId: plan.calendarId });
     } catch (err) {
-      logger.error('Event calendar rename failed', { calendarId: plan.calendarId, error: String(err) });
+      logger.error('Event calendar rename failed', {
+        calendarId: plan.calendarId,
+        error: String(err),
+      });
     }
   },
 );

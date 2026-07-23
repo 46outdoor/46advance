@@ -28,10 +28,12 @@ export function LandingScreen() {
             <img src="/brand/46-mark-white.png" alt="" aria-hidden="true" className="h-12 w-auto" />
             <span className="pb-1 font-sans text-sm uppercase tracking-[0.3em]">Advance</span>
           </div>
-          <h1 className="font-display text-4xl font-black tracking-tight sm:text-5xl">46 Advance</h1>
+          <h1 className="font-display text-4xl font-black tracking-tight sm:text-5xl">
+            46 Advance
+          </h1>
           <p className="max-w-2xl text-lg text-brand-fg/80">
-            Event-production advance management for 46 Entertainment. 46 Advance is the internal tool
-            our production team uses to organize artist advances, production details, quotes,
+            Event-production advance management for 46 Entertainment. 46 Advance is the internal
+            tool our production team uses to organize artist advances, production details, quotes,
             contacts, and scheduling — including Google Calendar and Google Meet "advance calls" —
             for live events and festivals.
           </p>
@@ -40,7 +42,10 @@ export function LandingScreen() {
         <ul className="grid gap-2 text-brand-fg/70 sm:grid-cols-2">
           {FEATURES.map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm">
-              <span aria-hidden="true" className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+              <span
+                aria-hidden="true"
+                className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+              />
               {f}
             </li>
           ))}
@@ -53,7 +58,9 @@ export function LandingScreen() {
           >
             Sign in
           </Link>
-          <span className="text-sm text-brand-fg/50">Staff and authorized production personnel.</span>
+          <span className="text-sm text-brand-fg/50">
+            Staff and authorized production personnel.
+          </span>
         </div>
       </main>
 

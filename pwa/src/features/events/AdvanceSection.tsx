@@ -65,13 +65,25 @@ export function AdvanceSection({
           )}
           <SectionStatusBadge status={state.status} />
           {state.status === 'not_started' && canEdit && (
-            <SectionActionButton label="Start" pending={statusPending} onClick={() => onSetStatus(deptId, 'in_progress')} />
+            <SectionActionButton
+              label="Start"
+              pending={statusPending}
+              onClick={() => onSetStatus(deptId, 'in_progress')}
+            />
           )}
           {state.status === 'in_progress' && canFinalize && (
-            <SectionActionButton label="Finalize" pending={statusPending} onClick={() => onSetStatus(deptId, 'complete')} />
+            <SectionActionButton
+              label="Finalize"
+              pending={statusPending}
+              onClick={() => onSetStatus(deptId, 'complete')}
+            />
           )}
           {state.status === 'complete' && canUnlock && (
-            <SectionActionButton label="Unlock" pending={statusPending} onClick={() => onSetStatus(deptId, 'in_progress')} />
+            <SectionActionButton
+              label="Unlock"
+              pending={statusPending}
+              onClick={() => onSetStatus(deptId, 'in_progress')}
+            />
           )}
         </div>
       </div>

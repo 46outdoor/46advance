@@ -56,7 +56,9 @@ export function DocumentsScreen() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-black tracking-tight text-brand">Documents</h1>
-          <p className="text-ink-muted">Artist documents imported from Google Drive, organized by artist.</p>
+          <p className="text-ink-muted">
+            Artist documents imported from Google Drive, organized by artist.
+          </p>
         </div>
         {canManage && (
           <button
@@ -115,7 +117,10 @@ export function DocumentsScreen() {
             <span className="shrink-0 text-sm text-ink-muted">
               {artist.count} {artist.count === 1 ? 'document' : 'documents'}
               {artist.removedCount > 0 && (
-                <span className="ml-1 text-accent" title="Files removed from Drive, kept for reference">
+                <span
+                  className="ml-1 text-accent"
+                  title="Files removed from Drive, kept for reference"
+                >
                   · {artist.removedCount} removed
                 </span>
               )}
