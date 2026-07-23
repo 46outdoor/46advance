@@ -11,6 +11,11 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ## 2026-07-23
 
+### Added
+
+- **Registration — name:** the sign-up form now has a **Name** field, which becomes the account's
+  display name across the app. Previously a new account had no name until an admin set one.
+
 ### Changed
 
 - **Events — calendar naming:** changing an event's short code or name now also renames its Google

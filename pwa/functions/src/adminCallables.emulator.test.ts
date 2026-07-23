@@ -333,4 +333,27 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
 
     expect(res).toMatchObject({ approved: false });
   });
+
+  it('captures the display name passed at registration', async () => {
+    await auth().createUser({ uid: 'me', email: 'newbie@band.com' });
+    await testEnv.wrap(syncUserClaims)(
+      callableRequest(
+        { displayName: 'Jordan Smith' },
+        authContext('me', { email: 'newbie@band.com', email_verified: true }),
+      ),
+    );
+    expect((await users().doc('me').get()).data()?.displayName).toBe('Jordan Smith');
+  });
+
+  it('never clobbers an existing (admin-set) display name on a later sync', async () => {
+    await auth().createUser({ uid: 'me', email: 'newbie@band.com' });
+    await users().doc('me').set({ displayName: 'Admin Set Name' });
+    await testEnv.wrap(syncUserClaims)(
+      callableRequest(
+        { displayName: 'Different' },
+        authContext('me', { email: 'newbie@band.com', email_verified: true }),
+      ),
+    );
+    expect((await users().doc('me').get()).data()?.displayName).toBe('Admin Set Name');
+  });
 });

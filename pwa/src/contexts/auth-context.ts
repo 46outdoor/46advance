@@ -13,7 +13,7 @@ export interface AuthContextValue {
   /** Whether the user's email is verified. No `admin`/`approved` claim is granted until it is. */
   emailVerified: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   /** Re-send the verification email to the current (unverified) user. */

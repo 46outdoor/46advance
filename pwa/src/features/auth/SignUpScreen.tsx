@@ -7,6 +7,7 @@ import { AuthLayout, Field } from '@/features/auth/AuthLayout';
 export function SignUpScreen() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -14,10 +15,14 @@ export function SignUpScreen() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!name.trim()) {
+      setError('Enter your name.');
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await signUp(email, password);
+      await signUp(email, password, name);
       navigate('/', { replace: true });
     } catch {
       setError('Could not create the account. The email may already be in use.');
@@ -29,6 +34,7 @@ export function SignUpScreen() {
   return (
     <AuthLayout title="Create account">
       <form className="space-y-4" onSubmit={onSubmit}>
+        <Field label="Name" type="text" value={name} onChange={setName} autoComplete="name" />
         <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
         <Field
           label="Password"
