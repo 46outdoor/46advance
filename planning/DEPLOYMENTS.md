@@ -46,20 +46,19 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
-**Hosting live state (verified 2026-07-23).** Owner workflow run `30039533073` deployed current
-`main` at `c14dc47`. It carries every accumulated client half through WS-L, including S14 security
-headers and S17 per-screen chunks/accessibility/responsive work. The workflow uploaded Sentry source
-maps and its post-deploy smoke passed. A direct live-header check confirmed MIME-sniffing, framing,
-referrer, permissions-policy, HSTS, and CSP-report-only headers.
+**Hosting live state (verified 2026-07-23).** Owner workflow run `30042323489` deployed current
+`main` at `f0e45ea` (#174). It carries every remediation client change, including the
+revision-compatible structural schedule writes required before the final S12 rules enforcement.
+The workflow build, Hosting deploy, and post-deploy runtime smoke all passed.
 
-Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. The remaining Sentry verification is
-manual: send the safe Admin → Observability diagnostic and confirm its release-correlated stack is
-readable in Sentry Issues.
+Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. Owner-provided Sentry evidence
+confirmed the safe Admin → Observability diagnostic reached production Issues with a release tag and
+a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
-| pending | S12 restrictive-rules client compatibility: revision-correct schedule re-date/shift/template writes | follow-up after #173 | HOSTING | owner release must be verified before the restrictive rules deploy |
-| pending | S12 restrictive rules: server-owned slug/calendar fields, mandatory schedule revision, dismiss-only call bookings | follow-up after #173 | FIRESTORE RULES | implementation + emulator tests complete; deploy only after the compatibility row above is live, with explicit confirmation |
+| 2026-07-23 | S12 restrictive rules: server-owned slug/calendar fields, mandatory schedule revision, dismiss-only call bookings | `f0e45ea` #174 | FIRESTORE RULES | deployed after the Hosting gate; ruleset `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629` |
+| 2026-07-23 | S12 restrictive-rules client compatibility: revision-correct schedule re-date/shift/template writes | `f0e45ea` #174 | HOSTING | deployed (run 30042323489); build + runtime smoke passed |
 | 2026-07-23 | Full accumulated client release through remediation closeout | `c14dc47` #173 | HOSTING | deployed (run 30039533073); source maps uploaded; runtime smoke passed; security headers live |
 | 2026-07-23 | First post-S14/S17 client release | `20818f5` #172 | HOSTING | deployed (run 30039118806) |
 | 2026-07-23 | Name-at-registration | `a2cc48c` #163 | HOSTING | deployed (run 30027436215) |

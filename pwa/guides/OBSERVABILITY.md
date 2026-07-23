@@ -50,6 +50,10 @@ and **"Send a test event"** fires a deliberate, production-safe captured error (
 breaking anything). Confirm it lands in Sentry **Issues** as a **release-correlated event with
 readable source frames** (frames are readable only once the `SENTRY_*` source-map vars are set).
 
+**Acceptance verified 2026-07-23:** owner-provided production dashboard evidence showed the safe
+diagnostic in Sentry Issues with its release tag and a readable mapped frame at
+`src/features/admin/ObservabilityDiagnostics.tsx:17:18`.
+
 ## Runtime defense (WS-I)
 
 The security headers are live. App Check remains owner-configured and dormant; CSP remains

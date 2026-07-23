@@ -8,9 +8,8 @@ Phase 2/3 (WS-J/K/L/M) — tests/CI/tooling/docs, `NONE`/`HOSTING` deploy. Every
 deferral or deviation from the original acceptance criteria is catalogued with its reason in the
 **Intentional deferrals & deviations register (D-1 … D-13)** near the end; F-13 (font licensing)
 stays deferred by owner decision. A full-plan verification (2026-07-23) is reconciled into the
-**Completion record**. Remaining items are the register's deliberate deferrals, the follow-up
-client Hosting checkpoint and gated Firestore-rules deployment, and the manual Sentry diagnostic
-confirmation.
+**Completion record**. The follow-up client Hosting checkpoint, gated Firestore-rules deployment,
+and Sentry diagnostic confirmation are complete. Only the register's deliberate deferrals remain.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -713,15 +712,15 @@ When P0 and P1 are complete, update this document with:
 
 One PR per change-set, squash auto-merge. Functions and initial rules are deployed to `advancethat`;
 every client half shipped through owner Hosting run `30039533073` at commit `c14dc47`. The
-post-Hosting S12 restrictions implemented by this verification closure remain pending the
-follow-up client compatibility Hosting checkpoint and then their gated rules deployment.
+verification follow-up shipped through run `30042323489` at `f0e45ea`; its gated S12 rules then
+deployed as ruleset `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629`.
 
 | Change-set | Workstream / finding | PR | Deploy result |
 | --- | --- | --- | --- |
 | S9 upload compensation + orphan-free asset replacement | WS-E / F-5 | #147 | client live on Hosting (`c14dc47`) |
 | S10 recursive/cascade deletion + orphan-audit script | WS-E / F-7 | #148 | functions deployed (invokers verified) |
 | S11 event-zone date/instant correction + parity tests | WS-F / F-6 | #149 | functions deployed; client live on Hosting (`c14dc47`) |
-| S12 transactional slugs + atomic booking attach + schedule revision guard | WS-G | #150 | functions + initial rules deployed (backfill: 1 slug, 0 dups); original client live; restrictive rules + schedule-write compatibility implemented in verification closure; ship compatibility client before rules |
+| S12 transactional slugs + atomic booking attach + schedule revision guard | WS-G | #150, #174 | functions + initial rules deployed (backfill: 1 slug, 0 dups); compatibility client deployed in run `30042323489`, then restrictive rules deployed as `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629` |
 | S13 Google retry/idempotency, pagination, cron resilience, calendar lifecycle, retention, redacted errors | WS-H | #151 | functions deployed (scheduledDataRetention created) |
 | S14 Sentry activation + release/source-maps + logger.error→incident | WS-I / F-12 | #152–#154 | active on Hosting; DSN/token set; source maps uploaded for `c14dc47` |
 | S14 runtime defense — security headers, App Check scaffold, post-deploy smoke | WS-I | #164 | live on Hosting; run `30039533073` smoke passed and headers verified |
@@ -731,9 +730,8 @@ follow-up client compatibility Hosting checkpoint and then their gated rules dep
 **Owner activations complete (2026-07-23):** Hosting run `30039533073` deployed `c14dc47`; both
 Sentry repo secrets are set, source-map upload succeeded, and the runtime smoke verified the live
 security headers. CSP remains deliberately **report-only** — tune, then rename to
-`Content-Security-Policy` to enforce. The safe Admin → Observability event still needs its one-time
-manual Sentry-Issues confirmation because this audit session could not access the authenticated
-Sentry dashboard.
+`Content-Security-Policy` to enforce. Owner-provided Sentry evidence confirms the safe Admin →
+Observability event reached production Issues with a release tag and readable source-mapped frame.
 
 **App Check — deliberately NOT enforced (owner decision, 2026-07-23).** The WS-I App Check scaffold
 (client init in `src/services/firebase.ts`, `VITE_APPCHECK_SITE_KEY` wired in `production-deploy.yml`)
@@ -801,7 +799,7 @@ completion record below. Anything **not** listed here was implemented as specifi
 | D-5 | F-2 / S5 claim atomicity (WS-B) | Custom-claim updates use non-atomic read/modify/write; concurrent changes can clobber unrelated claims | Claim writes are admin-only and rare; a transactional claim-map is disproportionate to the risk | Revisit if concurrent admin claim edits become common |
 | D-6 | F-5 / S9 staged uploads (WS-E) | The **replace** path is compensated/orphan-free; **draft-form** staged uploads (BrandingAdmin, TemplateEditor logo) can still orphan on navigate-away/cancel | Requires an upload-on-submit refactor of those forms; the durable-object-replacement risk (the actual F-5 defect) is fully closed | Do the upload-on-submit refactor; orphan-audit script covers leaks meanwhile |
 | D-7 | F-7 / S10 recursive delete (WS-E) | Storage cleanup is best-effort (errors caught) and runs alongside the Firestore subtree delete; a suppressed Storage failure can't be rediscovered by retry | Firestore-side deletion (the F-7 defect) is complete + idempotent; blocking deletion on Storage would be worse | Read-only `audit-event-orphans.ts` backstops it (ran **clean**, 0 orphans); emulator tests currently mock Storage cleanup as success |
-| D-8 | S12 concurrency (WS-G) | **Hosting-gated rules now implemented:** event slugs, event calendar IDs, and advance-call calendar IDs are server-owned; every client schedule-day update carries a revision; and call-booking writes are dismiss-only. Re-date/shift remain last-writer-wins; template merges carry a revision but are not transactional and surface a generic denial on collision; no conflict-toast UI | The verified `c14dc47` checkpoint unlocked the restrictions, but verification found three structural client paths that needed revision-compatible write shapes before enforcement. Structural-operation transactions and toast infrastructure remain deliberately outside this closure | Ship and verify this follow-up's client compatibility patch on Hosting, then deploy the restrictive rules with explicit confirmation; add transactional structural edits and a conflict banner if concurrent schedule editing becomes common |
+| D-8 | S12 concurrency (WS-G) | **Hosting-gated rules are deployed:** event slugs, event calendar IDs, and advance-call calendar IDs are server-owned; every client schedule-day update carries a revision; and call-booking writes are dismiss-only. Re-date/shift remain last-writer-wins; template merges carry a revision but are not transactional and surface a generic denial on collision; no conflict-toast UI | Verification found three structural client paths that needed revision-compatible write shapes before enforcement. PR #174 shipped those through Hosting run `30042323489`; ruleset `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629` then enforced the restrictions. Structural-operation transactions and toast infrastructure remain deliberately outside this closure | Add transactional structural edits and a conflict banner if concurrent schedule editing becomes common |
 | D-9 | S13 Google sync (WS-H) | No per-invocation cron checkpoint/work-bound; unbounded `.get()` cursoring; multi-PM shared-calendar ownership, transactional OAuth-state consumption, and disconnect/refresh races not addressed; orphaned Google calendars not deleted on teardown | Idempotent and fine at current scale (single org, low volume); calendar deletion is impossible post-revoke | Add checkpointing/cursoring if data volume grows; only app-side calendar refs are cleared today |
 | D-10 | F-12 / S14 runtime defense (WS-I) | **App Check deliberately dormant** (owner decision 2026-07-23 — key unset, nothing enforces it); Functions observability = GCP Cloud Logging (no Sentry-node); CSP ships **report-only** | App Check is attestation not auth; admin-approval + rules + callable authz + rate limiting already cover the threat model, and reCAPTCHA friction / lockout risk / debug-token upkeep aren't justified — see the 4-place decision note. CSP report-only avoids breaking Auth/Picker/Sentry until tuned | Activate App Check via a single secret if abuse appears; rename CSP to enforcing after tuning |
 | D-11 | S15 authenticated E2E (WS-J) | Functions-free flows cover auth, gates, cache/identity isolation, member event-list scoping, slug↔id routing, and mobile overflow. Creation/slug-rename, approval/revocation, document registration, schedule conflict, timezone editing, and asset save/cancel/failure remain deferred | Callable flows need the Functions Emulator this lane does not boot; the remaining browser flows are lower-value duplicates of direct unit/rules/emulator coverage at current scale | Boot `functions` alongside auth/firestore when expanding the critical-path catalog; add timezone/asset browser flows when those UIs next change |
@@ -814,22 +812,21 @@ completion record below. Anything **not** listed here was implemented as specifi
 **The plan is COMPLETE.** All workstreams WS-A … WS-M are merged and verified; every intentional
 deferral or deviation from the original acceptance criteria is catalogued in the register above
 (D-1 … D-13) with its reason and revisit trigger, and F-13 stays deferred by owner decision. The
-remaining work is limited to the register's deliberate deferrals, deploying the completed
-client compatibility patch through the owner-managed Hosting workflow, deploying the restrictive
-Firestore rules only after that checkpoint, and manually confirming the safe Sentry test event in
-the authenticated Sentry dashboard.
+remaining work is limited to the register's deliberate deferrals. The verification follow-up client,
+restrictive Firestore rules, and Sentry acceptance check are all complete.
 
 **Verification reconciliation (2026-07-23).** The full-plan audit's two actionable documentation
 findings are resolved: (1) the findings register rows F-5/F-6/F-7/F-12 — stale "not started" labels —
 are corrected to **Resolved** with their PRs and deviation links; (2) `planning/DEPLOYMENTS.md` now
-records the verified `c14dc47` Hosting checkpoint and separates the pending Firestore-rules deploy
-behind its follow-up client-compatibility Hosting gate from the manual Sentry dashboard acceptance
-check. Its remaining "Partial" items map one-to-one onto the register above; they are documented
-deferrals, not defects.
+records both the verified `c14dc47` baseline and the ordered `f0e45ea` client-compatibility Hosting
+checkpoint → restrictive Firestore-rules release. The Sentry dashboard acceptance check is also
+recorded complete. Its remaining "Partial" items map one-to-one onto the register above; they are
+documented deferrals, not defects.
 
 **Runtime-defense closure.** Owner run `30039533073` deployed `c14dc47`, uploaded its Sentry source
 maps, and passed the post-deploy runtime smoke. Direct live verification found all configured headers;
-S14 and S17 are therefore live. Both Sentry secrets are provisioned. The safe diagnostic event remains
-a manual dashboard check, not an engineering implementation gap.
+S14 and S17 are therefore live. Both Sentry secrets are provisioned, and owner-provided dashboard
+evidence confirmed a release-correlated diagnostic event with readable source-mapped frames. Follow-up
+run `30042323489` deployed `f0e45ea` and passed its smoke before the restrictive rules were released.
 
 This file has been archived to `planning/archive/fix/` and `planning/README.md` points here.
