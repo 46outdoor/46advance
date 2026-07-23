@@ -76,6 +76,7 @@ export {
   validateLibraryFolder,
 } from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
+export { cspReport } from './cspReport.js';
 
 // Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.
 export { renameEventSlug } from './eventSlug.js';
