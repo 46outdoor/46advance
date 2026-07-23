@@ -20,6 +20,9 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Admin — new-user approval:** registrations no longer wait to be noticed. The Admin nav link shows
   a count badge of accounts awaiting approval, and a prominent "Pending approval" section at the top of
   the Admin screen lists each one with a one-click **Approve** (or **Deny**, which removes the account).
+- **Admin — new-user email alert:** on top of the in-app badge, a new registration now also sends an
+  email notification to the configured admin address (from `no-reply@46advance.com`), so pending
+  approvals get noticed even when no one has the app open.
 
 - **Documents:** a search box at the top of the artist library narrows the list as you
   type. An optional "also search within file names" checkbox (off by default) widens the
