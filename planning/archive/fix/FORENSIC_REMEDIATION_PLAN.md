@@ -2,11 +2,14 @@
 
 **Date:** 2026-07-18; revised 2026-07-20 after inline review
 
-**Status:** ALL PHASES COMPLETE (2026-07-21 → 2026-07-23). Phase 0 (S0–S8 + AC-1–AC-4); Phase 1
+**Status: COMPLETE** (2026-07-21 → 2026-07-23). Phase 0 (S0–S8 + AC-1–AC-4); Phase 1
 (S9–S14 / WS-E/F/G/H/I) — backends deployed, client halves ship on the owner's Hosting release;
-Phase 2/3 (WS-J/K/L/M) — tests/CI/tooling/docs, `NONE`/`HOSTING` deploy. F-13 (font licensing)
-stays deferred by owner decision. See the **Completion record** at the end for PR numbers, deploy
-results, and residual deferrals; pending items are owner activations, not open work.
+Phase 2/3 (WS-J/K/L/M) — tests/CI/tooling/docs, `NONE`/`HOSTING` deploy. Every intentional
+deferral or deviation from the original acceptance criteria is catalogued with its reason in the
+**Intentional deferrals & deviations register (D-1 … D-13)** near the end; F-13 (font licensing)
+stays deferred by owner decision. A full-plan verification (2026-07-23) is reconciled into the
+**Completion record**. Remaining items are the register's deliberate deferrals plus owner
+activations (Hosting release, Sentry secrets) — not open engineering work.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -51,14 +54,14 @@ criteria live in the mapped workstreams below.
 | F-2 | High | Resolved (S5 #134, S8 #137, AC-1 #138, AC-3 #140; residual: claim-map atomicity accepted) | Authorization revocation is incomplete: an event creator can recreate removed PM membership, and revoked Google connections continue through scheduled processing. | `pwa/firestore.rules`; `pwa/functions/src/index.ts`; `pwa/functions/src/googleBookings.ts` | WS-B |
 | F-3 | High | Resolved (S6 #135) | Contact ownership/link fields are mutable, enabling a linked user to rewrite `createdBy` and then satisfy the delete rule. | `pwa/firestore.rules`; contact rules tests | WS-B |
 | F-4 | High | Resolved (S4 #133; deferred: UID query-key scoping — owner personal-device decision #1) | React Query and persistent Firestore caches survive account changes and can expose prior-user data in the same browser. | `pwa/src/main.tsx`; `pwa/src/services/firebase.ts`; auth/query keys | WS-C |
-| F-5 | High | Active — Phase 1 (S9/WS-E, not started) | Logo/photo replacement can delete the durable old object before the new reference is saved; failed/cancelled drafts also orphan new uploads. | `LogoUploader.tsx`; `PhotoEditor.tsx`; branding/template/contact forms | WS-E |
-| F-6 | High | Active — Phase 1 (S11/WS-F, not started) | Event dates and some advance-call edits use browser-local `Date` conversion despite the explicit event-timezone invariant. | `pwa/src/lib/dates/parsing.ts`; event/advance forms and services | WS-F |
-| F-7 | High | Active — Phase 1 (S10/WS-E, not started) | Advance, stage, and quote deletion leaves nested Firestore documents and Storage objects orphaned. | advance, stage, quote, and document services | WS-E |
+| F-5 | High | Resolved (S9 #147; residual: draft-form staged-upload orphans — see Deviation D-6) | Logo/photo replacement can delete the durable old object before the new reference is saved; failed/cancelled drafts also orphan new uploads. | `LogoUploader.tsx`; `PhotoEditor.tsx`; branding/template/contact forms | WS-E |
+| F-6 | High | Resolved (S11 #149; via Deviation D-3 — event-zone-consistent read/write, no data migration) | Event dates and some advance-call edits use browser-local `Date` conversion despite the explicit event-timezone invariant. | `pwa/src/lib/dates/parsing.ts`; event/advance forms and services | WS-F |
+| F-7 | High | Resolved (S10 #148; residual: best-effort Storage cleanup — see Deviation D-7) | Advance, stage, and quote deletion leaves nested Firestore documents and Storage objects orphaned. | advance, stage, quote, and document services | WS-E |
 | F-8 | High | Resolved (S7 #136) | The raw Functions `serve` script selects the production-default project while omitting dependent emulators, so local Admin SDK calls can reach production. | `pwa/functions/package.json`; `pwa/.firebaserc` | WS-D |
 | F-9 | High | Resolved (S5 #134) | Account deletion suppresses all Auth deletion errors, performs non-atomic cleanup, and can report success while the Auth account remains. | `pwa/functions/src/index.ts`; `pwa/functions/src/lib/db/chunkedBatch.ts` | WS-B |
 | F-10 | High | Resolved (S1 #130, AC-2 #139 stream-caps native exports too) | Interactive document content retrieval has no byte cap and fully buffers/base64-encodes the response. | `pwa/functions/src/googleDrive.ts`; existing packet attachment limit | WS-A |
 | F-11 | High | Resolved (S7 #136; deferred: WS-D.4–6 clean-clone wrapper enforcement + dry-run defaults) | The mandatory predeploy health check omits `DRIVE_SA_KEY`, so deployment can pass while Drive-backed functions cannot start. | `pwa/scripts/cli/verify-secrets-health.sh`; `pwa/functions/src/googleDrive.ts` | WS-D |
-| F-12 | Medium-high | Active — Phase 1 (S14/WS-I, not started; needs owner-provisioned Sentry secrets) | Sentry is scaffolded but inactive in production, lacks release/source-map integration, and ordinary `logger.error` calls do not create incidents. | `pwa/src/lib/sentry.ts`; production deployment workflow; Vite config | WS-I |
+| F-12 | Medium-high | Resolved (S14 #152–154; activates on the owner Hosting release once `VITE_SENTRY_DSN` is set; App Check deliberately dormant — see Deviation D-10) | Sentry is scaffolded but inactive in production, lacks release/source-map integration, and ordinary `logger.error` calls do not create incidents. | `pwa/src/lib/sentry.ts`; production deployment workflow; Vite config | WS-I |
 | F-13 | High (verification) | Deferred | Public-repository redistribution rights for tracked Nexa/Hikou font binaries require confirmation. No action is authorized by this plan. | `pwa/public/fonts/`; `pwa/src/index.css` | Deferred |
 
 ## Baseline and definition of done
@@ -770,14 +773,48 @@ One PR per change-set, squash auto-merge. All `NONE`/`HOSTING` deploy (no agent 
 - **Large-file decomposition (item 4):** done only where a real boundary existed (`AdminScreen`);
   per the item's own guidance, files are **not** refactored solely to reduce line counts.
 
-### F-13 — deferral reconfirmed at plan close
+### Intentional deferrals & deviations register (D-1 … D-13)
 
-F-13 (public-repository font-licensing verification) remains **deferred** exactly as recorded in
-the Explicit deferral section: no font removal, history rewrite, visibility change, or legal work
-is authorized by this plan. Closing the implementation phases does not change its disposition.
+Every place the delivered work **intentionally** deferred a sub-item or implemented something
+differently from the original acceptance criteria, with the reason and the backstop/revisit trigger.
+These are deliberate, owner-aware decisions — not oversights. An independent full-plan verification
+on 2026-07-23 surfaced the same residuals; its findings are reconciled into this register and the
+completion record below. Anything **not** listed here was implemented as specified.
+
+| ID | Area (finding / step) | Deferred or changed | Reason | Backstop / revisit trigger |
+| --- | --- | --- | --- | --- |
+| D-1 | S3 account deletion (WS-B) | Same-ID / different-owner idempotency collision not fully closed | Vanishingly unlikely (server-generated ids); closing it costs a transaction on every delete | Revisit only if id-reuse ever becomes possible |
+| D-2 | F-4 / S4 cache isolation (WS-C) | UID-scoped React Query keys **not** added | Owner personal-device decision #1 — the cache clear on every auth-identity transition **is** the isolation guarantee; per-key scoping would be redundant | Revisit if the app targets shared kiosks |
+| D-3 | F-6 / S11 timezone (WS-F) | "Approach B": kept `Timestamp` storage (no data migration), made every read/write event-zone-consistent instead | Existing Central data reads back identically; a migration adds risk for no correctness gain | N/A — chosen approach is complete |
+| D-4 | F-11 / S7 clean-clone safeguards (WS-D) | WS-D.4–6 wrapper-enforcement + dry-run defaults deferred; enforcement hooks live in gitignored `**/settings.local.json`, so a clean clone doesn't receive them | Hook wiring is developer-local by Claude Code convention; the CLI wrappers + demo-project guard + secret health check (the load-bearing protections) are tracked | Revisit if safeguards must be provable from a clean clone |
+| D-5 | F-2 / S5 claim atomicity (WS-B) | Custom-claim updates use non-atomic read/modify/write; concurrent changes can clobber unrelated claims | Claim writes are admin-only and rare; a transactional claim-map is disproportionate to the risk | Revisit if concurrent admin claim edits become common |
+| D-6 | F-5 / S9 staged uploads (WS-E) | The **replace** path is compensated/orphan-free; **draft-form** staged uploads (BrandingAdmin, TemplateEditor logo) can still orphan on navigate-away/cancel | Requires an upload-on-submit refactor of those forms; the durable-object-replacement risk (the actual F-5 defect) is fully closed | Do the upload-on-submit refactor; orphan-audit script covers leaks meanwhile |
+| D-7 | F-7 / S10 recursive delete (WS-E) | Storage cleanup is best-effort (errors caught) and runs alongside the Firestore subtree delete; a suppressed Storage failure can't be rediscovered by retry | Firestore-side deletion (the F-7 defect) is complete + idempotent; blocking deletion on Storage would be worse | Read-only `audit-event-orphans.ts` backstops it (ran **clean**, 0 orphans); emulator tests currently mock Storage cleanup as success |
+| D-8 | S12 concurrency (WS-G) | Slug-field / calendar-field write locks in rules deferred to a Hosting checkpoint; structural schedule ops (redate/shift/applyTemplate) stay last-writer-wins; no conflict-toast UI | Restrictive rules must wait for the live client (gated-rules order, § Cross-cutting 7); only content + same-date-meta saves are revision-guarded; no toast infra yet (conflict refetches + logs) | Flip the `HOSTING-GATED RULES` after this Hosting release verifies; add a conflict banner as a follow-up |
+| D-9 | S13 Google sync (WS-H) | No per-invocation cron checkpoint/work-bound; unbounded `.get()` cursoring; multi-PM shared-calendar ownership, transactional OAuth-state consumption, and disconnect/refresh races not addressed; orphaned Google calendars not deleted on teardown | Idempotent and fine at current scale (single org, low volume); calendar deletion is impossible post-revoke | Add checkpointing/cursoring if data volume grows; only app-side calendar refs are cleared today |
+| D-10 | F-12 / S14 runtime defense (WS-I) | **App Check deliberately dormant** (owner decision 2026-07-23 — key unset, nothing enforces it); Functions observability = GCP Cloud Logging (no Sentry-node); CSP ships **report-only** | App Check is attestation not auth; admin-approval + rules + callable authz + rate limiting already cover the threat model, and reCAPTCHA friction / lockout risk / debug-token upkeep aren't justified — see the 4-place decision note. CSP report-only avoids breaking Auth/Picker/Sentry until tuned | Activate App Check via a single secret if abuse appears; rename CSP to enforcing after tuning |
+| D-11 | S15 authenticated E2E (WS-J) | Only functions-free flows shipped (auth, isolation, gates, cache, slug↔id routing); creation/slug-rename, approval/revocation, doc-registration, schedule-conflict deferred; member event-**list** scoping test blocked | Those flows need the functions emulator this lane doesn't boot; the list-scoping test is blocked on the WS-B `collectionGroup('members')` rules finding | Boot `functions` (built) alongside auth/firestore to add them; fix the collection-group rule, then add the scoping test |
+| D-12 | S17 a11y/perf (WS-L) | jest-axe automation seeded on **one** screen (sign-up), not the full authenticated set; before/after transfer bytes not recorded | Per-screen chunking was verified **structurally** (74 vs 44 chunks, per-screen sizes, ThemeSpecimen absent) rather than by transfer measurement; the a11y harness is a foundation to extend | Extend axe coverage to more authenticated screens over time |
+| D-13 | S18 maintenance (WS-M) | Markdown excluded from the formatter; shared-contract **package** extraction deferred; large-file decomposition only where a real boundary existed | Prettier's table-alignment wrecks the wide hand-maintained reference tables (AGENTS.md / `.claude` rules), which are prose-reviewed; contracts are already SDK-agnostic and gated on non-existent Expo scope; refactoring solely for line counts is disallowed | Extract the contract package when native/Expo work begins |
+| F-13 | Font licensing | Public-repo redistribution rights for Nexa/Hikou **not** verified | Owner-deferred 2026-07-18 — no font removal, history rewrite, visibility change, or legal work is authorized by this plan | Separate owner authorization required; disposition unchanged at plan close |
 
 ### Completion
 
-All non-deferred workstreams (WS-A … WS-M) are merged and verified; F-13 stays deferred by owner
-decision. After the WS-M PR merges, move this file to `planning/archive/fix/` and update
-`planning/README.md` to point there.
+**The plan is COMPLETE.** All workstreams WS-A … WS-M are merged and verified; every intentional
+deferral or deviation from the original acceptance criteria is catalogued in the register above
+(D-1 … D-13) with its reason and revisit trigger, and F-13 stays deferred by owner decision. The
+remaining items are **not open engineering work** — they are the register's deliberate deferrals plus
+owner activations (the Hosting release, and setting the Sentry `VITE_SENTRY_DSN`/`SENTRY_AUTH_TOKEN`
+secrets).
+
+**Verification reconciliation (2026-07-23).** The full-plan audit's two actionable documentation
+findings are resolved: (1) the findings register rows F-5/F-6/F-7/F-12 — stale "not started" labels —
+are corrected to **Resolved** with their PRs and deviation links; (2) `planning/DEPLOYMENTS.md` now
+distinguishes already-live client work from what the pending Hosting release carries. Its remaining
+"Partial" items map one-to-one onto the register above; they are documented deferrals, not defects.
+
+**Runtime-defense note.** The S14 security headers and S17 client changes were **merged but not live**
+until the owner Hosting release that carries commits after `a2cc48c` (#163). That release is the step
+that makes the runtime defense real in production; `firebase.json` headers apply only on Hosting deploy.
+
+This file has been archived to `planning/archive/fix/` and `planning/README.md` points here.
