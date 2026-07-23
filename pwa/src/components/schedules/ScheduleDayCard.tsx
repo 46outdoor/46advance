@@ -10,7 +10,12 @@
 import { formatWallClockTime } from '@/lib/dates/formatting';
 import { scheduleDayTypeDef } from '@/lib/schedules/dayTypes';
 import { scheduleItemTypeDef } from '@/lib/schedules/itemTypes';
-import { itemDurationLabel, sortDayItems, type ScheduleDay, type ScheduleDayItem } from '@/lib/schedules/scheduleDay';
+import {
+  itemDurationLabel,
+  sortDayItems,
+  type ScheduleDay,
+  type ScheduleDayItem,
+} from '@/lib/schedules/scheduleDay';
 import { ScheduleTypeDot } from './ScheduleTypeDot';
 import { CrewLinesGrid } from './CrewLines';
 import { ScheduleItemRowEditor, type StageOption } from './ScheduleItemRowEditor';
@@ -28,7 +33,10 @@ export type ResolveItemText = (item: ScheduleDayItem, text: string) => string;
 
 /** The slice of a day the card renders — the event screen passes a full ScheduleDay;
  * the template editor passes a view built from a template day (offset as id). */
-export type ScheduleDayView = Pick<ScheduleDay, 'id' | 'dayType' | 'title' | 'description' | 'notes'>;
+export type ScheduleDayView = Pick<
+  ScheduleDay,
+  'id' | 'dayType' | 'title' | 'description' | 'notes'
+>;
 
 /** "Location: FOH · Carrier: Delta · Conf #: ABC123" — the populated per-type fields. */
 function typeFieldsSummary(item: ScheduleDayItem): string {
@@ -43,7 +51,9 @@ function ViewRow({ item, resolveText }: { item: ScheduleDayItem; resolveText: Re
   return (
     <li className={`flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5 text-sm ${COLS}`}>
       <span className="text-ink-muted tabular-nums">
-        {item.startTime ? `${formatWallClockTime(item.startTime)}${item.nextDay ? ' +1' : ''}` : '—'}
+        {item.startTime
+          ? `${formatWallClockTime(item.startTime)}${item.nextDay ? ' +1' : ''}`
+          : '—'}
       </span>
       <span className="text-ink-muted tabular-nums">
         {item.endTime
@@ -55,7 +65,9 @@ function ViewRow({ item, resolveText }: { item: ScheduleDayItem; resolveText: Re
         <ScheduleTypeDot type={item.type} customLabel={item.customLabel} />
       </span>
       <span className="font-semibold text-ink">{resolveText(item, item.item)}</span>
-      <span className="text-ink-muted">{item.description ? resolveText(item, item.description) : ''}</span>
+      <span className="text-ink-muted">
+        {item.description ? resolveText(item, item.description) : ''}
+      </span>
       {(detail || item.crew.length > 0) && (
         <div className="w-full space-y-1 sm:col-span-2 sm:col-start-5 sm:w-auto">
           {detail && <p className="text-xs text-ink-muted">{detail}</p>}

@@ -7,7 +7,11 @@
  * focus leaves it (save-on-blur), normalizing to the selected type on the way out.
  */
 import { useState, type FocusEvent } from 'react';
-import { scheduleItemTypeDef, SCHEDULE_ITEM_TYPES, type ScheduleItemType } from '@/lib/schedules/itemTypes';
+import {
+  scheduleItemTypeDef,
+  SCHEDULE_ITEM_TYPES,
+  type ScheduleItemType,
+} from '@/lib/schedules/itemTypes';
 import { itemDurationLabel, type ScheduleDayItem } from '@/lib/schedules/scheduleDay';
 import { SectionFieldInput } from './SectionFieldInput';
 import { CrewLinesEditor } from './CrewLines';
@@ -83,7 +87,9 @@ export function ScheduleItemRowEditor({
           aria-label="End time"
           onChange={(e) => patch({ endTime: e.target.value || null })}
         />
-        <span className="self-center text-sm text-ink-muted tabular-nums">{itemDurationLabel(draft) ?? '—'}</span>
+        <span className="self-center text-sm text-ink-muted tabular-nums">
+          {itemDurationLabel(draft) ?? '—'}
+        </span>
         <select
           className={inputClass}
           value={draft.type}

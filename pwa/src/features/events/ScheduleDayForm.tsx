@@ -6,7 +6,11 @@
  */
 import { useState, type FormEvent } from 'react';
 import { SCHEDULE_DAY_TYPES, type ScheduleDayType } from '@/lib/schedules/dayTypes';
-import { scheduleDayMetaSchema, type ScheduleDay, type ScheduleDayMeta } from '@/lib/schedules/scheduleDay';
+import {
+  scheduleDayMetaSchema,
+  type ScheduleDay,
+  type ScheduleDayMeta,
+} from '@/lib/schedules/scheduleDay';
 
 const inputClass =
   'min-h-11 w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand sm:min-h-0';
@@ -54,14 +58,26 @@ export function ScheduleDayForm({
   };
 
   return (
-    <form className="grid gap-3 rounded-lg border border-line bg-surface-muted/40 p-4 sm:grid-cols-2" onSubmit={submit}>
+    <form
+      className="grid gap-3 rounded-lg border border-line bg-surface-muted/40 p-4 sm:grid-cols-2"
+      onSubmit={submit}
+    >
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Date</span>
-        <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
+        <input
+          type="date"
+          className={inputClass}
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Day type</span>
-        <select className={inputClass} value={dayType} onChange={(e) => setDayType(e.target.value as ScheduleDayType)}>
+        <select
+          className={inputClass}
+          value={dayType}
+          onChange={(e) => setDayType(e.target.value as ScheduleDayType)}
+        >
           {SCHEDULE_DAY_TYPES.map((d) => (
             <option key={d.key} value={d.key}>
               {d.label}
@@ -89,7 +105,12 @@ export function ScheduleDayForm({
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Day notes (optional)</span>
-        <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <button
@@ -106,7 +127,9 @@ export function ScheduleDayForm({
         >
           Cancel
         </button>
-        {(localError ?? error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError ?? error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

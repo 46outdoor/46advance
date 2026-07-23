@@ -35,7 +35,9 @@ function OpenButton({ fileId }: { fileId: string }) {
     <button
       type="button"
       className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
-      onClick={() => void openArtistDocument(fileId).catch((e) => logger.error('Failed to open document', e))}
+      onClick={() =>
+        void openArtistDocument(fileId).catch((e) => logger.error('Failed to open document', e))
+      }
     >
       Open
     </button>
@@ -55,13 +57,26 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
     queryKey: ['advanceDocuments', eventId, stageId, advanceId],
     queryFn: () => listAdvanceDocuments(eventId, stageId, advanceId),
   });
-  const categoriesQuery = useQuery({ queryKey: ['documentCategories'], queryFn: listDocumentCategories });
+  const categoriesQuery = useQuery({
+    queryKey: ['documentCategories'],
+    queryFn: listDocumentCategories,
+  });
   const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ['advanceDocuments', eventId, stageId, advanceId] });
+    void queryClient.invalidateQueries({
+      queryKey: ['advanceDocuments', eventId, stageId, advanceId],
+    });
 
   const toggle = useMutation({
     // Exclusion needs only the id (orphaned rows have no library doc anymore).
-    mutationFn: ({ include, doc, docId }: { include: boolean; doc?: ArtistDocument; docId: string }) =>
+    mutationFn: ({
+      include,
+      doc,
+      docId,
+    }: {
+      include: boolean;
+      doc?: ArtistDocument;
+      docId: string;
+    }) =>
       include && doc
         ? includeArtistDocument(eventId, stageId, advanceId, doc.id)
         : excludeArtistDocument(eventId, stageId, advanceId, docId),
@@ -99,7 +114,9 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
   // Obsolete library docs stay out of the auto-populated list unless revealed — but an
   // obsolete doc that's ALREADY included stays visible (hiding an active inclusion
   // would be worse than showing a stale file).
-  const obsoleteCount = canEdit ? library.filter((d) => d.obsolete && !includedIds.has(d.id)).length : 0;
+  const obsoleteCount = canEdit
+    ? library.filter((d) => d.obsolete && !includedIds.has(d.id)).length
+    : 0;
   const visibleLibrary = canEdit
     ? library.filter((d) => !d.obsolete || includedIds.has(d.id) || showObsolete)
     : library.filter((d) => includedIds.has(d.id));
@@ -121,7 +138,9 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
       </p>
 
       {libraryQuery.isLoading && <p className="text-sm text-ink-muted">Loading documents…</p>}
-      {libraryQuery.isError && <p className="text-sm text-accent">Failed to load the document library.</p>}
+      {libraryQuery.isError && (
+        <p className="text-sm text-accent">Failed to load the document library.</p>
+      )}
       {canEdit && !libraryQuery.isLoading && library.length === 0 && (
         <p className="text-sm text-ink-muted">
           No library documents for “{artistName}” — import them under Documents first.
@@ -183,7 +202,9 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
           className="mt-1 inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
           onClick={() => setShowObsolete((v) => !v)}
         >
-          {showObsolete ? 'Hide obsolete files' : `Show ${obsoleteCount} obsolete file${obsoleteCount === 1 ? '' : 's'}`}
+          {showObsolete
+            ? 'Hide obsolete files'
+            : `Show ${obsoleteCount} obsolete file${obsoleteCount === 1 ? '' : 's'}`}
         </button>
       )}
       {(toggle.isError || packetToggle.isError) && (

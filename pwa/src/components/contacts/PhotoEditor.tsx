@@ -15,7 +15,15 @@ interface Props {
 }
 
 /** Modal cropper: zoom/pan a round crop, reports the crop rectangle (natural pixels) on save. */
-function CropModal({ src, onCancel, onSave }: { src: string; onCancel: () => void; onSave: (crop: CropRect) => void }) {
+function CropModal({
+  src,
+  onCancel,
+  onSave,
+}: {
+  src: string;
+  onCancel: () => void;
+  onSave: (crop: CropRect) => void;
+}) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState<Area | null>(null);
@@ -105,10 +113,18 @@ function CropModal({ src, onCancel, onSave }: { src: string; onCancel: () => voi
           className="mt-3 w-full"
         />
         <div className="mt-3 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-ink"
+          >
             Cancel
           </button>
-          <button type="button" onClick={save} className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white">
+          <button
+            type="button"
+            onClick={save}
+            className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white"
+          >
             Save
           </button>
         </div>
@@ -197,12 +213,20 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
             />
           </label>
           {photo && (
-            <button type="button" onClick={() => setEditing({ src: photo.url, file: null })} className="ml-3 text-ink-muted hover:text-accent">
+            <button
+              type="button"
+              onClick={() => setEditing({ src: photo.url, file: null })}
+              className="ml-3 text-ink-muted hover:text-accent"
+            >
               Reframe
             </button>
           )}
           {photo && (
-            <button type="button" onClick={() => void remove()} className="ml-3 text-ink-muted hover:text-accent">
+            <button
+              type="button"
+              onClick={() => void remove()}
+              className="ml-3 text-ink-muted hover:text-accent"
+            >
               Remove
             </button>
           )}
@@ -210,7 +234,9 @@ export function PhotoEditor({ photo, name, onChange, size = 'h-16 w-16' }: Props
           {error && <p className="mt-1 text-accent">{error}</p>}
         </div>
       </div>
-      {editing && <CropModal src={editing.src} onCancel={cancel} onSave={(c) => void onCropSaved(c)} />}
+      {editing && (
+        <CropModal src={editing.src} onCancel={cancel} onSave={(c) => void onCropSaved(c)} />
+      )}
     </div>
   );
 }

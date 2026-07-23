@@ -22,10 +22,19 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { withGoogleRetry } from './lib/google/retry.js';
-import { attachCallBookingInputSchema, syncAdvanceCallBookingsInputSchema } from './contracts/callables/google.js';
+import {
+  attachCallBookingInputSchema,
+  syncAdvanceCallBookingsInputSchema,
+} from './contracts/callables/google.js';
 import { logger } from 'firebase-functions/v2';
 import { google, type calendar_v3 } from 'googleapis';
-import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
+import {
+  OAUTH_SECRETS,
+  TIME_ZONE,
+  type AuthClient,
+  authedClientForUser,
+  assertCanEditEvent,
+} from './google.js';
 
 const WINDOW_PAST_MS = 7 * 24 * 60 * 60 * 1000;
 const WINDOW_FUTURE_MS = 120 * 24 * 60 * 60 * 1000;
@@ -105,7 +114,10 @@ export function parseBooking(event: calendar_v3.Schema$Event): Booking | null {
   const isAdvance = Boolean(artistFromDesc) || /advance/i.test(summary);
   if (!meetLink || !isAdvance) return null;
 
-  const segments = summary.split('|').map((s) => s.trim()).filter(Boolean);
+  const segments = summary
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const festival = segments.length >= 1 ? segments[0] : null;
   const artistFromTitle = segments.length >= 2 ? segments[1] : null;
   const artistName = (artistFromDesc || artistFromTitle || '').trim();
@@ -228,8 +240,10 @@ async function writeConfidentAttach(
     const snap = await tx.get(advanceRef);
     if (!snap.exists) return false;
     const data = snap.data() ?? {};
-    const linkedId = typeof data.googleCalendarEventId === 'string' ? data.googleCalendarEventId : null;
-    const hasCall = Boolean(data.advanceCallAt) || Boolean(data.advanceCallLink) || Boolean(linkedId);
+    const linkedId =
+      typeof data.googleCalendarEventId === 'string' ? data.googleCalendarEventId : null;
+    const hasCall =
+      Boolean(data.advanceCallAt) || Boolean(data.advanceCallLink) || Boolean(linkedId);
     // Eligible only if no call is attached yet, or it's already this exact booking (idempotent re-sync).
     if (hasCall && linkedId !== b.calendarEventId) return false;
     tx.set(
@@ -268,7 +282,8 @@ async function writeNeedsReview(
   syncedAt: SyncedAt,
   nowTs: FieldValue,
 ): Promise<void> {
-  const reason = matches.length === 0 ? 'no_match' : matches.length > 1 ? 'multiple_matches' : 'already_linked';
+  const reason =
+    matches.length === 0 ? 'no_match' : matches.length > 1 ? 'multiple_matches' : 'already_linked';
   const suggestion = matches[0] ?? null;
   await bookingRef.set(
     {
@@ -301,7 +316,9 @@ export async function syncEventBookings(
   const labelKey = bookingLabel ? normalizeArtist(bookingLabel) : '';
 
   const advances = await buildAdvanceIndex(db, eventId);
-  const linkedCalIds = new Set(advances.map((a) => a.linkedEventId).filter((id): id is string => Boolean(id)));
+  const linkedCalIds = new Set(
+    advances.map((a) => a.linkedEventId).filter((id): id is string => Boolean(id)),
+  );
 
   const now = Date.now();
   const calendar = google.calendar({ version: 'v3', auth: client });
@@ -363,7 +380,15 @@ export async function syncEventBookings(
     const unlinked = matches.filter((a) => !a.hasCall && !a.linkedEventId);
     if (matches.length === 1 && unlinked.length === 1) {
       const target = unlinked[0];
-      const didAttach = await writeConfidentAttach(db, eventId, bookingRef, b, target, syncedAt, nowTs);
+      const didAttach = await writeConfidentAttach(
+        db,
+        eventId,
+        bookingRef,
+        b,
+        target,
+        syncedAt,
+        nowTs,
+      );
       if (didAttach) {
         // Mutate the in-memory index so a second same-artist booking this run can't re-attach
         // the same advance (it'll fall through to needs_review as 'already_linked' instead).
@@ -387,16 +412,19 @@ export async function syncEventBookings(
  * Manual "Sync now" for one event. Admin or the event's production manager only.
  * Input: { eventId }. Returns { scanned, attached, needsReview }.
  */
-export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 120 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId } = parseCallableData(syncAdvanceCallBookingsInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['syncAdvanceCallBookings', uid], 10);
-  await assertCanEditEvent(db, token, uid, eventId);
-  const client = await authedClientForUser(db, uid);
-  return syncEventBookings(db, client, eventId);
-});
+export const syncAdvanceCallBookings = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    const { eventId } = parseCallableData(syncAdvanceCallBookingsInputSchema, request.data);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['syncAdvanceCallBookings', uid], 10);
+    await assertCanEditEvent(db, token, uid, eventId);
+    const client = await authedClientForUser(db, uid);
+    return syncEventBookings(db, client, eventId);
+  },
+);
 
 /**
  * Manually attach a reviewed booking to an advance, ATOMICALLY (WS-G). The old client path was
@@ -411,7 +439,10 @@ export const syncAdvanceCallBookings = onCall({ secrets: OAUTH_SECRETS, timeoutS
 export const attachCallBooking = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, bookingId } = parseCallableData(attachCallBookingInputSchema, request.data);
+  const { eventId, stageId, advanceId, bookingId } = parseCallableData(
+    attachCallBookingInputSchema,
+    request.data,
+  );
   const db = getFirestore();
   await enforceRateLimit(db, ['attachCallBooking', uid], 60);
   await assertCanEditEvent(db, token, uid, eventId);
@@ -424,17 +455,27 @@ export const attachCallBooking = onCall(async (request) => {
     const [bookingSnap, advanceSnap] = await tx.getAll(bookingRef, advanceRef);
     if (!bookingSnap.exists) throw new HttpsError('not-found', 'Booking not found.');
     if (!advanceSnap.exists) throw new HttpsError('not-found', 'Advance not found.');
-    const startMillis = typeof bookingSnap.get('startMillis') === 'number'
-      ? (bookingSnap.get('startMillis') as number) : null;
-    if (startMillis === null) throw new HttpsError('failed-precondition', 'Booking has no start time.');
-    const meetLink = typeof bookingSnap.get('meetLink') === 'string' ? (bookingSnap.get('meetLink') as string) : null;
+    const startMillis =
+      typeof bookingSnap.get('startMillis') === 'number'
+        ? (bookingSnap.get('startMillis') as number)
+        : null;
+    if (startMillis === null)
+      throw new HttpsError('failed-precondition', 'Booking has no start time.');
+    const meetLink =
+      typeof bookingSnap.get('meetLink') === 'string'
+        ? (bookingSnap.get('meetLink') as string)
+        : null;
 
     // A booking already attached to THIS advance (different from the one we're attaching) is
     // displaced — read it so we can requeue it rather than leaking it out of the review queue.
-    const prevLinked = typeof advanceSnap.get('googleCalendarEventId') === 'string'
-      ? (advanceSnap.get('googleCalendarEventId') as string) : null;
+    const prevLinked =
+      typeof advanceSnap.get('googleCalendarEventId') === 'string'
+        ? (advanceSnap.get('googleCalendarEventId') as string)
+        : null;
     const displacedId = prevLinked && prevLinked !== bookingId ? prevLinked : null;
-    const displacedRef = displacedId ? db.doc(`events/${eventId}/callBookings/${displacedId}`) : null;
+    const displacedRef = displacedId
+      ? db.doc(`events/${eventId}/callBookings/${displacedId}`)
+      : null;
     const displacedSnap = displacedRef ? await tx.get(displacedRef) : null;
 
     // --- writes ---
@@ -451,14 +492,26 @@ export const attachCallBooking = onCall(async (request) => {
     );
     tx.set(
       bookingRef,
-      { status: 'attached', matchedAdvanceId: advanceId, matchedStageId: stageId, reason: null, updatedAt: nowTs },
+      {
+        status: 'attached',
+        matchedAdvanceId: advanceId,
+        matchedStageId: stageId,
+        reason: null,
+        updatedAt: nowTs,
+      },
       { merge: true },
     );
     let requeuedBookingId: string | null = null;
     if (displacedRef && displacedSnap?.exists && displacedSnap.get('status') === 'attached') {
       tx.set(
         displacedRef,
-        { status: 'needs_review', reason: 'already_linked', matchedAdvanceId: null, matchedStageId: null, updatedAt: nowTs },
+        {
+          status: 'needs_review',
+          reason: 'already_linked',
+          matchedAdvanceId: null,
+          matchedStageId: null,
+          updatedAt: nowTs,
+        },
         { merge: true },
       );
       requeuedBookingId = displacedId;

@@ -87,7 +87,10 @@ async function seedEmulator(): Promise<void> {
   const fsAdmin = `http://${firestoreHost}/emulator/v1/projects/${projectId}/databases/(default)/documents`;
 
   // Clean slate so a reused emulator re-seeds deterministically.
-  await expectOk(await fetch(`${authAdmin}/accounts`, { method: 'DELETE', headers: OWNER }), 'auth wipe');
+  await expectOk(
+    await fetch(`${authAdmin}/accounts`, { method: 'DELETE', headers: OWNER }),
+    'auth wipe',
+  );
   await expectOk(await fetch(fsAdmin, { method: 'DELETE' }), 'firestore wipe');
 
   async function createUser(persona: Persona): Promise<string> {
@@ -95,7 +98,11 @@ async function seedEmulator(): Promise<void> {
       await fetch(`${authApi}/accounts:signUp?key=fake-api-key`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: persona.email, password: TEST_PASSWORD, returnSecureToken: true }),
+        body: JSON.stringify({
+          email: persona.email,
+          password: TEST_PASSWORD,
+          returnSecureToken: true,
+        }),
       }),
       `signUp ${persona.email}`,
     );
@@ -151,7 +158,10 @@ async function seedEmulator(): Promise<void> {
   }
   for (const membership of SEED_MEMBERSHIPS) {
     const uid = uidByKey[membership.persona];
-    await putDoc(`events/${membership.eventId}/members/${uid}`, memberFields(membership.role, adminUid, uid));
+    await putDoc(
+      `events/${membership.eventId}/members/${uid}`,
+      memberFields(membership.role, adminUid, uid),
+    );
   }
 }
 

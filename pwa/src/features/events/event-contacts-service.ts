@@ -44,7 +44,10 @@ function eventContactsCol(eventId: string) {
 
 /** Attached contacts for an event, resolved against the directory, sorted by name. */
 export async function listEventContacts(eventId: string): Promise<ResolvedEventContact[]> {
-  const [attachSnap, directory] = await Promise.all([getDocs(eventContactsCol(eventId)), listContacts()]);
+  const [attachSnap, directory] = await Promise.all([
+    getDocs(eventContactsCol(eventId)),
+    listContacts(),
+  ]);
   const byId = new Map(directory.map((c) => [c.id, c]));
   return attachSnap.docs
     .map((d) => {

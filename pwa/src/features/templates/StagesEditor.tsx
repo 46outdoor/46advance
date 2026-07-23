@@ -76,7 +76,9 @@ export function StagesEditor({ initial, pending, onSave }: Props) {
         <button
           type="button"
           disabled={pending}
-          onClick={() => onSave(rows.filter((s) => s.name.trim()).map((s, i) => ({ ...s, order: i })))}
+          onClick={() =>
+            onSave(rows.filter((s) => s.name.trim()).map((s, i) => ({ ...s, order: i })))
+          }
           className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {pending ? 'Saving…' : 'Save stages'}

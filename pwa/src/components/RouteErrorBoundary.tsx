@@ -35,7 +35,9 @@ class Boundary extends Component<Props, State> {
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="font-display text-lg font-bold text-brand">This page ran into a problem</p>
-          <p className="text-sm text-ink-muted">Try reloading. Other pages are still available from the menu.</p>
+          <p className="text-sm text-ink-muted">
+            Try reloading. Other pages are still available from the menu.
+          </p>
           <button
             type="button"
             className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white"

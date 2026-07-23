@@ -15,7 +15,9 @@ const LABELS: Record<SectionStatus, string> = {
 /** Section status pill: neutral → amber → green (never red — that's brand). */
 export function SectionStatusBadge({ status }: { status: SectionStatus }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}>
+    <span
+      className={`rounded px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STYLES[status]}`}
+    >
       {LABELS[status]}
     </span>
   );

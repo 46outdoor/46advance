@@ -70,15 +70,21 @@ function blankItem(): ScheduleDayItem {
 
 /** Row predicate for the type/stage filters ('' = no filter). */
 function makeItemFilter(type: string, stage: string) {
-  return (item: ScheduleDayItem) => (!type || item.type === type) && (!stage || item.stageId === stage);
+  return (item: ScheduleDayItem) =>
+    (!type || item.type === type) && (!stage || item.stageId === stage);
 }
 
 /** All schedule-day mutations, invalidating the day list on success. Saves also fire a
  * fire-and-forget calendar reconcile for the affected day (PR 4) — a graceful no-op
  * when the caller hasn't connected Google. */
-function useScheduleDayMutations(eventId: string | null, uid: string | undefined, onDaySettled: () => void) {
+function useScheduleDayMutations(
+  eventId: string | null,
+  uid: string | undefined,
+  onDaySettled: () => void,
+) {
   const queryClient = useQueryClient();
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
+  const invalidate = () =>
+    void queryClient.invalidateQueries({ queryKey: ['scheduleDays', eventId] });
   // A concurrency conflict (WS-G) isn't a failure to log-and-alarm — refetch server truth (which
   // reverts the optimistic edit so the user sees it didn't stick) and warn; anything else is a
   // real error.
@@ -194,7 +200,12 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="font-semibold text-ink">Filter:</span>
-      <select className={selectClass} value={day} aria-label="Filter by day" onChange={(e) => onChange('day', e.target.value)}>
+      <select
+        className={selectClass}
+        value={day}
+        aria-label="Filter by day"
+        onChange={(e) => onChange('day', e.target.value)}
+      >
         <option value="">All days</option>
         {days.map((d) => (
           <option key={d.id} value={d.id}>
@@ -202,7 +213,12 @@ function FilterBar({
           </option>
         ))}
       </select>
-      <select className={selectClass} value={type} aria-label="Filter by type" onChange={(e) => onChange('type', e.target.value)}>
+      <select
+        className={selectClass}
+        value={type}
+        aria-label="Filter by type"
+        onChange={(e) => onChange('type', e.target.value)}
+      >
         <option value="">All types</option>
         {SCHEDULE_ITEM_TYPES.map((t) => (
           <option key={t.key} value={t.key}>
@@ -210,7 +226,12 @@ function FilterBar({
           </option>
         ))}
       </select>
-      <select className={selectClass} value={stage} aria-label="Filter by stage" onChange={(e) => onChange('stage', e.target.value)}>
+      <select
+        className={selectClass}
+        value={stage}
+        aria-label="Filter by stage"
+        onChange={(e) => onChange('stage', e.target.value)}
+      >
         <option value="">All stages</option>
         {stages.map((s) => (
           <option key={s.id} value={s.id}>
@@ -232,7 +253,13 @@ function FilterBar({
 }
 
 /** Bulk "shift all days ±N" (the event slipped): re-keys every day doc in one batch. */
-function ShiftControl({ pending, onShift }: { pending: boolean; onShift: (deltaDays: number) => void }) {
+function ShiftControl({
+  pending,
+  onShift,
+}: {
+  pending: boolean;
+  onShift: (deltaDays: number) => void;
+}) {
   const [delta, setDelta] = useState(0);
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -296,10 +323,13 @@ function ScheduleNotices({
     <>
       {loading && <p className="text-sm text-ink-muted">Loading schedule…</p>}
       {loadFailed && <p className="text-sm text-accent">Failed to load the schedule.</p>}
-      {saveFailed && <p className="text-sm text-accent">Could not save — check your connection and try again.</p>}
+      {saveFailed && (
+        <p className="text-sm text-accent">Could not save — check your connection and try again.</p>
+      )}
       {createDayError != null && (
         <p className="text-sm text-accent">
-          Could not add the day{createDayError instanceof Error ? ` — ${createDayError.message}` : '.'}
+          Could not add the day
+          {createDayError instanceof Error ? ` — ${createDayError.message}` : '.'}
         </p>
       )}
     </>
@@ -511,9 +541,21 @@ export function EventScheduleScreen() {
     queryFn: () => getEventRole(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
-  const daysQuery = useQuery({ queryKey: ['scheduleDays', eventId], queryFn: () => listScheduleDays(eventId!), enabled: !!eventId });
-  const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId!), enabled: !!eventId });
-  const advancesQuery = useQuery({ queryKey: ['eventAdvances', eventId], queryFn: () => listEventAdvances(eventId!), enabled: !!eventId });
+  const daysQuery = useQuery({
+    queryKey: ['scheduleDays', eventId],
+    queryFn: () => listScheduleDays(eventId!),
+    enabled: !!eventId,
+  });
+  const stagesQuery = useQuery({
+    queryKey: ['stages', eventId],
+    queryFn: () => listStages(eventId!),
+    enabled: !!eventId,
+  });
+  const advancesQuery = useQuery({
+    queryKey: ['eventAdvances', eventId],
+    queryFn: () => listEventAdvances(eventId!),
+    enabled: !!eventId,
+  });
   const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
 
   const days = useMemo(() => daysQuery.data ?? [], [daysQuery.data]);
@@ -532,7 +574,8 @@ export function EventScheduleScreen() {
   // Day-aware {artist N} lookup: an advance dated to the item's day wins its slot;
   // undated advances hold their slot event-wide (lib/advances/lineup.ts).
   const slotLookup = useMemo(
-    () => buildSlotArtistLookup(advancesQuery.data ?? [], eventQuery.data?.timeZone ?? APP_TIME_ZONE),
+    () =>
+      buildSlotArtistLookup(advancesQuery.data ?? [], eventQuery.data?.timeZone ?? APP_TIME_ZONE),
     [advancesQuery.data, eventQuery.data?.timeZone],
   );
   const resolveTextForDay =
@@ -593,7 +636,10 @@ export function EventScheduleScreen() {
         dayCount={days.length}
         shiftPending={shiftDays.isPending}
         onShift={(d) => shiftDays.mutate(d)}
-        defaultDate={zonedDayKey(eventQuery.data?.startDate ?? null, eventQuery.data?.timeZone ?? APP_TIME_ZONE)}
+        defaultDate={zonedDayKey(
+          eventQuery.data?.startDate ?? null,
+          eventQuery.data?.timeZone ?? APP_TIME_ZONE,
+        )}
         createPending={createDay.isPending}
         onCreateDay={(meta) => createDay.mutate(meta)}
       />
@@ -638,7 +684,9 @@ export function EventScheduleScreen() {
           saveItems.mutate({
             day,
             items: day.items.filter((i) => i.id !== itemId),
-            removedCalendarIds: removed?.googleCalendarEventId ? [removed.googleCalendarEventId] : undefined,
+            removedCalendarIds: removed?.googleCalendarEventId
+              ? [removed.googleCalendarEventId]
+              : undefined,
           });
         }}
       />

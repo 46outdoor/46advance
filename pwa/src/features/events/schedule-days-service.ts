@@ -58,7 +58,11 @@ export async function listScheduleDays(eventId: string): Promise<ScheduleDay[]> 
 function toCrewDocs(
   crew: readonly { type: string; quantity: number; hours?: number | null }[] | undefined,
 ): CrewLine[] {
-  return (crew ?? []).map((c) => ({ type: c.type.trim(), quantity: c.quantity, hours: c.hours ?? null }));
+  return (crew ?? []).map((c) => ({
+    type: c.type.trim(),
+    quantity: c.quantity,
+    hours: c.hours ?? null,
+  }));
 }
 
 /** Input items → stored shape, carrying server-owned calendar ids from `existing` by item id. */
@@ -135,10 +139,15 @@ async function updateDayWithRevision(
   await runTransaction(db, async (tx) => {
     const ref = dayDoc(eventId, day.id);
     const snap = await tx.get(ref);
-    if (!snap.exists) throw new ScheduleDayConflictError('This schedule day no longer exists — it was deleted.');
+    if (!snap.exists)
+      throw new ScheduleDayConflictError('This schedule day no longer exists — it was deleted.');
     const fresh = parseScheduleDay(snap.id, snap.data());
     if (fresh.revision !== day.revision) throw new ScheduleDayConflictError();
-    tx.update(ref, { ...buildFields(fresh), revision: fresh.revision + 1, updatedAt: serverTimestamp() });
+    tx.update(ref, {
+      ...buildFields(fresh),
+      revision: fresh.revision + 1,
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 
@@ -237,11 +246,14 @@ export async function reconcileScheduleDayCalendar(
 }
 
 /** Remove one calendar event — call BEFORE deleting the item/day that stores its id. */
-export async function removeScheduleCalendarEvent(eventId: string, calendarEventId: string): Promise<void> {
-  const callable = httpsCallable<RemoveScheduleCalendarEventInput, RemoveScheduleCalendarEventOutput>(
-    functions,
-    'removeScheduleCalendarEvent',
-  );
+export async function removeScheduleCalendarEvent(
+  eventId: string,
+  calendarEventId: string,
+): Promise<void> {
+  const callable = httpsCallable<
+    RemoveScheduleCalendarEventInput,
+    RemoveScheduleCalendarEventOutput
+  >(functions, 'removeScheduleCalendarEvent');
   await callable({ eventId, calendarEventId });
 }
 
@@ -318,7 +330,8 @@ export async function applyTemplateDaysToEvent(
   stages: readonly { id: string; name: string }[],
   uid: string,
 ): Promise<{ added: number; dates: string[] }> {
-  if (!eventStart) throw new Error('Set the event’s start date before applying a schedule template.');
+  if (!eventStart)
+    throw new Error('Set the event’s start date before applying a schedule template.');
   const baseKey = zonedDayKey(eventStart, timeZone);
   const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
   const existing = new Map((await listScheduleDays(eventId)).map((d) => [d.id, d]));
@@ -365,7 +378,11 @@ const MAX_SHIFT_DAYS = 100;
  * days move together, so relative spacing — and per-date uniqueness — is preserved.
  * One atomic batch: deletes first, then re-creates under the shifted keys (a shifted
  * key landing on another day's old key is fine — the set wins within the batch). */
-export async function shiftScheduleDays(eventId: string, deltaDays: number, uid: string): Promise<void> {
+export async function shiftScheduleDays(
+  eventId: string,
+  deltaDays: number,
+  uid: string,
+): Promise<void> {
   if (deltaDays === 0) return;
   const days = await listScheduleDays(eventId);
   if (days.length === 0) return;

@@ -2,10 +2,11 @@
 
 **Date:** 2026-07-18; revised 2026-07-20 after inline review
 
-**Status:** Phase 0 COMPLETE (S0–S8 + AC-1–AC-4), 2026-07-21/22. Phase 1 COMPLETE (S9–S14 / WS-E/F/G/H/I),
-2026-07-22/23 — backends deployed; client halves ship on the owner's Hosting release. Phase 2/3
-(WS-J/K/L/M) IN PROGRESS, 2026-07-23. See the **Completion record** at the end for PR numbers, deploy
-results, and residual deferrals.
+**Status:** ALL PHASES COMPLETE (2026-07-21 → 2026-07-23). Phase 0 (S0–S8 + AC-1–AC-4); Phase 1
+(S9–S14 / WS-E/F/G/H/I) — backends deployed, client halves ship on the owner's Hosting release;
+Phase 2/3 (WS-J/K/L/M) — tests/CI/tooling/docs, `NONE`/`HOSTING` deploy. F-13 (font licensing)
+stays deferred by owner decision. See the **Completion record** at the end for PR numbers, deploy
+results, and residual deferrals; pending items are owner activations, not open work.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -732,17 +733,39 @@ revision-guarded); WS-H cron cursor-checkpointing + unbounded `.get()` cursoring
 fine at scale); the orphaned Google calendars themselves aren't deleted on account teardown (impossible
 post-revoke) — only the app-side references are cleared.
 
-### Phase 2 / 3 — in progress (2026-07-23)
+### Phase 2 / 3 — complete (2026-07-23)
+
+One PR per change-set, squash auto-merge. All `NONE`/`HOSTING` deploy (no agent backend deploy).
 
 | Change-set | Workstream | PR | Notes |
 | --- | --- | --- | --- |
 | S16 supply-chain: pin Actions to commit SHAs, exact Firebase CLI (14.27.0), least-privilege workflow permissions, audit-summary visibility + release-blocking policy, PWA advisories cleared (npm audit fix → 0), nodemailer 6→9 (high fix), ts-deepmerge exception documented | WS-K | #165 | `NONE` deploy (CI/tooling) |
 | S17 perf/a11y/UX: per-screen route chunks (feature barrels → module imports), ThemeSpecimen out of prod bundle, responsive wrapping header, admin-table scroll containment, photo-cropper dialog semantics (focus trap + Escape + focus restore), dirty-form hydrate-once refetch guard, axe a11y harness + PR-checklist QA | WS-L | #168 | `HOSTING` (client ships on Hosting) |
-| S15 test assurance: LineupPanel `act()` warnings eliminated (await the post-mutation refetch settle, not just the service mock; suite-wide 300 tests, 0 timing warnings); Functions **and** PWA test/harness typechecking (new `tsconfig.test.json` + `typecheck:tests` in both, wired into CI `functions`/`quality` — caught a latent unused-var); authenticated Chromium emulator smoke wired into CI as the new `e2e-emulator` gate (auth+firestore+storage, seeded personas); +1 functions-free critical-path spec (event slug↔id routing + not-found) | WS-J | #TBD | `NONE` deploy (tests/CI) |
+| S15 test assurance: LineupPanel `act()` warnings eliminated (await the post-mutation refetch settle, not just the service mock; suite-wide 300 tests, 0 timing warnings); Functions **and** PWA test/harness typechecking (new `tsconfig.test.json` + `typecheck:tests` in both, wired into CI `functions`/`quality` — caught a latent unused-var); authenticated Chromium emulator smoke wired into CI as the new `e2e-emulator` gate (auth+firestore+storage, seeded personas; `PLAYWRIGHT_BROWSERS_PATH` pinned so the emulator wrapper's XDG override doesn't hide the browser); +1 functions-free critical-path spec (event slug↔id routing + not-found) | WS-J | #169 | `NONE` deploy (tests/CI) |
+| S18 maintenance: `.prettierignore` (scopes formatter to intentional source/config) + repo-wide format pass (121 code files brought to the project's own `.prettierrc`) + `format:check` CI-gated; `AdminScreen` `PendingApprovalPanel` extraction (wrapping pushed it past the `max-lines-per-function` gate — a real presentational boundary); deployment/rollback ledger (`planning/DEPLOYMENTS.md`); docs reconciliation | WS-M | #TBD | `NONE` deploy (tooling/docs) |
 
 **WS-J deferred flows (need the functions emulator this lane doesn't boot):** event **creation** + slug **rename** (slug-reservation callables), approval/revocation (claims callables), document registration, schedule calendar-push conflict. Adding them means booting `functions` (built) alongside auth/firestore. The per-member event-**list** scoping test stays blocked on the WS-B `collectionGroup('members')` rules finding (documented in `auth-isolation.emulator.spec.ts`). Not a silent cap — tracked here.
 
-(S18/WS-M to follow.)
+**WS-M scope notes / residual deferrals (P3):**
 
-After all approved work is complete, move this file to `planning/archive/fix/` and update
-`planning/README.md`.
+- **Release traceability (AC met):** every build already exposes `import.meta.env.VITE_APP_RELEASE`
+  (commit SHA fallback) as the Sentry release — see `pwa/vite.config.ts` + `planning/DEPLOYMENTS.md`.
+- **Shared contracts (AC met):** `functions/src/contracts/callables/` are pure Zod with **zero**
+  Firebase Web/Admin imports (verified), consumed by the PWA via the `@contracts` alias and
+  type-checked by both server and PWA. Extracting them into a standalone published package is
+  intentionally deferred until native/Expo work begins (plan items 5–7 gate mobile scope); no
+  Expo package exists yet, so mobile CI/Dependabot is likewise deferred.
+- **Large-file decomposition (item 4):** done only where a real boundary existed (`AdminScreen`);
+  per the item's own guidance, files are **not** refactored solely to reduce line counts.
+
+### F-13 — deferral reconfirmed at plan close
+
+F-13 (public-repository font-licensing verification) remains **deferred** exactly as recorded in
+the Explicit deferral section: no font removal, history rewrite, visibility change, or legal work
+is authorized by this plan. Closing the implementation phases does not change its disposition.
+
+### Completion
+
+All non-deferred workstreams (WS-A … WS-M) are merged and verified; F-13 stays deferred by owner
+decision. After the WS-M PR merges, move this file to `planning/archive/fix/` and update
+`planning/README.md` to point there.

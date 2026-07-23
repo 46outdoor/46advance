@@ -15,7 +15,13 @@ import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { slugify } from '@/lib/events/slug';
-import { generatePacket, getEventBySlugOrId, renameEventSlug, setEventLogo, updateEvent } from './events-service';
+import {
+  generatePacket,
+  getEventBySlugOrId,
+  renameEventSlug,
+  setEventLogo,
+  updateEvent,
+} from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { StagesPanel } from './StagesPanel';
@@ -93,7 +99,8 @@ export function EventDetailScreen() {
       return savePacketToDrive(id!, path);
     },
     onSuccess: (res) => {
-      if (res.saved && res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
+      if (res.saved && res.webViewLink)
+        window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
     },
     onError: (err) => logger.error('Failed to save packet to Drive', err),
   });
@@ -119,7 +126,9 @@ export function EventDetailScreen() {
 
       {eventQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {eventQuery.isError && <p className="text-sm text-accent">Failed to load this event.</p>}
-      {eventQuery.data === null && <p className="text-sm text-ink-muted">Event not found, or you don’t have access.</p>}
+      {eventQuery.data === null && (
+        <p className="text-sm text-ink-muted">Event not found, or you don’t have access.</p>
+      )}
 
       {event && !editing && (
         <EventDetailHeader
@@ -159,7 +168,9 @@ export function EventDetailScreen() {
             eventId={event.id}
             pending={saveLogo.isPending}
             error={saveLogo.isError}
-            onChange={(logo) => saveLogo.mutateAsync({ next: logo, prev: event.eventLogo ?? emptyLogo() })}
+            onChange={(logo) =>
+              saveLogo.mutateAsync({ next: logo, prev: event.eventLogo ?? emptyLogo() })
+            }
           />
         </div>
       )}
@@ -209,7 +220,9 @@ function EventDetailHeader({
     <header className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-3xl font-black tracking-tight text-brand">{event.name}</h1>
+          <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+            {event.name}
+          </h1>
           <EventStatusBadge status={event.status} />
         </div>
         <div className="flex items-center gap-2">
@@ -271,8 +284,12 @@ function EventDetailHeader({
       </p>
       {event.venue && <p className="text-ink-muted">{event.venue}</p>}
       <LogoRow eventLogo={event.eventLogo} defaults={defaultLogos} className="pt-1" />
-      {packetError && <p className="text-sm text-accent">Could not generate the packet. Try again.</p>}
-      {saveToDriveError && <p className="text-sm text-accent">Could not save the packet to Drive.</p>}
+      {packetError && (
+        <p className="text-sm text-accent">Could not generate the packet. Try again.</p>
+      )}
+      {saveToDriveError && (
+        <p className="text-sm text-accent">Could not save the packet to Drive.</p>
+      )}
     </header>
   );
 }
@@ -287,7 +304,14 @@ interface EventLogoCardProps {
 }
 
 /** PM/admin-only per-event logo override. Falls back to the shared defaults when empty. */
-function EventLogoCard({ logo, defaultLogos, eventId, pending, error, onChange }: EventLogoCardProps) {
+function EventLogoCard({
+  logo,
+  defaultLogos,
+  eventId,
+  pending,
+  error,
+  onChange,
+}: EventLogoCardProps) {
   return (
     <div className="rounded-lg border border-line bg-surface-muted/40 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">

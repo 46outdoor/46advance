@@ -89,7 +89,12 @@ const setChange = (start: string, end: string, desc?: string): Row => ({
 });
 
 const ROWS: Row[] = [
-  { item: 'Parking opens', type: 'production', start: '12:00', location: 'Outside festival grounds' },
+  {
+    item: 'Parking opens',
+    type: 'production',
+    start: '12:00',
+    location: 'Outside festival grounds',
+  },
   { item: 'Festival doors', type: 'show', start: '13:30', end: '14:15' },
   ...MAIN_SLOTS.flatMap((s) => slotRows(MAIN, s)),
   ...ROWDY_SLOTS.flatMap((s) => slotRows(ROWDY, s)),
@@ -145,7 +150,9 @@ async function upsert(name: string, creatorUid: string): Promise<void> {
   if (!existing.empty) {
     // Merge without createdBy — a reseed refreshes content, not attribution.
     await existing.docs[0].ref.set(content, { merge: true });
-    console.log(`Updated "${name}" (${existing.docs[0].id}) in place: ${ROWS.length} items on 1 day.`);
+    console.log(
+      `Updated "${name}" (${existing.docs[0].id}) in place: ${ROWS.length} items on 1 day.`,
+    );
     return;
   }
   const ref = await db.collection('scheduleTemplates').add({

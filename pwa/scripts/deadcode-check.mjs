@@ -44,7 +44,9 @@ if (dead.length > 0) {
   console.error(`\nDead-export gate: found ${dead.length} unused export(s):\n`);
   for (const line of dead) console.error(`  ${line}`);
   console.error('\nImport the export where it belongs, or delete it (git remembers).');
-  console.error('If it is intentional public API, extend the filters in scripts/deadcode-check.mjs.\n');
+  console.error(
+    'If it is intentional public API, extend the filters in scripts/deadcode-check.mjs.\n',
+  );
   process.exit(1);
 }
 

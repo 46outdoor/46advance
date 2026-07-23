@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ProductionLink } from '@/lib/production/production';
 
-const inputClass = 'w-full rounded border border-line px-2 py-1.5 text-sm outline-none focus:border-brand';
+const inputClass =
+  'w-full rounded border border-line px-2 py-1.5 text-sm outline-none focus:border-brand';
 const empty: ProductionLink = { label: '', url: '' };
 
 interface Props {
@@ -13,7 +14,9 @@ interface Props {
 
 /** Editable list of reference links (CAD / Drive / plots). */
 export function ProductionLinksEditor({ initial, readOnly, pending, onSave }: Props) {
-  const [rows, setRows] = useState<ProductionLink[]>(() => (initial.length ? initial : [{ ...empty }]));
+  const [rows, setRows] = useState<ProductionLink[]>(() =>
+    initial.length ? initial : [{ ...empty }],
+  );
 
   const update = (i: number, key: keyof ProductionLink, value: string) =>
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
@@ -37,8 +40,18 @@ export function ProductionLinksEditor({ initial, readOnly, pending, onSave }: Pr
     <div className="space-y-2">
       {rows.map((r, i) => (
         <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-          <input className={inputClass} placeholder="Label" value={r.label} onChange={(e) => update(i, 'label', e.target.value)} />
-          <input className={inputClass} placeholder="https://…" value={r.url} onChange={(e) => update(i, 'url', e.target.value)} />
+          <input
+            className={inputClass}
+            placeholder="Label"
+            value={r.label}
+            onChange={(e) => update(i, 'label', e.target.value)}
+          />
+          <input
+            className={inputClass}
+            placeholder="https://…"
+            value={r.url}
+            onChange={(e) => update(i, 'url', e.target.value)}
+          />
           <button
             type="button"
             onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
@@ -49,7 +62,11 @@ export function ProductionLinksEditor({ initial, readOnly, pending, onSave }: Pr
         </div>
       ))}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={() => setRows((prev) => [...prev, { ...empty }])} className="text-sm text-ink-muted hover:text-ink">
+        <button
+          type="button"
+          onClick={() => setRows((prev) => [...prev, { ...empty }])}
+          className="text-sm text-ink-muted hover:text-ink"
+        >
           + Add link
         </button>
         <button

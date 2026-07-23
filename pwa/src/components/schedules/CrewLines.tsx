@@ -19,7 +19,9 @@ export function CrewLinesGrid({ crew }: { crew: readonly CrewLine[] }) {
         >
           <span className="text-right font-semibold tabular-nums text-ink">({line.quantity})</span>
           <span>{line.type}</span>
-          <span className="tabular-nums">{line.hours != null ? formatMinutes(line.hours * 60) : ''}</span>
+          <span className="tabular-nums">
+            {line.hours != null ? formatMinutes(line.hours * 60) : ''}
+          </span>
         </div>
       ))}
     </div>
@@ -56,7 +58,9 @@ export function CrewLinesEditor({
             className={`${inputClass} w-20`}
             value={line.quantity}
             aria-label="Quantity"
-            onChange={(e) => setLine(i, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+            onChange={(e) =>
+              setLine(i, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })
+            }
           />
           <select
             className={`${inputClass} w-56`}
@@ -81,7 +85,9 @@ export function CrewLinesEditor({
             onChange={(e) => {
               const n = Number(e.target.value);
               // Enforce the declared minimum — native min= is never validated here.
-              setLine(i, { hours: e.target.value === '' || !Number.isFinite(n) || n < 0.5 ? null : n });
+              setLine(i, {
+                hours: e.target.value === '' || !Number.isFinite(n) || n < 0.5 ? null : n,
+              });
             }}
           />
           <button
@@ -96,7 +102,9 @@ export function CrewLinesEditor({
       <button
         type="button"
         className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
-        onClick={() => onChange([...crew, { type: crewTypes[0] ?? 'Stagehands', quantity: 1, hours: null }])}
+        onClick={() =>
+          onChange([...crew, { type: crewTypes[0] ?? 'Stagehands', quantity: 1, hours: null }])
+        }
       >
         + Add crew
       </button>

@@ -18,7 +18,10 @@ export function DocumentCategoriesAdmin() {
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const categoriesQuery = useQuery({ queryKey: ['documentCategories'], queryFn: listDocumentCategories });
+  const categoriesQuery = useQuery({
+    queryKey: ['documentCategories'],
+    queryFn: listDocumentCategories,
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['documentCategories'] });
 
@@ -35,7 +38,10 @@ export function DocumentCategoriesAdmin() {
 
   const create = useMutation({
     mutationFn: () =>
-      createDocumentCategory(documentCategoryInputSchema.parse({ name }), categoriesQuery.data?.length ?? 0),
+      createDocumentCategory(
+        documentCategoryInputSchema.parse({ name }),
+        categoriesQuery.data?.length ?? 0,
+      ),
     onSuccess: () => {
       void invalidate();
       setName('');
@@ -44,7 +50,8 @@ export function DocumentCategoriesAdmin() {
   });
 
   const rename = useMutation({
-    mutationFn: (id: string) => updateDocumentCategory(id, documentCategoryInputSchema.parse({ name: editName })),
+    mutationFn: (id: string) =>
+      updateDocumentCategory(id, documentCategoryInputSchema.parse({ name: editName })),
     onSuccess: () => {
       void invalidate();
       cancelEdit();

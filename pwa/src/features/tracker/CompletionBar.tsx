@@ -10,7 +10,11 @@ export function CompletionBar({ counts }: { counts: StatusCounts }) {
 
   return (
     <div className="space-y-1">
-      <div className="flex h-2 overflow-hidden rounded bg-status-none/20" role="img" aria-label={`${pct}% complete`}>
+      <div
+        className="flex h-2 overflow-hidden rounded bg-status-none/20"
+        role="img"
+        aria-label={`${pct}% complete`}
+      >
         <div className="bg-status-complete" style={{ width: `${seg(counts.complete)}%` }} />
         <div className="bg-status-progress" style={{ width: `${seg(counts.in_progress)}%` }} />
       </div>

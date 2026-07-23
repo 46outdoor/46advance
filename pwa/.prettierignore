@@ -1,0 +1,30 @@
+# Prettier scope: intentional source and docs only. Everything below is generated,
+# vendored, or machine-managed — formatting it is noise (and would fight the tools
+# that own it). node_modules is ignored by Prettier automatically.
+
+# Build / compiled output
+dist/
+lib/
+functions/lib/
+*.tsbuildinfo
+
+# Test / coverage / tooling output
+coverage/
+functions/coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright-browsers/
+
+# Machine-managed lockfiles
+package-lock.json
+functions/package-lock.json
+
+# Local, per-developer settings (not a shared source doc)
+**/settings.local.json
+
+# Markdown docs are reviewed as prose, and several (AGENTS.md, .claude/rules/*) carry
+# wide hand-maintained reference tables that Prettier's column-alignment reflows into
+# unwieldy 300-char lines — re-padded on every row add. Keep docs out of the formatter.
+*.md
+

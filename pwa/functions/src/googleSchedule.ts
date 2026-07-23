@@ -22,7 +22,10 @@ import {
 } from './contracts/callables/schedules.js';
 import { google, type calendar_v3 } from 'googleapis';
 import { withGoogleRetry } from './lib/google/retry.js';
-import { deterministicCalendarEventId, insertCalendarEventIdempotent } from './lib/google/calendarEvents.js';
+import {
+  deterministicCalendarEventId,
+  insertCalendarEventIdempotent,
+} from './lib/google/calendarEvents.js';
 import { shiftDayKey, zonedDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
 import {
   OAUTH_SECRETS,
@@ -54,7 +57,11 @@ function slotLabel(slot: number): string {
 
 /** Resolve `{artist N}` against the lineup map for the item's stage; unbooked slots
  * render the canonical slot label (matches the client). */
-function resolvePlaceholders(text: string, stageId: string | null, artistBySlot: Map<string, string>): string {
+function resolvePlaceholders(
+  text: string,
+  stageId: string | null,
+  artistBySlot: Map<string, string>,
+): string {
   return text.replace(ARTIST_PLACEHOLDER_RE, (_m, n: string) => {
     const slot = Number(n);
     return (stageId ? artistBySlot.get(`${stageId}:${slot}`) : undefined) ?? slotLabel(slot);
@@ -73,7 +80,11 @@ async function loadSlotArtists(
   timeZone: string,
 ): Promise<Map<string, string>> {
   const stageIds = [
-    ...new Set(items.map((i) => (typeof i.stageId === 'string' && i.stageId ? i.stageId : null)).filter((s): s is string => s !== null)),
+    ...new Set(
+      items
+        .map((i) => (typeof i.stageId === 'string' && i.stageId ? i.stageId : null))
+        .filter((s): s is string => s !== null),
+    ),
   ];
   const map = new Map<string, string>();
   const dated = new Map<string, string>();
@@ -82,7 +93,8 @@ async function loadSlotArtists(
       const snap = await db.collection(`events/${eventId}/stages/${stageId}/advances`).get();
       for (const doc of snap.docs) {
         const a = doc.data();
-        if (typeof a.slot !== 'number' || typeof a.artistName !== 'string' || !a.artistName) continue;
+        if (typeof a.slot !== 'number' || typeof a.artistName !== 'string' || !a.artistName)
+          continue;
         const performedAt: unknown = a.performanceDate;
         const performedKey =
           performedAt && typeof (performedAt as { toDate?: unknown }).toDate === 'function'
@@ -108,12 +120,15 @@ function buildDescriptionLines(
   if (typeof item.description === 'string' && item.description) {
     lines.push(resolvePlaceholders(item.description, stageId, artistBySlot));
   }
-  const fields = item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
+  const fields =
+    item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
   for (const [k, v] of Object.entries(fields)) if (v && k !== 'location') lines.push(`${k}: ${v}`);
   for (const raw of Array.isArray(item.crew) ? item.crew : []) {
     const line = raw as DocumentData;
     if (typeof line?.type === 'string' && typeof line?.quantity === 'number') {
-      lines.push(`(${line.quantity}) ${line.type}${typeof line.hours === 'number' ? ` · ${line.hours}h` : ''}`);
+      lines.push(
+        `(${line.quantity}) ${line.type}${typeof line.hours === 'number' ? ` · ${line.hours}h` : ''}`,
+      );
     }
   }
   return lines;
@@ -140,7 +155,8 @@ function buildEventBody(
   if (!end) end = new Date(start.getTime() + DEFAULT_DURATION_MIN * 60_000);
 
   const stageId = typeof item.stageId === 'string' && item.stageId ? item.stageId : null;
-  const fields = item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
+  const fields =
+    item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
   const lines = buildDescriptionLines(item, stageId, artistBySlot);
   return {
     summary: resolvePlaceholders(String(item.item ?? 'Schedule item'), stageId, artistBySlot),
@@ -173,7 +189,9 @@ async function deleteCalendarEvent(
   eventId: string,
 ): Promise<void> {
   try {
-    await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId }), { label: 'events.delete' });
+    await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId }), {
+      label: 'events.delete',
+    });
   } catch (e) {
     if (!isNotFoundError(e)) throw e;
   }
@@ -206,9 +224,12 @@ async function upsertCalendarEvent(
 ): Promise<string | null> {
   if (existing) {
     try {
-      await withGoogleRetry(() => calendar.events.update({ calendarId, eventId: existing, requestBody: body }), {
-        label: 'events.update',
-      });
+      await withGoogleRetry(
+        () => calendar.events.update({ calendarId, eventId: existing, requestBody: body }),
+        {
+          label: 'events.update',
+        },
+      );
       return existing;
     } catch (e) {
       if (!isNotFoundError(e)) throw e;
@@ -242,16 +263,26 @@ async function reconcileItems(
   for (const item of items) {
     const id = typeof item.id === 'string' ? item.id : '';
     if (!id) continue;
-    const existing = typeof item.googleCalendarEventId === 'string' ? item.googleCalendarEventId : null;
-    const body = shouldHaveEvent(item) ? buildEventBody(item, dateKey, timeZone, artistBySlot) : null;
+    const existing =
+      typeof item.googleCalendarEventId === 'string' ? item.googleCalendarEventId : null;
+    const body = shouldHaveEvent(item)
+      ? buildEventBody(item, dateKey, timeZone, artistBySlot)
+      : null;
     if (!body) {
       if (existing && calendarId) await deleteCalendarEvent(calendar, calendarId, existing);
       results.push({ id, calendarEventId: null, changed: existing !== null, created: false });
       continue;
     }
-    const calEventId = calendarId ? await upsertCalendarEvent(calendar, calendarId, body, existing, id) : null;
+    const calEventId = calendarId
+      ? await upsertCalendarEvent(calendar, calendarId, body, existing, id)
+      : null;
     // Every pushed item counts as changed (an in-place update keeps its id).
-    results.push({ id, calendarEventId: calEventId, changed: calEventId !== null, created: existing === null && calEventId !== null });
+    results.push({
+      id,
+      calendarEventId: calEventId,
+      changed: calEventId !== null,
+      created: existing === null && calEventId !== null,
+    });
   }
   return results;
 }
@@ -274,13 +305,16 @@ async function writeBackCalendarIds(
     const byId = new Map(results.map((r) => [r.id, r]));
     const orphans: string[] = [];
     const present = new Set<string>();
-    const freshItems = Array.isArray(fresh.data()?.items) ? (fresh.data()!.items as DocumentData[]) : [];
+    const freshItems = Array.isArray(fresh.data()?.items)
+      ? (fresh.data()!.items as DocumentData[])
+      : [];
     const nextItems = freshItems.map((item) => {
       const id = typeof item.id === 'string' ? item.id : '';
       const result = byId.get(id);
       if (!result) return item;
       present.add(id);
-      const current = typeof item.googleCalendarEventId === 'string' ? item.googleCalendarEventId : null;
+      const current =
+        typeof item.googleCalendarEventId === 'string' ? item.googleCalendarEventId : null;
       if (result.created && current && current !== result.calendarEventId) {
         // A concurrent reconcile already attached an event — adopt it, orphan ours.
         orphans.push(result.calendarEventId!);
@@ -299,73 +333,99 @@ async function writeBackCalendarIds(
  * Returns `{ synced, reason?, updated? }` — `reason: 'not_connected'` when the caller
  * has no Google link (a no-op, so saves aren't blocked). Input: { eventId, dayId }.
  */
-export const reconcileScheduleDay = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 120 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId, dayId } = parseCallableData(reconcileScheduleDayInputSchema, request.data ?? {});
-  const db = getFirestore();
-  await enforceRateLimit(db, ['reconcileScheduleDay', uid], 60);
-  await assertCanEditEvent(db, token, uid, eventId);
+export const reconcileScheduleDay = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    const { eventId, dayId } = parseCallableData(
+      reconcileScheduleDayInputSchema,
+      request.data ?? {},
+    );
+    const db = getFirestore();
+    await enforceRateLimit(db, ['reconcileScheduleDay', uid], 60);
+    await assertCanEditEvent(db, token, uid, eventId);
 
-  const dayRef = db.doc(`events/${eventId}/scheduleDays/${dayId}`);
-  const daySnap = await dayRef.get();
-  if (!daySnap.exists) throw new HttpsError('not-found', 'Schedule day not found.');
-  const day = daySnap.data() ?? {};
-  const items = (Array.isArray(day.items) ? day.items : []) as DocumentData[];
+    const dayRef = db.doc(`events/${eventId}/scheduleDays/${dayId}`);
+    const daySnap = await dayRef.get();
+    if (!daySnap.exists) throw new HttpsError('not-found', 'Schedule day not found.');
+    const day = daySnap.data() ?? {};
+    const items = (Array.isArray(day.items) ? day.items : []) as DocumentData[];
 
-  let client: AuthClient;
-  try {
-    client = await authedClientForUser(db, uid);
-  } catch {
-    return { synced: false, reason: 'not_connected' };
-  }
-  const calendar = google.calendar({ version: 'v3', auth: client });
+    let client: AuthClient;
+    try {
+      client = await authedClientForUser(db, uid);
+    } catch {
+      return { synced: false, reason: 'not_connected' };
+    }
+    const calendar = google.calendar({ version: 'v3', auth: client });
 
-  const eventSnap = await db.doc(`events/${eventId}`).get();
-  if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-  const eventData = eventSnap.data() ?? {};
-  const eventTz = typeof eventData.timeZone === 'string' && eventData.timeZone ? eventData.timeZone : TIME_ZONE;
+    const eventSnap = await db.doc(`events/${eventId}`).get();
+    if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
+    const eventData = eventSnap.data() ?? {};
+    const eventTz =
+      typeof eventData.timeZone === 'string' && eventData.timeZone ? eventData.timeZone : TIME_ZONE;
 
-  // Only create the event calendar when something actually needs pushing.
-  let calendarId = await readEventCalendarId(db, eventId);
-  if (!calendarId && items.some(shouldHaveEvent)) {
-    calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventData.name ?? 'Event'));
-  }
+    // Only create the event calendar when something actually needs pushing.
+    let calendarId = await readEventCalendarId(db, eventId);
+    if (!calendarId && items.some(shouldHaveEvent)) {
+      calendarId = await ensureEventCalendar(
+        db,
+        client,
+        uid,
+        eventId,
+        String(eventData.name ?? 'Event'),
+      );
+    }
 
-  const dateKey = String(day.date ?? dayId);
-  const artistBySlot = await loadSlotArtists(db, eventId, items, dateKey, eventTz);
-  const results = await reconcileItems(calendar, calendarId, items, dateKey, eventTz, artistBySlot);
-  const orphans = await writeBackCalendarIds(db, dayRef, results);
-  for (const orphan of orphans) {
-    if (calendarId) await tryDeleteCalendarEvent(calendar, calendarId, orphan);
-  }
+    const dateKey = String(day.date ?? dayId);
+    const artistBySlot = await loadSlotArtists(db, eventId, items, dateKey, eventTz);
+    const results = await reconcileItems(
+      calendar,
+      calendarId,
+      items,
+      dateKey,
+      eventTz,
+      artistBySlot,
+    );
+    const orphans = await writeBackCalendarIds(db, dayRef, results);
+    for (const orphan of orphans) {
+      if (calendarId) await tryDeleteCalendarEvent(calendar, calendarId, orphan);
+    }
 
-  return { synced: true, updated: results.filter((r) => r.changed).length };
-});
+    return { synced: true, updated: results.filter((r) => r.changed).length };
+  },
+);
 
 /**
  * Remove a schedule item's calendar event (called by the client just before deleting the
  * item or its day, since the stored id is then gone). Admin or event PM.
  * Input: { eventId, calendarEventId }.
  */
-export const removeScheduleCalendarEvent = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId, calendarEventId } = parseCallableData(removeScheduleCalendarEventInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['removeScheduleCalendarEvent', uid], 60);
-  await assertCanEditEvent(db, token, uid, eventId);
+export const removeScheduleCalendarEvent = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    const { eventId, calendarEventId } = parseCallableData(
+      removeScheduleCalendarEventInputSchema,
+      request.data,
+    );
+    const db = getFirestore();
+    await enforceRateLimit(db, ['removeScheduleCalendarEvent', uid], 60);
+    await assertCanEditEvent(db, token, uid, eventId);
 
-  let client: AuthClient;
-  try {
-    client = await authedClientForUser(db, uid);
-  } catch {
-    return { removed: false, reason: 'not_connected' };
-  }
-  const calendarId = await readEventCalendarId(db, eventId);
-  if (calendarId) {
-    const calendar = google.calendar({ version: 'v3', auth: client });
-    await deleteCalendarEvent(calendar, calendarId, calendarEventId);
-  }
-  return { removed: true };
-});
+    let client: AuthClient;
+    try {
+      client = await authedClientForUser(db, uid);
+    } catch {
+      return { removed: false, reason: 'not_connected' };
+    }
+    const calendarId = await readEventCalendarId(db, eventId);
+    if (calendarId) {
+      const calendar = google.calendar({ version: 'v3', auth: client });
+      await deleteCalendarEvent(calendar, calendarId, calendarEventId);
+    }
+    return { removed: true };
+  },
+);

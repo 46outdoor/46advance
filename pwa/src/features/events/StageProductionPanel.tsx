@@ -45,7 +45,8 @@ export function StageProductionPanel({
   });
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stage-production', eventId, stageId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['stage-production', eventId, stageId] });
 
   const attachmentsQuery = useQuery({
     queryKey: stageAttachmentsKey(eventId, stageId),
@@ -61,8 +62,15 @@ export function StageProductionPanel({
     onError: (err) => logger.error('Failed to update production status', err),
   });
   const saveContent = useMutation({
-    mutationFn: ({ deptId, content, bump }: { deptId: string; content: SectionContent; bump: boolean }) =>
-      updateStageProductionContent(eventId, stageId, deptId, content, bump),
+    mutationFn: ({
+      deptId,
+      content,
+      bump,
+    }: {
+      deptId: string;
+      content: SectionContent;
+      bump: boolean;
+    }) => updateStageProductionContent(eventId, stageId, deptId, content, bump),
     onSuccess: invalidate,
     onError: (err) => logger.error('Failed to save production content', err),
   });
@@ -100,7 +108,11 @@ export function StageProductionPanel({
             deptName={dept.name}
             context="production"
             state={
-              production.sections[dept.id] ?? { status: 'not_started', finalizedAt: null, finalizedBy: null }
+              production.sections[dept.id] ?? {
+                status: 'not_started',
+                finalizedAt: null,
+                finalizedBy: null,
+              }
             }
             content={production.content[dept.id] ?? {}}
             canEdit={canEdit}

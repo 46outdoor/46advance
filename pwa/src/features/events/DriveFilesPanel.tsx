@@ -118,12 +118,18 @@ export function DriveFilesPanel({ eventId, stageId, advanceId, canEdit }: Props)
           {files.map((file) => (
             <li key={file.fileId} className="flex items-center justify-between gap-3 py-2">
               <span className="min-w-0">
-                <a className="text-accent underline" href={file.webViewLink} target="_blank" rel="noreferrer">
+                <a
+                  className="text-accent underline"
+                  href={file.webViewLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {file.name}
                 </a>
                 <span className="block text-xs text-ink-muted">
                   {file.linkedByEmail ? `Linked by ${file.linkedByEmail}` : 'Linked'}
-                  {file.linkedAt ? ` · ${formatDate(file.linkedAt)}` : ''} · opens in the linker’s Drive
+                  {file.linkedAt ? ` · ${formatDate(file.linkedAt)}` : ''} · opens in the linker’s
+                  Drive
                 </span>
               </span>
               {canEdit && (
@@ -158,12 +164,14 @@ export function DriveFilesPanel({ eventId, stageId, advanceId, canEdit }: Props)
       )}
 
       {canEdit && hasDrive && !isPickerConfigured() && (
-        <p className="text-xs text-ink-muted">Drive Picker isn’t configured yet (missing API key).</p>
+        <p className="text-xs text-ink-muted">
+          Drive Picker isn’t configured yet (missing API key).
+        </p>
       )}
 
       <p className="max-w-prose text-xs text-ink-muted">
-        Linked files live in the linker’s Drive — teammates can open them only if they’re shared. Tip:
-        link from a shared drive so everyone on the event has access.
+        Linked files live in the linker’s Drive — teammates can open them only if they’re shared.
+        Tip: link from a shared drive so everyone on the event has access.
       </p>
 
       {error && <p className="text-sm text-accent">{error}</p>}

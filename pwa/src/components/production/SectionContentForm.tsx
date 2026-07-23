@@ -28,10 +28,17 @@ function displayValue(v: FieldValue): string {
 }
 
 /** Registry-driven form for a department section's content fields. */
-export function SectionContentForm({ fields, initial, readOnly, pending, onSave }: SectionContentFormProps) {
+export function SectionContentForm({
+  fields,
+  initial,
+  readOnly,
+  pending,
+  onSave,
+}: SectionContentFormProps) {
   const [values, setValues] = useState<SectionContent>(() => ({ ...initial }));
 
-  const setValue = (key: string, value: FieldValue) => setValues((prev) => ({ ...prev, [key]: value }));
+  const setValue = (key: string, value: FieldValue) =>
+    setValues((prev) => ({ ...prev, [key]: value }));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -49,7 +56,10 @@ export function SectionContentForm({ fields, initial, readOnly, pending, onSave 
     return (
       <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
         {fields.map((f) => (
-          <div key={f.key} className="flex justify-between gap-3 border-b border-line/40 py-1 text-sm">
+          <div
+            key={f.key}
+            className="flex justify-between gap-3 border-b border-line/40 py-1 text-sm"
+          >
             <dt className="text-ink-muted">{f.label}</dt>
             <dd className="text-right text-ink">{displayValue(values[f.key] ?? null)}</dd>
           </div>
@@ -62,10 +72,17 @@ export function SectionContentForm({ fields, initial, readOnly, pending, onSave 
     <form className="space-y-4" onSubmit={submit}>
       {groupFields(fields).map(([group, groupFieldDefs]) => (
         <div key={group} className="space-y-2">
-          {group && <h4 className="text-xs font-bold uppercase tracking-wide text-ink-muted">{group}</h4>}
+          {group && (
+            <h4 className="text-xs font-bold uppercase tracking-wide text-ink-muted">{group}</h4>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             {groupFieldDefs.map((f) => (
-              <Field key={f.key} field={f} value={values[f.key]} onChange={(v) => setValue(f.key, v)} />
+              <Field
+                key={f.key}
+                field={f}
+                value={values[f.key]}
+                onChange={(v) => setValue(f.key, v)}
+              />
             ))}
           </div>
         </div>
@@ -93,7 +110,11 @@ function Field({
   if (field.type === 'boolean') {
     return (
       <label className="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={value === true}
+          onChange={(e) => onChange(e.target.checked)}
+        />
         {field.label}
       </label>
     );
@@ -106,7 +127,12 @@ function Field({
     return (
       <label className="block text-sm sm:col-span-2">
         {label}
-        <textarea className={inputClass} rows={2} value={str} onChange={(e) => onChange(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={str}
+          onChange={(e) => onChange(e.target.value)}
+        />
       </label>
     );
   }

@@ -13,7 +13,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, isAdmin, signOut } = useAuth();
   // Admins see a count of accounts awaiting approval on the Admin link — a standing nudge that new
   // registrations need action, without opening the Admin screen. Shares the ['admin','users'] cache.
-  const usersQuery = useQuery({ queryKey: ['admin', 'users'], queryFn: listUsers, enabled: isAdmin });
+  const usersQuery = useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: listUsers,
+    enabled: isAdmin,
+  });
   const pendingCount = usersQuery.data ? countPendingApproval(usersQuery.data) : 0;
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
@@ -32,7 +36,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <span
               className={`font-sans font-normal uppercase leading-none text-brand-fg transition-all duration-300 ${
-                scrolled ? 'pb-1.5 text-[0.575rem] tracking-[0.15em]' : 'pb-2.5 text-xs tracking-[0.15em]'
+                scrolled
+                  ? 'pb-1.5 text-[0.575rem] tracking-[0.15em]'
+                  : 'pb-2.5 text-xs tracking-[0.15em]'
               }`}
             >
               Advance
@@ -54,7 +60,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link
                     className="inline-flex items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
                     to="/admin"
-                    aria-label={pendingCount > 0 ? `Admin — ${pendingCount} awaiting approval` : 'Admin'}
+                    aria-label={
+                      pendingCount > 0 ? `Admin — ${pendingCount} awaiting approval` : 'Admin'
+                    }
                   >
                     Admin
                     {pendingCount > 0 && (

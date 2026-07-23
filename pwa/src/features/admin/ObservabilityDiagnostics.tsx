@@ -14,10 +14,13 @@ export function ObservabilityDiagnostics() {
 
   const sendTest = (): void => {
     const release = (import.meta.env.VITE_APP_RELEASE as string | undefined) ?? 'unknown';
-    captureError(new Error(`Sentry verification test — release ${release} @ ${new Date().toISOString()}`), {
-      source: 'AdminDiagnostics',
-      test: true,
-    });
+    captureError(
+      new Error(`Sentry verification test — release ${release} @ ${new Date().toISOString()}`),
+      {
+        source: 'AdminDiagnostics',
+        test: true,
+      },
+    );
     setSent(true);
   };
 
@@ -46,8 +49,8 @@ export function ObservabilityDiagnostics() {
         </button>
         {sent && (
           <p className="text-sm text-ink-muted">
-            Test event sent — check <span className="font-medium text-ink">Issues</span> in Sentry (it can take a few
-            seconds to appear).
+            Test event sent — check <span className="font-medium text-ink">Issues</span> in Sentry
+            (it can take a few seconds to appear).
           </p>
         )}
       </div>

@@ -55,7 +55,9 @@ describe('deleteAdvance', () => {
   });
 
   it('recursively deletes the advance and every subcollection, and is idempotent', async () => {
-    await testEnv.wrap(deleteAdvance)(callableRequest({ eventId: E, stageId: S, advanceId: A }, PM));
+    await testEnv.wrap(deleteAdvance)(
+      callableRequest({ eventId: E, stageId: S, advanceId: A }, PM),
+    );
     expect(await exists(advPath)).toBe(false);
     expect(await exists(`${advPath}/driveFiles/f1`)).toBe(false);
     expect(await exists(`${advPath}/documents/d1`)).toBe(false);
@@ -72,7 +74,9 @@ describe('deleteStage', () => {
     await clearEmulators();
     await seed();
     await db.doc(`events/${E}/stages/${S}/production/record`).set({ info: {} });
-    await db.doc(`events/${E}/stages/${S}/production/record/attachments/at1`).set({ path: 'p', name: 'a' });
+    await db
+      .doc(`events/${E}/stages/${S}/production/record/attachments/at1`)
+      .set({ path: 'p', name: 'a' });
   });
 
   it('recursively deletes the stage, its advances subtree, and the production record + attachments', async () => {
@@ -92,9 +96,13 @@ describe('deleteQuote', () => {
 
   it('rejects a non-editor, then a PM deletes the quote', async () => {
     await expect(
-      testEnv.wrap(deleteQuote)(callableRequest({ eventId: E, stageId: S, advanceId: A, quoteId: 'q1' }, TECH)),
+      testEnv.wrap(deleteQuote)(
+        callableRequest({ eventId: E, stageId: S, advanceId: A, quoteId: 'q1' }, TECH),
+      ),
     ).rejects.toMatchObject({ code: 'permission-denied' });
-    await testEnv.wrap(deleteQuote)(callableRequest({ eventId: E, stageId: S, advanceId: A, quoteId: 'q1' }, PM));
+    await testEnv.wrap(deleteQuote)(
+      callableRequest({ eventId: E, stageId: S, advanceId: A, quoteId: 'q1' }, PM),
+    );
     expect(await exists(`${advPath}/quotes/q1`)).toBe(false);
   });
 });

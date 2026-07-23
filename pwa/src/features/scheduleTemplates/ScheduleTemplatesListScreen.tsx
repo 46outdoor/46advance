@@ -30,7 +30,10 @@ export function ScheduleTemplatesListScreen() {
   const [category, setCategory] = useState<ScheduleTemplateCategory>('production');
   const [kind, setKind] = useState<ScheduleTemplateKind>('standard');
 
-  const templatesQuery = useQuery({ queryKey: ['scheduleTemplates'], queryFn: listScheduleTemplates });
+  const templatesQuery = useQuery({
+    queryKey: ['scheduleTemplates'],
+    queryFn: listScheduleTemplates,
+  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['scheduleTemplates'] });
 
   const create = useMutation({
@@ -61,9 +64,12 @@ export function ScheduleTemplatesListScreen() {
           ← Admin
         </Link>
       </div>
-      <h1 className="font-display text-3xl font-black tracking-tight text-brand">Schedule templates</h1>
+      <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+        Schedule templates
+      </h1>
       <p className="text-sm text-ink-muted">
-        Reusable schedule blueprints (Production, Show, Stagehand…) you can import into any event's schedule.
+        Reusable schedule blueprints (Production, Show, Stagehand…) you can import into any event's
+        schedule.
       </p>
 
       <form
@@ -125,7 +131,10 @@ export function ScheduleTemplatesListScreen() {
       <ul className="divide-y divide-line/60">
         {templates.map((t) => (
           <li key={t.id} className="flex items-center justify-between py-3">
-            <Link to={`/schedule-templates/${t.id}`} className="font-semibold text-brand hover:text-accent">
+            <Link
+              to={`/schedule-templates/${t.id}`}
+              className="font-semibold text-brand hover:text-accent"
+            >
               {t.name}
               <span className="ml-2 rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
                 {t.kind === 'master' ? 'Master' : scheduleTemplateCategoryLabel(t.category)}

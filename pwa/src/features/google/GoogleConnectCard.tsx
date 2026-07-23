@@ -75,7 +75,9 @@ export function GoogleConnectCard() {
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            isConnected ? 'bg-status-complete/15 text-status-complete' : 'bg-surface-muted text-ink-muted'
+            isConnected
+              ? 'bg-status-complete/15 text-status-complete'
+              : 'bg-surface-muted text-ink-muted'
           }`}
         >
           {isConnected ? 'Connected' : 'Not connected'}

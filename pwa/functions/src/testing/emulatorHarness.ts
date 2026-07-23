@@ -40,7 +40,10 @@ export function fakeToken(claims: Record<string, unknown> = {}): DecodedIdToken 
 }
 
 /** Auth context for a signed-in caller with the given uid + custom claims. */
-export function authContext(uid: string, claims: Record<string, unknown> = {}): { uid: string; token: DecodedIdToken } {
+export function authContext(
+  uid: string,
+  claims: Record<string, unknown> = {},
+): { uid: string; token: DecodedIdToken } {
   return { uid, token: fakeToken({ uid, ...claims }) };
 }
 
@@ -49,7 +52,12 @@ export function callableRequest<T>(
   data: T,
   auth?: { uid: string; token: DecodedIdToken },
 ): CallableRequest<T> {
-  return { data, auth, rawRequest: { headers: {} }, acceptsStreaming: false } as unknown as CallableRequest<T>;
+  return {
+    data,
+    auth,
+    rawRequest: { headers: {} },
+    acceptsStreaming: false,
+  } as unknown as CallableRequest<T>;
 }
 
 /** Wipe every Firestore doc + Auth account in the emulator. Call in `beforeEach` for isolation. */
@@ -63,6 +71,8 @@ export async function clearEmulators(): Promise<void> {
     );
   }
   if (authHost) {
-    await fetch(`http://${authHost}/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: 'DELETE' });
+    await fetch(`http://${authHost}/emulator/v1/projects/${PROJECT_ID}/accounts`, {
+      method: 'DELETE',
+    });
   }
 }

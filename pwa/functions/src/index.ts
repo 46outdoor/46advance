@@ -31,9 +31,15 @@ import {
   syncUserClaimsInputSchema,
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
-import { createBlankEventInputSchema, createEventFromTemplateInputSchema } from './contracts/callables/events.js';
+import {
+  createBlankEventInputSchema,
+  createEventFromTemplateInputSchema,
+} from './contracts/callables/events.js';
 import { reserveEventSlug } from './lib/events/slug.js';
-import { generatePacketInputSchema, generateQuotePdfInputSchema } from './contracts/callables/pdf.js';
+import {
+  generatePacketInputSchema,
+  generateQuotePdfInputSchema,
+} from './contracts/callables/pdf.js';
 import { OAUTH_SECRETS, disconnectGoogle } from './google.js';
 
 initializeApp();
@@ -55,7 +61,19 @@ export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBooki
 export { reconcileScheduleDay, removeScheduleCalendarEvent } from './googleSchedule.js';
 
 // Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
-export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive, importDriveFolder, getArtistDocumentContent, scheduledLibraryDriveSync, registerEventDocument, registerArtistDocument, includeArtistDocumentOnAdvance, validateLibraryFolder } from './googleDrive.js';
+export {
+  getDriveAccessToken,
+  linkDriveFile,
+  removeDriveFile,
+  savePacketToDrive,
+  importDriveFolder,
+  getArtistDocumentContent,
+  scheduledLibraryDriveSync,
+  registerEventDocument,
+  registerArtistDocument,
+  includeArtistDocumentOnAdvance,
+  validateLibraryFolder,
+} from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 
 // Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.
@@ -74,7 +92,11 @@ export { notifyOnRegistration } from './registrationNotify.js';
 export { renameEventCalendarOnChange } from './eventCalendarRename.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
-const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
 // Event dates (date-only) render in the EVENT's timezone so the PDF shows the intended calendar
 // day regardless of the Cloud Functions server zone (F-6).
 const packetDateFmt = (timeZone: string): Intl.DateTimeFormat =>
@@ -107,7 +129,8 @@ async function linkOrCreateContact(
   email: string | null,
   fallbackName: string | null,
 ): Promise<{ contactId: string; contactName: string | null }> {
-  const nameOrNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const nameOrNull = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim() : null;
 
   // Legacy mirror already present (accounts created before contactId tracking).
   const mirrorRef = db.collection('contacts').doc(uid);
@@ -122,7 +145,10 @@ async function linkOrCreateContact(
       return !linkedTo || linkedTo === uid;
     });
     if (match) {
-      await match.ref.set({ userId: uid, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      await match.ref.set(
+        { userId: uid, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
       return { contactId: match.id, contactName: nameOrNull(match.data().name) };
     }
   }
@@ -231,7 +257,8 @@ export const syncUserClaims = onCall(async (request) => {
   // users/{uid}.contactId): prefer linking a pre-added contact matched by email so admins
   // can add people ahead of time; otherwise create the mirror contacts/{uid}.
   const userData = snap.data();
-  let contactId: string | null = typeof userData?.contactId === 'string' ? userData.contactId : null;
+  let contactId: string | null =
+    typeof userData?.contactId === 'string' ? userData.contactId : null;
   let contactName: string | null = null;
   if (!contactId) {
     const linked = await linkOrCreateContact(db, uid, email, nameHint);
@@ -321,7 +348,10 @@ export const setUserDisplayName = onCall(async (request) => {
   if (name) {
     const linked = await db.collection('contacts').where('userId', '==', uid).limit(1).get();
     if (!linked.empty) {
-      await linked.docs[0].ref.set({ name, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      await linked.docs[0].ref.set(
+        { name, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
     }
   }
   return { uid, displayName: name };
@@ -380,7 +410,10 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
   // reconcile recreate a calendar under a still-connected PM (WS-H).
   const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
   const contacts = await db.collection('contacts').where('userId', '==', uid).get();
-  const ownedCalendars = await db.collection('events').where('googleCalendarOwnerUid', '==', uid).get();
+  const ownedCalendars = await db
+    .collection('events')
+    .where('googleCalendarOwnerUid', '==', uid)
+    .get();
 
   const batch = new ChunkedBatch(db);
   memberships.forEach((m) => batch.delete(m.ref));
@@ -405,10 +438,12 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
 });
 
 /** Coerce a candidate epoch-millis value into a Firestore Timestamp (or null). */
-const toTimestamp = (v: unknown): Timestamp | null => (typeof v === 'number' ? Timestamp.fromMillis(v) : null);
+const toTimestamp = (v: unknown): Timestamp | null =>
+  typeof v === 'number' ? Timestamp.fromMillis(v) : null;
 
 /** Coerce a candidate to a non-empty trimmed string, else null. */
-const trimmedOrNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const trimmedOrNull = (v: unknown): string | null =>
+  typeof v === 'string' && v.trim() ? v.trim() : null;
 
 /** Read an array-typed field, defaulting to an empty array when absent/mismatched. */
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -444,11 +479,27 @@ function parseNewEventInput(data: unknown): NewEventInput {
 }
 
 /** Seed the caller as PM, then template members (without clobbering the caller). */
-function seedEventMembers(batch: BatchLike, eventRef: DocumentReference, tpl: DocumentData, uid: string, now: FieldValue): void {
-  batch.set(eventRef.collection('members').doc(uid), { role: 'production-manager', addedBy: uid, addedAt: now, uid });
+function seedEventMembers(
+  batch: BatchLike,
+  eventRef: DocumentReference,
+  tpl: DocumentData,
+  uid: string,
+  now: FieldValue,
+): void {
+  batch.set(eventRef.collection('members').doc(uid), {
+    role: 'production-manager',
+    addedBy: uid,
+    addedAt: now,
+    uid,
+  });
   for (const m of asArray(tpl.members)) {
     const member = m as DocumentData;
-    if (member && typeof member.uid === 'string' && member.uid !== uid && typeof member.role === 'string') {
+    if (
+      member &&
+      typeof member.uid === 'string' &&
+      member.uid !== uid &&
+      typeof member.role === 'string'
+    ) {
       batch.set(eventRef.collection('members').doc(member.uid), {
         role: member.role,
         addedBy: uid,
@@ -460,7 +511,12 @@ function seedEventMembers(batch: BatchLike, eventRef: DocumentReference, tpl: Do
 }
 
 /** Seed the event-level production record from the template blueprint. */
-function seedEventProduction(batch: BatchLike, eventRef: DocumentReference, tpl: DocumentData, now: FieldValue): void {
+function seedEventProduction(
+  batch: BatchLike,
+  eventRef: DocumentReference,
+  tpl: DocumentData,
+  now: FieldValue,
+): void {
   const ep = (tpl.eventProduction ?? {}) as DocumentData;
   batch.set(eventRef.collection('production').doc('record'), {
     info: ep.info ?? {},
@@ -710,7 +766,10 @@ function variantForBackground(logo: LogoRef, background: 'dark' | 'light'): Logo
  * oversized, or failed download returns null (logged) rather than throwing, so a bad logo
  * never breaks packet generation. Results are memoized per-path in `cache`.
  */
-async function loadLogoDataUri(path: string, cache: Map<string, string | null>): Promise<string | null> {
+async function loadLogoDataUri(
+  path: string,
+  cache: Map<string, string | null>,
+): Promise<string | null> {
   const cached = cache.get(path);
   if (cached !== undefined) return cached;
 
@@ -806,86 +865,89 @@ async function collectPacketAttachments(
 export const generatePacket = onCall(
   { memory: '1GiB', timeoutSeconds: 180, secrets: [DRIVE_SA_KEY] },
   async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  const { uid, token } = request.auth;
-  const { eventId } = parseCallableData(generatePacketInputSchema, request.data);
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+    const { uid, token } = request.auth;
+    const { eventId } = parseCallableData(generatePacketInputSchema, request.data);
 
-  const db = getFirestore();
-  await enforceRateLimit(db, ['generatePacket', uid], 10);
-  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
-  const ev = eventSnap.data() ?? {};
+    const db = getFirestore();
+    await enforceRateLimit(db, ['generatePacket', uid], 10);
+    const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
+    const ev = eventSnap.data() ?? {};
 
-  const deptSnap = await db.collection('departments').get();
-  const deptName = new Map(deptSnap.docs.map((d) => [d.id, (d.data().name as string) ?? d.id]));
-  const departmentIds: string[] = Array.isArray(ev.departmentIds) ? ev.departmentIds : [];
-  const departments = departmentIds.map((id) => ({ id, name: deptName.get(id) ?? id }));
+    const deptSnap = await db.collection('departments').get();
+    const deptName = new Map(deptSnap.docs.map((d) => [d.id, (d.data().name as string) ?? d.id]));
+    const departmentIds: string[] = Array.isArray(ev.departmentIds) ? ev.departmentIds : [];
+    const departments = departmentIds.map((id) => ({ id, name: deptName.get(id) ?? id }));
 
-  const epSnap = await db.doc(`events/${eventId}/production/record`).get();
-  const ep = epSnap.exists ? (epSnap.data() ?? {}) : {};
+    const epSnap = await db.doc(`events/${eventId}/production/record`).get();
+    const ep = epSnap.exists ? (epSnap.data() ?? {}) : {};
 
-  const stageDocs = (await db.collection(`events/${eventId}/stages`).get()).docs.sort(
-    (a, b) => ((a.data().order as number) ?? 0) - ((b.data().order as number) ?? 0),
-  );
-  const stages = await Promise.all(
-    stageDocs.map(async (sd) => {
-      const spSnap = await db.doc(`events/${eventId}/stages/${sd.id}/production/record`).get();
-      const advSnap = await db.collection(`events/${eventId}/stages/${sd.id}/advances`).get();
-      const advances = advSnap.docs
-        .map((ad) => ad.data())
-        .sort((a, b) => String(a.artistName ?? '').localeCompare(String(b.artistName ?? '')))
-        .map((a) => ({
-          artistName: String(a.artistName ?? ''),
-          performanceDate: fmtDate(a.performanceDate, String(ev.timeZone ?? 'America/Chicago')),
-          stage: a.stage ?? null,
-          notes: a.notes ?? null,
-          additions: a.additions ?? null,
-          concerns: a.concerns ?? null,
-          pending: a.pending ?? null,
-          sections: a.sections ?? {},
-          content: a.content ?? {},
-        }));
-      return {
-        name: String(sd.data().name ?? 'Stage'),
-        production: spSnap.exists ? (spSnap.data()?.content ?? {}) : {},
-        advances,
-      };
-    }),
-  );
-
-  const logos = await resolvePacketLogos(db, ev);
-
-  const data: PacketData = {
-    event: {
-      name: String(ev.name ?? ''),
-      venue: ev.venue ?? null,
-      dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
-    },
-    departments,
-    eventProduction: {
-      info: ep.info ?? {},
-      contacts: ep.contacts ?? [],
-      links: ep.links ?? [],
-    },
-    stages,
-    logos,
-    generatedAt: PACKET_DATE_FMT.format(new Date()),
-  };
-
-  let buffer = await renderPacket(data);
-  // Documents PR 5: append each advance's include-in-packet documents (fetched via the
-  // docs-broker SA) — divider page per artist, PDFs merged, photos as fitted pages.
-  const attachments = await collectPacketAttachments(db, eventId, stageDocs);
-  if (attachments.length > 0) {
-    const drive = brokerDriveClient();
-    buffer = await appendPacketAttachments(buffer, attachments, (fileId, mime) =>
-      fetchBrokeredFileBytes(drive, fileId, mime, MAX_EMBED_BYTES),
+    const stageDocs = (await db.collection(`events/${eventId}/stages`).get()).docs.sort(
+      (a, b) => ((a.data().order as number) ?? 0) - ((b.data().order as number) ?? 0),
     );
-  }
-  const path = `events/${eventId}/packets/${Date.now()}.pdf`;
-  await getStorage().bucket(STORAGE_BUCKET).file(path).save(buffer, { contentType: 'application/pdf' });
-  return { path };
+    const stages = await Promise.all(
+      stageDocs.map(async (sd) => {
+        const spSnap = await db.doc(`events/${eventId}/stages/${sd.id}/production/record`).get();
+        const advSnap = await db.collection(`events/${eventId}/stages/${sd.id}/advances`).get();
+        const advances = advSnap.docs
+          .map((ad) => ad.data())
+          .sort((a, b) => String(a.artistName ?? '').localeCompare(String(b.artistName ?? '')))
+          .map((a) => ({
+            artistName: String(a.artistName ?? ''),
+            performanceDate: fmtDate(a.performanceDate, String(ev.timeZone ?? 'America/Chicago')),
+            stage: a.stage ?? null,
+            notes: a.notes ?? null,
+            additions: a.additions ?? null,
+            concerns: a.concerns ?? null,
+            pending: a.pending ?? null,
+            sections: a.sections ?? {},
+            content: a.content ?? {},
+          }));
+        return {
+          name: String(sd.data().name ?? 'Stage'),
+          production: spSnap.exists ? (spSnap.data()?.content ?? {}) : {},
+          advances,
+        };
+      }),
+    );
+
+    const logos = await resolvePacketLogos(db, ev);
+
+    const data: PacketData = {
+      event: {
+        name: String(ev.name ?? ''),
+        venue: ev.venue ?? null,
+        dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
+      },
+      departments,
+      eventProduction: {
+        info: ep.info ?? {},
+        contacts: ep.contacts ?? [],
+        links: ep.links ?? [],
+      },
+      stages,
+      logos,
+      generatedAt: PACKET_DATE_FMT.format(new Date()),
+    };
+
+    let buffer = await renderPacket(data);
+    // Documents PR 5: append each advance's include-in-packet documents (fetched via the
+    // docs-broker SA) — divider page per artist, PDFs merged, photos as fitted pages.
+    const attachments = await collectPacketAttachments(db, eventId, stageDocs);
+    if (attachments.length > 0) {
+      const drive = brokerDriveClient();
+      buffer = await appendPacketAttachments(buffer, attachments, (fileId, mime) =>
+        fetchBrokeredFileBytes(drive, fileId, mime, MAX_EMBED_BYTES),
+      );
+    }
+    const path = `events/${eventId}/packets/${Date.now()}.pdf`;
+    await getStorage()
+      .bucket(STORAGE_BUCKET)
+      .file(path)
+      .save(buffer, { contentType: 'application/pdf' });
+    return { path };
   },
 );
 
@@ -921,66 +983,71 @@ function buildQuoteLines(q: DocumentData): QuotePdfData['quote']['lines'] {
  * for admin or any member of the event. Returns the Storage `{ path }`; the client resolves
  * a member-gated download URL. Input: { eventId, stageId, advanceId, quoteId }.
  */
-export const generateQuotePdf = onCall({ memory: '512MiB', timeoutSeconds: 120 }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
-  }
-  const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, quoteId } = parseQuotePdfRef(request.data ?? {});
+export const generateQuotePdf = onCall(
+  { memory: '512MiB', timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+    const { uid, token } = request.auth;
+    const { eventId, stageId, advanceId, quoteId } = parseQuotePdfRef(request.data ?? {});
 
-  const db = getFirestore();
-  await enforceRateLimit(db, ['generateQuotePdf', uid], 10);
-  const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['generateQuotePdf', uid], 10);
+    const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
 
-  const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
-  const [advanceSnap, quoteSnap] = await Promise.all([
-    db.doc(advancePath).get(),
-    db.doc(`${advancePath}/quotes/${quoteId}`).get(),
-  ]);
-  if (!quoteSnap.exists) {
-    throw new HttpsError('not-found', 'Quote not found.');
-  }
-  const ev = eventSnap.data() ?? {};
-  const adv = advanceSnap.data() ?? {};
-  const q = quoteSnap.data() ?? {};
+    const advancePath = `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
+    const [advanceSnap, quoteSnap] = await Promise.all([
+      db.doc(advancePath).get(),
+      db.doc(`${advancePath}/quotes/${quoteId}`).get(),
+    ]);
+    if (!quoteSnap.exists) {
+      throw new HttpsError('not-found', 'Quote not found.');
+    }
+    const ev = eventSnap.data() ?? {};
+    const adv = advanceSnap.data() ?? {};
+    const q = quoteSnap.data() ?? {};
 
-  const lines = buildQuoteLines(q);
-  const total = lines.reduce((sum, l) => sum + l.total, 0);
-  const statusLabel = String(q.status ?? 'draft');
+    const lines = buildQuoteLines(q);
+    const total = lines.reduce((sum, l) => sum + l.total, 0);
+    const statusLabel = String(q.status ?? 'draft');
 
-  const data: QuotePdfData = {
-    event: {
-      name: String(ev.name ?? ''),
-      venue: ev.venue ?? null,
-      dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
-    },
-    artistName: String(adv.artistName ?? ''),
-    quote: {
-      title: String(q.title ?? 'Quote'),
-      statusLabel: statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1),
-      notes: q.notes ?? null,
-      decisionNote: q.decisionNote ?? null,
-      lines,
-      total: fmtMoney(total),
-    },
-    generatedAt: PACKET_DATE_FMT.format(new Date()),
-  };
+    const data: QuotePdfData = {
+      event: {
+        name: String(ev.name ?? ''),
+        venue: ev.venue ?? null,
+        dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
+      },
+      artistName: String(adv.artistName ?? ''),
+      quote: {
+        title: String(q.title ?? 'Quote'),
+        statusLabel: statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1),
+        notes: q.notes ?? null,
+        decisionNote: q.decisionNote ?? null,
+        lines,
+        total: fmtMoney(total),
+      },
+      generatedAt: PACKET_DATE_FMT.format(new Date()),
+    };
 
-  const buffer = await renderQuote(data);
-  const path = `events/${eventId}/quotes/${quoteId}/quote-${Date.now()}.pdf`;
-  const file = getStorage().bucket(STORAGE_BUCKET).file(path);
-  await file.save(buffer, { contentType: 'application/pdf' });
+    const buffer = await renderQuote(data);
+    const path = `events/${eventId}/quotes/${quoteId}/quote-${Date.now()}.pdf`;
+    const file = getStorage().bucket(STORAGE_BUCKET).file(path);
+    await file.save(buffer, { contentType: 'application/pdf' });
 
-  // Quotes are shared with the artist (a non-member), so return a signed, expiring
-  // URL (7 days — the v4 maximum). Requires the runtime service account to hold
-  // roles/iam.serviceAccountTokenCreator on itself to sign; if that grant isn't in
-  // place yet, fall back to a member-gated download (the client resolves it).
-  try {
-    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    const [url] = await file.getSignedUrl({ version: 'v4', action: 'read', expires: expiresAt });
-    return { path, url, expiresAt };
-  } catch (err) {
-    logger.warn('generateQuotePdf: signed-URL generation failed; using member-gated fallback', { err });
-    return { path };
-  }
-});
+    // Quotes are shared with the artist (a non-member), so return a signed, expiring
+    // URL (7 days — the v4 maximum). Requires the runtime service account to hold
+    // roles/iam.serviceAccountTokenCreator on itself to sign; if that grant isn't in
+    // place yet, fall back to a member-gated download (the client resolves it).
+    try {
+      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      const [url] = await file.getSignedUrl({ version: 'v4', action: 'read', expires: expiresAt });
+      return { path, url, expiresAt };
+    } catch (err) {
+      logger.warn('generateQuotePdf: signed-URL generation failed; using member-gated fallback', {
+        err,
+      });
+      return { path };
+    }
+  },
+);

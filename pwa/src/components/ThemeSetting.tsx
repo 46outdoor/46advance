@@ -9,7 +9,11 @@ const OPTIONS: { value: Theme; label: string }[] = [
 export function ThemeSetting() {
   const { theme, setTheme } = useTheme();
   return (
-    <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-lg border border-line p-1">
+    <div
+      role="radiogroup"
+      aria-label="Theme"
+      className="inline-flex rounded-lg border border-line p-1"
+    >
       {OPTIONS.map((opt) => {
         const selected = theme === opt.value;
         return (

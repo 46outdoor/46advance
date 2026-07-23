@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { advanceInputSchema, type AdvanceInput } from '@/lib/advances/advance';
 import { SlotSelect } from '@/components/lineup/SlotSelect';
-import { dateToZonedInput, dayKeyToInstant, zonedDayKey, zonedInputToDate } from '@/lib/dates/timezone';
+import {
+  dateToZonedInput,
+  dayKeyToInstant,
+  zonedDayKey,
+  zonedInputToDate,
+} from '@/lib/dates/timezone';
 
 interface AdvanceFormProps {
   initial?: {
@@ -61,7 +66,14 @@ function DaySelect({
       </select>
     );
   }
-  return <input type="date" className={inputClass} value={value} onChange={(e) => onChange(e.target.value)} />;
+  return (
+    <input
+      type="date"
+      className={inputClass}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
 }
 
 /** Create/edit form for an advance. Validates with advanceInputSchema. */
@@ -76,13 +88,17 @@ export function AdvanceForm({
   onCancel,
 }: AdvanceFormProps) {
   const [artistName, setArtistName] = useState(initial?.artistName ?? '');
-  const [performanceDate, setPerformanceDate] = useState(zonedDayKey(initial?.performanceDate ?? null, timeZone));
+  const [performanceDate, setPerformanceDate] = useState(
+    zonedDayKey(initial?.performanceDate ?? null, timeZone),
+  );
   const [slot, setSlot] = useState<number | null>(initial?.slot ?? null);
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [additions, setAdditions] = useState(initial?.additions ?? '');
   const [concerns, setConcerns] = useState(initial?.concerns ?? '');
   const [pendingItems, setPendingItems] = useState(initial?.pending ?? '');
-  const [advanceCallAt, setAdvanceCallAt] = useState(dateToZonedInput(initial?.advanceCallAt ?? null, timeZone));
+  const [advanceCallAt, setAdvanceCallAt] = useState(
+    dateToZonedInput(initial?.advanceCallAt ?? null, timeZone),
+  );
   const [advanceCallLink, setAdvanceCallLink] = useState(initial?.advanceCallLink ?? '');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -111,11 +127,21 @@ export function AdvanceForm({
     <form className="grid gap-3 sm:grid-cols-2 sm:items-end" onSubmit={submit}>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Artist / performance</span>
-        <input className={inputClass} value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Headliner" />
+        <input
+          className={inputClass}
+          value={artistName}
+          onChange={(e) => setArtistName(e.target.value)}
+          placeholder="Headliner"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Performance day</span>
-        <DaySelect days={days} value={performanceDate} timeZone={timeZone} onChange={setPerformanceDate} />
+        <DaySelect
+          days={days}
+          value={performanceDate}
+          timeZone={timeZone}
+          onChange={setPerformanceDate}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Slot</span>
@@ -123,27 +149,59 @@ export function AdvanceForm({
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Notes</span>
-        <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
       <label className="block text-sm sm:col-span-2">
-        <span className="mb-1 block font-semibold text-ink">Additions (requests outside the festival package)</span>
-        <textarea className={inputClass} rows={2} value={additions} onChange={(e) => setAdditions(e.target.value)} />
+        <span className="mb-1 block font-semibold text-ink">
+          Additions (requests outside the festival package)
+        </span>
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={additions}
+          onChange={(e) => setAdditions(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Concerns</span>
-        <textarea className={inputClass} rows={2} value={concerns} onChange={(e) => setConcerns(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={concerns}
+          onChange={(e) => setConcerns(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Pending items</span>
-        <textarea className={inputClass} rows={2} value={pendingItems} onChange={(e) => setPendingItems(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={pendingItems}
+          onChange={(e) => setPendingItems(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Advance call — date/time</span>
-        <input type="datetime-local" className={inputClass} value={advanceCallAt} onChange={(e) => setAdvanceCallAt(e.target.value)} />
+        <input
+          type="datetime-local"
+          className={inputClass}
+          value={advanceCallAt}
+          onChange={(e) => setAdvanceCallAt(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Advance call — meeting link</span>
-        <input className={inputClass} value={advanceCallLink} onChange={(e) => setAdvanceCallLink(e.target.value)} placeholder="https://meet.google.com/…" />
+        <input
+          className={inputClass}
+          value={advanceCallLink}
+          onChange={(e) => setAdvanceCallLink(e.target.value)}
+          placeholder="https://meet.google.com/…"
+        />
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <button
@@ -154,11 +212,17 @@ export function AdvanceForm({
           {pending ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-ink-muted hover:text-ink"
+          >
             Cancel
           </button>
         )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError || error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

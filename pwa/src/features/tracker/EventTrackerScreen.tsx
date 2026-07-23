@@ -27,15 +27,21 @@ export function EventTrackerScreen() {
 
       {query.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
       {query.isError && <p className="text-sm text-accent">Failed to load this tracker.</p>}
-      {query.data === null && <p className="text-sm text-ink-muted">Event not found, or you don’t have access.</p>}
+      {query.data === null && (
+        <p className="text-sm text-ink-muted">Event not found, or you don’t have access.</p>
+      )}
 
       {view && (
         <>
           <header className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="font-display text-3xl font-black tracking-tight text-brand">{view.event.name}</h1>
-                <p className="text-ink-muted">{formatDateRange(view.event.startDate, view.event.endDate)}</p>
+                <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+                  {view.event.name}
+                </h1>
+                <p className="text-ink-muted">
+                  {formatDateRange(view.event.startDate, view.event.endDate)}
+                </p>
               </div>
               <Link
                 to={`/events/${eventId}`}

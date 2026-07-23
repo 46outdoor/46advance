@@ -57,8 +57,8 @@ export function BrandingAdmin() {
         <h2 className="font-display text-xl font-bold text-brand">Branding</h2>
       </div>
       <p className="text-sm text-ink-muted">
-        Shared default marks (e.g. 46, Peachtree) auto-applied to every packet and header.
-        Each logo has two variants so it renders on any background.
+        Shared default marks (e.g. 46, Peachtree) auto-applied to every packet and header. Each logo
+        has two variants so it renders on any background.
       </p>
 
       {brandingQuery.isLoading && <p className="text-sm text-ink-muted">Loading branding…</p>}

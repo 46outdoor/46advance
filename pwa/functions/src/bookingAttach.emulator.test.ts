@@ -27,19 +27,31 @@ async function seed(): Promise<void> {
   // createBlankEvent makes ORGANIZER the event PM (so attach's canEditEvent gate passes).
   await testEnv.wrap(createBlankEvent)(
     callableRequest(
-      { eventId: EVENT, name: 'Book Fest', startDate: null, endDate: null, venue: null, slug: 'book-fest' },
+      {
+        eventId: EVENT,
+        name: 'Book Fest',
+        startDate: null,
+        endDate: null,
+        venue: null,
+        slug: 'book-fest',
+      },
       ORGANIZER,
     ),
   );
   await db.doc(`events/${EVENT}/stages/${STAGE}`).set({ name: 'Main', createdBy: ORGANIZER.uid });
   await db.doc(`events/${EVENT}/stages/${STAGE}/advances/${ADVANCE}`).set({
-    artistName: 'Band', createdBy: ORGANIZER.uid,
+    artistName: 'Band',
+    createdBy: ORGANIZER.uid,
   });
 }
 
 const booking = (id: string, over: Record<string, unknown> = {}) => ({
-  calendarEventId: id, artistName: 'Band', startMillis: START, meetLink: `https://meet/${id}`,
-  status: 'needs_review', ...over,
+  calendarEventId: id,
+  artistName: 'Band',
+  startMillis: START,
+  meetLink: `https://meet/${id}`,
+  status: 'needs_review',
+  ...over,
 });
 
 const attach = (bookingId: string, auth = ORGANIZER) =>
@@ -68,19 +80,28 @@ describe('attachCallBooking', () => {
   it('requeues a booking it displaces from the same advance instead of orphaning it', async () => {
     // The advance already holds cal-old (as the cron auto-attach would leave it).
     await db.doc(`events/${EVENT}/stages/${STAGE}/advances/${ADVANCE}`).set({
-      artistName: 'Band', createdBy: ORGANIZER.uid,
-      advanceCallAt: Timestamp.fromMillis(START), advanceCallLink: 'https://meet/cal-old',
+      artistName: 'Band',
+      createdBy: ORGANIZER.uid,
+      advanceCallAt: Timestamp.fromMillis(START),
+      advanceCallLink: 'https://meet/cal-old',
       googleCalendarEventId: 'cal-old',
     });
     await db.doc(`events/${EVENT}/callBookings/cal-old`).set(
-      booking('cal-old', { status: 'attached', matchedAdvanceId: ADVANCE, matchedStageId: STAGE }),
+      booking('cal-old', {
+        status: 'attached',
+        matchedAdvanceId: ADVANCE,
+        matchedStageId: STAGE,
+      }),
     );
     await db.doc(`events/${EVENT}/callBookings/cal-new`).set(booking('cal-new'));
 
     const res = await attach('cal-new');
     expect(res).toEqual({ attached: true, requeuedBookingId: 'cal-old' });
-    expect((await db.doc(`events/${EVENT}/stages/${STAGE}/advances/${ADVANCE}`).get()).get('googleCalendarEventId'))
-      .toBe('cal-new');
+    expect(
+      (await db.doc(`events/${EVENT}/stages/${STAGE}/advances/${ADVANCE}`).get()).get(
+        'googleCalendarEventId',
+      ),
+    ).toBe('cal-new');
     const old = await db.doc(`events/${EVENT}/callBookings/cal-old`).get();
     expect(old.get('status')).toBe('needs_review');
     expect(old.get('matchedAdvanceId')).toBeNull();
@@ -91,7 +112,9 @@ describe('attachCallBooking', () => {
     await attach('cal-1');
     const res = await attach('cal-1');
     expect(res).toEqual({ attached: true, requeuedBookingId: null });
-    expect((await db.doc(`events/${EVENT}/callBookings/cal-1`).get()).get('status')).toBe('attached');
+    expect((await db.doc(`events/${EVENT}/callBookings/cal-1`).get()).get('status')).toBe(
+      'attached',
+    );
   });
 
   it('rejects a caller who is not the event PM/admin', async () => {

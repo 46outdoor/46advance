@@ -13,7 +13,10 @@ export function StagesPanel({ eventId, canEdit }: { eventId: string; canEdit: bo
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
 
-  const stagesQuery = useQuery({ queryKey: ['stages', eventId], queryFn: () => listStages(eventId) });
+  const stagesQuery = useQuery({
+    queryKey: ['stages', eventId],
+    queryFn: () => listStages(eventId),
+  });
 
   const create = useMutation({
     mutationFn: (input: StageInput) => createStage(eventId, input, stagesQuery.data?.length ?? 0),
@@ -55,7 +58,9 @@ export function StagesPanel({ eventId, canEdit }: { eventId: string; canEdit: bo
 
       {stagesQuery.isLoading && <p className="text-sm text-ink-muted">Loading stages…</p>}
       {stagesQuery.isError && <p className="text-sm text-accent">Failed to load stages.</p>}
-      {stagesQuery.data && stages.length === 0 && <p className="text-sm text-ink-muted">No stages yet.</p>}
+      {stagesQuery.data && stages.length === 0 && (
+        <p className="text-sm text-ink-muted">No stages yet.</p>
+      )}
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {stages.map((s) => (

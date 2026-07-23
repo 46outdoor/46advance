@@ -13,8 +13,14 @@ import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 // Storage rules read per-event membership/role from Firestore (cross-service), so
 // the test env loads BOTH rule sets and the run needs both emulators
 // (`test:rules` → `emulators:exec --only firestore,storage`).
-const firestoreRules = readFileSync(fileURLToPath(new URL('../firestore.rules', import.meta.url)), 'utf8');
-const storageRules = readFileSync(fileURLToPath(new URL('../storage.rules', import.meta.url)), 'utf8');
+const firestoreRules = readFileSync(
+  fileURLToPath(new URL('../firestore.rules', import.meta.url)),
+  'utf8',
+);
+const storageRules = readFileSync(
+  fileURLToPath(new URL('../storage.rules', import.meta.url)),
+  'utf8',
+);
 
 let testEnv: RulesTestEnvironment;
 
@@ -85,7 +91,9 @@ describe('storage.rules — per-event RBAC', () => {
 
   it('admin (no approved claim) can read and write', async () => {
     await assertSucceeds(getBytes(ref(storageFor(ADMIN.uid, ADMIN.token), seedPath)));
-    await assertSucceeds(uploadBytes(ref(storageFor(ADMIN.uid, ADMIN.token), uploadPath), PDF, pdfMeta));
+    await assertSucceeds(
+      uploadBytes(ref(storageFor(ADMIN.uid, ADMIN.token), uploadPath), PDF, pdfMeta),
+    );
   });
 
   it('only PM/admin can delete; tech cannot', async () => {
@@ -125,11 +133,15 @@ describe('storage.rules — contact photos (uploader-scoped)', () => {
   const pngMeta = { contentType: 'image/png' };
 
   it('an approved user can write a photo in their own uid folder', async () => {
-    await assertSucceeds(uploadBytes(ref(storageFor(TECH), `contacts/photos/${TECH}/a.png`), PNG, pngMeta));
+    await assertSucceeds(
+      uploadBytes(ref(storageFor(TECH), `contacts/photos/${TECH}/a.png`), PNG, pngMeta),
+    );
   });
 
   it("a user cannot write into another user's folder", async () => {
-    await assertFails(uploadBytes(ref(storageFor(TECH), `contacts/photos/${PM}/a.png`), PNG, pngMeta));
+    await assertFails(
+      uploadBytes(ref(storageFor(TECH), `contacts/photos/${PM}/a.png`), PNG, pngMeta),
+    );
   });
 
   it('any approved user can read a contact photo', async () => {

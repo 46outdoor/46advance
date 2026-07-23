@@ -9,8 +9,15 @@ import { functions } from '@/services/firebase';
 
 type Ok = { ok: boolean };
 
-export async function deleteAdvanceCascade(eventId: string, stageId: string, advanceId: string): Promise<void> {
-  await httpsCallable<{ eventId: string; stageId: string; advanceId: string }, Ok>(functions, 'deleteAdvance')({
+export async function deleteAdvanceCascade(
+  eventId: string,
+  stageId: string,
+  advanceId: string,
+): Promise<void> {
+  await httpsCallable<{ eventId: string; stageId: string; advanceId: string }, Ok>(
+    functions,
+    'deleteAdvance',
+  )({
     eventId,
     stageId,
     advanceId,
@@ -18,7 +25,10 @@ export async function deleteAdvanceCascade(eventId: string, stageId: string, adv
 }
 
 export async function deleteStageCascade(eventId: string, stageId: string): Promise<void> {
-  await httpsCallable<{ eventId: string; stageId: string }, Ok>(functions, 'deleteStage')({ eventId, stageId });
+  await httpsCallable<{ eventId: string; stageId: string }, Ok>(
+    functions,
+    'deleteStage',
+  )({ eventId, stageId });
 }
 
 export async function deleteQuoteCascade(

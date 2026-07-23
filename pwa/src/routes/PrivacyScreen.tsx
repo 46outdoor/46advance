@@ -31,7 +31,9 @@ export function PrivacyScreen() {
 
       <main className="mx-auto max-w-3xl space-y-8 px-4 py-12">
         <div className="space-y-1">
-          <h1 className="font-display text-3xl font-black tracking-tight text-brand">Privacy Policy</h1>
+          <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+            Privacy Policy
+          </h1>
           <p className="text-sm text-ink-muted">Last updated: {LAST_UPDATED}</p>
         </div>
 
@@ -73,8 +75,8 @@ export function PrivacyScreen() {
               Schedule link and attach the meeting link and time to the matching advance in the app.
             </li>
             <li>
-              Perform these actions during scheduled background syncs using offline access, so booked
-              calls attach automatically.
+              Perform these actions during scheduled background syncs using offline access, so
+              booked calls attach automatically.
             </li>
           </ul>
           <p>
@@ -94,8 +96,8 @@ export function PrivacyScreen() {
 
         <Section title="Sharing and disclosure">
           <p>
-            We do not sell your data, use it for advertising, or share it with third parties. Data is
-            processed only by our infrastructure providers (Google Cloud Platform / Firebase) to
+            We do not sell your data, use it for advertising, or share it with third parties. Data
+            is processed only by our infrastructure providers (Google Cloud Platform / Firebase) to
             operate the app.
           </p>
           <p>
@@ -115,10 +117,11 @@ export function PrivacyScreen() {
 
         <Section title="Data retention and your choices">
           <p>
-            You can disconnect Google at any time from <strong>Settings → Google Calendar →
-            Disconnect</strong>. Disconnecting revokes the app's access and deletes the stored
-            tokens. Calendar events and Meet links already created remain on your Google Calendar and
-            are managed there. If your account is removed, associated connection data is deleted.
+            You can disconnect Google at any time from{' '}
+            <strong>Settings → Google Calendar → Disconnect</strong>. Disconnecting revokes the
+            app's access and deletes the stored tokens. Calendar events and Meet links already
+            created remain on your Google Calendar and are managed there. If your account is
+            removed, associated connection data is deleted.
           </p>
         </Section>
 

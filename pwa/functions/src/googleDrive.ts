@@ -23,7 +23,13 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
 import { google, type drive_v3 } from 'googleapis';
-import { OAUTH_SECRETS, TIME_ZONE, type AuthClient, authedClientForUser, assertCanEditEvent } from './google.js';
+import {
+  OAUTH_SECRETS,
+  TIME_ZONE,
+  type AuthClient,
+  authedClientForUser,
+  assertCanEditEvent,
+} from './google.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
@@ -57,7 +63,12 @@ function advancePath(eventId: string, stageId: string, advanceId: string): strin
 
 /** Read-level gate (member or admin), mirroring firestore.rules `isMember` — including the
  *  `approved` account requirement, since the Admin SDK bypasses rules. */
-async function assertEventMember(db: Firestore, token: DecodedIdToken, uid: string, eventId: string): Promise<void> {
+async function assertEventMember(
+  db: Firestore,
+  token: DecodedIdToken,
+  uid: string,
+  eventId: string,
+): Promise<void> {
   await assertActiveUser({ uid, token });
   if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
@@ -87,62 +98,75 @@ export function brokerDriveClient(): drive_v3.Drive {
  * drive.file-only OAuth grant (a second consent + refresh token), which would force every user to
  * re-consent; tracked as a product decision rather than done here.
  */
-export const getDriveAccessToken = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 30 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  await assertActiveUser(request.auth);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['getDriveAccessToken', request.auth.uid], 30);
-  const client = await authedClientForUser(db, request.auth.uid); // throws failed-precondition if not connected
-  const { token } = await client.getAccessToken();
-  if (!token) throw new HttpsError('failed-precondition', 'Could not obtain a Drive access token.');
-  return { accessToken: token };
-});
+export const getDriveAccessToken = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 30 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    await assertActiveUser(request.auth);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['getDriveAccessToken', request.auth.uid], 30);
+    const client = await authedClientForUser(db, request.auth.uid); // throws failed-precondition if not connected
+    const { token } = await client.getAccessToken();
+    if (!token)
+      throw new HttpsError('failed-precondition', 'Could not obtain a Drive access token.');
+    return { accessToken: token };
+  },
+);
 
 /**
  * Link a Picker-selected Drive file to an advance (admin or event PM). Validates access via
  * `drive.files.get` and stores Google's canonical metadata — clients never write the link.
  * Input: { eventId, stageId, advanceId, fileId }.
  */
-export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, fileId } = parseCallableData(linkDriveFileInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['linkDriveFile', uid], 30);
-  await assertCanEditEvent(db, token, uid, eventId);
+export const linkDriveFile = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    const { eventId, stageId, advanceId, fileId } = parseCallableData(
+      linkDriveFileInputSchema,
+      request.data,
+    );
+    const db = getFirestore();
+    await enforceRateLimit(db, ['linkDriveFile', uid], 30);
+    await assertCanEditEvent(db, token, uid, eventId);
 
-  const ref = db.doc(advancePath(eventId, stageId, advanceId));
-  const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Advance not found.');
+    const ref = db.doc(advancePath(eventId, stageId, advanceId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Advance not found.');
 
-  const client = await authedClientForUser(db, uid);
-  const drive = google.drive({ version: 'v3', auth: client });
-  let file: drive_v3.Schema$File;
-  try {
-    const res = await drive.files.get({ fileId, fields: FILE_FIELDS, supportsAllDrives: true });
-    file = res.data;
-  } catch {
-    throw new HttpsError('not-found', 'Could not access that Drive file — re-pick it from the Drive picker.');
-  }
-  if (!file.id || !file.name || !file.webViewLink) {
-    throw new HttpsError('internal', 'Drive returned incomplete file metadata.');
-  }
+    const client = await authedClientForUser(db, uid);
+    const drive = google.drive({ version: 'v3', auth: client });
+    let file: drive_v3.Schema$File;
+    try {
+      const res = await drive.files.get({ fileId, fields: FILE_FIELDS, supportsAllDrives: true });
+      file = res.data;
+    } catch {
+      throw new HttpsError(
+        'not-found',
+        'Could not access that Drive file — re-pick it from the Drive picker.',
+      );
+    }
+    if (!file.id || !file.name || !file.webViewLink) {
+      throw new HttpsError('internal', 'Drive returned incomplete file metadata.');
+    }
 
-  const entry = {
-    fileId: file.id,
-    name: file.name,
-    mimeType: file.mimeType ?? 'application/octet-stream',
-    iconLink: file.iconLink ?? null,
-    webViewLink: file.webViewLink,
-    linkedByUid: uid,
-    linkedByEmail: token.email ?? null,
-    linkedAt: Timestamp.now(),
-  };
-  // One doc per file in the driveFiles subcollection (doc id = Drive file id, so
-  // re-linking the same file is idempotent) — no read-modify-write of a shared array.
-  await ref.collection('driveFiles').doc(file.id).set(entry);
-  return { ok: true };
-});
+    const entry = {
+      fileId: file.id,
+      name: file.name,
+      mimeType: file.mimeType ?? 'application/octet-stream',
+      iconLink: file.iconLink ?? null,
+      webViewLink: file.webViewLink,
+      linkedByUid: uid,
+      linkedByEmail: token.email ?? null,
+      linkedAt: Timestamp.now(),
+    };
+    // One doc per file in the driveFiles subcollection (doc id = Drive file id, so
+    // re-linking the same file is idempotent) — no read-modify-write of a shared array.
+    await ref.collection('driveFiles').doc(file.id).set(entry);
+    return { ok: true };
+  },
+);
 
 /**
  * Unlink a Drive file from an advance (admin or event PM). Removes the reference only —
@@ -151,7 +175,10 @@ export const linkDriveFile = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60
 export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, fileId } = parseCallableData(removeDriveFileInputSchema, request.data);
+  const { eventId, stageId, advanceId, fileId } = parseCallableData(
+    removeDriveFileInputSchema,
+    request.data,
+  );
   const db = getFirestore();
   await enforceRateLimit(db, ['removeDriveFile', uid], 30);
   await assertCanEditEvent(db, token, uid, eventId);
@@ -164,7 +191,11 @@ export const removeDriveFile = onCall({ timeoutSeconds: 30 }, async (request) =>
 });
 
 /** List a folder's immediate children (folders, or non-folders), paging through all results. */
-async function listChildren(drive: drive_v3.Drive, parentId: string, foldersOnly: boolean): Promise<drive_v3.Schema$File[]> {
+async function listChildren(
+  drive: drive_v3.Drive,
+  parentId: string,
+  foldersOnly: boolean,
+): Promise<drive_v3.Schema$File[]> {
   const folderType = "mimeType = 'application/vnd.google-apps.folder'";
   const typeClause = foldersOnly ? folderType : `not ${folderType}`;
   const q = `'${parentId}' in parents and ${typeClause} and trashed = false`;
@@ -198,7 +229,11 @@ function artistKey(name: string): string {
 const MAX_FOLDER_DEPTH = 12;
 
 /** All files anywhere under a folder — recurses into nested subfolders (depth-capped). */
-async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: number): Promise<drive_v3.Schema$File[]> {
+async function collectAllFiles(
+  drive: drive_v3.Drive,
+  folderId: string,
+  depth: number,
+): Promise<drive_v3.Schema$File[]> {
   const files = await listChildren(drive, folderId, false);
   if (depth >= MAX_FOLDER_DEPTH) return files;
   const subfolders = await listChildren(drive, folderId, true);
@@ -217,35 +252,41 @@ async function collectAllFiles(drive: drive_v3.Drive, folderId: string, depth: n
  */
 // 512 MiB (not the 256 MiB default): enumerates the whole library into memory like
 // scheduledLibraryDriveSync (already 512 MiB). At the default this OOMs once the library grows.
-export const importDriveFolder = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  await assertActiveUser({ uid, token });
-  if (token.admin !== true && token.organizer !== true) {
-    throw new HttpsError('permission-denied', 'Admin or organizer only.');
-  }
-  const { folderId } = parseCallableData(importDriveFolderInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['importDriveFolder', uid], 10);
+export const importDriveFolder = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 300, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    await assertActiveUser({ uid, token });
+    if (token.admin !== true && token.organizer !== true) {
+      throw new HttpsError('permission-denied', 'Admin or organizer only.');
+    }
+    const { folderId } = parseCallableData(importDriveFolderInputSchema, request.data);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['importDriveFolder', uid], 10);
 
-  const client = await authedClientForUser(db, uid);
-  const drive = google.drive({ version: 'v3', auth: client });
+    const client = await authedClientForUser(db, uid);
+    const drive = google.drive({ version: 'v3', auth: client });
 
-  let subfolders: drive_v3.Schema$File[];
-  try {
-    subfolders = await listChildren(drive, folderId, true);
-  } catch {
-    throw new HttpsError('not-found', 'Could not read that folder — re-pick it from the Drive picker.');
-  }
-  const { groups, complete } = await enumerateLibrary(drive, folderId, subfolders);
+    let subfolders: drive_v3.Schema$File[];
+    try {
+      subfolders = await listChildren(drive, folderId, true);
+    } catch {
+      throw new HttpsError(
+        'not-found',
+        'Could not read that folder — re-pick it from the Drive picker.',
+      );
+    }
+    const { groups, complete } = await enumerateLibrary(drive, folderId, subfolders);
 
-  // NOTE: does NOT touch config/documentsLibrary.rootFolderId — the mirrored library root is set
-  // deliberately by an admin (DocumentLibraryAdmin). Import pulls the picked folder's files into
-  // the library without repointing what the scheduled sync sweeps. Only reconcile removals when the
-  // pick enumerated completely, so a mid-import Drive glitch can't false-flag files as missing.
-  const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null }, complete);
-  return { imported: counts.imported, skipped: counts.skipped };
-});
+    // NOTE: does NOT touch config/documentsLibrary.rootFolderId — the mirrored library root is set
+    // deliberately by an admin (DocumentLibraryAdmin). Import pulls the picked folder's files into
+    // the library without repointing what the scheduled sync sweeps. Only reconcile removals when the
+    // pick enumerated completely, so a mid-import Drive glitch can't false-flag files as missing.
+    const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null }, complete);
+    return { imported: counts.imported, skipped: counts.skipped };
+  },
+);
 
 interface LibraryGroup {
   artist: string | null;
@@ -274,9 +315,16 @@ async function enumerateLibrary(
       .filter((f) => f.id)
       .map(async (f): Promise<LibraryGroup | null> => {
         try {
-          return { artist: f.name ?? 'Unknown', folderId: f.id as string, files: await collectAllFiles(drive, f.id as string, 0) };
+          return {
+            artist: f.name ?? 'Unknown',
+            folderId: f.id as string,
+            files: await collectAllFiles(drive, f.id as string, 0),
+          };
         } catch (e) {
-          logger.warn('Library sync: skipping a folder that failed to enumerate', { folderId: f.id, error: String(e) });
+          logger.warn('Library sync: skipping a folder that failed to enumerate', {
+            folderId: f.id,
+            error: String(e),
+          });
           return null;
         }
       }),
@@ -413,29 +461,40 @@ export const scheduledLibraryDriveSync = onSchedule(
  * Drive FOLDER; otherwise { ok:false, reason }. Raw Drive errors are logged, never returned.
  * Input: { folderId }.
  */
-export const validateLibraryFolder = onCall({ secrets: [DRIVE_SA_KEY], timeoutSeconds: 30 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  await assertActiveUser({ uid, token });
-  if (token.admin !== true) throw new HttpsError('permission-denied', 'Admin only.');
-  const { folderId } = parseCallableData(validateLibraryFolderInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['validateLibraryFolder', uid], 30);
+export const validateLibraryFolder = onCall(
+  { secrets: [DRIVE_SA_KEY], timeoutSeconds: 30 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    await assertActiveUser({ uid, token });
+    if (token.admin !== true) throw new HttpsError('permission-denied', 'Admin only.');
+    const { folderId } = parseCallableData(validateLibraryFolderInputSchema, request.data);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['validateLibraryFolder', uid], 30);
 
-  const drive = brokerDriveClient();
-  try {
-    const res = await drive.files.get({ fileId: folderId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
-    return classifyFolderFile(res.data);
-  } catch (err) {
-    // Map to a coarse reason (never leak raw Drive error text to the client); log the detail.
-    logger.warn('validateLibraryFolder: Drive lookup failed', { folderId, error: String(err) });
-    return { ok: false, reason: driveErrorReason(err) };
-  }
-});
+    const drive = brokerDriveClient();
+    try {
+      const res = await drive.files.get({
+        fileId: folderId,
+        fields: 'id,name,mimeType,trashed',
+        supportsAllDrives: true,
+      });
+      return classifyFolderFile(res.data);
+    } catch (err) {
+      // Map to a coarse reason (never leak raw Drive error text to the client); log the detail.
+      logger.warn('validateLibraryFolder: Drive lookup failed', { folderId, error: String(err) });
+      return { ok: false, reason: driveErrorReason(err) };
+    }
+  },
+);
 
 /** Find-or-create an app-owned Drive folder. `drive.file` lists only files the app created,
  *  so this reliably reuses our own folder rather than colliding with the user's. */
-async function ensureFolder(drive: drive_v3.Drive, name: string, parentId: string | null): Promise<string> {
+async function ensureFolder(
+  drive: drive_v3.Drive,
+  name: string,
+  parentId: string | null,
+): Promise<string> {
   const safe = name.replace(/['\\]/g, '\\$&');
   const parentClause = parentId ? ` and '${parentId}' in parents` : '';
   const list = await drive.files.list({
@@ -505,13 +564,20 @@ export const savePacketToDrive = onCall(
     const created = await withGoogleRetry(
       () =>
         drive.files.create({
-          requestBody: { name: `${eventName} — packet — ${packetStamp()}.pdf`, parents: [eventFolder] },
+          requestBody: {
+            name: `${eventName} — packet — ${packetStamp()}.pdf`,
+            parents: [eventFolder],
+          },
           media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
           fields: 'id,webViewLink',
         }),
       { label: 'drive.files.create' },
     );
-    return { saved: true, webViewLink: created.data.webViewLink ?? null, fileId: created.data.id ?? null };
+    return {
+      saved: true,
+      webViewLink: created.data.webViewLink ?? null,
+      fileId: created.data.id ?? null,
+    };
   },
 );
 
@@ -526,7 +592,10 @@ export const getArtistDocumentContent = onCall(
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
     await assertActiveUser({ uid, token });
-    const { fileId, eventId } = parseCallableData(getArtistDocumentContentInputSchema, request.data);
+    const { fileId, eventId } = parseCallableData(
+      getArtistDocumentContentInputSchema,
+      request.data,
+    );
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
     // Artist-library docs serve any approved user (matches the library's read rules);
@@ -547,7 +616,12 @@ export const getArtistDocumentContent = onCall(
     // Google-native exports (no size until exported) are caught by the post-hoc length
     // check. Either way an oversized document is rejected before it can be base64-encoded
     // into an over-limit callable response.
-    const result = await fetchBrokeredFileBytes(drive, fileId, storedMime, MAX_INTERACTIVE_CONTENT_BYTES);
+    const result = await fetchBrokeredFileBytes(
+      drive,
+      fileId,
+      storedMime,
+      MAX_INTERACTIVE_CONTENT_BYTES,
+    );
     if ('tooLarge' in result || result.data.length > MAX_INTERACTIVE_CONTENT_BYTES) {
       throw new HttpsError(
         'failed-precondition',
@@ -569,43 +643,53 @@ export const getArtistDocumentContent = onCall(
  * metadata; clients no longer assert the file id or its display metadata (F-1 hardening).
  * Input: { eventId, fileId, displayName?, day?, categoryId? }.
  */
-export const registerEventDocument = onCall({ secrets: OAUTH_SECRETS, timeoutSeconds: 60 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId, fileId, displayName, day, categoryId } = parseCallableData(
-    registerEventDocumentInputSchema,
-    request.data,
-  );
-  const db = getFirestore();
-  await enforceRateLimit(db, ['registerEventDocument', uid], 60);
-  await assertCanEditEvent(db, token, uid, eventId);
+export const registerEventDocument = onCall(
+  { secrets: OAUTH_SECRETS, timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    const { eventId, fileId, displayName, day, categoryId } = parseCallableData(
+      registerEventDocumentInputSchema,
+      request.data,
+    );
+    const db = getFirestore();
+    await enforceRateLimit(db, ['registerEventDocument', uid], 60);
+    await assertCanEditEvent(db, token, uid, eventId);
 
-  const driveFolderId = (await db.doc(`events/${eventId}`).get()).get('driveFolderId');
-  if (typeof driveFolderId !== 'string' || !driveFolderId) {
-    throw new HttpsError('failed-precondition', 'This event has no linked Drive folder.');
-  }
+    const driveFolderId = (await db.doc(`events/${eventId}`).get()).get('driveFolderId');
+    if (typeof driveFolderId !== 'string' || !driveFolderId) {
+      throw new HttpsError('failed-precondition', 'This event has no linked Drive folder.');
+    }
 
-  const client = await authedClientForUser(db, uid);
-  const file = await getFileForRegistration(google.drive({ version: 'v3', auth: client }), fileId);
-  if (!file) throw new HttpsError('not-found', 'Could not access that Drive file — re-pick it from the picker.');
-  if (!file.parents.includes(driveFolderId)) {
-    throw new HttpsError('permission-denied', "That file is not in this event's Drive folder.");
-  }
+    const client = await authedClientForUser(db, uid);
+    const file = await getFileForRegistration(
+      google.drive({ version: 'v3', auth: client }),
+      fileId,
+    );
+    if (!file)
+      throw new HttpsError(
+        'not-found',
+        'Could not access that Drive file — re-pick it from the picker.',
+      );
+    if (!file.parents.includes(driveFolderId)) {
+      throw new HttpsError('permission-denied', "That file is not in this event's Drive folder.");
+    }
 
-  await db.doc(`events/${eventId}/documents/${file.id}`).set({
-    fileId: file.id,
-    name: file.name,
-    displayName: displayName?.trim() ? displayName.trim() : null,
-    mimeType: file.mimeType,
-    iconLink: file.iconLink,
-    webViewLink: file.webViewLink,
-    day: day ?? null,
-    categoryId: categoryId ?? null,
-    uploadedBy: uid,
-    uploadedAt: Timestamp.now(),
-  });
-  return { ok: true };
-});
+    await db.doc(`events/${eventId}/documents/${file.id}`).set({
+      fileId: file.id,
+      name: file.name,
+      displayName: displayName?.trim() ? displayName.trim() : null,
+      mimeType: file.mimeType,
+      iconLink: file.iconLink,
+      webViewLink: file.webViewLink,
+      day: day ?? null,
+      categoryId: categoryId ?? null,
+      uploadedBy: uid,
+      uploadedAt: Timestamp.now(),
+    });
+    return { ok: true };
+  },
+);
 
 /**
  * Register a Drive file uploaded into the artist library as a library document (admin or
@@ -613,47 +697,58 @@ export const registerEventDocument = onCall({ secrets: OAUTH_SECRETS, timeoutSec
  * library root folder, and derives the artist + metadata from Drive; clients no longer
  * assert the file id, its metadata, or the artist (F-1 hardening). Input: { fileId }.
  */
-export const registerArtistDocument = onCall({ secrets: [DRIVE_SA_KEY], timeoutSeconds: 60 }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  await assertActiveUser({ uid, token });
-  if (token.admin !== true && token.organizer !== true) {
-    throw new HttpsError('permission-denied', 'Admin or organizer only.');
-  }
-  const { fileId } = parseCallableData(registerArtistDocumentInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['registerArtistDocument', uid], 60);
+export const registerArtistDocument = onCall(
+  { secrets: [DRIVE_SA_KEY], timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const { uid, token } = request.auth;
+    await assertActiveUser({ uid, token });
+    if (token.admin !== true && token.organizer !== true) {
+      throw new HttpsError('permission-denied', 'Admin or organizer only.');
+    }
+    const { fileId } = parseCallableData(registerArtistDocumentInputSchema, request.data);
+    const db = getFirestore();
+    await enforceRateLimit(db, ['registerArtistDocument', uid], 60);
 
-  const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId');
-  if (typeof rootFolderId !== 'string' || !rootFolderId) {
-    throw new HttpsError('failed-precondition', 'The document library has not been configured yet.');
-  }
+    const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId');
+    if (typeof rootFolderId !== 'string' || !rootFolderId) {
+      throw new HttpsError(
+        'failed-precondition',
+        'The document library has not been configured yet.',
+      );
+    }
 
-  const drive = brokerDriveClient();
-  const file = await getFileForRegistration(drive, fileId);
-  if (!file) throw new HttpsError('not-found', 'Could not access that Drive file.');
-  const folder = await resolveArtistFolder(drive, file.parents[0] ?? null, rootFolderId, MAX_FOLDER_DEPTH);
-  if (!folder.underRoot) {
-    throw new HttpsError('permission-denied', 'That file is not in the document library folder.');
-  }
+    const drive = brokerDriveClient();
+    const file = await getFileForRegistration(drive, fileId);
+    if (!file) throw new HttpsError('not-found', 'Could not access that Drive file.');
+    const folder = await resolveArtistFolder(
+      drive,
+      file.parents[0] ?? null,
+      rootFolderId,
+      MAX_FOLDER_DEPTH,
+    );
+    if (!folder.underRoot) {
+      throw new HttpsError('permission-denied', 'That file is not in the document library folder.');
+    }
 
-  const artist = folder.artistName;
-  await db.doc(`artistDocuments/${file.id}`).set({
-    fileId: file.id,
-    name: file.name,
-    mimeType: file.mimeType,
-    iconLink: file.iconLink,
-    webViewLink: file.webViewLink,
-    artist,
-    artistKey: artist ? artistKey(artist) : null,
-    categoryId: null,
-    sourceFolderId: folder.artistFolderId,
-    importedBy: uid,
-    importedByEmail: token.email ?? null,
-    importedAt: Timestamp.now(),
-  });
-  return { ok: true };
-});
+    const artist = folder.artistName;
+    await db.doc(`artistDocuments/${file.id}`).set({
+      fileId: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      iconLink: file.iconLink,
+      webViewLink: file.webViewLink,
+      artist,
+      artistKey: artist ? artistKey(artist) : null,
+      categoryId: null,
+      sourceFolderId: folder.artistFolderId,
+      importedBy: uid,
+      importedByEmail: token.email ?? null,
+      importedAt: Timestamp.now(),
+    });
+    return { ok: true };
+  },
+);
 
 /**
  * Include a canonical library document on an advance (admin or event PM). Resolves the
@@ -680,19 +775,23 @@ export const includeArtistDocumentOnAdvance = onCall({ timeoutSeconds: 30 }, asy
   const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
   const name = str(lib.name);
   const webViewLink = str(lib.webViewLink);
-  if (!name || !webViewLink) throw new HttpsError('internal', 'Library document is missing required fields.');
+  if (!name || !webViewLink)
+    throw new HttpsError('internal', 'Library document is missing required fields.');
 
-  await advanceRef.collection('documents').doc(artistDocumentId).set({
-    fileId: artistDocumentId,
-    name,
-    displayName: str(lib.displayName),
-    mimeType: str(lib.mimeType) ?? 'application/octet-stream',
-    iconLink: str(lib.iconLink),
-    webViewLink,
-    categoryId: str(lib.categoryId),
-    includePacket: false,
-    addedBy: uid,
-    addedAt: Timestamp.now(),
-  });
+  await advanceRef
+    .collection('documents')
+    .doc(artistDocumentId)
+    .set({
+      fileId: artistDocumentId,
+      name,
+      displayName: str(lib.displayName),
+      mimeType: str(lib.mimeType) ?? 'application/octet-stream',
+      iconLink: str(lib.iconLink),
+      webViewLink,
+      categoryId: str(lib.categoryId),
+      includePacket: false,
+      addedBy: uid,
+      addedAt: Timestamp.now(),
+    });
   return { ok: true };
 });

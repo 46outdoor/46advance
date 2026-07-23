@@ -5,7 +5,11 @@ import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { EVENT_PRODUCTION_FIELDS, type SectionContent } from '@/lib/advances/fields';
-import type { ProductionAttachment, ProductionContact, ProductionLink } from '@/lib/production/production';
+import type {
+  ProductionAttachment,
+  ProductionContact,
+  ProductionLink,
+} from '@/lib/production/production';
 import {
   addEventProductionAttachment,
   eventAttachmentsKey,
@@ -92,7 +96,9 @@ export function EventProductionScreen() {
       <Link to={`/events/${eventParam}`} className="text-sm text-ink-muted hover:text-accent">
         ← Event
       </Link>
-      <h1 className="font-display text-3xl font-black tracking-tight text-brand">Festival production</h1>
+      <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+        Festival production
+      </h1>
       <p className="text-sm text-ink-muted">
         Event-wide production info for the crew (per-stage technical specs live on each stage).
       </p>
@@ -124,7 +130,9 @@ export function EventProductionScreen() {
           </div>
 
           <div className="space-y-3 border-t border-line pt-5">
-            <h2 className="font-display text-xl font-bold text-brand">Reference links (CAD / Drive / plots)</h2>
+            <h2 className="font-display text-xl font-bold text-brand">
+              Reference links (CAD / Drive / plots)
+            </h2>
             <ProductionLinksEditor
               initial={production.links}
               readOnly={!canEdit}
@@ -134,7 +142,9 @@ export function EventProductionScreen() {
           </div>
 
           <div className="space-y-3 border-t border-line pt-5">
-            <h2 className="font-display text-xl font-bold text-brand">Attachments (plots / CAD / maps)</h2>
+            <h2 className="font-display text-xl font-bold text-brand">
+              Attachments (plots / CAD / maps)
+            </h2>
             <AttachmentsEditor
               attachments={attachmentsQuery.data ?? []}
               readOnly={!canEdit}

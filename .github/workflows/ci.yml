@@ -59,6 +59,9 @@ jobs:
           cache-dependency-path: pwa/package-lock.json
       - run: npm ci
       - run: npm run lint -- --max-warnings 0
+      # Formatting is gated (WS-M): .prettierignore scopes it to intentional source/config
+      # so this checks real files only, not generated output.
+      - run: npm run format:check
       - run: npm run typecheck
       # `tsc -b` covers src + vite/vitest configs only; type-check the Playwright
       # specs and emulator harness (tests/) separately so they can't rot (WS-J).

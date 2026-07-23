@@ -91,10 +91,23 @@ beforeEach(() => {
 
 describe('LineupPanel', () => {
   it('groups by show day and shows booked artists in their slots', async () => {
-    vi.mocked(listStages).mockResolvedValue([stage('main', 'Main Stage'), stage('rowdy', 'Raised Rowdy')]);
+    vi.mocked(listStages).mockResolvedValue([
+      stage('main', 'Main Stage'),
+      stage('rowdy', 'Raised Rowdy'),
+    ]);
     vi.mocked(listEventAdvances).mockResolvedValue([
-      located('main', { id: 'st', artistName: 'Staind', slot: 1, performanceDate: new Date(2026, 5, 28) }),
-      located('rowdy', { id: 'at', artistName: 'Atlus', slot: 1, performanceDate: new Date(2026, 5, 28) }),
+      located('main', {
+        id: 'st',
+        artistName: 'Staind',
+        slot: 1,
+        performanceDate: new Date(2026, 5, 28),
+      }),
+      located('rowdy', {
+        id: 'at',
+        artistName: 'Atlus',
+        slot: 1,
+        performanceDate: new Date(2026, 5, 28),
+      }),
     ]);
     renderPanel(event({ startDate: new Date(2026, 5, 27), endDate: new Date(2026, 5, 28) }));
 
@@ -116,7 +129,10 @@ describe('LineupPanel', () => {
   });
 
   it('defaults to five slots on the main stage and four on side stages', async () => {
-    vi.mocked(listStages).mockResolvedValue([stage('main', 'Main Stage'), stage('rowdy', 'Raised Rowdy')]);
+    vi.mocked(listStages).mockResolvedValue([
+      stage('main', 'Main Stage'),
+      stage('rowdy', 'Raised Rowdy'),
+    ]);
     renderPanel();
     await screen.findByText('Main Stage');
     const mainCard = within(screen.getByText('Main Stage').closest('section') as HTMLElement);
@@ -150,7 +166,9 @@ describe('LineupPanel', () => {
   it('books an open slot by creating the advance', async () => {
     const { client } = renderPanel();
     fireEvent.click((await screen.findAllByRole('button', { name: '+ Book artist' }))[0]);
-    fireEvent.change(screen.getByPlaceholderText('Artist name'), { target: { value: 'Ashley Cooke' } });
+    fireEvent.change(screen.getByPlaceholderText('Artist name'), {
+      target: { value: 'Ashley Cooke' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Book' }));
 
     await settleAfterMutation(client);
@@ -201,7 +219,9 @@ describe('LineupPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     expect(screen.getByText(/has advance data/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Keep the advance — clear it from the lineup' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Keep the advance — clear it from the lineup' }),
+    );
     await settleAfterMutation(client);
     expect(updateAdvanceLineup).toHaveBeenCalledWith('e1', 'main', 'full', {
       slot: null,

@@ -46,23 +46,41 @@ export async function getEventProduction(eventId: string): Promise<EventProducti
 }
 
 export async function setEventProductionInfo(eventId: string, info: SectionContent): Promise<void> {
-  await setDoc(eventProductionDoc(eventId), { info, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(
+    eventProductionDoc(eventId),
+    { info, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function setEventProductionContacts(
   eventId: string,
   contacts: ProductionContact[],
 ): Promise<void> {
-  await setDoc(eventProductionDoc(eventId), { contacts, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(
+    eventProductionDoc(eventId),
+    { contacts, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
-export async function setEventProductionLinks(eventId: string, links: ProductionLink[]): Promise<void> {
-  await setDoc(eventProductionDoc(eventId), { links, updatedAt: serverTimestamp() }, { merge: true });
+export async function setEventProductionLinks(
+  eventId: string,
+  links: ProductionLink[],
+): Promise<void> {
+  await setDoc(
+    eventProductionDoc(eventId),
+    { links, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 // ---- Stage-level (per-stage technical house package) ----
 
-export async function getStageProduction(eventId: string, stageId: string): Promise<StageProduction> {
+export async function getStageProduction(
+  eventId: string,
+  stageId: string,
+): Promise<StageProduction> {
   const snap = await getDoc(stageProductionDoc(eventId, stageId));
   return snap.exists() ? parseStageProduction(snap.data()) : emptyStageProduction();
 }
@@ -104,7 +122,6 @@ export async function updateStageProductionStatus(
   );
 }
 
-
 // ---- Attachments: one doc per file in the production `attachments` subcollection ----
 // (concurrency-safe — no read-modify-write of a shared array). Files in Storage.
 
@@ -141,7 +158,10 @@ async function addAttachment(
   );
 }
 
-async function removeAttachment(ref: DocumentReference, attachment: ProductionAttachment): Promise<void> {
+async function removeAttachment(
+  ref: DocumentReference,
+  attachment: ProductionAttachment,
+): Promise<void> {
   // Doc first, then best-effort object delete — a failed delete leaves a harmless orphan, never a
   // record pointing at a deleted file.
   await deleteDoc(doc(attachmentsCol(ref), attachment.id));
@@ -161,7 +181,8 @@ async function listAttachments(ref: DocumentReference): Promise<ProductionAttach
   return out.sort((a, b) => (a.uploadedAt?.getTime() ?? 0) - (b.uploadedAt?.getTime() ?? 0));
 }
 
-export const eventAttachmentsKey = (eventId: string) => ['production', 'attachments', eventId] as const;
+export const eventAttachmentsKey = (eventId: string) =>
+  ['production', 'attachments', eventId] as const;
 export const stageAttachmentsKey = (eventId: string, stageId: string) =>
   ['production', 'attachments', eventId, stageId] as const;
 
@@ -173,11 +194,23 @@ export const listStageProductionAttachments = (eventId: string, stageId: string)
 export const addEventProductionAttachment = (eventId: string, file: File, uid: string) =>
   addAttachment(eventProductionDoc(eventId), `events/${eventId}/production/event`, file, uid);
 
-export const removeEventProductionAttachment = (eventId: string, attachment: ProductionAttachment) =>
-  removeAttachment(eventProductionDoc(eventId), attachment);
+export const removeEventProductionAttachment = (
+  eventId: string,
+  attachment: ProductionAttachment,
+) => removeAttachment(eventProductionDoc(eventId), attachment);
 
-export const addStageProductionAttachment = (eventId: string, stageId: string, file: File, uid: string) =>
-  addAttachment(stageProductionDoc(eventId, stageId), `events/${eventId}/production/stages/${stageId}`, file, uid);
+export const addStageProductionAttachment = (
+  eventId: string,
+  stageId: string,
+  file: File,
+  uid: string,
+) =>
+  addAttachment(
+    stageProductionDoc(eventId, stageId),
+    `events/${eventId}/production/stages/${stageId}`,
+    file,
+    uid,
+  );
 
 export const removeStageProductionAttachment = (
   eventId: string,

@@ -102,7 +102,9 @@ export function BookedCallsPanel({
           {sync.data.needsReview} need review.
         </p>
       )}
-      {sync.isError && <p className="text-sm text-accent">Couldn’t sync. Make sure Google is connected.</p>}
+      {sync.isError && (
+        <p className="text-sm text-accent">Couldn’t sync. Make sure Google is connected.</p>
+      )}
 
       {bookingsQuery.isLoading ? (
         <p className="text-sm text-ink-muted">Loading…</p>
@@ -160,7 +162,9 @@ function BookingRow({
     <li className="rounded-lg border border-line p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="font-semibold text-ink">{booking.artistName}</span>
-        <span className="text-sm text-ink-muted">{formatZonedDateTime(new Date(booking.startMillis), timeZone)}</span>
+        <span className="text-sm text-ink-muted">
+          {formatZonedDateTime(new Date(booking.startMillis), timeZone)}
+        </span>
       </div>
       <p className="mt-0.5 text-xs text-ink-muted">
         {booking.festival && <span className="mr-2">{booking.festival}</span>}
@@ -189,7 +193,12 @@ function BookingRow({
           {attach.isPending ? 'Attaching…' : 'Attach'}
         </button>
         {booking.meetLink && (
-          <a href={booking.meetLink} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline">
+          <a
+            href={booking.meetLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-accent hover:underline"
+          >
             Open Meet
           </a>
         )}

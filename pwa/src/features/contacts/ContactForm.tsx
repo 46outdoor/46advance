@@ -1,5 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { contactInputSchema, type Contact, type ContactInput, type ContactPhoto } from '@/lib/contacts/contact';
+import {
+  contactInputSchema,
+  type Contact,
+  type ContactInput,
+  type ContactPhoto,
+} from '@/lib/contacts/contact';
 import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { PhotoEditor } from '@/components/contacts/PhotoEditor';
 
@@ -15,7 +20,14 @@ interface ContactFormProps {
 const inputClass = 'w-full rounded border border-line px-3 py-2 outline-none focus:border-brand';
 
 /** Create/edit form for a directory contact. Validates with contactInputSchema. */
-export function ContactForm({ initial, submitLabel, pending, error, onSubmit, onCancel }: ContactFormProps) {
+export function ContactForm({
+  initial,
+  submitLabel,
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: ContactFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [role, setRole] = useState(initial?.role ?? '');
   const [company, setCompany] = useState(initial?.company ?? '');
@@ -58,27 +70,57 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
       </div>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Name</span>
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Pat Lee" />
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Pat Lee"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Role / title</span>
-        <input className={inputClass} value={role} onChange={(e) => setRole(e.target.value)} placeholder="Audio Lead" />
+        <input
+          className={inputClass}
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          placeholder="Audio Lead"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Company</span>
-        <input className={inputClass} value={company} onChange={(e) => setCompany(e.target.value)} placeholder="SoundCo" />
+        <input
+          className={inputClass}
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="SoundCo"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Phone</span>
-        <input className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" />
+        <input
+          className={inputClass}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="(555) 123-4567"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Email</span>
-        <input className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="pat@example.com" />
+        <input
+          className={inputClass}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="pat@example.com"
+        />
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Notes</span>
-        <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <button
@@ -93,7 +135,9 @@ export function ContactForm({ initial, submitLabel, pending, error, onSubmit, on
             Cancel
           </button>
         )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError || error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

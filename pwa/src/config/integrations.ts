@@ -7,10 +7,12 @@
  * (the Google Cloud project number — same value as the Firebase messaging sender id). When
  * the API key is absent the Drive Picker UI disables itself gracefully.
  */
-export const GOOGLE_PICKER_API_KEY = (import.meta.env.VITE_GOOGLE_PICKER_API_KEY as string | undefined) ?? '';
+export const GOOGLE_PICKER_API_KEY =
+  (import.meta.env.VITE_GOOGLE_PICKER_API_KEY as string | undefined) ?? '';
 
 /** Google Cloud project number, used as the Picker `appId`. Reuses the Firebase sender id. */
-export const GOOGLE_APP_ID = (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined) ?? '';
+export const GOOGLE_APP_ID =
+  (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined) ?? '';
 
 /** Whether the Drive Picker has the config it needs to run. */
 export function isPickerConfigured(): boolean {

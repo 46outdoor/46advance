@@ -11,7 +11,8 @@ module.exports = {
     {
       name: 'no-cross-feature',
       severity: 'error',
-      comment: 'Features must not import from other features; share via @/lib, @/types, @/contexts.',
+      comment:
+        'Features must not import from other features; share via @/lib, @/types, @/contexts.',
       from: { path: '^src/features/([^/]+)/' },
       to: { path: '^src/features/(?!$1)([^/]+)/' },
     },

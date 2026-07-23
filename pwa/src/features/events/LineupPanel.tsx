@@ -16,7 +16,12 @@ import { createLogger } from '@/lib/logger';
 import { formatDateKey } from '@/lib/dates/formatting';
 import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 import { slotLabel } from '@/lib/advances/advance';
-import { advanceDataSummary, advanceHasData, findBookingTarget, performanceDayKey } from '@/lib/advances/lineup';
+import {
+  advanceDataSummary,
+  advanceHasData,
+  findBookingTarget,
+  performanceDayKey,
+} from '@/lib/advances/lineup';
 import { eventDays, type EventRecord } from '@/lib/events/event';
 import type { LocatedAdvance } from '@/lib/tracker/tracker';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
@@ -68,7 +73,10 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const stagesQuery = useQuery({ queryKey: ['stages', event.id], queryFn: () => listStages(event.id) });
+  const stagesQuery = useQuery({
+    queryKey: ['stages', event.id],
+    queryFn: () => listStages(event.id),
+  });
   const advancesQuery = useQuery({
     queryKey: ['eventAdvances', event.id],
     queryFn: () => listEventAdvances(event.id),
@@ -134,15 +142,15 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
         <p className="text-sm text-accent">Could not update the lineup — try again.</p>
       )}
       {stagesQuery.data && stages.length === 0 && (
-        <p className="text-sm text-ink-muted">Add a stage first — the lineup lives on the stages.</p>
+        <p className="text-sm text-ink-muted">
+          Add a stage first — the lineup lives on the stages.
+        </p>
       )}
 
       {stages.length > 0 &&
         groups.map((group) => (
           <div key={group.key || 'undated'} className="space-y-3">
-            {groups.length > 1 && (
-              <h3 className="text-sm font-semibold text-ink">{group.label}</h3>
-            )}
+            {groups.length > 1 && <h3 className="text-sm font-semibold text-ink">{group.label}</h3>}
             <div className="grid gap-4 lg:grid-cols-2">
               {stages.map((stage, index) => (
                 <StageLineupCard
@@ -159,7 +167,9 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
                   )}
                   canEdit={canEdit}
                   busy={busy}
-                  onBook={(slot, name) => book.mutate({ stageId: stage.id, slot, dayKey: group.key, name })}
+                  onBook={(slot, name) =>
+                    book.mutate({ stageId: stage.id, slot, dayKey: group.key, name })
+                  }
                   onRemove={(l, mode) => remove.mutate({ located: l, mode })}
                 />
               ))}
@@ -200,7 +210,9 @@ function StageLineupCard({
 
   return (
     <section className="rounded-lg border border-line">
-      <header className="border-b border-line px-3 py-2 text-sm font-bold text-ink">{stageName}</header>
+      <header className="border-b border-line px-3 py-2 text-sm font-bold text-ink">
+        {stageName}
+      </header>
       <ol className="divide-y divide-line/60">
         {Array.from({ length: slotCount }, (_, i) => i + 1).map((slot) => (
           <SlotRow
@@ -382,11 +394,16 @@ function RemoveConfirm({
       {hasData ? (
         <>
           <p className="mb-2">
-            <span className="font-semibold text-ink">{located.advance.artistName}</span> has advance data
-            ({advanceDataSummary(located.advance)}). What should happen to it?
+            <span className="font-semibold text-ink">{located.advance.artistName}</span> has advance
+            data ({advanceDataSummary(located.advance)}). What should happen to it?
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={busy} className={buttonClass} onClick={() => onRemove('clear')}>
+            <button
+              type="button"
+              disabled={busy}
+              className={buttonClass}
+              onClick={() => onRemove('clear')}
+            >
               Keep the advance — clear it from the lineup
             </button>
             <button
@@ -409,11 +426,16 @@ function RemoveConfirm({
       ) : (
         <>
           <p className="mb-2">
-            Remove <span className="font-semibold text-ink">{located.advance.artistName}</span>? No advance
-            data has been entered — the advance will be deleted.
+            Remove <span className="font-semibold text-ink">{located.advance.artistName}</span>? No
+            advance data has been entered — the advance will be deleted.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={busy} className={buttonClass} onClick={() => onRemove('delete')}>
+            <button
+              type="button"
+              disabled={busy}
+              className={buttonClass}
+              onClick={() => onRemove('delete')}
+            >
               Delete
             </button>
             <button

@@ -3,7 +3,9 @@ export function ThemeSpecimen() {
   return (
     <section className="space-y-10">
       <header className="space-y-1">
-        <h1 className="font-display text-3xl font-black tracking-tight text-brand">Design tokens</h1>
+        <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+          Design tokens
+        </h1>
         <p className="text-ink-muted">46 Advance brand — see planning/ROADMAP.md § UI.</p>
       </header>
 
@@ -27,7 +29,9 @@ export function ThemeSpecimen() {
         <p className="font-display text-5xl font-black tracking-tight">
           46<span className="text-accent">/</span> Nexa Black
         </p>
-        <p className="font-sans text-base">Nexa Book — the quick brown fox jumps over 13 lazy dogs.</p>
+        <p className="font-sans text-base">
+          Nexa Book — the quick brown fox jumps over 13 lazy dogs.
+        </p>
         <p className="font-accent text-2xl uppercase tracking-[0.2em]">Hikou accent</p>
       </div>
     </section>

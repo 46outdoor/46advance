@@ -50,15 +50,43 @@ beforeEach(async () => {
   // Seed baseline data with rules bypassed.
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'events/event-a'), { name: 'Event A', status: 'active', createdBy: 'admin-1' });
-    await setDoc(doc(db, 'events/event-b'), { name: 'Event B', status: 'active', createdBy: 'admin-1' });
-    await setDoc(doc(db, 'events/event-a/members', PM), { role: 'production-manager', addedBy: 'admin-1', uid: PM });
-    await setDoc(doc(db, 'events/event-b/members', PM), { role: 'tech', addedBy: 'admin-1', uid: PM });
-    await setDoc(doc(db, 'events/event-a/members', LEAD), { role: 'department-lead', addedBy: 'admin-1', uid: LEAD });
-    await setDoc(doc(db, 'events/event-a/members', TECH), { role: 'tech', addedBy: 'admin-1', uid: TECH });
+    await setDoc(doc(db, 'events/event-a'), {
+      name: 'Event A',
+      status: 'active',
+      createdBy: 'admin-1',
+    });
+    await setDoc(doc(db, 'events/event-b'), {
+      name: 'Event B',
+      status: 'active',
+      createdBy: 'admin-1',
+    });
+    await setDoc(doc(db, 'events/event-a/members', PM), {
+      role: 'production-manager',
+      addedBy: 'admin-1',
+      uid: PM,
+    });
+    await setDoc(doc(db, 'events/event-b/members', PM), {
+      role: 'tech',
+      addedBy: 'admin-1',
+      uid: PM,
+    });
+    await setDoc(doc(db, 'events/event-a/members', LEAD), {
+      role: 'department-lead',
+      addedBy: 'admin-1',
+      uid: LEAD,
+    });
+    await setDoc(doc(db, 'events/event-a/members', TECH), {
+      role: 'tech',
+      addedBy: 'admin-1',
+      uid: TECH,
+    });
     // A member doc exists for a not-yet-approved (or revoked) user — approval, not
     // membership, is what unlocks access (see the approved-user-gate suite).
-    await setDoc(doc(db, 'events/event-a/members', PENDING), { role: 'tech', addedBy: 'admin-1', uid: PENDING });
+    await setDoc(doc(db, 'events/event-a/members', PENDING), {
+      role: 'tech',
+      addedBy: 'admin-1',
+      uid: PENDING,
+    });
     await setDoc(doc(db, 'users', PM), { email: 'pm@x.com', isAdmin: false });
     await setDoc(doc(db, 'users', OUTSIDER), { email: 'out@x.com', isAdmin: false });
     await setDoc(doc(db, 'events/event-a/flags/seed'), { createdBy: LEAD, text: 'seed' });
@@ -169,11 +197,14 @@ describe('firestore.rules — approved-user gate (pending/revoked lockout)', () 
 
   it('an organizer who is not approved cannot create events', async () => {
     await assertFails(
-      setDoc(doc(dbFor(ORGANIZER.uid, { organizer: true, approved: false }), 'events/evt-pending'), {
-        name: 'Nope',
-        status: 'draft',
-        createdBy: ORGANIZER.uid,
-      }),
+      setDoc(
+        doc(dbFor(ORGANIZER.uid, { organizer: true, approved: false }), 'events/evt-pending'),
+        {
+          name: 'Nope',
+          status: 'draft',
+          createdBy: ORGANIZER.uid,
+        },
+      ),
     );
   });
 
@@ -224,11 +255,15 @@ describe('firestore.rules — membership subcollection', () => {
   it('a revoked (approved:false) member cannot read even their OWN membership row (F-7)', async () => {
     // PENDING is a seeded member of event-a, but a revoked account is blocked from ALL app
     // data — the own-membership read path requires isActiveUser(), not just sign-in.
-    await assertFails(getDoc(doc(dbFor(PENDING, { approved: false }), 'events/event-a/members', PENDING)));
+    await assertFails(
+      getDoc(doc(dbFor(PENDING, { approved: false }), 'events/event-a/members', PENDING)),
+    );
   });
 
   it('only admin can write membership', async () => {
-    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/members', 'x'), { role: 'tech', addedBy: PM }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/members', 'x'), { role: 'tech', addedBy: PM }),
+    );
     await assertSucceeds(
       setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/members', 'x'), {
         role: 'tech',
@@ -258,7 +293,9 @@ describe('firestore.rules — membership collection-group listing (events-list q
   });
 
   it('cannot list another user’s memberships via the collection-group query', async () => {
-    await assertFails(getDocs(query(collectionGroup(dbFor(PM), 'members'), where('uid', '==', TECH))));
+    await assertFails(
+      getDocs(query(collectionGroup(dbFor(PM), 'members'), where('uid', '==', TECH))),
+    );
   });
 
   it('an unscoped collection-group members query (no uid filter) is denied', async () => {
@@ -273,7 +310,12 @@ describe('firestore.rules — membership collection-group listing (events-list q
     // PENDING is seeded on event-a; the events-list query is gated on isActiveUser(), so a
     // revoked account can no longer enumerate which events it belongs to.
     await assertFails(
-      getDocs(query(collectionGroup(dbFor(PENDING, { approved: false }), 'members'), where('uid', '==', PENDING))),
+      getDocs(
+        query(
+          collectionGroup(dbFor(PENDING, { approved: false }), 'members'),
+          where('uid', '==', PENDING),
+        ),
+      ),
     );
   });
 });
@@ -313,8 +355,12 @@ describe('firestore.rules — event creation is server-only (S8)', () => {
   const newEvent = (createdBy: string) => ({ name: 'New Fest', status: 'draft', createdBy });
 
   it('no client can create an event directly — only the createBlankEvent/template callables', async () => {
-    await assertFails(setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-org'), newEvent(ORGANIZER.uid)));
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/evt-adm'), newEvent(ADMIN.uid)));
+    await assertFails(
+      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-org'), newEvent(ORGANIZER.uid)),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/evt-adm'), newEvent(ADMIN.uid)),
+    );
     await assertFails(setDoc(doc(dbFor(OUTSIDER), 'events/evt-no'), newEvent(OUTSIDER)));
   });
 });
@@ -347,27 +393,45 @@ describe('firestore.rules — advances', () => {
   });
 
   it('production-manager + admin can create advances', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-pm'), newAdvance(PM)));
     await assertSucceeds(
-      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-adm'), newAdvance(ADMIN.uid)),
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-pm'), newAdvance(PM)),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a/advances/adv-adm'),
+        newAdvance(ADMIN.uid),
+      ),
     );
   });
 
   it('tech and department-lead cannot create advances', async () => {
-    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-t'), newAdvance(TECH)));
-    await assertFails(setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-l'), newAdvance(LEAD)));
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-t'), newAdvance(TECH)),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-l'), newAdvance(LEAD)),
+    );
   });
 
   it('cannot forge another user as the advance creator', async () => {
-    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-forge'), newAdvance('someone-else')));
+    await assertFails(
+      setDoc(
+        doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-forge'),
+        newAdvance('someone-else'),
+      ),
+    );
   });
 });
 
 describe('firestore.rules — section finalize/unlock (write gate)', () => {
-  const finalize = { sections: { audio: { status: 'complete', finalizedAt: null, finalizedBy: PM } } };
+  const finalize = {
+    sections: { audio: { status: 'complete', finalizedAt: null, finalizedBy: PM } },
+  };
 
   it('production-manager can finalize a section (update the advance)', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), finalize),
+    );
   });
 
   it('admin can finalize/unlock', async () => {
@@ -379,8 +443,12 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
   });
 
   it('tech and department-lead cannot change section status', async () => {
-    await assertFails(updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
-    await assertFails(updateDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-1'), finalize));
+    await assertFails(
+      updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), finalize),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/advances/adv-1'), finalize),
+    );
   });
 
   it('only PM/admin can delete advances', async () => {
@@ -390,14 +458,23 @@ describe('firestore.rules — section finalize/unlock (write gate)', () => {
 
   it('section content edits ride the same gate (PM yes, tech no)', async () => {
     const content = { content: { audio: { foh_console: 'X-32' } } };
-    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), content));
-    await assertFails(updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), content));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), content),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-a/advances/adv-1'), content),
+    );
   });
 });
 
 describe('firestore.rules — advance driveFiles subcollection (server-owned, Phase 13)', () => {
   const dfPath = (f: string) => `events/event-a/stages/stg-a/advances/adv-1/driveFiles/${f}`;
-  const entry = { fileId: 'f1', name: 'Plot.pdf', webViewLink: 'https://drive.google.com/x', linkedByUid: PM };
+  const entry = {
+    fileId: 'f1',
+    name: 'Plot.pdf',
+    webViewLink: 'https://drive.google.com/x',
+    linkedByUid: PM,
+  };
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -412,12 +489,16 @@ describe('firestore.rules — advance driveFiles subcollection (server-owned, Ph
 
   it('clients (even PM/admin) cannot write/delete Drive file links — server-only', async () => {
     await assertFails(setDoc(doc(dbFor(PM), dfPath('f2')), { ...entry, fileId: 'f2' }));
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), dfPath('f2')), { ...entry, fileId: 'f2' }));
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), dfPath('f2')), { ...entry, fileId: 'f2' }),
+    );
     await assertFails(deleteDoc(doc(dbFor(PM), dfPath('f1'))));
   });
 
   it('an advance update still succeeds (driveFiles is no longer an advance field)', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { notes: 'hi' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-1'), { notes: 'hi' }),
+    );
   });
 });
 
@@ -427,7 +508,11 @@ describe('firestore.rules — quotes (under an advance)', () => {
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), quotePath('q-seed')), { title: 'Seed', status: 'sent', createdBy: PM });
+      await setDoc(doc(ctx.firestore(), quotePath('q-seed')), {
+        title: 'Seed',
+        status: 'sent',
+        createdBy: PM,
+      });
     });
   });
 
@@ -438,7 +523,9 @@ describe('firestore.rules — quotes (under an advance)', () => {
 
   it('PM + admin can create quotes (authored by self)', async () => {
     await assertSucceeds(setDoc(doc(dbFor(PM), quotePath('q-pm')), newQuote(PM)));
-    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), quotePath('q-adm')), newQuote(ADMIN.uid)));
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), quotePath('q-adm')), newQuote(ADMIN.uid)),
+    );
   });
 
   it('tech and department-lead cannot create quotes', async () => {
@@ -471,7 +558,11 @@ describe('firestore.rules — document shape validation', () => {
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), quotePath('q-shape')), { title: 'Seed', status: 'sent', createdBy: PM });
+      await setDoc(doc(ctx.firestore(), quotePath('q-shape')), {
+        title: 'Seed',
+        status: 'sent',
+        createdBy: PM,
+      });
     });
   });
 
@@ -496,10 +587,17 @@ describe('firestore.rules — document shape validation', () => {
   // advances
   it('rejects an advance with a blank or missing artistName', async () => {
     await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-blank'), { artistName: '', createdBy: PM, sections: {} }),
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-blank'), {
+        artistName: '',
+        createdBy: PM,
+        sections: {},
+      }),
     );
     await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-noname'), { createdBy: PM, sections: {} }),
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-noname'), {
+        createdBy: PM,
+        sections: {},
+      }),
     );
   });
 
@@ -519,15 +617,20 @@ describe('firestore.rules — document shape validation', () => {
 
   // quotes
   it('rejects an arbitrary quote status (create + update) and a blank title', async () => {
-    await assertFails(setDoc(doc(dbFor(PM), quotePath('q-bad')), { title: 'X', status: 'pending', createdBy: PM }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), quotePath('q-bad')), { title: 'X', status: 'pending', createdBy: PM }),
+    );
     await assertFails(updateDoc(doc(dbFor(PM), quotePath('q-shape')), { status: 'pending' }));
-    await assertFails(setDoc(doc(dbFor(PM), quotePath('q-blank')), { title: '', status: 'draft', createdBy: PM }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), quotePath('q-blank')), { title: '', status: 'draft', createdBy: PM }),
+    );
   });
 
   it('keeps quote.createdBy immutable', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), quotePath('q-shape')), { createdBy: 'someone-else' }));
+    await assertFails(
+      updateDoc(doc(dbFor(PM), quotePath('q-shape')), { createdBy: 'someone-else' }),
+    );
   });
-
 });
 
 describe('firestore.rules — schedule days (redesign)', () => {
@@ -554,21 +657,39 @@ describe('firestore.rules — schedule days (redesign)', () => {
   it('PM creates a valid day; a tech (non-editor) cannot', async () => {
     const day = { ...validDay, date: '2026-07-15' };
     await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), day));
-    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/scheduleDays/2026-07-16'), { ...validDay, date: '2026-07-16', createdBy: TECH }));
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'events/event-a/scheduleDays/2026-07-16'), {
+        ...validDay,
+        date: '2026-07-16',
+        createdBy: TECH,
+      }),
+    );
   });
 
   it('rejects a doc whose date does not match its id (one card per date is structural)', async () => {
     await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), { ...validDay, date: '2026-07-16' }),
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), {
+        ...validDay,
+        date: '2026-07-16',
+      }),
     );
     await assertFails(updateDoc(doc(dbFor(PM), dayPath), { date: '2026-07-20' }));
   });
 
   it('rejects a non-date id and an unknown dayType', async () => {
     await assertFails(
-      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/day-one'), { ...validDay, date: 'day-one' }),
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/day-one'), {
+        ...validDay,
+        date: 'day-one',
+      }),
     );
-    await assertFails(setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), { ...validDay, date: '2026-07-15', dayType: 'build' }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/scheduleDays/2026-07-15'), {
+        ...validDay,
+        date: '2026-07-15',
+        dayType: 'build',
+      }),
+    );
     await assertFails(updateDoc(doc(dbFor(PM), dayPath), { dayType: 'strike' }));
   });
 
@@ -588,9 +709,13 @@ describe('firestore.rules — schedule days (redesign)', () => {
 
   it('allows the whole-day atomic overwrite the inline editor uses (createdBy carried through)', async () => {
     const items = [{ id: 'i1', type: 'labor', item: 'Load-In Call', startTime: '08:00', crew: [] }];
-    await assertSucceeds(setDoc(doc(dbFor(PM), dayPath), { ...validDay, notes: 'Dock 2 only', items }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), dayPath), { ...validDay, notes: 'Dock 2 only', items }),
+    );
     // A full overwrite that drops createdBy changes the audit field — rejected.
-    await assertFails(setDoc(doc(dbFor(PM), dayPath), { date: '2026-07-14', dayType: 'loadIn', items }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), dayPath), { date: '2026-07-14', dayType: 'loadIn', items }),
+    );
   });
 
   it('keeps day.createdBy immutable; PM can update and delete', async () => {
@@ -609,7 +734,9 @@ describe('firestore.rules — schedule days (redesign)', () => {
   });
 
   it('back-compat: a write that omits revision is unaffected by the guard', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { notes: 'no revision field written' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), dayPath), { notes: 'no revision field written' }),
+    );
   });
 });
 
@@ -623,7 +750,9 @@ describe('firestore.rules — slug reservations (server-only, WS-G)', () => {
 
   it('no client — not even an admin or PM — can read or write the reservation collection', async () => {
     await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), slugPath)));
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'slugs/new'), { eventId: 'event-a' }));
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'slugs/new'), { eventId: 'event-a' }),
+    );
     await assertFails(getDoc(doc(dbFor(PM), slugPath)));
     await assertFails(deleteDoc(doc(dbFor(PM), slugPath)));
   });
@@ -636,14 +765,24 @@ describe('firestore.rules — stages', () => {
   });
 
   it('production-manager + admin can create/update/delete stages', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-pm'), { name: 'PM Stage', order: 1 }));
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a'), { name: 'Renamed' }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-pm'), { name: 'PM Stage', order: 1 }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/stages/stg-a'), {
+        name: 'Renamed',
+      }),
+    );
     await assertSucceeds(deleteDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a')));
   });
 
   it('tech and department-lead cannot write stages', async () => {
-    await assertFails(setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-t'), { name: 'no', order: 9 }));
-    await assertFails(setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-l'), { name: 'no', order: 9 }));
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'events/event-a/stages/stg-t'), { name: 'no', order: 9 }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-l'), { name: 'no', order: 9 }),
+    );
   });
 });
 
@@ -651,10 +790,14 @@ describe('firestore.rules — production records', () => {
   it('event-level: members read, PM/admin write, tech cannot write', async () => {
     await assertSucceeds(getDoc(doc(dbFor(TECH), 'events/event-a/production/record')));
     await assertSucceeds(
-      setDoc(doc(dbFor(PM), 'events/event-a/production/record'), { info: { crew_parking: 'Lot B' } }),
+      setDoc(doc(dbFor(PM), 'events/event-a/production/record'), {
+        info: { crew_parking: 'Lot B' },
+      }),
     );
     await assertFails(
-      setDoc(doc(dbFor(TECH), 'events/event-a/production/record'), { info: { crew_parking: 'no' } }),
+      setDoc(doc(dbFor(TECH), 'events/event-a/production/record'), {
+        info: { crew_parking: 'no' },
+      }),
     );
     await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/production/record')));
   });
@@ -677,7 +820,12 @@ describe('firestore.rules — production records', () => {
 describe('firestore.rules — production attachments subcollection', () => {
   const evAtt = (a: string) => `events/event-a/production/record/attachments/${a}`;
   const stAtt = (a: string) => `events/event-a/stages/stg-a/production/record/attachments/${a}`;
-  const file = { name: 'plot.pdf', path: 'events/event-a/production/event/plot.pdf', url: 'https://x', uploadedBy: PM };
+  const file = {
+    name: 'plot.pdf',
+    path: 'events/event-a/production/event/plot.pdf',
+    url: 'https://x',
+    uploadedBy: PM,
+  };
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -710,7 +858,11 @@ describe('firestore.rules — global contacts directory', () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'contacts/c-pm'), { name: 'By PM', createdBy: PM });
       // A directory entry an admin created but linked to TECH's account (userId).
-      await setDoc(doc(ctx.firestore(), 'contacts/c-linked'), { name: 'Tech', createdBy: 'admin-1', userId: TECH });
+      await setDoc(doc(ctx.firestore(), 'contacts/c-linked'), {
+        name: 'Tech',
+        createdBy: 'admin-1',
+        userId: TECH,
+      });
     });
   });
 
@@ -720,7 +872,9 @@ describe('firestore.rules — global contacts directory', () => {
   });
 
   it('a signed-in user can create a contact they author', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(TECH), 'contacts/c-tech'), { name: 'New', createdBy: TECH }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(TECH), 'contacts/c-tech'), { name: 'New', createdBy: TECH }),
+    );
   });
 
   it('cannot forge another user as the contact creator', async () => {
@@ -734,16 +888,22 @@ describe('firestore.rules — global contacts directory', () => {
   });
 
   it('admin can edit/delete any contact', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { name: 'Admin edit' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { name: 'Admin edit' }),
+    );
   });
 
   it('a user can update the entry linked to their own account, but not delete it or others', async () => {
     // TECH owns the linked entry via userId — may update (e.g. their profile photo)…
-    await assertSucceeds(updateDoc(doc(dbFor(TECH), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(TECH), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }),
+    );
     // …but not delete it (delete stays creator/admin)…
     await assertFails(deleteDoc(doc(dbFor(TECH), 'contacts/c-linked')));
     // …and a non-linked, non-creator user cannot update it.
-    await assertFails(updateDoc(doc(dbFor(OUTSIDER), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }));
+    await assertFails(
+      updateDoc(doc(dbFor(OUTSIDER), 'contacts/c-linked'), { photo: { path: 'p', url: 'u' } }),
+    );
   });
 
   it('a linked user cannot rewrite createdBy to hijack ownership (F-3)', async () => {
@@ -762,8 +922,12 @@ describe('firestore.rules — global contacts directory', () => {
   });
 
   it('admin can relink a contact (createdBy/userId stay admin-mutable)', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-linked'), { userId: PM }));
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { createdBy: OUTSIDER }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-linked'), { userId: PM }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { createdBy: OUTSIDER }),
+    );
   });
 });
 
@@ -772,7 +936,11 @@ describe('firestore.rules — per-event contact attachments', () => {
 
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), attachPath('att-seed')), { contactId: 'c-pm', roleLabel: 'SM', addedBy: PM });
+      await setDoc(doc(ctx.firestore(), attachPath('att-seed')), {
+        contactId: 'c-pm',
+        roleLabel: 'SM',
+        addedBy: PM,
+      });
     });
   });
 
@@ -782,9 +950,15 @@ describe('firestore.rules — per-event contact attachments', () => {
   });
 
   it('PM/admin can attach; tech/lead cannot', async () => {
-    await assertSucceeds(setDoc(doc(dbFor(PM), attachPath('att-pm')), { contactId: 'c-pm', addedBy: PM }));
-    await assertFails(setDoc(doc(dbFor(TECH), attachPath('att-t')), { contactId: 'c-pm', addedBy: TECH }));
-    await assertFails(setDoc(doc(dbFor(LEAD), attachPath('att-l')), { contactId: 'c-pm', addedBy: LEAD }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(PM), attachPath('att-pm')), { contactId: 'c-pm', addedBy: PM }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(TECH), attachPath('att-t')), { contactId: 'c-pm', addedBy: TECH }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(LEAD), attachPath('att-l')), { contactId: 'c-pm', addedBy: LEAD }),
+    );
   });
 
   it('only PM/admin can detach', async () => {
@@ -814,9 +988,14 @@ describe('firestore.rules — documentCategories (app-wide config)', () => {
   });
 
   it('only admin can write document categories', async () => {
-    await assertFails(setDoc(doc(dbFor(PM), 'documentCategories/tech-rider'), { name: 'Tech Rider', order: 0 }));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'documentCategories/tech-rider'), { name: 'Tech Rider', order: 0 }),
+    );
     await assertSucceeds(
-      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'documentCategories/tech-rider'), { name: 'Tech Rider', order: 0 }),
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'documentCategories/tech-rider'), {
+        name: 'Tech Rider',
+        order: 0,
+      }),
     );
   });
 });
@@ -842,19 +1021,29 @@ describe('firestore.rules — artistDocuments (library)', () => {
 
   it('admin + organizer classify; tech cannot', async () => {
     await assertSucceeds(
-      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1'), { categoryId: 'tech-rider' }),
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1'), {
+        categoryId: 'tech-rider',
+      }),
     );
     await assertSucceeds(
-      updateDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/doc-1'), { categoryId: 'media' }),
+      updateDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/doc-1'), {
+        categoryId: 'media',
+      }),
     );
-    await assertFails(updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }));
+    await assertFails(
+      updateDoc(doc(dbFor(TECH), 'artistDocuments/doc-1'), { categoryId: 'media' }),
+    );
   });
 
   it('trusted Drive source metadata is immutable to clients — only classification/annotation may change (F-3)', async () => {
     const ref = doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1');
     // Curation still works: (re)classify, rename the display label, annotate, mark verified.
     await assertSucceeds(
-      updateDoc(ref, { categoryId: 'tech-rider', displayName: 'Rider (final)', verifiedAt: serverTimestamp() }),
+      updateDoc(ref, {
+        categoryId: 'tech-rider',
+        displayName: 'Rider (final)',
+        verifiedAt: serverTimestamp(),
+      }),
     );
     // The canonical source fields the callable recorded cannot be rewritten client-side —
     // else a client could repoint the name/link/provenance to a file it never proved (F-1/F-3).
@@ -874,11 +1063,18 @@ describe('firestore.rules — artistDocuments (library)', () => {
       ...over,
     });
     // Even admin/organizer can no longer client-create — provenance is verified server-side.
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-1'), upload('up-1')));
     await assertFails(
-      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/up-2'), upload('up-2', { importedBy: ORGANIZER.uid })),
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/up-1'), upload('up-1')),
     );
-    await assertFails(setDoc(doc(dbFor(TECH), 'artistDocuments/up-5'), upload('up-5', { importedBy: TECH })));
+    await assertFails(
+      setDoc(
+        doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/up-2'),
+        upload('up-2', { importedBy: ORGANIZER.uid }),
+      ),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(TECH), 'artistDocuments/up-5'), upload('up-5', { importedBy: TECH })),
+    );
   });
 });
 
@@ -890,7 +1086,9 @@ describe('firestore.rules — templates', () => {
 
   it('only admin can write templates', async () => {
     await assertFails(setDoc(doc(dbFor(PM), 'templates/tpl-1'), { name: 'X' }));
-    await assertSucceeds(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'templates/tpl-1'), { name: 'X' }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'templates/tpl-1'), { name: 'X' }),
+    );
   });
 });
 
@@ -923,7 +1121,9 @@ describe('firestore.rules — Google connection (Phase 11b)', () => {
 
   it('clients cannot write connection status (server-managed)', async () => {
     await assertFails(setDoc(doc(dbFor(PM), 'googleConnections', PM), { connected: false }));
-    await assertFails(setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'googleConnections', PM), { connected: false }));
+    await assertFails(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'googleConnections', PM), { connected: false }),
+    );
   });
 
   it('tokens are never client-readable or client-writable (even the owner / admin)', async () => {
@@ -948,7 +1148,9 @@ describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
 
   it('PM/admin can resolve (write); tech and dept-lead cannot', async () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), bookingPath), { status: 'dismissed' }));
-    await assertSucceeds(updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }),
+    );
     await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
     await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
   });
@@ -980,11 +1182,19 @@ describe('firestore.rules — event documents', () => {
     const at = (n: number) => `events/event-a/documents/efile-${n}`;
     // Even a PM can no longer client-create — folder membership is verified server-side.
     await assertFails(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'efile-2' }));
-    await assertFails(setDoc(doc(dbFor(TECH), at(5)), { ...validDoc(), fileId: 'efile-5', uploadedBy: TECH }));
+    await assertFails(
+      setDoc(doc(dbFor(TECH), at(5)), { ...validDoc(), fileId: 'efile-5', uploadedBy: TECH }),
+    );
   });
 
   it('updates re-day/categorize/rename but keep audit + Drive source metadata immutable; PM deletes', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), docPath), { day: null, categoryId: 'cat-1', displayName: 'Site plan' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), docPath), {
+        day: null,
+        categoryId: 'cat-1',
+        displayName: 'Site plan',
+      }),
+    );
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { uploadedBy: 'someone-else' }));
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { fileId: 'other' }));
     // Drive source metadata is server-recorded and immutable to clients (F-3).
@@ -1020,7 +1230,9 @@ describe('firestore.rules — advance documents (inclusion)', () => {
     const at = (n: number) => `events/event-a/stages/stg-a/advances/adv-1/documents/file-${n}`;
     // Even a PM can no longer client-create — the callable copies canonical artistDocuments metadata.
     await assertFails(setDoc(doc(dbFor(PM), at(2)), { ...validDoc(), fileId: 'file-2' }));
-    await assertFails(setDoc(doc(dbFor(TECH), at(4)), { ...validDoc(), fileId: 'file-4', addedBy: TECH }));
+    await assertFails(
+      setDoc(doc(dbFor(TECH), at(4)), { ...validDoc(), fileId: 'file-4', addedBy: TECH }),
+    );
   });
 
   it('rejects a blank fileId or name, and a forged (non-server) addedAt, on create', async () => {
@@ -1028,7 +1240,11 @@ describe('firestore.rules — advance documents (inclusion)', () => {
     await assertFails(setDoc(doc(dbFor(PM), at(5)), { ...validDoc(), fileId: '' }));
     await assertFails(setDoc(doc(dbFor(PM), at(6)), { ...validDoc(), fileId: 'file-6', name: '' }));
     await assertFails(
-      setDoc(doc(dbFor(PM), at(7)), { ...validDoc(), fileId: 'file-7', addedAt: Timestamp.fromMillis(0) }),
+      setDoc(doc(dbFor(PM), at(7)), {
+        ...validDoc(),
+        fileId: 'file-7',
+        addedAt: Timestamp.fromMillis(0),
+      }),
     );
   });
 
@@ -1046,7 +1262,11 @@ describe('firestore.rules — advance documents (inclusion)', () => {
 });
 
 describe('contacts — create userId link', () => {
-  const newContact = (extra: Record<string, unknown> = {}) => ({ name: 'Someone', createdBy: TECH, ...extra });
+  const newContact = (extra: Record<string, unknown> = {}) => ({
+    name: 'Someone',
+    createdBy: TECH,
+    ...extra,
+  });
 
   it('an approved user can create an unlinked contact', async () => {
     await assertSucceeds(setDoc(doc(dbFor(TECH), 'contacts/c-unlinked'), newContact()));

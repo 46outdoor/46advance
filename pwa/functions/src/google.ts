@@ -23,7 +23,10 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
-import { deterministicCalendarEventId, insertCalendarEventIdempotent } from './lib/google/calendarEvents.js';
+import {
+  deterministicCalendarEventId,
+  insertCalendarEventIdempotent,
+} from './lib/google/calendarEvents.js';
 import { eventCalendarSummary } from './lib/events/calendarSummary.js';
 import {
   createEventCalendarInputSchema,
@@ -83,7 +86,9 @@ function emailFromIdToken(idToken: string | null | undefined): string | null {
   const parts = idToken.split('.');
   if (parts.length < 2) return null;
   try {
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as { email?: string };
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+      email?: string;
+    };
     return payload.email ?? null;
   } catch {
     return null;
@@ -122,7 +127,10 @@ export async function assertCanEditEvent(
   if (token.admin === true) return;
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists || member.data()?.role !== 'production-manager') {
-    throw new HttpsError('permission-denied', 'Only an admin or the event production manager can do this.');
+    throw new HttpsError(
+      'permission-denied',
+      'Only an admin or the event production manager can do this.',
+    );
   }
 }
 
@@ -130,7 +138,11 @@ export async function assertCanEditEvent(
 export async function authedClientForUser(db: Firestore, uid: string): Promise<AuthClient> {
   const snap = await db.collection('googleTokens').doc(uid).get();
   const t = snap.data() as
-    | { refreshToken?: string | null; accessToken?: string | null; accessTokenExpiry?: number | null }
+    | {
+        refreshToken?: string | null;
+        accessToken?: string | null;
+        accessTokenExpiry?: number | null;
+      }
     | undefined;
   if (!t?.refreshToken) {
     throw new HttpsError('failed-precondition', 'Connect your Google account first.');
@@ -187,7 +199,11 @@ export async function ensureEventCalendar(
     if (typeof current === 'string' && current.length > 0) return current;
     tx.set(
       eventRef,
-      { googleCalendarId: calendarId, googleCalendarOwnerUid: uid, updatedAt: FieldValue.serverTimestamp() },
+      {
+        googleCalendarId: calendarId,
+        googleCalendarOwnerUid: uid,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
       { merge: true },
     );
     return calendarId;
@@ -247,7 +263,8 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
   const db = getFirestore();
   const stateRef = db.collection('googleOAuthStates').doc(state);
   const stateSnap = await stateRef.get();
-  if (!stateSnap.exists) return fail('Link expired', 'Please start the connection again from 46 Advance.');
+  if (!stateSnap.exists)
+    return fail('Link expired', 'Please start the connection again from 46 Advance.');
   const stateData = stateSnap.data() as { uid: string; createdAt?: Timestamp };
   await stateRef.delete();
   const createdMs = stateData.createdAt instanceof Timestamp ? stateData.createdAt.toMillis() : 0;
@@ -275,16 +292,19 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
     if (tokens.refresh_token) tokenDoc.refreshToken = tokens.refresh_token;
 
     await Promise.all([
-      db.collection('googleConnections').doc(uid).set(
-        {
-          connected: true,
-          email,
-          scopes: tokens.scope ? tokens.scope.split(' ') : SCOPES,
-          connectedAt: now,
-          updatedAt: now,
-        },
-        { merge: true },
-      ),
+      db
+        .collection('googleConnections')
+        .doc(uid)
+        .set(
+          {
+            connected: true,
+            email,
+            scopes: tokens.scope ? tokens.scope.split(' ') : SCOPES,
+            connectedAt: now,
+            updatedAt: now,
+          },
+          { merge: true },
+        ),
       db.collection('googleTokens').doc(uid).set(tokenDoc, { merge: true }),
     ]);
 
@@ -316,7 +336,8 @@ export const googleAuthCallback = onRequest({ secrets: OAUTH_SECRETS }, async (r
  */
 export async function disconnectGoogle(db: Firestore, uid: string): Promise<void> {
   const tokenSnap = await db.collection('googleTokens').doc(uid).get();
-  const t = tokenSnap.data() as { refreshToken?: string | null; accessToken?: string | null } | undefined;
+  const t = tokenSnap.data() as
+    { refreshToken?: string | null; accessToken?: string | null } | undefined;
   const revokeTarget = t?.refreshToken ?? t?.accessToken ?? null;
   if (revokeTarget) {
     try {
@@ -357,11 +378,16 @@ export async function bestEffortDeleteCalendarEvents(
   const calendar = google.calendar({ version: 'v3', auth: client });
   for (const id of ids) {
     try {
-      await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId: id }), { label: 'events.delete' });
+      await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId: id }), {
+        label: 'events.delete',
+      });
     } catch (e) {
       const status = googleErrorStatus(e);
       if (status !== 404 && status !== 410) {
-        logger.warn('Best-effort calendar event delete failed', { calendarEventId: id, error: String(e) });
+        logger.warn('Best-effort calendar event delete failed', {
+          calendarEventId: id,
+          error: String(e),
+        });
       }
     }
   }
@@ -393,7 +419,13 @@ export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (req
   if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
 
   const client = await authedClientForUser(db, uid);
-  const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventSnap.data()?.name ?? 'Event'));
+  const calendarId = await ensureEventCalendar(
+    db,
+    client,
+    uid,
+    eventId,
+    String(eventSnap.data()?.name ?? 'Event'),
+  );
   return { calendarId };
 });
 
@@ -408,25 +440,38 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
   const { uid, token } = request.auth;
   const input = parseCallableData(createAdvanceCallInputSchema, request.data);
   const { eventId, stageId, advanceId, startMillis } = input;
-  const durationMinutes = input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : 30;
+  const durationMinutes =
+    input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : 30;
   const db = getFirestore();
   await enforceRateLimit(db, ['createAdvanceCall', uid], 20);
   await assertCanEditEvent(db, token, uid, eventId);
 
   const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
-  const [eventSnap, advanceSnap] = await Promise.all([db.doc(`events/${eventId}`).get(), advanceRef.get()]);
+  const [eventSnap, advanceSnap] = await Promise.all([
+    db.doc(`events/${eventId}`).get(),
+    advanceRef.get(),
+  ]);
   if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
   if (!advanceSnap.exists) throw new HttpsError('not-found', 'Advance not found.');
 
   const client = await authedClientForUser(db, uid);
-  const calendarId = await ensureEventCalendar(db, client, uid, eventId, String(eventSnap.data()?.name ?? 'Event'));
+  const calendarId = await ensureEventCalendar(
+    db,
+    client,
+    uid,
+    eventId,
+    String(eventSnap.data()?.name ?? 'Event'),
+  );
 
   const artistName = String(advanceSnap.data()?.artistName ?? 'Artist');
   const eventTz = String(eventSnap.data()?.timeZone ?? TIME_ZONE);
   // Prefix the call title with the event's short code (e.g. "BOTB: Advance call — …") when set.
   const rawShortCode = eventSnap.data()?.shortCode;
-  const shortCode = typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
-  const summary = shortCode ? `${shortCode}: Advance call — ${artistName}` : `Advance call — ${artistName}`;
+  const shortCode =
+    typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
+  const summary = shortCode
+    ? `${shortCode}: Advance call — ${artistName}`
+    : `Advance call — ${artistName}`;
   const start = new Date(startMillis);
   const end = new Date(startMillis + durationMinutes * 60 * 1000);
   const calendar = google.calendar({ version: 'v3', auth: client });
@@ -440,7 +485,12 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
       summary,
       start: { dateTime: start.toISOString(), timeZone: eventTz },
       end: { dateTime: end.toISOString(), timeZone: eventTz },
-      conferenceData: { createRequest: { requestId: `advance-${advanceId}-${startMillis}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } },
+      conferenceData: {
+        createRequest: {
+          requestId: `advance-${advanceId}-${startMillis}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      },
     },
   });
 

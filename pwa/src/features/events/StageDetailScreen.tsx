@@ -76,7 +76,9 @@ export function StageDetailScreen() {
       {stage && !editing && (
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-black tracking-tight text-brand">{stage.name}</h1>
+            <h1 className="font-display text-3xl font-black tracking-tight text-brand">
+              {stage.name}
+            </h1>
             {stage.notes && <p className="mt-1 text-ink-muted">{stage.notes}</p>}
           </div>
           {canEdit && (
@@ -115,7 +117,9 @@ export function StageDetailScreen() {
         </div>
       )}
 
-      {stage && eventId && <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />}
+      {stage && eventId && (
+        <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />
+      )}
       {stage && eventId && <AdvancesPanel eventId={eventId} stageId={stageId} canEdit={canEdit} />}
     </section>
   );

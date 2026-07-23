@@ -61,10 +61,17 @@ export function TemplateDayForm({
   };
 
   return (
-    <form className="grid gap-3 rounded-lg border border-line bg-surface-muted/40 p-4 sm:grid-cols-2" onSubmit={submit}>
+    <form
+      className="grid gap-3 rounded-lg border border-line bg-surface-muted/40 p-4 sm:grid-cols-2"
+      onSubmit={submit}
+    >
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Day</span>
-        <select className={inputClass} value={offset} onChange={(e) => setOffset(Number(e.target.value))}>
+        <select
+          className={inputClass}
+          value={offset}
+          onChange={(e) => setOffset(Number(e.target.value))}
+        >
           {options.map((o) => (
             <option key={o} value={o}>
               {templateDayLabel(o, dayType)}
@@ -74,7 +81,11 @@ export function TemplateDayForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Day type</span>
-        <select className={inputClass} value={dayType} onChange={(e) => setDayType(e.target.value as ScheduleDayType)}>
+        <select
+          className={inputClass}
+          value={dayType}
+          onChange={(e) => setDayType(e.target.value as ScheduleDayType)}
+        >
           {SCHEDULE_DAY_TYPES.map((d) => (
             <option key={d.key} value={d.key}>
               {d.label}
@@ -93,11 +104,20 @@ export function TemplateDayForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Description (optional)</span>
-        <input className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <input
+          className={inputClass}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Day notes (optional)</span>
-        <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <button

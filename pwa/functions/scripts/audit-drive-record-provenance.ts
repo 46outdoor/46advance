@@ -69,28 +69,45 @@ function missingFields(data: FirebaseFirestore.DocumentData, fields: string[]): 
   return fields.filter((f) => data[f] === undefined || data[f] === null || data[f] === '');
 }
 
-async function auditArtistDocuments(db: Firestore, drive: drive_v3.Drive | null): Promise<Finding[]> {
+async function auditArtistDocuments(
+  db: Firestore,
+  drive: drive_v3.Drive | null,
+): Promise<Finding[]> {
   const rootFolderId = (await db.doc('config/documentsLibrary').get()).get('rootFolderId') as
-    | string
-    | undefined;
+    string | undefined;
   const snap = await db.collection('artistDocuments').get();
   const findings: Finding[] = [];
   for (const doc of snap.docs) {
     const data = doc.data();
     const reasons: string[] = [];
-    const missing = missingFields(data, ['sourceFolderId', 'artistKey', 'importedAt', 'webViewLink']);
+    const missing = missingFields(data, [
+      'sourceFolderId',
+      'artistKey',
+      'importedAt',
+      'webViewLink',
+    ]);
     if (missing.length) reasons.push(`missing provenance fields: ${missing.join(', ')}`);
 
     if (drive) {
       if (!rootFolderId) {
-        reasons.push('library root (config/documentsLibrary.rootFolderId) not configured — cannot verify');
+        reasons.push(
+          'library root (config/documentsLibrary.rootFolderId) not configured — cannot verify',
+        );
       } else {
         const file = await getFileForRegistration(drive, doc.id);
         if (!file) {
-          reasons.push('Drive file is not accessible to the broker (deleted or moved out of the library)');
+          reasons.push(
+            'Drive file is not accessible to the broker (deleted or moved out of the library)',
+          );
         } else {
-          const folder = await resolveArtistFolder(drive, file.parents[0] ?? null, rootFolderId, MAX_FOLDER_DEPTH);
-          if (!folder.underRoot) reasons.push('Drive file is not under the document-library root folder');
+          const folder = await resolveArtistFolder(
+            drive,
+            file.parents[0] ?? null,
+            rootFolderId,
+            MAX_FOLDER_DEPTH,
+          );
+          if (!folder.underRoot)
+            reasons.push('Drive file is not under the document-library root folder');
         }
       }
     }
@@ -99,7 +116,10 @@ async function auditArtistDocuments(db: Firestore, drive: drive_v3.Drive | null)
   return findings;
 }
 
-async function auditEventDocuments(db: Firestore, drive: drive_v3.Drive | null): Promise<Finding[]> {
+async function auditEventDocuments(
+  db: Firestore,
+  drive: drive_v3.Drive | null,
+): Promise<Finding[]> {
   const events = await db.collection('events').get();
   const findings: Finding[] = [];
   for (const event of events.docs) {
@@ -117,7 +137,8 @@ async function auditEventDocuments(db: Firestore, drive: drive_v3.Drive | null):
         } else {
           const file = await getFileForRegistration(drive, doc.id);
           if (!file) reasons.push('Drive file is not accessible to the broker (deleted or moved)');
-          else if (!file.parents.includes(driveFolderId)) reasons.push("Drive file is not in the event's linked folder");
+          else if (!file.parents.includes(driveFolderId))
+            reasons.push("Drive file is not in the event's linked folder");
         }
       }
       if (reasons.length) findings.push({ path: doc.ref.path, reasons });
@@ -136,7 +157,10 @@ async function auditAdvanceDocuments(db: Firestore): Promise<Finding[]> {
     if (!doc.ref.path.includes('/advances/')) continue;
     const source = await db.doc(`artistDocuments/${doc.id}`).get();
     if (!source.exists) {
-      findings.push({ path: doc.ref.path, reasons: [`source artistDocuments/${doc.id} no longer exists (orphaned inclusion)`] });
+      findings.push({
+        path: doc.ref.path,
+        reasons: [`source artistDocuments/${doc.id} no longer exists (orphaned inclusion)`],
+      });
     }
   }
   return findings;
@@ -156,7 +180,11 @@ async function main(): Promise<void> {
   const drive = brokerClient();
 
   console.log(`Provenance audit (READ-ONLY) — project: ${PROJECT}`);
-  console.log(drive ? 'Drive membership pass: ENABLED (broker SA provided).' : 'Drive membership pass: SKIPPED (no DRIVE_SA_KEY) — structural signal only.');
+  console.log(
+    drive
+      ? 'Drive membership pass: ENABLED (broker SA provided).'
+      : 'Drive membership pass: SKIPPED (no DRIVE_SA_KEY) — structural signal only.',
+  );
 
   const [artist, eventDocs, advanceDocs] = await Promise.all([
     auditArtistDocuments(db, drive),
@@ -169,7 +197,9 @@ async function main(): Promise<void> {
   report('advance documents (inclusions)', advanceDocs);
 
   const total = artist.length + eventDocs.length + advanceDocs.length;
-  console.log(`\nTotal flagged: ${total}. This report is advisory only — no records were modified.`);
+  console.log(
+    `\nTotal flagged: ${total}. This report is advisory only — no records were modified.`,
+  );
 }
 
 main().catch((err) => {

@@ -26,7 +26,8 @@ import {
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 
 /** The Storage prefix holding a quote's signed copy + generated PDFs. */
-const quoteStoragePrefix = (eventId: string, quoteId: string): string => `events/${eventId}/quotes/${quoteId}/`;
+const quoteStoragePrefix = (eventId: string, quoteId: string): string =>
+  `events/${eventId}/quotes/${quoteId}/`;
 
 /** Best-effort delete of every Storage object under a prefix; never throws so a Storage hiccup
  *  can't strand the Firestore cleanup (a retry re-runs it — deleting an absent prefix is a no-op). */
@@ -42,13 +43,18 @@ async function deleteStoragePrefix(prefix: string): Promise<void> {
 export const deleteQuote = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
-  const { eventId, stageId, advanceId, quoteId } = parseCallableData(deleteQuoteInputSchema, request.data);
+  const { eventId, stageId, advanceId, quoteId } = parseCallableData(
+    deleteQuoteInputSchema,
+    request.data,
+  );
   const db = getFirestore();
   await enforceRateLimit(db, ['deleteQuote', uid], 30);
   await assertCanEditEvent(db, token, uid, eventId);
 
   await deleteStoragePrefix(quoteStoragePrefix(eventId, quoteId));
-  await db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}/quotes/${quoteId}`).delete();
+  await db
+    .doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}/quotes/${quoteId}`)
+    .delete();
   return { ok: true };
 });
 
@@ -69,7 +75,9 @@ export const deleteAdvance = onCall({ secrets: OAUTH_SECRETS }, async (request) 
   await db.recursiveDelete(advanceRef);
   // A server-side delete bypasses the client's removeScheduleCalendarEvent, so clean up the
   // advance-call event here or it's orphaned in Google (WS-H). Best-effort — never blocks the delete.
-  await bestEffortDeleteCalendarEvents(db, uid, eventId, [advanceSnap.get('googleCalendarEventId')]);
+  await bestEffortDeleteCalendarEvents(db, uid, eventId, [
+    advanceSnap.get('googleCalendarEventId'),
+  ]);
   return { ok: true };
 });
 

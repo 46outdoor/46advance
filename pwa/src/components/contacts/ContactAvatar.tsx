@@ -14,7 +14,12 @@ export function ContactAvatar({ name, photo, className = 'h-10 w-10' }: Props) {
     if (photo.crop) {
       return (
         <span className={`relative ${base}`}>
-          <img src={photo.url} alt="" className="absolute max-w-none" style={photoCropStyle(photo.crop)} />
+          <img
+            src={photo.url}
+            alt=""
+            className="absolute max-w-none"
+            style={photoCropStyle(photo.crop)}
+          />
         </span>
       );
     }

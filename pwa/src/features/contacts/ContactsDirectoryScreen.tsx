@@ -78,14 +78,18 @@ function ContactRow({
                 </span>
               )}
             </h2>
-            {contactSubtitle(contact) && <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>}
+            {contactSubtitle(contact) && (
+              <p className="text-sm text-ink-muted">{contactSubtitle(contact)}</p>
+            )}
             <div className="mt-1">
               <ContactLinks phone={contact.phone} email={contact.email} />
             </div>
           </div>
         </div>
         {contact.notes && (
-          <p className="min-w-0 flex-1 whitespace-pre-line text-sm text-ink-muted">{contact.notes}</p>
+          <p className="min-w-0 flex-1 whitespace-pre-line text-sm text-ink-muted">
+            {contact.notes}
+          </p>
         )}
         {canManage && (
           <div className="flex shrink-0 gap-2 text-xs">
@@ -141,7 +145,8 @@ export function ContactsDirectoryScreen() {
     }) => {
       await updateContact(id, input);
       // Delete the replaced photo only after the update is durably saved (F-5).
-      if (prevPhotoPath && prevPhotoPath !== input.photo?.path) await deleteStoredAssets([prevPhotoPath]);
+      if (prevPhotoPath && prevPhotoPath !== input.photo?.path)
+        await deleteStoredAssets([prevPhotoPath]);
     },
     onSuccess: () => {
       void invalidate();
@@ -177,7 +182,9 @@ export function ContactsDirectoryScreen() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-black tracking-tight text-brand">Contacts</h1>
-          <p className="text-ink-muted">Shared personnel directory. Attach contacts to events from the event page.</p>
+          <p className="text-ink-muted">
+            Shared personnel directory. Attach contacts to events from the event page.
+          </p>
         </div>
         {!creating && (
           <button
@@ -220,7 +227,9 @@ export function ContactsDirectoryScreen() {
                 type="button"
                 onClick={() => setSortBy(key)}
                 className={`rounded px-2.5 py-1 transition-colors ${
-                  sortBy === key ? 'bg-ink text-surface' : 'border border-line text-ink-muted hover:text-accent'
+                  sortBy === key
+                    ? 'bg-ink text-surface'
+                    : 'border border-line text-ink-muted hover:text-accent'
                 }`}
               >
                 {key === 'first' ? 'First name' : 'Last name'}
@@ -250,7 +259,13 @@ export function ContactsDirectoryScreen() {
                   data-index={vi.index}
                   ref={rowVirtualizer.measureElement}
                   className="pb-2"
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vi.start}px)` }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vi.start}px)`,
+                  }}
                 >
                   <ContactRow
                     contact={contact}
@@ -262,7 +277,11 @@ export function ContactsDirectoryScreen() {
                     onEdit={() => setEditingId(contact.id)}
                     onDelete={() => remove.mutate(contact.id)}
                     onSubmitEdit={(input) =>
-                      update.mutate({ id: contact.id, input, prevPhotoPath: contact.photo?.path ?? null })
+                      update.mutate({
+                        id: contact.id,
+                        input,
+                        prevPhotoPath: contact.photo?.path ?? null,
+                      })
                     }
                     onCancelEdit={() => setEditingId(null)}
                   />

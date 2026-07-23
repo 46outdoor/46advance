@@ -12,7 +12,9 @@ import { fileURLToPath, URL } from 'node:url';
 function resolveRelease(): string {
   if (process.env.VITE_APP_RELEASE) return process.env.VITE_APP_RELEASE;
   try {
-    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
   } catch {
     return 'dev';
   }

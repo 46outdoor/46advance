@@ -18,7 +18,12 @@ interface Props {
 
 const VARIANTS = [
   { key: 'onDark', label: 'For dark backgrounds', hint: 'white / light mark', swatch: 'bg-brand' },
-  { key: 'onLight', label: 'For light backgrounds', hint: 'dark / color mark', swatch: 'bg-surface border border-line' },
+  {
+    key: 'onLight',
+    label: 'For light backgrounds',
+    hint: 'dark / color mark',
+    swatch: 'bg-surface border border-line',
+  },
 ] as const;
 
 /** Dual-variant logo upload (onDark + onLight); previews each on its target background. */

@@ -23,7 +23,11 @@ import {
 } from '@/lib/documents/eventDocument';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
-import { deleteDriveUpload, openArtistDocument, uploadFileToDrive } from '@/lib/google/drive-service';
+import {
+  deleteDriveUpload,
+  openArtistDocument,
+  uploadFileToDrive,
+} from '@/lib/google/drive-service';
 import { listScheduleDays } from './schedule-days-service';
 import {
   createEventDocument,
@@ -70,7 +74,12 @@ function UploadForm({
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
       </label>
-      <select className={selectClass} value={day} aria-label="Day" onChange={(e) => setDay(e.target.value)}>
+      <select
+        className={selectClass}
+        value={day}
+        aria-label="Day"
+        onChange={(e) => setDay(e.target.value)}
+      >
         <option value="">Event-wide</option>
         {dayOptions.map((d) => (
           <option key={d.key} value={d.key}>
@@ -141,7 +150,11 @@ function DocumentRow({
       <button
         type="button"
         className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
-        onClick={() => void openArtistDocument(doc.fileId, eventId).catch((e) => logger.error('Failed to open document', e))}
+        onClick={() =>
+          void openArtistDocument(doc.fileId, eventId).catch((e) =>
+            logger.error('Failed to open document', e),
+          )
+        }
       >
         Open
       </button>
@@ -190,12 +203,24 @@ function DocumentRow({
 }
 
 /** A day group's header — the matching schedule day lends its color + title. */
-function DayGroupHeader({ day, scheduleDay }: { day: string | null; scheduleDay: ScheduleDay | undefined }) {
+function DayGroupHeader({
+  day,
+  scheduleDay,
+}: {
+  day: string | null;
+  scheduleDay: ScheduleDay | undefined;
+}) {
   if (day === null) {
-    return <h2 className="rounded px-3 py-1.5 font-display text-lg font-bold text-brand">Event-wide</h2>;
+    return (
+      <h2 className="rounded px-3 py-1.5 font-display text-lg font-bold text-brand">Event-wide</h2>
+    );
   }
   if (!scheduleDay) {
-    return <h2 className="rounded px-3 py-1.5 font-display text-lg font-bold text-brand">{formatDateKey(day)}</h2>;
+    return (
+      <h2 className="rounded px-3 py-1.5 font-display text-lg font-bold text-brand">
+        {formatDateKey(day)}
+      </h2>
+    );
   }
   const dayType = scheduleDayTypeDef(scheduleDay.dayType);
   return (
@@ -233,8 +258,12 @@ export function EventDocumentsScreen() {
     queryFn: () => listScheduleDays(eventId!),
     enabled: !!eventId,
   });
-  const categoriesQuery = useQuery({ queryKey: ['documentCategories'], queryFn: listDocumentCategories });
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['eventDocuments', eventId] });
+  const categoriesQuery = useQuery({
+    queryKey: ['documentCategories'],
+    queryFn: listDocumentCategories,
+  });
+  const invalidate = () =>
+    void queryClient.invalidateQueries({ queryKey: ['eventDocuments', eventId] });
 
   const upload = useMutation({
     mutationFn: async ({ file, input }: { file: File; input: EventDocumentInput }) => {
@@ -269,7 +298,10 @@ export function EventDocumentsScreen() {
   const event = eventQuery.data;
   const scheduleDays = daysQuery.data ?? [];
   const dayByKey = new Map(scheduleDays.map((d) => [d.id, d]));
-  const dayOptions: DayOption[] = scheduleDays.map((d) => ({ key: d.id, label: formatDateKey(d.date) }));
+  const dayOptions: DayOption[] = scheduleDays.map((d) => ({
+    key: d.id,
+    label: formatDateKey(d.date),
+  }));
   const categories = categoriesQuery.data ?? [];
   const groups = groupEventDocumentsByDay(documentsQuery.data ?? []);
 
@@ -307,8 +339,14 @@ export function EventDocumentsScreen() {
       )}
 
       {groups.map((group) => (
-        <div key={group.day ?? 'event-wide'} className="overflow-hidden rounded-lg border border-line">
-          <DayGroupHeader day={group.day} scheduleDay={group.day ? dayByKey.get(group.day) : undefined} />
+        <div
+          key={group.day ?? 'event-wide'}
+          className="overflow-hidden rounded-lg border border-line"
+        >
+          <DayGroupHeader
+            day={group.day}
+            scheduleDay={group.day ? dayByKey.get(group.day) : undefined}
+          />
           <ul className="divide-y divide-line/60 px-3">
             {group.documents.map((doc) => (
               <DocumentRow

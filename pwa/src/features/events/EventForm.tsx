@@ -1,10 +1,20 @@
 import { useState, type FormEvent } from 'react';
 import { createLogger } from '@/lib/logger';
 import { pickDriveFolder } from '@/lib/google';
-import { EVENT_STATUSES, eventInputSchema, type EventInput, type EventStatus } from '@/lib/events/event';
+import {
+  EVENT_STATUSES,
+  eventInputSchema,
+  type EventInput,
+  type EventStatus,
+} from '@/lib/events/event';
 import { defaultEventSlug, slugify } from '@/lib/events/slug';
 import type { DepartmentRecord } from '@/lib/departments/department';
-import { APP_TIME_ZONE, COMMON_TIME_ZONES, dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
+import {
+  APP_TIME_ZONE,
+  COMMON_TIME_ZONES,
+  dayKeyToInstant,
+  zonedDayKey,
+} from '@/lib/dates/timezone';
 
 interface EventFormProps {
   initial?: {
@@ -145,7 +155,9 @@ export function EventForm({
   const [venue, setVenue] = useState(initial?.venue ?? '');
   const [shortCode, setShortCode] = useState(initial?.shortCode ?? '');
   const [driveFolder, setDriveFolder] = useState<{ id: string; name: string } | null>(
-    initial?.driveFolderId ? { id: initial.driveFolderId, name: initial.driveFolderName ?? 'Drive folder' } : null,
+    initial?.driveFolderId
+      ? { id: initial.driveFolderId, name: initial.driveFolderName ?? 'Drive folder' }
+      : null,
   );
   const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
   const [status, setStatus] = useState<EventStatus>(initial?.status ?? 'draft');
@@ -195,15 +207,30 @@ export function EventForm({
     <form className="grid gap-3 sm:grid-cols-2 sm:items-end" onSubmit={submit}>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Event name</span>
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Summerfest 2026" />
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Summerfest 2026"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Show start date</span>
-        <input type="date" className={inputClass} value={start} onChange={(e) => setStart(e.target.value)} />
+        <input
+          type="date"
+          className={inputClass}
+          value={start}
+          onChange={(e) => setStart(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Show end date</span>
-        <input type="date" className={inputClass} value={end} onChange={(e) => setEnd(e.target.value)} />
+        <input
+          type="date"
+          className={inputClass}
+          value={end}
+          onChange={(e) => setEnd(e.target.value)}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Load-in days</span>
@@ -214,7 +241,9 @@ export function EventForm({
           value={loadInDays}
           onChange={(e) => setLoadInDays(Math.max(0, Number(e.target.value)))}
         />
-        <span className="mt-1 block text-xs text-ink-muted">Days before the show — adds them to the schedule.</span>
+        <span className="mt-1 block text-xs text-ink-muted">
+          Days before the show — adds them to the schedule.
+        </span>
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Load-out days</span>
@@ -225,11 +254,17 @@ export function EventForm({
           value={loadOutDays}
           onChange={(e) => setLoadOutDays(Math.max(0, Number(e.target.value)))}
         />
-        <span className="mt-1 block text-xs text-ink-muted">Days after the show — adds them to the schedule.</span>
+        <span className="mt-1 block text-xs text-ink-muted">
+          Days after the show — adds them to the schedule.
+        </span>
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Timezone</span>
-        <select className={inputClass} value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+        <select
+          className={inputClass}
+          value={timeZone}
+          onChange={(e) => setTimeZone(e.target.value)}
+        >
           {COMMON_TIME_ZONES.map((z) => (
             <option key={z.id} value={z.id}>
               {z.label}
@@ -239,7 +274,12 @@ export function EventForm({
       </label>
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Venue</span>
-        <input className={inputClass} value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Riverside Park" />
+        <input
+          className={inputClass}
+          value={venue}
+          onChange={(e) => setVenue(e.target.value)}
+          placeholder="Riverside Park"
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Short code</span>
@@ -277,14 +317,18 @@ export function EventForm({
           placeholder="rtc-ashland-26"
         />
         <span className="mt-1 block text-xs text-ink-muted">
-          Web address: <span className="font-mono">/events/{slugify(slugField.value) || '…'}</span>. Defaults from
-          the booking label (or name) + year — edit to customize.
+          Web address: <span className="font-mono">/events/{slugify(slugField.value) || '…'}</span>.
+          Defaults from the booking label (or name) + year — edit to customize.
         </span>
       </label>
       {showStatus && (
         <label className="block text-sm">
           <span className="mb-1 block font-semibold text-ink">Status</span>
-          <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value as EventStatus)}>
+          <select
+            className={inputClass}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as EventStatus)}
+          >
             {EVENT_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -301,7 +345,11 @@ export function EventForm({
           <div className="flex flex-wrap gap-3">
             {departments.map((d) => (
               <label key={d.id} className="inline-flex items-center gap-1.5">
-                <input type="checkbox" checked={deptIds.has(d.id)} onChange={() => toggleDept(d.id)} />
+                <input
+                  type="checkbox"
+                  checked={deptIds.has(d.id)}
+                  onChange={() => toggleDept(d.id)}
+                />
                 {d.name}
               </label>
             ))}
@@ -318,11 +366,17 @@ export function EventForm({
           {pending ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-ink-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-ink-muted hover:text-ink"
+          >
             Cancel
           </button>
         )}
-        {(localError || error) && <span className="text-sm text-accent">{localError ?? error}</span>}
+        {(localError || error) && (
+          <span className="text-sm text-accent">{localError ?? error}</span>
+        )}
       </div>
     </form>
   );

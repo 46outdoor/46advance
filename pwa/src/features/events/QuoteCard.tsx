@@ -24,7 +24,8 @@ import { QuoteForm } from './QuoteForm';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
 
 const logger = createLogger('Quotes');
-const btn = 'rounded border border-line px-2.5 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
+const btn =
+  'rounded border border-line px-2.5 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
 
 interface QuoteCardProps {
   eventId: string;
@@ -44,7 +45,8 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['quotes', eventId, stageId, advanceId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['quotes', eventId, stageId, advanceId] });
 
   const update = useMutation({
     mutationFn: (input: QuoteInput) => updateQuote(eventId, stageId, advanceId, quote.id, input),
@@ -79,13 +81,15 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
   });
 
   const upload = useMutation({
-    mutationFn: (file: File) => attachSignedCopy(eventId, stageId, advanceId, quote.id, file, quote.signedCopyPath),
+    mutationFn: (file: File) =>
+      attachSignedCopy(eventId, stageId, advanceId, quote.id, file, quote.signedCopyPath),
     onSuccess: () => void invalidate(),
     onError: (err) => logger.error('Failed to upload signed copy', err),
   });
 
   const unattach = useMutation({
-    mutationFn: () => removeSignedCopy(eventId, stageId, advanceId, quote.id, quote.signedCopyPath!),
+    mutationFn: () =>
+      removeSignedCopy(eventId, stageId, advanceId, quote.id, quote.signedCopyPath!),
     onSuccess: () => void invalidate(),
     onError: (err) => logger.error('Failed to remove signed copy', err),
   });
@@ -143,7 +147,10 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
         {quote.lineItems.map((item, i) => (
           <li key={i} className="flex justify-between gap-3">
             <span>
-              {item.description} <span className="text-ink-muted/70">· {item.quantity} × {formatMoney(item.unitPrice)}</span>
+              {item.description}{' '}
+              <span className="text-ink-muted/70">
+                · {item.quantity} × {formatMoney(item.unitPrice)}
+              </span>
             </span>
             <span>{formatMoney(lineItemTotal(item))}</span>
           </li>
@@ -161,11 +168,20 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
       <div className="mt-3 text-sm">
         {quote.signedCopyPath ? (
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => void openSignedCopy()} className="text-accent hover:underline">
+            <button
+              type="button"
+              onClick={() => void openSignedCopy()}
+              className="text-accent hover:underline"
+            >
               View signed copy
             </button>
             {canEdit && (
-              <button type="button" onClick={() => unattach.mutate()} disabled={unattach.isPending} className="text-ink-muted hover:text-accent disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => unattach.mutate()}
+                disabled={unattach.isPending}
+                className="text-ink-muted hover:text-accent disabled:opacity-50"
+              >
                 Remove
               </button>
             )}
@@ -179,36 +195,75 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
       {canEdit && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
           {can('sent') && quote.status === 'draft' && (
-            <button type="button" className={btn} disabled={status.isPending} onClick={() => status.mutate({ to: 'sent' })}>
+            <button
+              type="button"
+              className={btn}
+              disabled={status.isPending}
+              onClick={() => status.mutate({ to: 'sent' })}
+            >
               Mark as sent
             </button>
           )}
           {quote.status === 'sent' && (
             <>
-              <button type="button" className={btn} disabled={status.isPending} onClick={() => status.mutate({ to: 'approved' })}>
+              <button
+                type="button"
+                className={btn}
+                disabled={status.isPending}
+                onClick={() => status.mutate({ to: 'approved' })}
+              >
                 Approve
               </button>
-              <button type="button" className={btn} disabled={status.isPending} onClick={() => setRejecting((v) => !v)}>
+              <button
+                type="button"
+                className={btn}
+                disabled={status.isPending}
+                onClick={() => setRejecting((v) => !v)}
+              >
                 Reject
               </button>
-              <button type="button" className={btn} disabled={status.isPending} onClick={() => status.mutate({ to: 'draft' })}>
+              <button
+                type="button"
+                className={btn}
+                disabled={status.isPending}
+                onClick={() => status.mutate({ to: 'draft' })}
+              >
                 Back to draft
               </button>
             </>
           )}
           {(quote.status === 'approved' || quote.status === 'rejected') && (
-            <button type="button" className={btn} disabled={status.isPending} onClick={() => status.mutate({ to: 'sent' })}>
+            <button
+              type="button"
+              className={btn}
+              disabled={status.isPending}
+              onClick={() => status.mutate({ to: 'sent' })}
+            >
               Reopen
             </button>
           )}
 
           <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
 
-          <button type="button" className={btn} disabled={pdf.isPending} onClick={() => pdf.mutate()}>
+          <button
+            type="button"
+            className={btn}
+            disabled={pdf.isPending}
+            onClick={() => pdf.mutate()}
+          >
             {pdf.isPending ? 'Generating…' : 'Generate PDF'}
           </button>
-          <button type="button" className={btn} onClick={() => fileRef.current?.click()} disabled={upload.isPending}>
-            {upload.isPending ? 'Uploading…' : quote.signedCopyPath ? 'Replace signed copy' : 'Upload signed copy'}
+          <button
+            type="button"
+            className={btn}
+            onClick={() => fileRef.current?.click()}
+            disabled={upload.isPending}
+          >
+            {upload.isPending
+              ? 'Uploading…'
+              : quote.signedCopyPath
+                ? 'Replace signed copy'
+                : 'Upload signed copy'}
           </button>
           <input
             ref={fileRef}
@@ -249,7 +304,11 @@ export function QuoteCard({ eventId, stageId, advanceId, uid, canEdit, quote }: 
             >
               Confirm reject
             </button>
-            <button type="button" className="text-xs text-ink-muted hover:text-ink" onClick={() => setRejecting(false)}>
+            <button
+              type="button"
+              className="text-xs text-ink-muted hover:text-ink"
+              onClick={() => setRejecting(false)}
+            >
               Cancel
             </button>
           </div>
