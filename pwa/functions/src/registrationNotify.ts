@@ -8,22 +8,23 @@
  * Zoho SMTP account (`no-reply@46advance.com`) with nodemailer.
  *
  * Requires the `SMTP_PASSWORD` secret (the Zoho account/app password — set with
- * `firebase functions:secrets:set SMTP_PASSWORD`). Recipient is the `REGISTRATION_NOTIFY_TO` param
- * (defaults to jared@46entertainment.com). Non-fatal: a send failure is logged, never thrown, so a
- * mail hiccup can't affect registration or retry-storm the trigger.
+ * `firebase functions:secrets:set SMTP_PASSWORD`). Recipient is the `NOTIFY_TO` constant below.
+ * Non-fatal: a send failure is logged, never thrown, so a mail hiccup can't affect registration or
+ * retry-storm the trigger.
  */
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { defineSecret, defineString } from 'firebase-functions/params';
+import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions';
 import nodemailer from 'nodemailer';
 import { buildRegistrationNotice } from './lib/notify/registrationEmail.js';
 
 const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
-const NOTIFY_TO = defineString('REGISTRATION_NOTIFY_TO', { default: 'jared@46entertainment.com' });
 
 const SMTP_HOST = 'smtp.zoho.com';
 const SMTP_PORT = 465; // SSL
 const SMTP_USER = 'no-reply@46advance.com';
+/** Fixed recipient for new-registration alerts — change here + redeploy to update. */
+const NOTIFY_TO = 'jared@46entertainment.com';
 const ADMIN_URL = 'https://advancethat.web.app/admin';
 
 export const notifyOnRegistration = onDocumentCreated(
@@ -34,10 +35,9 @@ export const notifyOnRegistration = onDocumentCreated(
     const notice = buildRegistrationNotice(data, ADMIN_URL);
     if (!notice) return; // admin or already-approved — nothing to approve
 
-    const to = NOTIFY_TO.value();
     const pass = SMTP_PASSWORD.value();
-    if (!to || !pass) {
-      logger.info('Registration notification skipped — recipient or SMTP password not configured.');
+    if (!pass) {
+      logger.info('Registration notification skipped — SMTP password not configured.');
       return;
     }
 
@@ -48,8 +48,13 @@ export const notifyOnRegistration = onDocumentCreated(
         secure: true,
         auth: { user: SMTP_USER, pass },
       });
-      await transport.sendMail({ from: `46 Advance <${SMTP_USER}>`, to, subject: notice.subject, text: notice.text });
-      logger.info('Registration notification sent', { uid: event.params.uid, to });
+      await transport.sendMail({
+        from: `46 Advance <${SMTP_USER}>`,
+        to: NOTIFY_TO,
+        subject: notice.subject,
+        text: notice.text,
+      });
+      logger.info('Registration notification sent', { uid: event.params.uid, to: NOTIFY_TO });
     } catch (err) {
       logger.error('Registration notification failed', { uid: event.params.uid, error: String(err) });
     }
