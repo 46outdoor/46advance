@@ -25,6 +25,9 @@ export interface EventRecord {
   /** IANA timezone for this event's schedule (default Central). */
   timeZone: string;
   venue: string | null;
+  /** Optional short code (e.g. "BOTB"); names the event's Google calendar and prefixes
+   *  advance-call titles. Stored as entered (trimmed); null = unset. */
+  shortCode: string | null;
   /** Linked Drive folder for event documents (picked in the event form); null = unlinked. */
   driveFolderId: string | null;
   driveFolderName: string | null;
@@ -56,6 +59,7 @@ const eventDocSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable().optional(),
+  shortCode: z.string().nullable().optional(),
   driveFolderId: z.string().nullable().optional(),
   driveFolderName: z.string().nullable().optional(),
   status: eventStatusSchema,
@@ -81,6 +85,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     loadOutDays: doc.loadOutDays ?? 0,
     timeZone: doc.timeZone ?? APP_TIME_ZONE,
     venue: doc.venue ?? null,
+    shortCode: doc.shortCode ?? null,
     driveFolderId: doc.driveFolderId ?? null,
     driveFolderName: doc.driveFolderName ?? null,
     status: doc.status,
@@ -105,6 +110,7 @@ export const eventInputSchema = z
     loadOutDays: z.number().int().min(0).optional(),
     timeZone: z.string().optional(),
     venue: z.string().trim().optional(),
+    shortCode: z.string().trim().max(16).optional(),
     driveFolderId: z.string().nullable().optional(),
     driveFolderName: z.string().nullable().optional(),
     status: eventStatusSchema.optional(),

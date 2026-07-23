@@ -382,6 +382,7 @@ interface NewEventInput {
   loadOutDays: number;
   timeZone: string;
   venue: string | null;
+  shortCode: string | null;
   slug: string | null;
 }
 
@@ -397,6 +398,7 @@ function parseNewEventInput(data: unknown): NewEventInput {
     loadOutDays: input.loadOutDays ?? 0,
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: trimmedOrNull(input.venue),
+    shortCode: trimmedOrNull(input.shortCode),
     slug: trimmedOrNull(input.slug),
   };
 }
@@ -501,6 +503,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     loadOutDays: input.loadOutDays,
     timeZone: input.timeZone,
     venue: input.venue,
+    shortCode: input.shortCode,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),
     slug,
@@ -576,6 +579,7 @@ export const createBlankEvent = onCall(async (request) => {
       loadOutDays: input.loadOutDays ?? 0,
       timeZone: input.timeZone ?? 'America/Chicago',
       venue: trimmedOrNull(input.venue),
+      shortCode: trimmedOrNull(input.shortCode),
       driveFolderId: input.driveFolderId ?? null,
       driveFolderName: input.driveFolderName ?? null,
       status: input.status ?? 'draft',
