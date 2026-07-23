@@ -1,9 +1,10 @@
 # Artist & Event Documents — Feature Spec
 
-Status: **feature-complete.** All five PRs shipped (categories #80; artist library +
-Drive import; advance inclusion #116; event documents + uploads #117; packet embedding
-+ obsolete-docs hiding), plus the twice-daily Drive sync (#118). Remaining threads
-live in § Hardening backlog.
+> **Status:** COMPLETE (archived 2026-07-23). All five PRs shipped (categories #80; artist
+> library + Drive import; advance inclusion #116; event documents + uploads #117; packet
+> embedding + obsolete-docs hiding), plus the twice-daily Drive sync (#118). The only
+> remaining items are the accepted risks in § Hardening backlog (revisit if the trust model
+> changes). Recorded in the source-of-truth ROADMAP under § 12b.
 
 ## Goal
 

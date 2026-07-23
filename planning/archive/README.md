@@ -21,6 +21,7 @@ for active plans (see [`../README.md`](../README.md)).
 | 12 | [Schedules — items + master view + calendar push](feature/PHASE_12_PLAN.md) |
 | 13 | [Google Drive — link files to advances + save packets (13c deferred)](feature/PHASE_13_PLAN.md) |
 | — | [Schedule Redesign — day-container grid, templates, calendar push](feature/SCHEDULE_REDESIGN.md) |
+| — | [Artist & Event Documents — Drive library, advance inclusion, packet embedding, twice-daily sync](feature/DOCUMENTS_FEATURE.md) |
 
 ## reference/ — source material
 - [AUDIO_ADVANCE_REFERENCE.md](reference/AUDIO_ADVANCE_REFERENCE.md) — the audio lead's working advance spec.
@@ -30,4 +31,5 @@ for active plans (see [`../README.md`](../README.md)).
 - [AGENT_GOVERNANCE_IMPORT.md](governance/AGENT_GOVERNANCE_IMPORT.md) — imported agent rules / guardrails.
 
 ## fix/ — completed fix plans
-None yet — add `fix/` plans here as they're written.
+- [FOUNDATION_REVIEW_REMEDIATION.md](fix/FOUNDATION_REVIEW_REMEDIATION.md) — codebase review + guardrail/architecture remediation (resolved 2026-06-27).
+- [FORENSIC_REMEDIATION_PLAN.md](fix/FORENSIC_REMEDIATION_PLAN.md) — full-codebase forensic remediation, phases 0–3 (completed 2026-07-23; F-13 font licensing deferred).
