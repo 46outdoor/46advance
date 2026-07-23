@@ -23,6 +23,9 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Admin — new-user email alert:** on top of the in-app badge, a new registration now also sends an
   email notification to the configured admin address (from `no-reply@46advance.com`), so pending
   approvals get noticed even when no one has the app open.
+- **Admin — auto-approve known contacts:** a new user who signs in with a **verified** email that
+  matches a contact an **admin or organizer** previously added is approved automatically, skipping the
+  manual step. Contacts added by regular members don't auto-approve, and an unverified email never does.
 
 - **Documents:** a search box at the top of the artist library narrows the list as you
   type. An optional "also search within file names" checkbox (off by default) widens the

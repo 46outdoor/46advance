@@ -141,6 +141,25 @@ async function linkOrCreateContact(
 }
 
 /**
+ * True when `email` matches an existing contact that an ADMIN or ORGANIZER added — the signal that a
+ * registering user is a vetted, known person who may skip manual approval (owner request). Only
+ * admin/organizer-created contacts count, so a regular member can't pre-approve an outsider by adding
+ * a contact. Callers MUST also require a verified email before trusting this (a match to an address
+ * you don't control must never grant access). The creator's role is read from their `users/{uid}`
+ * record (isAdmin/organizer), which `syncUserClaims` keeps in sync with the claims.
+ */
+async function approvedByAdminContact(db: Firestore, email: string): Promise<boolean> {
+  const matches = await db.collection('contacts').where('email', '==', email).limit(10).get();
+  for (const doc of matches.docs) {
+    const createdBy = doc.data().createdBy;
+    if (typeof createdBy !== 'string' || !createdBy) continue;
+    const creator = (await db.collection('users').doc(createdBy).get()).data();
+    if (creator?.isAdmin === true || creator?.organizer === true) return true;
+  }
+  return false;
+}
+
+/**
  * Called by the client after sign-in. Upserts the caller's `users/{uid}` profile,
  * sets/clears the global `admin` claim from the allowlist, and surfaces the global
  * `organizer` claim (set by an admin via setUserOrganizer). Returns
@@ -176,15 +195,24 @@ export const syncUserClaims = onCall(async (request) => {
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
 
-  // Admins are always approved; an already-approved account is never revoked here; otherwise a
-  // verified pre-existing account is grandfathered, and a new/unverified account stays PENDING.
+  // A verified email matching a contact an ADMIN/ORGANIZER pre-added marks a vetted, known person who
+  // may skip manual approval (owner request). Verification is required so the match can't be spoofed;
+  // only checked for a not-yet-approved account (skips the lookup on normal approved sign-ins).
+  const contactApproved =
+    !isAdmin && !wasApproved && emailVerified && Boolean(email)
+      ? await approvedByAdminContact(db, email as string)
+      : false;
+
+  // Admins are always approved; an already-approved account is never revoked here; a verified
+  // pre-existing account is grandfathered; a verified match to an admin-added contact auto-approves;
+  // otherwise a new/unverified account stays PENDING.
   const approved = isAdmin
     ? true
     : wasApproved
       ? true
-      : emailVerified && snap.exists
-        ? existing.approved !== false
-        : false;
+      : emailVerified && snap.exists && existing.approved !== false
+        ? true
+        : contactApproved;
 
   if (existing.admin !== isAdmin || existing.approved !== approved) {
     await adminAuth.setCustomUserClaims(uid, { ...existing, admin: isAdmin, approved });
