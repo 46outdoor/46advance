@@ -9,9 +9,15 @@
  */
 import { z } from 'zod';
 
-// syncUserClaims — no input (reads the auth context); returns the claim summary.
-// `emailVerified` mirrors the token's email_verified: no `admin`/`approved` claim is
-// granted until the address is verified, so the client can show a "verify email" gate.
+// syncUserClaims — optional `displayName` (the name the user entered at registration; the client
+// also sets it on the Auth profile). Used as the name hint for the users/{uid} profile without
+// clobbering an admin-set name. Returns the claim summary. `emailVerified` mirrors the token's
+// email_verified: no `admin`/`approved` claim is granted until verified, so the client can gate.
+export const syncUserClaimsInputSchema = z.object({
+  displayName: z.string().nullable().optional(),
+});
+export type SyncUserClaimsInput = z.infer<typeof syncUserClaimsInputSchema>;
+
 export const syncUserClaimsOutputSchema = z.object({
   isAdmin: z.boolean(),
   isOrganizer: z.boolean(),

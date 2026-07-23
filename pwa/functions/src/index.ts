@@ -28,6 +28,7 @@ import {
   setUserApprovedInputSchema,
   setUserDisplayNameInputSchema,
   setUserOrganizerInputSchema,
+  syncUserClaimsInputSchema,
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
 import { createBlankEventInputSchema, createEventFromTemplateInputSchema } from './contracts/callables/events.js';
@@ -178,6 +179,11 @@ export const syncUserClaims = onCall(async (request) => {
   // accounts must click the verification link first.
   const emailVerified = token.email_verified === true;
 
+  // The name entered at registration (the client also sets it on the Auth profile). Used as the
+  // profile-name hint below without clobbering an admin-set name; falls back to the token name.
+  const input = parseCallableData(syncUserClaimsInputSchema, request.data ?? {});
+  const nameHint = trimmedOrNull(input.displayName) ?? token.name ?? null;
+
   // Rate-limit BEFORE any external call (the Auth getUser below) so abuse is capped up front.
   const db = getFirestore();
   await enforceRateLimit(db, ['syncUserClaims', uid], 60);
@@ -228,7 +234,7 @@ export const syncUserClaims = onCall(async (request) => {
   let contactId: string | null = typeof userData?.contactId === 'string' ? userData.contactId : null;
   let contactName: string | null = null;
   if (!contactId) {
-    const linked = await linkOrCreateContact(db, uid, email, token.name ?? null);
+    const linked = await linkOrCreateContact(db, uid, email, nameHint);
     contactId = linked.contactId;
     contactName = linked.contactName;
   }
@@ -236,8 +242,8 @@ export const syncUserClaims = onCall(async (request) => {
   await ref.set(
     {
       email,
-      // Never clobber an existing/admin-set name; else the token name; else the contact's.
-      displayName: resolveDisplayName(userData?.displayName, token.name, contactName),
+      // Never clobber an existing/admin-set name; else the registration/token name; else the contact's.
+      displayName: resolveDisplayName(userData?.displayName, nameHint, contactName),
       contactId,
       isAdmin,
       organizer: isOrganizer,

@@ -104,8 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: async (email, password) => {
         await signInWithEmail(email, password);
       },
-      signUp: async (email, password) => {
-        await signUpWithEmail(email, password);
+      signUp: async (email, password, name) => {
+        await signUpWithEmail(email, password, name);
       },
       signOut: async () => {
         await signOutUser();
