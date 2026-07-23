@@ -54,9 +54,14 @@ and the agent count the same way).
 > The complexity gate is **25** (ratcheted down from the original non-breaking 45
 > after decomposing the worst functions in `functions/src/googleBookings.ts`,
 > `functions/src/index.ts`, `functions/src/googleSchedule.ts`, and the
-> `ScheduleItemForm` / `AdvanceDetailScreen` / `EventDetailScreen` screens). Repo
-> max is now 24. Ratchet further toward **20** as the remaining 22–24 functions
-> (`AdvanceForm`, `EventScheduleScreen`, `parseBooking`) are simplified.
+> `ScheduleItemForm` / `AdvanceDetailScreen` / `EventDetailScreen` screens). An audit
+> (2026-07-23) puts the current repo max at **25** (`syncUserClaims`), with **12**
+> functions still over 20: `syncUserClaims` (25); `DocumentRow`, `AdvanceForm`,
+> `StageDetailScreen` (24); `createAdvanceCall`, `EventDetailScreen`, `EventForm`,
+> `EventsListScreen` (23); `parseBooking`, `EventScheduleScreen` (22); `syncEventBookings`,
+> `DriveFilesPanel` (21). Ratcheting the gate toward **20** therefore means decomposing all
+> twelve — several are core screens and one is the auth-critical `syncUserClaims` — so it's a
+> dedicated, reviewed pass, not a one-line gate change.
 
 When a file approaches 750 lines, proactively flag it. When it exceeds 1000 lines,
 stop and present a decomposition plan.
