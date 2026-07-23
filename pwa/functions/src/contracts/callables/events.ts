@@ -14,6 +14,7 @@ export const createEventFromTemplateInputSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
+  shortCode: z.string().nullable().optional(),
   slug: z.string().nullable(),
 });
 export type CreateEventFromTemplateInput = z.infer<typeof createEventFromTemplateInputSchema>;
@@ -35,6 +36,7 @@ export const createBlankEventInputSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
+  shortCode: z.string().nullable().optional(),
   driveFolderId: z.string().nullable().optional(),
   driveFolderName: z.string().nullable().optional(),
   departmentIds: z.array(z.string()).optional(),

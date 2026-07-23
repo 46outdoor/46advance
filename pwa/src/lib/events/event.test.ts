@@ -19,6 +19,17 @@ describe('parseEvent', () => {
     expect(e.endDate).toBeNull();
     expect(e.venue).toBe('Riverside Park');
     expect(e.timeZone).toBe('America/Chicago'); // default
+    expect(e.shortCode).toBeNull(); // defaults to null when absent
+  });
+
+  it('parses a short code when present', () => {
+    const e = parseEvent('evt-2', {
+      name: 'Battle of the Bands',
+      status: 'active',
+      createdBy: 'admin-1',
+      shortCode: 'BOTB',
+    });
+    expect(e.shortCode).toBe('BOTB');
   });
 
   it('rejects an unknown status', () => {

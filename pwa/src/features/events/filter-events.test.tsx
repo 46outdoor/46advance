@@ -12,6 +12,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     loadOutDays: overrides.loadOutDays ?? 0,
     timeZone: overrides.timeZone ?? 'America/Chicago',
     venue: overrides.venue ?? null,
+    shortCode: overrides.shortCode ?? null,
     driveFolderId: overrides.driveFolderId ?? null,
     driveFolderName: overrides.driveFolderName ?? null,
     status: overrides.status ?? 'active',
