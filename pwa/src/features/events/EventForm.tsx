@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { createLogger } from '@/lib/logger';
+import { describeCallableError } from '@/lib/errors/callableError';
 import { pickDriveFolder } from '@/lib/google';
 import {
   EVENT_STATUSES,
@@ -64,7 +65,7 @@ function DriveFolderField({
       })
       .catch((e) => {
         logger.error('Drive folder picker failed', e);
-        onError('Could not open the Drive picker — connect Google in Settings first.');
+        onError(describeCallableError(e, 'Could not open the Drive picker. Please try again.'));
       });
   };
   return (
