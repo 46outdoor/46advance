@@ -202,6 +202,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | File uploads (Storage) | `src/lib/storage/uploads.ts` (validate + upload/delete) |
 | Type definitions      | `src/types/`                                             |
 | Modal state           | `src/lib/hooks/useModalState.ts`                         |
+| Before-unload guard   | `src/lib/hooks/useBeforeUnload.ts` (warn on hard tab-close while a flag is true — e.g. an in-flight upload) |
 | Variants/styles       | `src/lib/styles/variants.ts`                             |
 | Config: endpoints     | `src/config/endpoints.ts`                                |
 | Config: integrations  | `src/config/integrations.ts`                             |
