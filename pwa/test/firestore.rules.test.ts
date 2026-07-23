@@ -584,6 +584,15 @@ describe('firestore.rules — document shape validation', () => {
     );
   });
 
+  it('blocks direct event slug updates so reservations can only move through the callable', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a'), { slug: 'duplicate-slug' }));
+    await assertFails(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a'), {
+        slug: 'admin-bypass-slug',
+      }),
+    );
+  });
+
   // advances
   it('rejects an advance with a blank or missing artistName', async () => {
     await assertFails(
@@ -605,12 +614,32 @@ describe('firestore.rules — document shape validation', () => {
     await assertFails(updateDoc(doc(dbFor(PM), advPath), { createdBy: 'someone-else' }));
   });
 
-  it('still allows attachBooking-style writes (call fields, NOT driveFiles)', async () => {
-    await assertSucceeds(
+  it('keeps Google Calendar linkage server-owned while allowing ordinary advance edits', async () => {
+    await assertFails(
       updateDoc(doc(dbFor(PM), advPath), {
         advanceCallAt: null,
         advanceCallLink: 'https://meet.google.com/abc',
         googleCalendarEventId: 'cal-evt-9',
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), advPath), {
+        advanceCallAt: null,
+        advanceCallLink: 'https://meet.google.com/abc',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-linked'), {
+        artistName: 'Forged Link',
+        createdBy: PM,
+        googleCalendarEventId: 'cal-forged',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/stages/stg-a/advances/adv-null-link'), {
+        artistName: 'Explicit Null Link',
+        createdBy: PM,
+        googleCalendarEventId: null,
       }),
     );
   });
@@ -641,6 +670,7 @@ describe('firestore.rules — schedule days (redesign)', () => {
     title: 'Stage Build Day 1',
     items: [],
     createdBy: PM,
+    revision: 0,
   };
 
   beforeEach(async () => {
@@ -664,6 +694,22 @@ describe('firestore.rules — schedule days (redesign)', () => {
         createdBy: TECH,
       }),
     );
+  });
+
+  it('requires a new schedule day to start at revision zero', async () => {
+    const path = 'events/event-a/scheduleDays/2026-07-18';
+    const day = { ...validDay, date: '2026-07-18' };
+    await assertFails(
+      setDoc(doc(dbFor(PM), path), {
+        date: day.date,
+        dayType: day.dayType,
+        title: day.title,
+        items: day.items,
+        createdBy: day.createdBy,
+      }),
+    );
+    await assertFails(setDoc(doc(dbFor(PM), path), { ...day, revision: 4 }));
+    await assertSucceeds(setDoc(doc(dbFor(PM), path), day));
   });
 
   it('rejects a doc whose date does not match its id (one card per date is structural)', async () => {
@@ -710,7 +756,7 @@ describe('firestore.rules — schedule days (redesign)', () => {
   it('allows the whole-day atomic overwrite the inline editor uses (createdBy carried through)', async () => {
     const items = [{ id: 'i1', type: 'labor', item: 'Load-In Call', startTime: '08:00', crew: [] }];
     await assertSucceeds(
-      setDoc(doc(dbFor(PM), dayPath), { ...validDay, notes: 'Dock 2 only', items }),
+      setDoc(doc(dbFor(PM), dayPath), { ...validDay, notes: 'Dock 2 only', items, revision: 1 }),
     );
     // A full overwrite that drops createdBy changes the audit field — rejected.
     await assertFails(
@@ -720,7 +766,9 @@ describe('firestore.rules — schedule days (redesign)', () => {
 
   it('keeps day.createdBy immutable; PM can update and delete', async () => {
     await assertFails(updateDoc(doc(dbFor(PM), dayPath), { createdBy: 'someone-else' }));
-    await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { notes: 'Dock 2 only until noon.' }));
+    await assertSucceeds(
+      updateDoc(doc(dbFor(PM), dayPath), { notes: 'Dock 2 only until noon.', revision: 1 }),
+    );
     await assertSucceeds(deleteDoc(doc(dbFor(PM), dayPath)));
   });
 
@@ -733,10 +781,8 @@ describe('firestore.rules — schedule days (redesign)', () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), dayPath), { revision: 2 }));
   });
 
-  it('back-compat: a write that omits revision is unaffected by the guard', async () => {
-    await assertSucceeds(
-      updateDoc(doc(dbFor(PM), dayPath), { notes: 'no revision field written' }),
-    );
+  it('rejects a client update that omits the revision guard', async () => {
+    await assertFails(updateDoc(doc(dbFor(PM), dayPath), { notes: 'no revision field written' }));
   });
 });
 
@@ -1146,13 +1192,39 @@ describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {
     await assertFails(getDoc(doc(dbFor(OUTSIDER), bookingPath)));
   });
 
-  it('PM/admin can resolve (write); tech and dept-lead cannot', async () => {
-    await assertSucceeds(updateDoc(doc(dbFor(PM), bookingPath), { status: 'dismissed' }));
+  it('PM/admin can dismiss only; other mutations and roles are denied', async () => {
     await assertSucceeds(
-      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), { status: 'attached' }),
+      updateDoc(doc(dbFor(PM), bookingPath), {
+        status: 'dismissed',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), bookingPath), { status: 'needs_review' });
+    });
+    await assertSucceeds(
+      updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), bookingPath), {
+        status: 'dismissed',
+        updatedAt: serverTimestamp(),
+      }),
     );
     await assertFails(updateDoc(doc(dbFor(TECH), bookingPath), { status: 'dismissed' }));
     await assertFails(updateDoc(doc(dbFor(LEAD), bookingPath), { status: 'dismissed' }));
+    await assertFails(updateDoc(doc(dbFor(PM), bookingPath), { status: 'attached' }));
+    await assertFails(updateDoc(doc(dbFor(PM), bookingPath), { summary: 'forged' }));
+    await assertFails(
+      updateDoc(doc(dbFor(PM), bookingPath), {
+        status: 'dismissed',
+        summary: 'forged',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(deleteDoc(doc(dbFor(PM), bookingPath)));
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'events/event-a/callBookings/forged'), {
+        status: 'needs_review',
+      }),
+    );
   });
 });
 

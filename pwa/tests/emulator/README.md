@@ -34,6 +34,7 @@ project id is `demo-*`. It can never touch production (`advancethat`).
 | `auth-isolation.emulator.spec.ts` | S0 proof: auth, two-user context isolation, seeded-data render, AuthGate gates |
 | `cache-isolation.emulator.spec.ts` | S4: sign-out→sign-in as another user on one browser shows no cross-user bleed |
 | `event-routing.emulator.spec.ts` | WS-J: event resolves by readable slug and by raw doc id; unknown param → not-found |
+| `responsive-accessibility.emulator.spec.ts` | WS-L: authenticated mobile-width navigation/actions remain visible with no horizontal overflow |
 
 ## Notes
 
@@ -41,8 +42,9 @@ project id is `demo-*`. It can never touch production (`advancethat`).
   signed-in ID token already carries `admin`/`organizer`/`approved`. The functions
   emulator is intentionally **not** run here — `AuthProvider` falls back to the token's
   claims when `syncUserClaims` is unreachable.
-- Flows that need the functions emulator are deferred follow-ups: event **creation** and
+- Flows that need the functions emulator remain deferred follow-ups: event **creation** and
   slug **rename** (slug-reservation callables), approval/revocation (claims callables),
-  document registration, and schedule calendar-push conflict. Adding them means booting
-  `functions` (built) alongside auth/firestore in `test:e2e:emulator`.
+  document registration, and schedule calendar-push conflict. Timezone-sensitive editing and
+  asset save/cancel/failure are also not yet represented as browser flows. Adding the callable
+  flows means booting `functions` (built) alongside auth/firestore in `test:e2e:emulator`.
 - Extend `personas.ts` rather than minting ad-hoc users in specs.

@@ -9,12 +9,9 @@
  * The full authenticated workflow catalog (approval/revocation, documents,
  * schedules, cache isolation) is WS-J / S4+ — not this file.
  *
- * NOTE: a per-member event-LIST scoping assertion is intentionally omitted here.
- * S0 surfaced that the non-admin `listEvents` path issues a
- * `collectionGroup('members').where('uid','==',uid)` query that firestore.rules
- * denies (the members read rule grants by doc-id / isMember, neither provable for a
- * field-filtered collection-group list). That is a real authorization finding to fix
- * under the rules work (WS-B); once fixed, add the membership-list scoping test here.
+ * The per-member event-list query is included here: the top-level collection-group
+ * rule authorizes only the caller's own membership rows, so each non-admin sees only
+ * events to which they belong.
  */
 import { test, expect } from '@playwright/test';
 import { openAs, signIn } from './fixtures';
@@ -42,6 +39,11 @@ test.describe('S0 authenticated emulator foundation', () => {
 
       await expect(cross.page.getByText('cross@e2e.test')).toBeVisible();
       await expect(cross.page.getByText('pm@e2e.test')).toHaveCount(0);
+
+      await expect(pm.page.getByRole('heading', { name: 'Alpha Festival' })).toBeVisible();
+      await expect(pm.page.getByRole('heading', { name: 'Beta Festival' })).toHaveCount(0);
+      await expect(cross.page.getByRole('heading', { name: 'Beta Festival' })).toBeVisible();
+      await expect(cross.page.getByRole('heading', { name: 'Alpha Festival' })).toHaveCount(0);
     } finally {
       await pm.context.close();
       await cross.context.close();

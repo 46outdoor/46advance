@@ -209,7 +209,9 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy // owner immutable
         && nonEmptyStr(request.resource.data, 'name')
         && fieldIn(request.resource.data, 'status', ['draft', 'active', 'archived'])
-        && keysUnchanged(['googleCalendarId']); // server-owned (createEventCalendar)
+        // Both fields are server-owned: createEventCalendar manages the calendar id, while
+        // renameEventSlug transactionally moves the canonical slugs/{slug} reservation.
+        && keysUnchanged(['googleCalendarId', 'slug']);
       allow delete: if isAdmin();
 
       // Membership: admin-managed, OR the event's creator bootstrapping as PM.
@@ -236,17 +238,17 @@ service cloud.firestore {
         // Advances live under a stage. Member read; PM/admin write (section
         // finalize/unlock ride the update gate, so tech/dept-lead can't change status).
         match /advances/{advanceId} {
-          // `googleCalendarEventId` is NOT locked yet: manual attach is moving server-side to the
-          // atomic attachCallBooking callable (WS-G), but the pre-Hosting client still writes it
-          // here — lock it (and callBookings below) once the new client ships. Linked Drive files
-          // live in the `driveFiles` subcollection below (server-owned), not on this doc.
+          // Calendar linkage is server-owned: attachCallBooking atomically updates it, and
+          // createAdvanceCall writes it through the Admin SDK. Ordinary creates start unlinked.
           allow read: if isAdmin() || isMember(eventId);
           allow create: if canEditEvent(eventId)
             && request.resource.data.createdBy == request.auth.uid
-            && nonEmptyStr(request.resource.data, 'artistName');
+            && nonEmptyStr(request.resource.data, 'artistName')
+            && !request.resource.data.keys().hasAny(['googleCalendarEventId']);
           allow update: if canEditEvent(eventId)
             && request.resource.data.createdBy == resource.data.createdBy // owner immutable
-            && nonEmptyStr(request.resource.data, 'artistName');
+            && nonEmptyStr(request.resource.data, 'artistName')
+            && keysUnchanged(['googleCalendarEventId']);
           allow delete: if canEditEvent(eventId);
 
           // Linked Google Drive files — server-written only (link/removeDriveFile
@@ -353,26 +355,28 @@ service cloud.firestore {
         allow create: if canEditEvent(eventId)
           && validDayShape()
           && dayKey.matches('\\d{4}-\\d{2}-\\d{2}')
-          && request.resource.data.createdBy == request.auth.uid;
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.revision is int
+          && request.resource.data.revision == 0;
         allow update: if canEditEvent(eventId)
           && validDayShape()
           && keysUnchanged(['createdBy'])
-          // Optimistic-concurrency guard (WS-G): a client writing `revision` must increment it by
-          // exactly 1, so a stale whole-day overwrite (lost update) is rejected server-side. A
-          // client that omits `revision` (the pre-Hosting client; the Admin-SDK reconcile bypasses
-          // rules) is unaffected — drop the `!('revision' in …)` escape once every client writes it.
-          && (!('revision' in request.resource.data)
-              || request.resource.data.revision == resource.data.get('revision', 0) + 1);
+          // Every client update increments the optimistic-concurrency counter. Legacy docs without
+          // a counter start at zero; Admin-SDK calendar reconciliation bypasses rules.
+          && request.resource.data.revision is int
+          && request.resource.data.revision == resource.data.get('revision', 0) + 1;
         allow delete: if canEditEvent(eventId);
       }
 
-      // Booked advance-call inbox (Phase 11b sync): synced + auto-attached by the Admin SDK;
-      // PM/admin resolve from the review queue. Member read. Manual ATTACH is moving to the atomic
-      // attachCallBooking callable (WS-G); dismiss stays a client update. The client write stays
-      // open until the new client ships, then tighten to dismiss-only (server owns attach).
+      // Booked advance-call inbox: sync + attach are Admin-SDK operations. A PM/admin client may
+      // only dismiss an unresolved entry; it cannot forge, attach, reopen, or delete bookings.
       match /callBookings/{bookingId} {
         allow read: if isAdmin() || isMember(eventId);
-        allow create, update, delete: if canEditEvent(eventId);
+        allow create, delete: if false;
+        allow update: if canEditEvent(eventId)
+          && resource.data.status == 'needs_review'
+          && request.resource.data.status == 'dismissed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
       }
 
       // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.

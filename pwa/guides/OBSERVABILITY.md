@@ -1,8 +1,8 @@
-# Observability (Sentry) — activation guide
+# Observability (Sentry) — operations guide
 
-Error/observability reporting for the PWA is **built and wired, but inert** until the Sentry
-secrets are provisioned (WS-I / F-12). No code change is needed to turn it on — it activates purely
-from environment variables in the production build.
+Error/observability reporting for the PWA is built, wired, and **active in production** (WS-I /
+F-12). Both required GitHub secrets are provisioned; production run `30039533073` uploaded source
+maps for release `c14dc47` successfully.
 
 ## What's wired
 
@@ -20,20 +20,19 @@ from environment variables in the production build.
   the local `.map` files**, so readable stacks appear in Sentry without publishing maps as public
   Hosting assets.
 
-## To activate — add two GitHub repo secrets
+## Activation and rotation
 
 The production build runs in the **`.github/workflows/production-deploy.yml`** GitHub Actions
-workflow (manual "Run workflow" → type `deploy`). The workflow already maps the Sentry env vars into
-the build step — org (`46-advance`) and project (`javascript-react`) are hardcoded there (public, not
-secret), and the release is `github.sha`. So you only add **two repo secrets**:
+workflow (manual "Run workflow" → type `deploy`). The workflow maps the Sentry env vars into the
+build step — org (`46-advance`) and project (`javascript-react`) are hardcoded there (public, not
+secret), and the release is `github.sha`. The required secrets are:
 
-1. GitHub → the repo → **Settings → Secrets and variables → Actions → New repository secret**.
-2. Add **`VITE_SENTRY_DSN`** = the React project DSN (Sentry → project → **Settings → Client Keys (DSN)**).
+1. **`VITE_SENTRY_DSN`** = the React project DSN (Sentry → project → **Settings → Client Keys (DSN)**).
    This alone turns on error events. (It ends up in the client bundle — not a true secret, but a secret
    is the tidy place for it.)
-3. Add **`SENTRY_AUTH_TOKEN`** = a Sentry auth token with source-map upload scope (Sentry → **Settings →
+2. **`SENTRY_AUTH_TOKEN`** = a Sentry auth token with source-map upload scope (Sentry → **Settings →
    Auth Tokens**). This enables readable stack traces. **Real secret** — never commit it.
-4. Re-run the production-deploy workflow. That's it — no code change.
+3. After rotating either value, re-run the production-deploy workflow; no code change is needed.
 
 Behavior of the gates:
 - No `VITE_SENTRY_DSN` → Sentry is a complete no-op.
@@ -51,12 +50,12 @@ and **"Send a test event"** fires a deliberate, production-safe captured error (
 breaking anything). Confirm it lands in Sentry **Issues** as a **release-correlated event with
 readable source frames** (frames are readable only once the `SENTRY_*` source-map vars are set).
 
-## Runtime defense (WS-I) — scaffolded, activation is owner-config
+## Runtime defense (WS-I)
 
-These ship in the repo but are **inert / observe-only** until you activate them; none can lock anyone
-out before you deliberately enforce.
+The security headers are live. App Check remains owner-configured and dormant; CSP remains
+observe-only until deliberately promoted.
 
-- **Security headers** — set in `firebase.json` hosting config (apply on the next Hosting release):
+- **Security headers** — live from `firebase.json` as of production run `30039533073`:
   `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS are
   **enforced**; the **CSP ships as `Content-Security-Policy-Report-Only`** (observe-only) so it can't
   break Auth/Picker/Sentry flows. Watch the browser console (or wire a report endpoint) for CSP

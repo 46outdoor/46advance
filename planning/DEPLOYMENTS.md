@@ -46,21 +46,24 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
-**Hosting live vs pending (as of 2026-07-23).** The last Hosting deploy was run `30027436215`,
-commit `a2cc48c` (#163). It is the baseline for what is *live*:
+**Hosting live state (verified 2026-07-23).** Owner workflow run `30039533073` deployed current
+`main` at `c14dc47`. It carries every accumulated client half through WS-L, including S14 security
+headers and S17 per-screen chunks/accessibility/responsive work. The workflow uploaded Sentry source
+maps and its post-deploy smoke passed. A direct live-header check confirmed MIME-sniffing, framing,
+referrer, permissions-policy, HSTS, and CSP-report-only headers.
 
-- **Live** (in `a2cc48c`): the client halves of **WS-E** (S9 #147, S10 #148 client) and **WS-F**
-  (S11 #149 client) — they merged before that deploy.
-- **Pending the next Hosting release** (merged *after* `a2cc48c`): **WS-I** S14 **security headers +
-  App Check scaffold** (#164), **WS-L** S17 per-screen chunks / a11y / responsive (#168), and the
-  WS-K/J/M CI/docs work (no runtime effect). Until that release ships, the live site does **not**
-  serve the S14 `X-Frame-Options`/`Referrer-Policy`/`Permissions-Policy`/CSP-report-only headers.
+Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. The remaining Sentry verification is
+manual: send the safe Admin → Observability diagnostic and confirm its release-correlated stack is
+readable in Sentry Issues.
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
-| 2026-07-23 | Name-at-registration (last deploy before the S14/S17 release) | `a2cc48c` #163 | HOSTING | deployed (run 30027436215) — **baseline for "live" above** |
+| pending | S12 restrictive-rules client compatibility: revision-correct schedule re-date/shift/template writes | follow-up after #173 | HOSTING | owner release must be verified before the restrictive rules deploy |
+| pending | S12 restrictive rules: server-owned slug/calendar fields, mandatory schedule revision, dismiss-only call bookings | follow-up after #173 | FIRESTORE RULES | implementation + emulator tests complete; deploy only after the compatibility row above is live, with explicit confirmation |
+| 2026-07-23 | Full accumulated client release through remediation closeout | `c14dc47` #173 | HOSTING | deployed (run 30039533073); source maps uploaded; runtime smoke passed; security headers live |
+| 2026-07-23 | First post-S14/S17 client release | `20818f5` #172 | HOSTING | deployed (run 30039118806) |
+| 2026-07-23 | Name-at-registration | `a2cc48c` #163 | HOSTING | deployed (run 30027436215) |
 | 2026-07-22 | S12 transactional slugs + booking attach + schedule revision guard | #150 | FUNCTIONS + RULES | deployed; slug backfill owner-run (1 reserved, 0 dups) |
 | 2026-07-22 | S10 recursive/cascade deletion | #148 | FUNCTIONS | deployed; callable invokers verified |
 | 2026-07-22 | S11 event-zone date correction | #149 | FUNCTIONS | deployed |
 | 2026-07-22 | S13 Google resilience, retention cron, redacted errors | #151 | FUNCTIONS | deployed (`scheduledDataRetention` created) |
-| pending | **S14 security headers + S17 client** (makes runtime defense live) | #164, #168 (+ WS-K/J/M) | HOSTING | owner Hosting release — record the run + commit here once shipped |
