@@ -35,3 +35,29 @@ direct dependency bump now clears the advisory (see the evaluation note below).
   remove this exception. Re-evaluate at the review date below.
 - **Accepted:** 2026-06-27
 - **Review by:** 2026-09-27
+
+### ts-deepmerge `<8.0.0` — prototype method override DoS (GHSA-87mf-gv2c-c62c)
+
+- **Severity:** moderate
+- **Advisory:** https://github.com/advisories/GHSA-87mf-gv2c-c62c
+- **Affected scope:** DEV/TEST ONLY. `ts-deepmerge` is reached transitively through
+  `firebase-functions-test` (the emulator-test harness) — it never ships to production and never
+  merges untrusted/attacker-controlled objects.
+- **How it reaches us (transitive, dev-only):** `firebase-functions-test` → `ts-deepmerge`.
+- **Why accepted (no clean fix):** `npm audit fix --force` proposes `firebase-functions-test@0.3.3`,
+  a breaking downgrade of the test harness. No in-range (`^`) bump clears it.
+- **Removal trigger:** when `firebase-functions-test` releases a version depending on
+  `ts-deepmerge ≥ 8.0.0` (or vendors its own merge), bump it and remove this entry.
+- **Accepted:** 2026-07-23
+- **Review by:** 2026-10-23
+
+## Release-blocking policy
+
+- **Blocks release:** a **high or critical** advisory that has a **non-breaking, in-range fix**
+  (apply the fix). A direct-dependency high/critical with a fix only in a new major is a **deliberate
+  security-major bump** (evaluate + apply), e.g. the 2026-07-23 `nodemailer 6 → 9` upgrade.
+- **Tracked exception (does not block):** moderate-or-lower advisories, and any advisory whose only
+  fix is a breaking change to a transitive Google/Firebase-SDK or dev-only dependency. Record it here
+  with a scope rationale, an `Accepted` date, and a `Review by` date.
+- The scheduled `dependency-audit` workflow surfaces all advisories in its job summary; anything not
+  listed here is NEW and must be triaged against this policy.

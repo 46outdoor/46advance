@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-18; revised 2026-07-20 after inline review
 
-**Status:** Phase 0 COMPLETE — shipped and deployed (change-sets S0–S8 + the AC-1–AC-4
-acceptance closure), 2026-07-21/22. Phase 1 (WS-E/F/G/H/I) not started. See the **Completion
-record** at the end of this document for PR numbers, deploy results, and residual deferrals.
+**Status:** Phase 0 COMPLETE (S0–S8 + AC-1–AC-4), 2026-07-21/22. Phase 1 COMPLETE (S9–S14 / WS-E/F/G/H/I),
+2026-07-22/23 — backends deployed; client halves ship on the owner's Hosting release. Phase 2/3
+(WS-J/K/L/M) IN PROGRESS, 2026-07-23. See the **Completion record** at the end for PR numbers, deploy
+results, and residual deferrals.
 **Source:** Full-repository forensic review of the PWA, shared Firebase backend, rules,
 Git history, dependencies, CI/CD, deployment safeguards, observability, and mobile readiness.  
 **Overall baseline:** C+ / conditionally production-ready. The engineering foundation is
@@ -702,6 +703,42 @@ When P0 and P1 are complete, update this document with:
 - Before/after test counts, coverage, and production bundle sizes.
 - Remaining P2/P3 deferrals and their revisit triggers.
 - Confirmation that F-13 remains deferred or a separately authorized follow-up reference.
+
+### Phase 1 — complete (2026-07-22 / 2026-07-23)
+
+One PR per change-set, squash auto-merge. Backends (Functions + rules) deployed to `advancethat`;
+every client half ships on the owner's Hosting release (none deployed by an agent).
+
+| Change-set | Workstream / finding | PR | Deploy result |
+| --- | --- | --- | --- |
+| S9 upload compensation + orphan-free asset replacement | WS-E / F-5 | #147 | client — ships on Hosting |
+| S10 recursive/cascade deletion + orphan-audit script | WS-E / F-7 | #148 | functions deployed (invokers verified) |
+| S11 event-zone date/instant correction + parity tests | WS-F / F-6 | #149 | functions deployed; client on Hosting |
+| S12 transactional slugs + atomic booking attach + schedule revision guard | WS-G | #150 | functions + rules deployed (backfill script owner-run: 1 slug reserved, 0 dups); client on Hosting |
+| S13 Google retry/idempotency, pagination, cron resilience, calendar lifecycle, retention, redacted errors | WS-H | #151 | functions deployed (scheduledDataRetention created) |
+| S14 Sentry activation + release/source-maps + logger.error→incident | WS-I / F-12 | #152–#154 | client on Hosting; workflow wired (owner sets DSN/token) |
+| S14 runtime defense — security headers, App Check scaffold, post-deploy smoke | WS-I | #164 | firebase.json + client on Hosting; smoke in production-deploy workflow |
+
+**Owner follow-ups run (2026-07-22):** `audit-event-orphans.ts` — 0 orphans; `backfill-slug-reservations.ts --commit` — 1 slug reserved, 0 duplicates.
+
+**Pending owner activation (not blockers):** the Hosting release (ships all accumulated client halves);
+Sentry `VITE_SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN` for readable stacks) and App Check `VITE_APPCHECK_SITE_KEY`
+as repo secrets; App Check console enforcement (observe → enforce); CSP is shipped **report-only** — tune,
+then rename to `Content-Security-Policy` to enforce.
+
+**Residual deferrals from Phase 1:** rename an already-created calendar on short-code change — **done**
+(#162); a few WS-G structural schedule ops stay last-writer-wins (only content/same-date-meta saves are
+revision-guarded); WS-H cron cursor-checkpointing + unbounded `.get()` cursoring deferred (idempotent,
+fine at scale); the orphaned Google calendars themselves aren't deleted on account teardown (impossible
+post-revoke) — only the app-side references are cleared.
+
+### Phase 2 / 3 — in progress (2026-07-23)
+
+| Change-set | Workstream | PR | Notes |
+| --- | --- | --- | --- |
+| S16 supply-chain: pin Actions to commit SHAs, exact Firebase CLI (14.27.0), least-privilege workflow permissions, audit-summary visibility + release-blocking policy, PWA advisories cleared (npm audit fix → 0), nodemailer 6→9 (high fix), ts-deepmerge exception documented | WS-K | #TBD | `NONE` deploy (CI/tooling) |
+
+(S15/WS-J, S17/WS-L, S18/WS-M to follow.)
 
 After all approved work is complete, move this file to `planning/archive/fix/` and update
 `planning/README.md`.
