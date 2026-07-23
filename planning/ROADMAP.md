@@ -496,6 +496,22 @@ web redirect flow.
 
 **Mobile:** calendar sync logic stays server-side/shared; native may also surface device-calendar UX (e.g. `expo-calendar`) distinct from the web Google API. Slack/Drive are API-driven and largely server-side, so both clients inherit them — mobile adds native share-sheet / deep-link affordances.
 
+## 12b. Artist & Event Documents (Drive library) — *built*
+
+Beyond the Phase-13 per-advance Drive attach (§12), a full **document library** built on the
+Drive integration: a standalone **Artists** list mirrors a Google Drive folder (per-artist
+subfolders → classified `artistDocuments`), each artist's files can be **included on their
+advance** (subcollection, per-event curation), **event documents** link to a per-event Drive
+folder grouped by schedule day, and included PDFs/photos **embed into the generated packet**.
+Reads flow through a dedicated docs-broker service account (RBAC-gated); a **twice-daily cron**
+syncs the library from Drive and flags files missing from Drive (never auto-deletes).
+
+- **Built (2026-07-11 → 07-18):** five PRs — categories, artist library + import, advance
+  inclusion, event documents + uploads, packet embedding — plus `scheduledLibraryDriveSync`.
+  Full spec + accepted-risk backlog:
+  [`archive/feature/DOCUMENTS_FEATURE.md`](archive/feature/DOCUMENTS_FEATURE.md). Model in
+  `src/lib/documents/`; backend in `functions/src/googleDrive.ts`.
+
 ## 13. Explicitly excluded / deferred
 
 - Flex integration — **excluded**.
