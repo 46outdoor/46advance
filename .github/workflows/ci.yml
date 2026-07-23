@@ -191,6 +191,11 @@ jobs:
     defaults:
       run:
         working-directory: pwa
+    # firebase-safe.sh overrides XDG_CACHE_HOME for emulators:exec, which on Linux is
+    # where Playwright looks for its browsers — pin an explicit path so the install step
+    # and the emulator-wrapped test run agree on one location regardless of XDG.
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
