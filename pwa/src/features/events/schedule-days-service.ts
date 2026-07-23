@@ -290,6 +290,8 @@ export async function saveScheduleDayMeta(
   batch.set(target, {
     ...parsedDayDoc(day, parsed.date),
     ...fields,
+    // This is a new document key, so its concurrency history starts at zero.
+    revision: 0,
     createdBy: uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -347,6 +349,7 @@ export async function applyTemplateDaysToEvent(
     if (current) {
       batch.update(dayDoc(eventId, date), {
         items: [...current.items, ...items],
+        revision: current.revision + 1,
         updatedAt: serverTimestamp(),
       });
     } else {
@@ -395,6 +398,8 @@ export async function shiftScheduleDays(
     const newDate = shiftDayKey(day.date, deltaDays);
     batch.set(dayDoc(eventId, newDate), {
       ...parsedDayDoc(day, newDate),
+      // Each shifted date is a newly-created document key.
+      revision: 0,
       createdBy: uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

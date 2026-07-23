@@ -18,6 +18,9 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Changed
 
+- **Firestore hardening:** event slugs, event calendar IDs, and advance-call calendar IDs are now
+  server-owned; schedule-day client writes carry a revision; and booked-call clients can only
+  dismiss unresolved entries. Direct attach/reopen/delete mutations are rejected by rules.
 - **Performance & accessibility (WS-L):** each screen now loads as its own code chunk (faster first
   paint), the top nav wraps cleanly on narrow screens instead of overflowing, the admin users table
   scrolls within its own box, and the photo cropper is now keyboard-accessible (traps focus, closes on
