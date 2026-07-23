@@ -29,7 +29,12 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { withGoogleRetry } from './lib/google/retry.js';
 import { fetchBrokeredFileBytes, MAX_INTERACTIVE_CONTENT_BYTES } from './lib/broker/brokerFetch.js';
-import { getFileForRegistration, resolveArtistFolder } from './lib/broker/driveProvenance.js';
+import {
+  classifyFolderFile,
+  driveErrorReason,
+  getFileForRegistration,
+  resolveArtistFolder,
+} from './lib/broker/driveProvenance.js';
 import {
   getArtistDocumentContentInputSchema,
   importDriveFolderInputSchema,
@@ -39,6 +44,7 @@ import {
   registerEventDocumentInputSchema,
   removeDriveFileInputSchema,
   savePacketToDriveInputSchema,
+  validateLibraryFolderInputSchema,
 } from './contracts/callables/googleDrive.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
@@ -398,6 +404,34 @@ export const scheduledLibraryDriveSync = onSchedule(
     }
   },
 );
+
+/**
+ * Validate a candidate document-library root folder before an admin saves it (admin only).
+ * Looks the id up via the docs-broker service account — the same identity the twice-daily sync
+ * uses — so a typo'd or unshared id is caught up front instead of silently breaking the sync.
+ * Returns a discriminated result: { ok:true, name } when it's a real, accessible, non-trashed
+ * Drive FOLDER; otherwise { ok:false, reason }. Raw Drive errors are logged, never returned.
+ * Input: { folderId }.
+ */
+export const validateLibraryFolder = onCall({ secrets: [DRIVE_SA_KEY], timeoutSeconds: 30 }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const { uid, token } = request.auth;
+  await assertActiveUser({ uid, token });
+  if (token.admin !== true) throw new HttpsError('permission-denied', 'Admin only.');
+  const { folderId } = parseCallableData(validateLibraryFolderInputSchema, request.data);
+  const db = getFirestore();
+  await enforceRateLimit(db, ['validateLibraryFolder', uid], 30);
+
+  const drive = brokerDriveClient();
+  try {
+    const res = await drive.files.get({ fileId: folderId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
+    return classifyFolderFile(res.data);
+  } catch (err) {
+    // Map to a coarse reason (never leak raw Drive error text to the client); log the detail.
+    logger.warn('validateLibraryFolder: Drive lookup failed', { folderId, error: String(err) });
+    return { ok: false, reason: driveErrorReason(err) };
+  }
+});
 
 /** Find-or-create an app-owned Drive folder. `drive.file` lists only files the app created,
  *  so this reliably reuses our own folder rather than colliding with the user's. */

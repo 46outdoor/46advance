@@ -23,6 +23,10 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Admin → Document library:** the mirrored Google Drive folder is now set in the admin
   section. "Import from Drive" pulls files in but no longer silently repoints the whole
   library to whatever folder you happened to pick.
+- **Admin → Document library:** setting the Drive folder now validates it before saving —
+  it confirms the ID is a real, accessible, non-trashed Drive **folder** (checked as the
+  docs-broker account the sync uses) and shows the folder name on success. A typo'd, deleted,
+  or unshared ID is rejected with a clear reason instead of silently breaking the twice-daily sync.
 
 ### Changed
 
