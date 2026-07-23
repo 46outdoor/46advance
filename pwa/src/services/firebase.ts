@@ -33,6 +33,17 @@ export const app = initializeApp(firebaseConfig);
 // is provisioned via VITE_APPCHECK_SITE_KEY, and skipped under the emulators. Enforcement is enabled
 // separately in the Firebase console ("observe first" → validate → enforce), so shipping this can't
 // lock anyone out before enforcement is deliberately turned on.
+//
+// DELIBERATELY DORMANT (owner decision, 2026-07-23): VITE_APPCHECK_SITE_KEY is intentionally left
+// unset, so this branch never runs and no backend surface enforces App Check tokens. App Check is
+// anti-abuse ATTESTATION ("is this my real app?"), not auth or authorization. This app's threat
+// model is already covered without it: a public-but-approval-gated signup, Firestore/Storage rules
+// that require an admin-approved account (isActiveUser), callables that assertApproved/assertAdmin,
+// and rate limiting on abuse-sensitive paths. Against that, App Check's marginal gain (blunting
+// registration-spam scripts) doesn't justify its cost — reCAPTCHA v3 friction, false-positive
+// lockout risk, and debug-token upkeep for local/CI/emulators. The scaffold is kept so it can be
+// switched on quickly if real abuse ever appears; until then it stays off by choice, not by
+// oversight. See planning/archive/fix/FORENSIC_REMEDIATION_PLAN.md (WS-I) + guides/OBSERVABILITY.md.
 const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
 if (appCheckSiteKey && import.meta.env.VITE_USE_EMULATORS !== 'true') {
   initializeAppCheck(app, {

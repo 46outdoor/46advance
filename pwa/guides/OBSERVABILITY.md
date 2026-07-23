@@ -63,10 +63,14 @@ out before you deliberately enforce.
   violations, tune the policy in `firebase.json`, then rename the header to `Content-Security-Policy`
   to enforce. A config test (`test/security-headers.config.test.ts`) + the post-deploy smoke assert it.
 - **App Check** — the client initializes App Check (reCAPTCHA v3) **only when `VITE_APPCHECK_SITE_KEY`
-  is set** (a GitHub repo secret, like the Sentry vars). To roll out: register a reCAPTCHA v3 key +
-  the app in Firebase → App Check, set the secret, ship a Hosting release (tokens now attach — observe
-  in the console), then **enable enforcement** per surface (Callable/Firestore/Storage) in the console.
-  Skipped under the emulators.
+  is set** (a GitHub repo secret, like the Sentry vars). **Deliberately dormant (owner decision
+  2026-07-23):** the secret is intentionally left unset, so App Check is off and nothing enforces its
+  tokens. App Check is anti-abuse attestation, not auth/authorization, and this app's admin-approval
+  gate + Firestore/Storage rules + callable authorization + rate limiting already cover the threat
+  model; see the rationale in `src/services/firebase.ts`. The scaffold is kept so activation is quick
+  if abuse ever appears. **To activate (only if that changes):** register a reCAPTCHA v3 key + the app
+  in Firebase → App Check, set the secret, ship a Hosting release (tokens now attach — observe in the
+  console), then **enable enforcement** per surface (Callable/Firestore/Storage). Skipped under the emulators.
 - **Post-deploy smoke** — `scripts/cli/post-deploy-smoke.sh` runs as the final step of
   `production-deploy.yml`: it fails the deploy job if the live site doesn't serve the app shell +
   bundled assets + the security headers, so a broken release surfaces instead of silently going live.

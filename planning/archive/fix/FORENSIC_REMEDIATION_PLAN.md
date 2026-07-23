@@ -723,9 +723,21 @@ every client half ships on the owner's Hosting release (none deployed by an agen
 **Owner follow-ups run (2026-07-22):** `audit-event-orphans.ts` — 0 orphans; `backfill-slug-reservations.ts --commit` — 1 slug reserved, 0 duplicates.
 
 **Pending owner activation (not blockers):** the Hosting release (ships all accumulated client halves);
-Sentry `VITE_SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN` for readable stacks) and App Check `VITE_APPCHECK_SITE_KEY`
-as repo secrets; App Check console enforcement (observe → enforce); CSP is shipped **report-only** — tune,
-then rename to `Content-Security-Policy` to enforce.
+Sentry `VITE_SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN` for readable stacks) as repo secrets; CSP is shipped
+**report-only** — tune, then rename to `Content-Security-Policy` to enforce.
+
+**App Check — deliberately NOT enforced (owner decision, 2026-07-23).** The WS-I App Check scaffold
+(client init in `src/services/firebase.ts`, `VITE_APPCHECK_SITE_KEY` wired in `production-deploy.yml`)
+is kept **dormant on purpose**: the site key is intentionally left unset and no backend surface
+enforces App Check tokens. App Check is anti-abuse *attestation* ("is this my genuine app?"), not
+authentication or authorization. This app's threat model is already covered by the controls this plan
+hardened — a public but **admin-approval-gated** signup, Firestore/Storage rules requiring an
+approved account (`isActiveUser`), callables that `assertApproved`/`assertAdmin`, and rate limiting on
+abuse-sensitive paths. Against that, App Check's only marginal gain (blunting registration-spam
+scripts) does not justify its cost: reCAPTCHA v3 friction, false-positive lockout risk, and
+debug-token upkeep for local/CI/emulators. The scaffold stays so activation is a one-secret flip if
+real abuse ever appears; revisit this decision then, not before. (Rationale mirrored in
+`src/services/firebase.ts`, `.github/workflows/production-deploy.yml`, and `guides/OBSERVABILITY.md`.)
 
 **Residual deferrals from Phase 1:** rename an already-created calendar on short-code change — **done**
 (#162); a few WS-G structural schedule ops stay last-writer-wins (only content/same-date-meta saves are

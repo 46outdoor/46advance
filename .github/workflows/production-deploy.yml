@@ -63,6 +63,11 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           # App Check (WS-I): reCAPTCHA v3 site key. Inert until set; enforcement is enabled in the
           # Firebase console separately, so this can't lock anyone out before it's deliberately on.
+          # DELIBERATELY UNSET (owner decision 2026-07-23): the VITE_APPCHECK_SITE_KEY secret is
+          # intentionally not provisioned — App Check stays dormant. Rationale (auth + admin-approval
+          # + rules + rate limiting already cover the threat model) is in src/services/firebase.ts and
+          # the plan's WS-I notes. Leave this reference in place so activation is a one-secret flip if
+          # abuse ever appears; do not add the secret without revisiting that decision.
           VITE_APPCHECK_SITE_KEY: ${{ secrets.VITE_APPCHECK_SITE_KEY }}
       # Firebase's OAuth token endpoint intermittently returns a transient
       # "Premature close" during service-account auth, failing the deploy even
