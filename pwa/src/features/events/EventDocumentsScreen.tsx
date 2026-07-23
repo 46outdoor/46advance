@@ -11,6 +11,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { useBeforeUnload } from '@/lib/hooks/useBeforeUnload';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateKey } from '@/lib/dates/formatting';
@@ -271,14 +272,20 @@ export function EventDocumentsScreen() {
       try {
         await createEventDocument(eventId!, uploaded, input);
       } catch (e) {
-        // Don't strand an unrecorded file in the folder — remove it and surface the error.
-        await deleteDriveUpload(uploaded.fileId).catch(() => undefined);
+        // Don't strand an unrecorded file in the folder — remove it and surface the error. Log a
+        // cleanup failure rather than swallow it, so an orphan is observable (event folders aren't
+        // swept by any cron, unlike the artist library).
+        await deleteDriveUpload(uploaded.fileId).catch((cleanupErr) =>
+          logger.error('Failed to remove an orphaned Drive upload after a failed record write', cleanupErr),
+        );
         throw e;
       }
     },
     onSuccess: invalidate,
     onError: (e) => logger.error('Failed to upload the document', e),
   });
+  // Discourage a hard tab-close mid-upload, which would abandon the record write and orphan the file.
+  useBeforeUnload(upload.isPending);
   const edit = useMutation({
     mutationFn: ({ docId, input }: { docId: string; input: EventDocumentInput }) =>
       updateEventDocument(eventId!, docId, input),

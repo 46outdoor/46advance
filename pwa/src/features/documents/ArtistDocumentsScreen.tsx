@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { useBeforeUnload } from '@/lib/hooks/useBeforeUnload';
 import {
   createArtistDocumentRecord,
   deleteArtistDocument,
@@ -257,13 +258,20 @@ function ArtistUploadPanel({
       try {
         await createArtistDocumentRecord(uploaded.fileId);
       } catch (e) {
-        await deleteDriveUpload(uploaded.fileId).catch(() => undefined);
+        // Compensate: remove the just-created Drive file so it isn't left without a record.
+        // If the cleanup itself fails, log it — a silent swallow would hide the orphan. (The
+        // twice-daily library sync also re-adopts any unrecorded library file as a backstop.)
+        await deleteDriveUpload(uploaded.fileId).catch((cleanupErr) =>
+          logger.error('Failed to remove an orphaned Drive upload after a failed record write', cleanupErr),
+        );
         throw e;
       }
     },
     onSuccess: onUploaded,
     onError: (e) => logger.error('Failed to upload the document', e),
   });
+  // Discourage a hard tab-close mid-upload, which would abandon the record write and orphan the file.
+  useBeforeUnload(upload.isPending);
 
   if (needsReimport) {
     return (
