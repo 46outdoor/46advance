@@ -38,6 +38,13 @@ dependency bumps, and planning-doc updates) are omitted.
   Calendar to match. Previously the name was set only when the calendar was first created, so a later
   short-code (or name) change never reached the calendar.
 
+### Fixed
+
+- **Documents — clearer Drive errors:** importing from Drive or opening the Drive picker now shows the
+  actual reason it failed (e.g. "This event has no linked Drive folder", "Too many requests") instead
+  of always telling you to "Connect Google Drive in Settings first" — which was misleading whenever you
+  were already connected and something else went wrong.
+
 ## 2026-07-22
 
 ### Added

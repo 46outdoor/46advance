@@ -192,6 +192,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Date calculations     | `src/lib/dates/calculations.ts`                          |
 | Date parsing          | `src/lib/dates/parsing.ts`                               |
 | Error capture         | `src/lib/errorCapture.ts`                                |
+| Callable error → user message | `src/lib/errors/callableError.ts` (`describeCallableError` — surface HttpsError messages; friendly rate-limit line; fallback on opaque/`internal`) |
 | Logging               | `src/lib/logger.ts`                                      |
 | Observability (Sentry) | `src/lib/sentry.ts` (`initSentry` — inert until `VITE_SENTRY_DSN`; logger.error → event, WS-I/F-12); activation + required secrets in `guides/OBSERVABILITY.md` |
 | Rate limiting (distributed) | `functions/src/lib/security/firestoreRateLimit.ts` (backend — default) |
