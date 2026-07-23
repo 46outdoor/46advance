@@ -55,8 +55,17 @@ Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. Owner-provided S
 confirmed the safe Admin → Observability diagnostic reached production Issues with a release tag and
 a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 
+**Pending the next Hosting deploy (owner).** The quick-wins client changes — real Drive
+import/picker errors (#178), the Packet-filename admin control (#179), and the upload-orphan
+guard (#181) — plus the CSP `report-uri` header (`firebase.json`, #180) ride the next owner
+Hosting release. Until then: the `cspReport` function is live but receives nothing (the header
+isn't served yet), and the packet-naming admin control isn't visible. Flipping CSP from
+**report-only → enforce** is a later, separate owner Hosting deploy, after an observation window
+confirms the collected reports show no legitimate breakage.
+
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-23 | Quick-wins batch: configurable packet filename (server-side naming) + CSP violation-report collector (`cspReport`) | `fdecd60` #179 · `90e7163` #180 | FUNCTIONS | deployed as owner; `cspReport` **created** (verified POST→204, GET→405, public invoker auto-set); `generatePacket` + all other fns updated OK |
 | 2026-07-23 | S12 restrictive rules: server-owned slug/calendar fields, mandatory schedule revision, dismiss-only call bookings | `f0e45ea` #174 | FIRESTORE RULES | deployed after the Hosting gate; ruleset `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629` |
 | 2026-07-23 | S12 restrictive-rules client compatibility: revision-correct schedule re-date/shift/template writes | `f0e45ea` #174 | HOSTING | deployed (run 30042323489); build + runtime smoke passed |
 | 2026-07-23 | Full accumulated client release through remediation closeout | `c14dc47` #173 | HOSTING | deployed (run 30039533073); source maps uploaded; runtime smoke passed; security headers live |
