@@ -69,6 +69,9 @@ export { scheduledDataRetention } from './retention.js';
 // Email a fixed admin address when a new account registers + needs approval (needs SMTP_PASSWORD secret).
 export { notifyOnRegistration } from './registrationNotify.js';
 
+// Re-name an event's Google calendar when its short code / name changes (post-creation).
+export { renameEventCalendarOnChange } from './eventCalendarRename.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 // Event dates (date-only) render in the EVENT's timezone so the PDF shows the intended calendar

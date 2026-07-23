@@ -24,6 +24,7 @@ import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
 import { deterministicCalendarEventId, insertCalendarEventIdempotent } from './lib/google/calendarEvents.js';
+import { eventCalendarSummary } from './lib/events/calendarSummary.js';
 import {
   createEventCalendarInputSchema,
   createAdvanceCallInputSchema,
@@ -165,11 +166,9 @@ export async function ensureEventCalendar(
   if (typeof existing === 'string' && existing.length > 0) return existing;
 
   // A per-event short code (e.g. "BOTB") names the calendar when set; otherwise the app default.
-  // Follow-up: rename an already-created calendar (calendars.patch) when the short code later
-  // changes, and mirror the short code into Drive folder / packet filenames.
-  const rawShortCode = snap.data()?.shortCode;
-  const shortCode = typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
-  const summary = shortCode ? `${shortCode} — ${eventName}` : `46 Advance — ${eventName}`;
+  // A later short-code/name change re-names this calendar via the renameEventCalendarOnChange
+  // trigger. (Follow-up: mirror the short code into Drive folder / packet filenames.)
+  const summary = eventCalendarSummary(snap.data()?.shortCode, eventName);
 
   const calendar = google.calendar({ version: 'v3', auth: client });
   const created = await withGoogleRetry(
