@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { useAuth } from '@/contexts/auth-context';
 import { deleteFile, uploadFile, validateUpload, type UploadedFile } from '@/lib/storage/uploads';
@@ -20,6 +20,43 @@ function CropModal({ src, onCancel, onSave }: { src: string; onCancel: () => voi
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState<Area | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  // Dialog focus management (WS-L): focus the panel on open, trap Tab within it, close on Escape,
+  // and restore focus to the opener (Reframe/Upload trigger) on close.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancelRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
+  }, []);
 
   const save = () => {
     if (!areaPixels || !natural) return;
@@ -35,7 +72,14 @@ function CropModal({ src, onCancel, onSave }: { src: string; onCancel: () => voi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-surface p-4 shadow-xl">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Crop photo"
+        tabIndex={-1}
+        className="w-full max-w-md rounded-lg bg-surface p-4 shadow-xl outline-none"
+      >
         <div className="relative h-64 w-full overflow-hidden rounded bg-ink">
           <Cropper
             image={src}

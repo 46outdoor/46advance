@@ -229,7 +229,8 @@ export function AdminScreen() {
           <p className="text-sm text-accent">Failed to load users.</p>
         )}
         {usersQuery.data && (
-          <table className="w-full border-collapse text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-line text-left text-ink-muted">
                 <th className="py-2 pr-4 font-semibold">Name</th>
@@ -315,6 +316,7 @@ export function AdminScreen() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

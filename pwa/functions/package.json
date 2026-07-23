@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:emulator": "FIREBASE_PROJECT=demo-46advance ../scripts/cli/firebase-safe.sh emulators:exec --only auth,firestore --config ../firebase.json \"vitest run --config vitest.emulator.config.ts\"",
     "serve": "npm run build && FIREBASE_PROJECT=demo-46advance ../scripts/cli/firebase-safe.sh emulators:start --only functions,auth,firestore --config ../firebase.json"

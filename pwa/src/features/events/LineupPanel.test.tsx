@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,13 +62,25 @@ const stage = (id: string, name: string): StageRecord =>
 
 function renderPanel(ev = event(), canEdit = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const result = render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
         <LineupPanel event={ev} canEdit={canEdit} />
       </QueryClientProvider>
     </MemoryRouter>,
   );
+  return { client, ...result };
+}
+
+// A mutation's onSuccess invalidates ['eventAdvances', id], which refetches listEventAdvances
+// (its second call) and then setState. Waiting only on the service mock returns before that
+// trailing refetch settles → an unwrapped act() update. Wait instead on the refetch having both
+// fired (second call) and gone idle, inside RTL's act-aware waitFor, so the update is flushed.
+async function settleAfterMutation(client: QueryClient) {
+  await waitFor(() => {
+    expect(listEventAdvances).toHaveBeenCalledTimes(2);
+    expect(client.isFetching()).toBe(0);
+  });
 }
 
 beforeEach(() => {
@@ -136,12 +148,13 @@ describe('LineupPanel', () => {
   });
 
   it('books an open slot by creating the advance', async () => {
-    renderPanel();
+    const { client } = renderPanel();
     fireEvent.click((await screen.findAllByRole('button', { name: '+ Book artist' }))[0]);
     fireEvent.change(screen.getByPlaceholderText('Artist name'), { target: { value: 'Ashley Cooke' } });
     fireEvent.click(screen.getByRole('button', { name: 'Book' }));
 
-    await vi.waitFor(() => expect(createAdvance).toHaveBeenCalledTimes(1));
+    await settleAfterMutation(client);
+    expect(createAdvance).toHaveBeenCalledTimes(1);
     expect(createAdvance).toHaveBeenCalledWith(
       'e1',
       'main',
@@ -155,12 +168,13 @@ describe('LineupPanel', () => {
     vi.mocked(listEventAdvances).mockResolvedValue([
       located('main', { id: 'existing', artistName: 'Staind', slot: null }),
     ]);
-    renderPanel();
+    const { client } = renderPanel();
     fireEvent.click((await screen.findAllByRole('button', { name: '+ Book artist' }))[0]);
     fireEvent.change(screen.getByPlaceholderText('Artist name'), { target: { value: 'staind' } });
     fireEvent.click(screen.getByRole('button', { name: 'Book' }));
 
-    await vi.waitFor(() => expect(updateAdvanceLineup).toHaveBeenCalledTimes(1));
+    await settleAfterMutation(client);
+    expect(updateAdvanceLineup).toHaveBeenCalledTimes(1);
     expect(updateAdvanceLineup).toHaveBeenCalledWith('e1', 'main', 'existing', {
       slot: 1,
       performanceDate: null,
@@ -170,29 +184,29 @@ describe('LineupPanel', () => {
 
   it('deletes a data-less shell on remove, after the inline confirm', async () => {
     vi.mocked(listEventAdvances).mockResolvedValue([located('main', { id: 'shell' })]);
-    renderPanel();
+    const { client } = renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     expect(screen.getByText(/No advance data has been entered/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    await vi.waitFor(() => expect(deleteAdvance).toHaveBeenCalledWith('e1', 'main', 'shell'));
+    await settleAfterMutation(client);
+    expect(deleteAdvance).toHaveBeenCalledWith('e1', 'main', 'shell');
   });
 
   it('warns before displacing an advance with data and can keep it off-lineup', async () => {
     vi.mocked(listEventAdvances).mockResolvedValue([
       located('main', { id: 'full', notes: 'runner needed' }),
     ]);
-    renderPanel();
+    const { client } = renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     expect(screen.getByText(/has advance data/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep the advance — clear it from the lineup' }));
-    await vi.waitFor(() =>
-      expect(updateAdvanceLineup).toHaveBeenCalledWith('e1', 'main', 'full', {
-        slot: null,
-        performanceDate: null,
-      }),
-    );
+    await settleAfterMutation(client);
+    expect(updateAdvanceLineup).toHaveBeenCalledWith('e1', 'main', 'full', {
+      slot: null,
+      performanceDate: null,
+    });
     expect(deleteAdvance).not.toHaveBeenCalled();
   });
 });

@@ -47,7 +47,7 @@ describe('appendPacketAttachments', () => {
         att({ fileId: 'img-1', title: 'Stage.png', mimeType: 'image/png' }),
         att({ fileId: 'pdf-2', artistName: 'Other Act', title: 'Plot.pdf' }),
       ],
-      async (fileId, mimeType) =>
+      async (_fileId, mimeType) =>
         mimeType === 'image/png' ? { data: PNG_1X1, mimeType } : { data: twoPager, mimeType: 'application/pdf' },
     );
     // base 2 + (divider + 2 pdf pages + 1 image) for Jelly Roll + (divider + 2 pdf pages) for Other Act
