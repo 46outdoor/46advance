@@ -13,6 +13,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Events — short code:** an event can now carry an optional short code (e.g. "BOTB"). When set, it
+  names the event's Google Calendar ("BOTB — Summerfest 2026") and prefixes advance-call titles
+  ("BOTB: Advance call — Artist"), so a shared calendar makes clear which event each call belongs to.
+
 - **Admin — new-user approval:** registrations no longer wait to be noticed. The Admin nav link shows
   a count badge of accounts awaiting approval, and a prominent "Pending approval" section at the top of
   the Admin screen lists each one with a one-click **Approve** (or **Deny**, which removes the account).

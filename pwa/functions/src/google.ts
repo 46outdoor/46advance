@@ -164,9 +164,16 @@ export async function ensureEventCalendar(
   const existing = snap.data()?.googleCalendarId;
   if (typeof existing === 'string' && existing.length > 0) return existing;
 
+  // A per-event short code (e.g. "BOTB") names the calendar when set; otherwise the app default.
+  // Follow-up: rename an already-created calendar (calendars.patch) when the short code later
+  // changes, and mirror the short code into Drive folder / packet filenames.
+  const rawShortCode = snap.data()?.shortCode;
+  const shortCode = typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
+  const summary = shortCode ? `${shortCode} — ${eventName}` : `46 Advance — ${eventName}`;
+
   const calendar = google.calendar({ version: 'v3', auth: client });
   const created = await withGoogleRetry(
-    () => calendar.calendars.insert({ requestBody: { summary: `46 Advance — ${eventName}`, timeZone: TIME_ZONE } }),
+    () => calendar.calendars.insert({ requestBody: { summary, timeZone: TIME_ZONE } }),
     { label: 'calendars.insert' },
   );
   const calendarId = created.data.id;
@@ -417,6 +424,10 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
 
   const artistName = String(advanceSnap.data()?.artistName ?? 'Artist');
   const eventTz = String(eventSnap.data()?.timeZone ?? TIME_ZONE);
+  // Prefix the call title with the event's short code (e.g. "BOTB: Advance call — …") when set.
+  const rawShortCode = eventSnap.data()?.shortCode;
+  const shortCode = typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
+  const summary = shortCode ? `${shortCode}: Advance call — ${artistName}` : `Advance call — ${artistName}`;
   const start = new Date(startMillis);
   const end = new Date(startMillis + durationMinutes * 60 * 1000);
   const calendar = google.calendar({ version: 'v3', auth: client });
@@ -427,7 +438,7 @@ export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (reque
     conferenceDataVersion: 1,
     requestBody: {
       id: deterministicCalendarEventId(`advance-${advanceId}-${startMillis}`),
-      summary: `Advance call — ${artistName}`,
+      summary,
       start: { dateTime: start.toISOString(), timeZone: eventTz },
       end: { dateTime: end.toISOString(), timeZone: eventTz },
       conferenceData: { createRequest: { requestId: `advance-${advanceId}-${startMillis}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } },

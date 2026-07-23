@@ -15,6 +15,7 @@ interface EventFormProps {
     loadOutDays?: number;
     timeZone?: string;
     venue: string | null;
+    shortCode?: string | null;
     status?: EventStatus;
     departmentIds?: string[];
     bookingLabel?: string | null;
@@ -142,6 +143,7 @@ export function EventForm({
   const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
   const [timeZone, setTimeZone] = useState(dates.timeZone);
   const [venue, setVenue] = useState(initial?.venue ?? '');
+  const [shortCode, setShortCode] = useState(initial?.shortCode ?? '');
   const [driveFolder, setDriveFolder] = useState<{ id: string; name: string } | null>(
     initial?.driveFolderId ? { id: initial.driveFolderId, name: initial.driveFolderName ?? 'Drive folder' } : null,
   );
@@ -173,6 +175,7 @@ export function EventForm({
       loadOutDays,
       timeZone,
       venue: venue.trim() || undefined,
+      shortCode: shortCode.trim() || undefined,
       driveFolderId: driveFolder?.id ?? null,
       driveFolderName: driveFolder?.name ?? null,
       departmentIds: departments.filter((d) => deptIds.has(d.id)).map((d) => d.id),
@@ -237,6 +240,19 @@ export function EventForm({
       <label className="block text-sm sm:col-span-2">
         <span className="mb-1 block font-semibold text-ink">Venue</span>
         <input className={inputClass} value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Riverside Park" />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Short code</span>
+        <input
+          className={inputClass}
+          value={shortCode}
+          onChange={(e) => setShortCode(e.target.value)}
+          maxLength={16}
+          placeholder="BOTB"
+        />
+        <span className="mt-1 block text-xs text-ink-muted">
+          Optional. Names the event&rsquo;s calendar and prefixes advance-call titles, e.g. BOTB.
+        </span>
       </label>
       <DriveFolderField folder={driveFolder} onChange={setDriveFolder} onError={setLocalError} />
       <label className="block text-sm sm:col-span-2">
