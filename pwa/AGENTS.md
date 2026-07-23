@@ -228,6 +228,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
 | Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
+| Packet filename config | `src/lib/packets/packet-config-service.ts` (client read/write) + `functions/src/lib/pdf/packetFilename.ts` (`formatPacketFilename`/`packetBaseName` — server fills tokens + sanitizes) — admin-set `config/packets` naming convention |
 | Logo UI (upload + display) | `src/components/branding/` (`LogoUploader` dual-variant, `LogoRow` theme-aware) |
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |

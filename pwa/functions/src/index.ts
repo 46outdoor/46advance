@@ -15,6 +15,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { appendPacketAttachments, type PacketAttachment } from './lib/pdf/attachments.js';
+import { packetBaseName } from './lib/pdf/packetFilename.js';
 import { DRIVE_SA_KEY, brokerDriveClient } from './googleDrive.js';
 import { fetchBrokeredFileBytes, MAX_EMBED_BYTES } from './lib/broker/brokerFetch.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
@@ -942,7 +943,11 @@ export const generatePacket = onCall(
         fetchBrokeredFileBytes(drive, fileId, mime, MAX_EMBED_BYTES),
       );
     }
-    const path = `events/${eventId}/packets/${Date.now()}.pdf`;
+    // Name the object by the admin-configured convention so downloads land with a meaningful
+    // filename; the timestamp subfolder keeps each generation unique. The client treats `path`
+    // as opaque (getDownloadURL + savePacketToDrive), so the nested path is transparent.
+    const base = await packetBaseName(db, ev);
+    const path = `events/${eventId}/packets/${Date.now()}/${base}.pdf`;
     await getStorage()
       .bucket(STORAGE_BUCKET)
       .file(path)
