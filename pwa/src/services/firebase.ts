@@ -34,8 +34,11 @@ export const app = initializeApp(firebaseConfig);
 // separately in the Firebase console ("observe first" → validate → enforce), so shipping this can't
 // lock anyone out before enforcement is deliberately turned on.
 //
-// DELIBERATELY DORMANT (owner decision, 2026-07-23): VITE_APPCHECK_SITE_KEY is intentionally left
-// unset, so this branch never runs and no backend surface enforces App Check tokens. App Check is
+// DELIBERATELY DORMANT (owner decision, 2026-07-23): VITE_APPCHECK_SITE_KEY is provisioned as an
+// EMPTY repo secret (a falsy key), so this branch never runs and no backend surface enforces App
+// Check tokens. Empty-not-absent keeps CI's `secrets.VITE_APPCHECK_SITE_KEY` reference valid so
+// tooling stops flagging it; to activate, set the secret's value to a real reCAPTCHA v3 site key.
+// App Check is
 // anti-abuse ATTESTATION ("is this my real app?"), not auth or authorization. This app's threat
 // model is already covered without it: a public-but-approval-gated signup, Firestore/Storage rules
 // that require an admin-approved account (isActiveUser), callables that assertApproved/assertAdmin,
