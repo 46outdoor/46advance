@@ -276,7 +276,10 @@ export function EventDocumentsScreen() {
         // cleanup failure rather than swallow it, so an orphan is observable (event folders aren't
         // swept by any cron, unlike the artist library).
         await deleteDriveUpload(uploaded.fileId).catch((cleanupErr) =>
-          logger.error('Failed to remove an orphaned Drive upload after a failed record write', cleanupErr),
+          logger.error(
+            'Failed to remove an orphaned Drive upload after a failed record write',
+            cleanupErr,
+          ),
         );
         throw e;
       }

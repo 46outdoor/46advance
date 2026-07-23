@@ -262,7 +262,10 @@ function ArtistUploadPanel({
         // If the cleanup itself fails, log it — a silent swallow would hide the orphan. (The
         // twice-daily library sync also re-adopts any unrecorded library file as a backstop.)
         await deleteDriveUpload(uploaded.fileId).catch((cleanupErr) =>
-          logger.error('Failed to remove an orphaned Drive upload after a failed record write', cleanupErr),
+          logger.error(
+            'Failed to remove an orphaned Drive upload after a failed record write',
+            cleanupErr,
+          ),
         );
         throw e;
       }
