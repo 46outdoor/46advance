@@ -44,7 +44,9 @@ export function DocumentsScreen() {
       if (folder) importMutation.mutate(folder.id);
     } catch (err) {
       logger.error('Failed to open the Drive folder picker', err);
-      setImportError(describeCallableError(err, 'Could not open the Drive picker. Please try again.'));
+      setImportError(
+        describeCallableError(err, 'Could not open the Drive picker. Please try again.'),
+      );
     }
   };
 
