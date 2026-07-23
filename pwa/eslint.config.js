@@ -38,9 +38,9 @@ export default tseslint.config(
       // max-lines-per-function: 200 for logic (.ts); .tsx is relaxed below since a
       // React component is one long render function (worst .ts fn today ≈ 119).
       'max-lines-per-function': ['error', { max: 200, skipBlankLines: true, skipComments: true }],
-      // complexity: 25 after decomposing the high-complexity functions (was 45).
-      // Repo max is now 24; ratchet further toward ~20 as the remaining 22–24s
-      // (AdvanceForm, EventScheduleScreen, parseBooking) are simplified.
+      // complexity: 25 (was 45). Repo max is 25 (syncUserClaims); 12 functions still exceed
+      // 20 (full list + counts in .claude/rules/code-organization.md), so lowering the gate
+      // toward 20 is a dedicated decomposition pass — not a one-line change here.
       complexity: ['error', 25],
     },
   },
