@@ -18,13 +18,19 @@ defaults:
   run:
     working-directory: pwa
 
+# Least-privilege GITHUB_TOKEN (WS-K): the deploy reads the repo and writes a deploy check-run status.
+# The Firebase deploy itself authenticates with FIREBASE_SERVICE_ACCOUNT, not GITHUB_TOKEN.
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   deploy:
     if: ${{ github.event.inputs.confirm_deploy == 'deploy' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           # Pinned: Node 22.23.0 (a security release) regressed keep-alive socket
           # reuse, causing false "Premature close" errors in google-auth-library's
@@ -70,14 +76,14 @@ jobs:
       - name: Deploy to Firebase Hosting (live) — attempt 1
         id: deploy1
         continue-on-error: true
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: advancethat
           channelId: live
           entryPoint: pwa
-          firebaseToolsVersion: "14"
+          firebaseToolsVersion: "14.27.0"
       - name: Back off before retry 1
         if: steps.deploy1.outcome == 'failure'
         run: sleep 60
@@ -85,28 +91,28 @@ jobs:
         id: deploy2
         if: steps.deploy1.outcome == 'failure'
         continue-on-error: true
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: advancethat
           channelId: live
           entryPoint: pwa
-          firebaseToolsVersion: "14"
+          firebaseToolsVersion: "14.27.0"
       - name: Back off before retry 2
         if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         run: sleep 120
       - name: Deploy to Firebase Hosting (live) — attempt 3 (final)
         id: deploy3
         if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: advancethat
           channelId: live
           entryPoint: pwa
-          firebaseToolsVersion: "14"
+          firebaseToolsVersion: "14.27.0"
       # Runtime smoke check (WS-I): confirm the live site serves the app shell + assets + security
       # headers. Runs only if some deploy attempt succeeded; a failure fails the job (visible), so a
       # broken release doesn't silently go live.

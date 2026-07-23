@@ -15,26 +15,41 @@ concurrency:
   group: dependency-audit
   cancel-in-progress: false
 
+# Least-privilege GITHUB_TOKEN (WS-K): the audit only reads the repo + committed lockfiles.
+permissions:
+  contents: read
+
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: |
             pwa/package-lock.json
             pwa/functions/package-lock.json
-      # Audits run against the committed lockfiles, so no install is needed.
-      # continue-on-error keeps the audit advisory-only: a finding is reported in
-      # the run summary but never fails the job (and this workflow never gates PRs).
+      # Audits run against the committed lockfiles, so no install is needed. Advisory-only: findings
+      # are written to the GitHub job summary (visible even when the job stays green) but never fail
+      # the job. Release-blocking policy: a high/critical advisory WITH a non-breaking, in-range fix
+      # blocks release; moderate-or-lower (or fix-only-via-major transitive) advisories are tracked as
+      # time-bounded exceptions in functions/SECURITY_EXCEPTIONS.md.
       - name: Audit pwa
         working-directory: pwa
         continue-on-error: true
-        run: npm audit --audit-level=moderate
+        run: |
+          echo "## PWA dependency audit (\`--audit-level=moderate\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npm audit --audit-level=moderate 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
       - name: Audit pwa/functions
         working-directory: pwa/functions
         continue-on-error: true
-        run: npm audit --audit-level=moderate
+        run: |
+          echo "## Functions dependency audit (\`--audit-level=moderate\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "_Accepted transitive advisories are documented in \`functions/SECURITY_EXCEPTIONS.md\`; anything not listed there is NEW and needs triage._" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npm audit --audit-level=moderate 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

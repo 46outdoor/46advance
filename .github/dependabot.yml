@@ -1,3 +1,8 @@
+# Minor/patch updates are grouped and auto-proposed monthly. Majors are ignored here because they
+# usually need code changes — but "ignored" must NOT mean "forgotten" (WS-K). Deliberate MAJOR
+# evaluation is a scheduled manual review each quarter for the load-bearing deps:
+#   firebase, firebase-admin, googleapis, google-auth-library, vite, react/react-dom, @sentry/*,
+#   firebase-tools (CI/deploy). Bump one deliberately, run the full gate set, and record it.
 version: 2
 updates:
   - package-ecosystem: npm
