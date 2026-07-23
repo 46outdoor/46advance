@@ -15,6 +15,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 - **Registration — name:** the sign-up form now has a **Name** field, which becomes the account's
   display name across the app. Previously a new account had no name until an admin set one.
+- **Admin — packet filename:** admins can now set the naming convention for generated PDF packets
+  (Admin → **Packet filename**) using `{shortCode}`, `{event}`, `{date}`, and `{type}` tokens. The
+  pattern names both the downloaded packet and the copy saved to Drive (default →
+  "BOTB Summerfest 2026 — Advance Packet.pdf"). Drive folders themselves are never renamed.
 
 ### Changed
 
