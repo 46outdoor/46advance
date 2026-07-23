@@ -736,9 +736,10 @@ post-revoke) — only the app-side references are cleared.
 
 | Change-set | Workstream | PR | Notes |
 | --- | --- | --- | --- |
-| S16 supply-chain: pin Actions to commit SHAs, exact Firebase CLI (14.27.0), least-privilege workflow permissions, audit-summary visibility + release-blocking policy, PWA advisories cleared (npm audit fix → 0), nodemailer 6→9 (high fix), ts-deepmerge exception documented | WS-K | #TBD | `NONE` deploy (CI/tooling) |
+| S16 supply-chain: pin Actions to commit SHAs, exact Firebase CLI (14.27.0), least-privilege workflow permissions, audit-summary visibility + release-blocking policy, PWA advisories cleared (npm audit fix → 0), nodemailer 6→9 (high fix), ts-deepmerge exception documented | WS-K | #165 | `NONE` deploy (CI/tooling) |
+| S17 perf/a11y/UX: per-screen route chunks (feature barrels → module imports), ThemeSpecimen out of prod bundle, responsive wrapping header, admin-table scroll containment, photo-cropper dialog semantics (focus trap + Escape + focus restore), dirty-form hydrate-once refetch guard, axe a11y harness + PR-checklist QA | WS-L | #TBD | `HOSTING` (client ships on Hosting) |
 
-(S15/WS-J, S17/WS-L, S18/WS-M to follow.)
+(S15/WS-J, S18/WS-M to follow.)
 
 After all approved work is complete, move this file to `planning/archive/fix/` and update
 `planning/README.md`.
