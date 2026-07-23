@@ -285,4 +285,52 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
     expect(res).toMatchObject({ isAdmin: false, approved: false });
     expect((await users().doc('me').get()).data()?.approved).toBe(false);
   });
+
+  it('auto-approves a verified new user whose email matches an ADMIN-added contact', async () => {
+    await users().doc('admin1').set({ isAdmin: true, organizer: false, approved: true });
+    await contacts().doc('c1').set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
+    await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'tech@crew.com', email_verified: true })),
+    );
+
+    expect(res).toMatchObject({ isAdmin: false, approved: true });
+    expect((await claimsOf('me')).approved).toBe(true);
+  });
+
+  it('auto-approves via an ORGANIZER-added contact too', async () => {
+    await users().doc('org1').set({ isAdmin: false, organizer: true, approved: true });
+    await contacts().doc('c1').set({ name: 'Known', email: 'tech@crew.com', createdBy: 'org1' });
+    await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'tech@crew.com', email_verified: true })),
+    );
+    expect(res).toMatchObject({ approved: true });
+  });
+
+  it('does NOT auto-approve when the matching contact was created by a regular member', async () => {
+    await users().doc('member1').set({ isAdmin: false, organizer: false, approved: true });
+    await contacts().doc('c1').set({ name: 'Someone', email: 'tech@crew.com', createdBy: 'member1' });
+    await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'tech@crew.com', email_verified: true })),
+    );
+
+    expect(res).toMatchObject({ approved: false });
+  });
+
+  it('does NOT auto-approve on a contact match until the email is verified', async () => {
+    await users().doc('admin1').set({ isAdmin: true, approved: true });
+    await contacts().doc('c1').set({ name: 'Known Tech', email: 'tech@crew.com', createdBy: 'admin1' });
+    await auth().createUser({ uid: 'me', email: 'tech@crew.com' });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'tech@crew.com', email_verified: false })),
+    );
+
+    expect(res).toMatchObject({ approved: false });
+  });
 });
