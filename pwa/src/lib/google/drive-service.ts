@@ -22,6 +22,8 @@ import type {
   DriveOkOutput,
   SavePacketToDriveInput,
   SavePacketToDriveOutput,
+  ValidateLibraryFolderInput,
+  ValidateLibraryFolderOutput,
 } from '@contracts/callables/googleDrive';
 
 export interface AdvanceRef {
@@ -57,6 +59,17 @@ export async function savePacketToDrive(eventId: string, path: string): Promise<
 /** Import an artist-docs Drive folder (per-artist subfolders) into the library. Server enumerates. */
 export async function importDriveFolder(folderId: string): Promise<ImportDriveFolderOutput> {
   const callable = httpsCallable<ImportDriveFolderInput, ImportDriveFolderOutput>(functions, 'importDriveFolder');
+  return (await callable({ folderId })).data;
+}
+
+/** Validate a candidate document-library root folder id (admin only) via the docs-broker
+ * service account before saving it: confirms it's a real, accessible, non-trashed Drive folder,
+ * returning its name on success or a coarse reason on failure. */
+export async function validateLibraryFolder(folderId: string): Promise<ValidateLibraryFolderOutput> {
+  const callable = httpsCallable<ValidateLibraryFolderInput, ValidateLibraryFolderOutput>(
+    functions,
+    'validateLibraryFolder',
+  );
   return (await callable({ folderId })).data;
 }
 

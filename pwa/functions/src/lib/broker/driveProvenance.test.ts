@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { drive_v3 } from 'googleapis';
-import { getFileForRegistration, resolveArtistFolder } from './driveProvenance.js';
+import {
+  classifyFolderFile,
+  driveErrorReason,
+  getFileForRegistration,
+  resolveArtistFolder,
+} from './driveProvenance.js';
+
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 // A small Drive tree:
 //   root
@@ -69,6 +76,60 @@ describe('getFileForRegistration', () => {
 
   it('returns null for an inaccessible / missing file', async () => {
     expect(await getFileForRegistration(mockDrive(), 'nope')).toBeNull();
+  });
+});
+
+describe('classifyFolderFile', () => {
+  it('accepts a real, non-trashed folder and returns its name', () => {
+    const r = classifyFolderFile({ id: 'root', name: 'ALL ARTIST Riders', mimeType: FOLDER_MIME });
+    expect(r).toEqual({ ok: true, name: 'ALL ARTIST Riders' });
+  });
+
+  it('falls back to a generic name when the folder name is blank', () => {
+    const r = classifyFolderFile({ id: 'root', name: '   ', mimeType: FOLDER_MIME });
+    expect(r).toEqual({ ok: true, name: 'Drive folder' });
+  });
+
+  it('rejects a file (non-folder mime) as not_a_folder', () => {
+    const r = classifyFolderFile({ id: 'f', name: 'Rider.pdf', mimeType: 'application/pdf' });
+    expect(r).toEqual({ ok: false, reason: 'not_a_folder' });
+  });
+
+  it('reports a non-folder before trash (a trashed file reads as not_a_folder)', () => {
+    const r = classifyFolderFile({ id: 'f', name: 'Rider.pdf', mimeType: 'application/pdf', trashed: true });
+    expect(r).toEqual({ ok: false, reason: 'not_a_folder' });
+  });
+
+  it('rejects a trashed folder as trashed', () => {
+    const r = classifyFolderFile({ id: 'root', name: 'Old', mimeType: FOLDER_MIME, trashed: true });
+    expect(r).toEqual({ ok: false, reason: 'trashed' });
+  });
+
+  it('rejects a file with no id as not_found', () => {
+    const r = classifyFolderFile({ mimeType: FOLDER_MIME });
+    expect(r).toEqual({ ok: false, reason: 'not_found' });
+  });
+});
+
+describe('driveErrorReason', () => {
+  it('maps a 404 (numeric code) to not_found', () => {
+    expect(driveErrorReason({ code: 404 })).toBe('not_found');
+  });
+
+  it('maps a 404 response status to not_found', () => {
+    expect(driveErrorReason({ response: { status: 404 } })).toBe('not_found');
+  });
+
+  it('maps a 403 (permission) to inaccessible', () => {
+    expect(driveErrorReason({ code: 403 })).toBe('inaccessible');
+  });
+
+  it('maps a non-numeric / network error code to inaccessible', () => {
+    expect(driveErrorReason({ code: 'ENOTFOUND' })).toBe('inaccessible');
+  });
+
+  it('maps an unknown (non-object) error to inaccessible', () => {
+    expect(driveErrorReason('boom')).toBe('inaccessible');
   });
 });
 

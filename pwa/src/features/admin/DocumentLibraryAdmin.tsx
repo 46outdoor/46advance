@@ -8,13 +8,23 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
+import { validateLibraryFolder } from '@/lib/google/drive-service';
 import {
   documentsLibraryKey,
   getDocumentsLibraryRoot,
   setDocumentsLibraryRoot,
 } from '@/lib/documents/documents-library-service';
+import type { ValidateLibraryFolderReason } from '@contracts/callables/googleDrive';
 
 const logger = createLogger('DocumentLibrary');
+
+/** Friendly, actionable copy for each reason the folder validation can reject an id. */
+const FOLDER_REASON_MESSAGE: Record<ValidateLibraryFolderReason, string> = {
+  not_found: 'No Drive folder with that ID — check for a typo.',
+  not_a_folder: 'That ID points to a file, not a folder.',
+  trashed: 'That folder is in the Drive trash.',
+  inaccessible: 'Can’t access that folder — share it with the docs-broker service account.',
+};
 
 export function DocumentLibraryAdmin() {
   const queryClient = useQueryClient();
@@ -26,8 +36,17 @@ export function DocumentLibraryAdmin() {
     if (rootQuery.data !== undefined) setFolderId(rootQuery.data);
   }, [rootQuery.data]);
 
+  // Validate the id via the docs-broker SA BEFORE persisting: a bad/typo'd/unshared id would
+  // otherwise silently break the twice-daily sync. On success the mutation resolves to the folder
+  // name (shown in the confirmation); a rejection throws a friendly message rendered inline.
   const save = useMutation({
-    mutationFn: () => setDocumentsLibraryRoot(folderId),
+    mutationFn: async (): Promise<string> => {
+      const id = folderId.trim();
+      const result = await validateLibraryFolder(id);
+      if (!result.ok) throw new Error(FOLDER_REASON_MESSAGE[result.reason]);
+      await setDocumentsLibraryRoot(id);
+      return result.name;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: documentsLibraryKey() }),
     onError: (err) => logger.error('Failed to save library folder', err),
   });
@@ -63,8 +82,14 @@ export function DocumentLibraryAdmin() {
         >
           {save.isPending ? 'Saving…' : 'Save folder'}
         </button>
-        {save.isSuccess && <span className="text-sm text-status-complete">Saved.</span>}
-        {save.isError && <span className="text-sm text-accent">Could not save.</span>}
+        {save.isSuccess && (
+          <span className="text-sm text-status-complete">Saved — mirroring “{save.data}”.</span>
+        )}
+        {save.isError && (
+          <span className="text-sm text-accent">
+            {save.error instanceof Error ? save.error.message : 'Could not save.'}
+          </span>
+        )}
       </div>
     </div>
   );

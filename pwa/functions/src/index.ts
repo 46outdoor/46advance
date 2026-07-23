@@ -54,7 +54,7 @@ export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBooki
 export { reconcileScheduleDay, removeScheduleCalendarEvent } from './googleSchedule.js';
 
 // Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
-export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive, importDriveFolder, getArtistDocumentContent, scheduledLibraryDriveSync, registerEventDocument, registerArtistDocument, includeArtistDocumentOnAdvance } from './googleDrive.js';
+export { getDriveAccessToken, linkDriveFile, removeDriveFile, savePacketToDrive, importDriveFolder, getArtistDocumentContent, scheduledLibraryDriveSync, registerEventDocument, registerArtistDocument, includeArtistDocumentOnAdvance, validateLibraryFolder } from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 
 // Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.

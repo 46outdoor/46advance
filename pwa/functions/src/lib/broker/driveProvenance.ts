@@ -5,6 +5,40 @@
  * with a mocked Drive client. Given a `drive_v3.Drive` (user OAuth or the broker SA).
  */
 import type { drive_v3 } from 'googleapis';
+import type { ValidateLibraryFolderOutput } from '../../contracts/callables/googleDrive.js';
+
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+/**
+ * Classify a fetched Drive file as a usable document-library root — pure so the ok/reason
+ * decision is unit-testable without a live Drive. It must exist, be a Drive FOLDER, and not be
+ * trashed. The caller does the fetch + maps any Drive error via `driveErrorReason`. A non-folder
+ * is reported before trash so pasting a (possibly trashed) file id reads as "not a folder".
+ */
+export function classifyFolderFile(file: drive_v3.Schema$File): ValidateLibraryFolderOutput {
+  if (!file.id) return { ok: false, reason: 'not_found' };
+  if (file.mimeType !== FOLDER_MIME) return { ok: false, reason: 'not_a_folder' };
+  if (file.trashed === true) return { ok: false, reason: 'trashed' };
+  return { ok: true, name: file.name?.trim() || 'Drive folder' };
+}
+
+/** The HTTP status embedded in a googleapis (Gaxios) error, or null if none is present. */
+function driveErrorStatus(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const e = err as { code?: unknown; status?: unknown; response?: { status?: unknown } };
+  const raw = e.code ?? e.status ?? e.response?.status;
+  if (typeof raw === 'number') return raw;
+  return typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : null;
+}
+
+/**
+ * Map a Drive `files.get` failure to a coarse validation reason — never leak raw Drive error
+ * text to the client. A 404 means the id doesn't resolve for the broker (`not_found`); anything
+ * else (403 permission, network, etc.) is reported as `inaccessible`.
+ */
+export function driveErrorReason(err: unknown): 'not_found' | 'inaccessible' {
+  return driveErrorStatus(err) === 404 ? 'not_found' : 'inaccessible';
+}
 
 export interface DriveFileMeta {
   id: string;
