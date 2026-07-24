@@ -223,6 +223,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
 | Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
 | Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |
+| Festivals (config)    | `src/lib/festivals/` (`festival.ts` model + `festivals-service.ts` CRUD; admin-managed name + logo; events reference `festivalId`) — admin UI `src/features/admin/FestivalsAdmin.tsx` |
 | Advance model         | `src/lib/advances/advance.ts` (type + Zod + parser)      |
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
