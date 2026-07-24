@@ -42,3 +42,17 @@ export type FestivalInput = z.infer<typeof festivalInputSchema>;
 export function sortFestivals(festivals: readonly FestivalRecord[]): FestivalRecord[] {
   return [...festivals].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 }
+
+/**
+ * The show mark for an event: the per-event override (`event.eventLogo`) if set, else the picked
+ * festival's logo. Legacy events (no festivalId) keep their `eventLogo` override, so nothing breaks.
+ */
+export function resolveShowLogo(
+  eventLogo: Logo | null,
+  festivalId: string | null,
+  festivals: readonly FestivalRecord[],
+): Logo | null {
+  if (eventLogo) return eventLogo;
+  const festival = festivalId ? festivals.find((f) => f.id === festivalId) : null;
+  return festival?.logo ?? null;
+}

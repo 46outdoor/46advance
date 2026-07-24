@@ -28,6 +28,11 @@ export interface EventRecord {
   /** Optional short code (e.g. "BOTB"); names the event's Google calendar and prefixes
    *  advance-call titles. Stored as entered (trimmed); null = unset. */
   shortCode: string | null;
+  /** The festival this event belongs to (`festivals/{id}`); its name feeds the composed event
+   *  name and its logo auto-applies. Null on legacy events created before festivals existed. */
+  festivalId: string | null;
+  /** City/location of this instance (e.g. "Ashland"); part of the composed event name. */
+  location: string | null;
   /** Linked Drive folder for event documents (picked in the event form); null = unlinked. */
   driveFolderId: string | null;
   driveFolderName: string | null;
@@ -63,6 +68,8 @@ const eventDocSchema = z.object({
   timeZone: z.string().optional(),
   venue: z.string().nullable().optional(),
   shortCode: z.string().nullable().optional(),
+  festivalId: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
   driveFolderId: z.string().nullable().optional(),
   driveFolderName: z.string().nullable().optional(),
   packetDrive: z
@@ -97,6 +104,8 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     timeZone: doc.timeZone ?? APP_TIME_ZONE,
     venue: doc.venue ?? null,
     shortCode: doc.shortCode ?? null,
+    festivalId: doc.festivalId ?? null,
+    location: doc.location ?? null,
     driveFolderId: doc.driveFolderId ?? null,
     driveFolderName: doc.driveFolderName ?? null,
     packetDrive: doc.packetDrive
@@ -118,6 +127,26 @@ export function parseEvent(id: string, data: unknown): EventRecord {
   };
 }
 
+/**
+ * Compose the stored event name from its parts: `{Festival} {Year} — {Location}` (e.g.
+ * "Rock the Country 2026 — Ashland"). Year is taken in the event's timezone. Empty parts drop
+ * cleanly (no festival → empty; no location → "Festival Year"). The name is denormalized (stored),
+ * so calendar/slug/cover/lists keep reading `event.name` unchanged.
+ */
+export function composeEventName(
+  festivalName: string,
+  startDate: Date | null,
+  location: string,
+  timeZone: string,
+): string {
+  const year = startDate
+    ? new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' }).format(startDate)
+    : '';
+  const head = [festivalName.trim(), year].filter(Boolean).join(' ');
+  const loc = location.trim();
+  return loc ? `${head} — ${loc}` : head;
+}
+
 /** Client-supplied fields when creating/editing an event. */
 export const eventInputSchema = z
   .object({
@@ -129,6 +158,8 @@ export const eventInputSchema = z
     timeZone: z.string().optional(),
     venue: z.string().trim().optional(),
     shortCode: z.string().trim().max(16).optional(),
+    festivalId: z.string().trim().optional(),
+    location: z.string().trim().optional(),
     driveFolderId: z.string().nullable().optional(),
     driveFolderName: z.string().nullable().optional(),
     status: eventStatusSchema.optional(),

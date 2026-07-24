@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { festivalInputSchema, parseFestival, sortFestivals, type FestivalRecord } from './festival';
+import {
+  festivalInputSchema,
+  parseFestival,
+  resolveShowLogo,
+  sortFestivals,
+  type FestivalRecord,
+} from './festival';
+import type { Logo } from '@/lib/branding/logo';
 
 describe('parseFestival', () => {
   it('parses a name and defaults order + logo', () => {
@@ -34,6 +41,25 @@ describe('sortFestivals', () => {
       { id: 'z', name: 'Zed', logo: null, order: 0 },
     ];
     expect(sortFestivals(festivals).map((f) => f.id)).toEqual(['z', 'a', 'b']);
+  });
+});
+
+describe('resolveShowLogo', () => {
+  const festLogo: Logo = { onDark: null, onLight: null, name: 'festival' };
+  const override: Logo = { onDark: null, onLight: null, name: 'override' };
+  const festivals: FestivalRecord[] = [{ id: 'f1', name: 'RTC', logo: festLogo, order: 0 }];
+
+  it('prefers the per-event override', () => {
+    expect(resolveShowLogo(override, 'f1', festivals)).toBe(override);
+  });
+
+  it('falls back to the festival logo', () => {
+    expect(resolveShowLogo(null, 'f1', festivals)).toBe(festLogo);
+  });
+
+  it('is null with no override and no matching festival', () => {
+    expect(resolveShowLogo(null, null, festivals)).toBeNull();
+    expect(resolveShowLogo(null, 'unknown', festivals)).toBeNull();
   });
 });
 

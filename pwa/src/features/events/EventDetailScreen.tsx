@@ -10,6 +10,8 @@ import type { EventInput, EventRecord } from '@/lib/events/event';
 import { emptyLogo, supersededLogoPaths, type Logo } from '@/lib/branding/logo';
 import { brandingKey, getBranding } from '@/lib/branding/branding-service';
 import { LogoRow } from '@/components/branding/LogoRow';
+import { resolveShowLogo } from '@/lib/festivals/festival';
+import { festivalsKey, listFestivals } from '@/lib/festivals/festivals-service';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
@@ -57,6 +59,7 @@ export function EventDetailScreen() {
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
   const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
+  const festivalsQuery = useQuery({ queryKey: festivalsKey(), queryFn: listFestivals });
 
   const update = useMutation({
     mutationFn: async (input: EventInput) => {
@@ -154,6 +157,7 @@ export function EventDetailScreen() {
           eventId={event.id}
           canEdit={canEdit}
           defaultLogos={defaultLogos}
+          showLogo={resolveShowLogo(event.eventLogo, event.festivalId, festivalsQuery.data ?? [])}
           hasDrive={connectionQuery.data?.hasDrive ?? false}
           packetPending={packet.isPending}
           packetError={packet.isError}
@@ -220,6 +224,8 @@ interface EventDetailHeaderProps {
   eventId: string;
   canEdit: boolean;
   defaultLogos: Logo[];
+  /** The resolved show mark (per-event override ?? the festival's logo). */
+  showLogo: Logo | null;
   hasDrive: boolean;
   packetPending: boolean;
   packetError: boolean;
@@ -235,6 +241,7 @@ function EventDetailHeader({
   eventId,
   canEdit,
   defaultLogos,
+  showLogo,
   hasDrive,
   packetPending,
   packetError,
@@ -323,7 +330,7 @@ function EventDetailHeader({
         {formatZonedDateRange(event.startDate, event.endDate, event.timeZone)}
       </p>
       {event.venue && <p className="text-ink-muted">{event.venue}</p>}
-      <LogoRow eventLogo={event.eventLogo} defaults={defaultLogos} className="pt-1" />
+      <LogoRow eventLogo={showLogo} defaults={defaultLogos} className="pt-1" />
       {packetError && (
         <p className="text-sm text-accent">Could not generate the packet. Try again.</p>
       )}

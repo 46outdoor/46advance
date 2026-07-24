@@ -65,6 +65,8 @@ export async function createEvent(input: EventInput): Promise<string> {
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     shortCode: input.shortCode?.trim() || null,
+    festivalId: input.festivalId?.trim() || null,
+    location: input.location?.trim() || null,
     driveFolderId: input.driveFolderId ?? null,
     driveFolderName: input.driveFolderName ?? null,
     departmentIds: input.departmentIds ?? [],
@@ -138,6 +140,8 @@ export async function updateEvent(eventId: string, input: EventInput): Promise<v
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     shortCode: input.shortCode?.trim() || null,
+    festivalId: input.festivalId?.trim() || null,
+    location: input.location?.trim() || null,
     driveFolderId: input.driveFolderId ?? null,
     driveFolderName: input.driveFolderName ?? null,
     bookingLabel: input.bookingLabel?.trim() ? input.bookingLabel.trim() : null,
@@ -208,6 +212,8 @@ export async function createEventFromTemplate(
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: input.venue ?? null,
     shortCode: input.shortCode?.trim() || null,
+    festivalId: input.festivalId?.trim() || null,
+    location: input.location?.trim() || null,
     slug: input.slug ?? null,
   });
   return result.data.eventId;

@@ -32,6 +32,8 @@ vi.mock('./events-service', () => ({
       driveFolderId: null,
       driveFolderName: null,
       packetDrive: null,
+      festivalId: null,
+      location: null,
       shortCode: null,
       bookingLabel: null,
       googleCalendarId: null,

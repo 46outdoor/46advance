@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { eventDays, eventInputSchema, parseEvent } from './event';
+import { composeEventName, eventDays, eventInputSchema, parseEvent } from './event';
 import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 
 describe('parseEvent', () => {
@@ -55,6 +55,25 @@ describe('parseEvent', () => {
   it('uses an explicit timezone when set', () => {
     const e = parseEvent('x', { name: 'X', status: 'active', createdBy: 'a', timeZone: 'America/Los_Angeles' });
     expect(e.timeZone).toBe('America/Los_Angeles');
+  });
+});
+
+describe('composeEventName', () => {
+  const tz = 'America/Chicago';
+  const start = new Date('2026-07-10T12:00:00Z');
+
+  it('composes "{festival} {year} — {location}"', () => {
+    expect(composeEventName('Rock the Country', start, 'Ashland', tz)).toBe(
+      'Rock the Country 2026 — Ashland',
+    );
+  });
+
+  it('drops the location when empty', () => {
+    expect(composeEventName('RTC', start, '  ', tz)).toBe('RTC 2026');
+  });
+
+  it('drops the year when there is no start date', () => {
+    expect(composeEventName('RTC', null, 'Ashland', tz)).toBe('RTC — Ashland');
   });
 });
 
