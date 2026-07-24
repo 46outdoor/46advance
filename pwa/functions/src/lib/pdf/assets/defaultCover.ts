@@ -1,8 +1,8 @@
 /**
  * Bundled default packet cover graphic (46 Entertainment brand cover: concert photo, 46 logo,
- * red diagonal band). Sourced from the 2026 RTC Advance design (planning/2026 RTC Advance.docx),
- * embedded as a base64 data URI so it deploys with the Functions bundle (no runtime fs / Storage
- * fetch). This is the DEFAULT cover; a per-festival cover override is a planned extension point
+ * red diagonal band). From the 2026 RTC Advance brand design, embedded as a base64 data URI so it
+ * deploys with the Functions bundle (no runtime fs / Storage fetch). To replace it, re-embed a new
+ * image here. This is the DEFAULT cover; a per-festival cover override is a planned extension point
  * (see resolvePacketCover in index.ts). 1284x1661, ~8.5:11 letter.
  *
  * Generated asset - excluded from eslint/prettier (see eslint.config.js + .prettierignore).

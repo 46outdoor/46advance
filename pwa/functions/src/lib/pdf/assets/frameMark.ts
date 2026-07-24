@@ -1,7 +1,7 @@
 /**
  * Bundled 46 compact mark ("46/") for the interior packet page frame — the mark that breaks the
- * bottom border. Sourced from the brand asset `planning/46 Compact Black.png` (black, transparent),
- * embedded as a base64 data URI so it deploys with the Functions bundle. This is fixed house chrome
+ * bottom border. The compact "46/" brand mark (black, transparent) embedded as a base64 data URI so
+ * it deploys with the Functions bundle. To replace it, re-embed a new PNG here. This is fixed house chrome
  * (distinct from the wider `46 / ENTERTAINMENT` lockup in `config/branding`), so it lives in code,
  * not the branding config. 575x540, ~1:1.
  *
