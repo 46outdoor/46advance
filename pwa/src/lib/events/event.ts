@@ -31,6 +31,9 @@ export interface EventRecord {
   /** Linked Drive folder for event documents (picked in the event form); null = unlinked. */
   driveFolderId: string | null;
   driveFolderName: string | null;
+  /** The current packet saved into the linked Drive folder (server-written on Save to Drive);
+   *  null until one is saved. Powers the "View current packet" link. */
+  packetDrive: { fileId: string; webViewLink: string; savedAt: Date | null } | null;
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
   departmentIds: string[];
@@ -62,6 +65,14 @@ const eventDocSchema = z.object({
   shortCode: z.string().nullable().optional(),
   driveFolderId: z.string().nullable().optional(),
   driveFolderName: z.string().nullable().optional(),
+  packetDrive: z
+    .object({
+      fileId: z.string(),
+      webViewLink: z.string(),
+      savedAt: z.instanceof(Timestamp).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   status: eventStatusSchema,
   departmentIds: z.array(z.string()).optional(),
   googleCalendarId: z.string().nullable().optional(),
@@ -88,6 +99,13 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     shortCode: doc.shortCode ?? null,
     driveFolderId: doc.driveFolderId ?? null,
     driveFolderName: doc.driveFolderName ?? null,
+    packetDrive: doc.packetDrive
+      ? {
+          fileId: doc.packetDrive.fileId,
+          webViewLink: doc.packetDrive.webViewLink,
+          savedAt: timestampToDate(doc.packetDrive.savedAt ?? null),
+        }
+      : null,
     status: doc.status,
     departmentIds: doc.departmentIds ?? [],
     googleCalendarId: doc.googleCalendarId ?? null,

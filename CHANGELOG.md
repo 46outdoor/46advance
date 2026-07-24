@@ -9,6 +9,26 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-24
+
+### Added
+
+- **Packets — View current packet:** once a packet has been saved to Drive, a **View current
+  packet** button on the event opens it straight from the event's Drive folder (visible to everyone
+  on the event, not just the PM).
+
+### Changed
+
+- **Packets — save into the event's Drive folder:** "Save packet to Drive" now writes into the
+  event's **linked** Drive folder and **replaces** the previous packet there (one current copy,
+  stable link), instead of creating a separate "46 Advance" tree in your personal Drive. Generating
+  and saving packets is now limited to the event's **production manager** (or an admin), and the
+  cover page shows the generated **date and time** in the event's timezone. If your Google access
+  doesn't yet cover the folder, saving prompts you to pick it once to grant access, then retries.
+- **Uploads — file button:** the document-upload control (artist library and event documents) is now
+  a styled **Choose file** button that shows the selected filename, instead of the browser's default
+  grey file input.
+
 ## 2026-07-23
 
 ### Added
@@ -37,6 +57,11 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Events — calendar naming:** changing an event's short code or name now also renames its Google
   Calendar to match. Previously the name was set only when the calendar was first created, so a later
   short-code (or name) change never reached the calendar.
+- **Documents — Drive sync, and less Google access:** "Import from Drive" is now **"Sync from Drive"**.
+  It mirrors the library folder set in **Admin → Document library** instead of asking you to pick a
+  folder every time — the same sweep the twice-daily sync already runs. It reads through the
+  document-viewer service account, so connecting your Google account **no longer grants 46 Advance
+  Drive-wide metadata access**: it now asks only for Calendar plus per-file Drive access.
 
 ### Fixed
 

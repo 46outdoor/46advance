@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { useBeforeUnload } from '@/lib/hooks/useBeforeUnload';
+import { FilePickerButton } from '@/components/FilePickerButton';
 import {
   createArtistDocumentRecord,
   deleteArtistDocument,
@@ -287,18 +288,14 @@ function ArtistUploadPanel({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-3">
       <span className="text-sm font-semibold text-ink">Upload to {artistName}'s folder</span>
-      <input
+      <FilePickerButton
         key={inputKey}
-        type="file"
-        className="min-h-11 text-sm sm:min-h-0"
-        aria-label="File to upload"
+        label="Choose file"
+        ariaLabel="File to upload"
         disabled={upload.isPending}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            upload.mutate(file);
-            setInputKey((k) => k + 1);
-          }
+        onFile={(file) => {
+          upload.mutate(file);
+          setInputKey((k) => k + 1);
         }}
       />
       {upload.isPending && <span className="text-sm text-ink-muted">Uploading…</span>}
