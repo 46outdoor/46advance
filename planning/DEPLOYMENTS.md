@@ -60,7 +60,17 @@ a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 ### CSP: report-only → enforce (open thread)
 
 Reporting went live with the 2026-07-24 Hosting release; violations now POST to the `cspReport`
-function and land in Cloud Logging. **Observe before enforcing** — review collected reports with:
+function and land in Cloud Logging.
+
+**PREREQUISITE — #185 must ride a Hosting deploy before enforcing.** The Tier 1/2 observation found
+exactly one gap: the app's Cloud Functions callables (`…cloudfunctions.net/*`) were missing from
+`connect-src`. The fix (PR #185, merged to `main` 2026-07-24) is **not yet live** — the deployed
+policy (last Hosting run `30106260627`, `d2e3c22`) still lacks it. It must ride a Hosting deploy
+**before** the enforce flip; enforcing without it would block every callable (sign-in claims sync,
+Drive, packets, admin). Until #185 is live, expect a steady `cloudfunctions.net` violation in the
+logs — that's the known, already-fixed one; a genuinely clean window can only be judged after it deploys.
+
+**Observe before enforcing** — review collected reports with:
 
 ```bash
 pwa/scripts/cli/gcloud-safe.sh logging read \
