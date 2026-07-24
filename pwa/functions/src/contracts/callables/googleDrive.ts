@@ -36,8 +36,11 @@ export const savePacketToDriveOutputSchema = z.object({
 });
 export type SavePacketToDriveOutput = z.infer<typeof savePacketToDriveOutputSchema>;
 
-// importDriveFolder — import an artist-docs folder (per-artist subfolders) into the library.
-export const importDriveFolderInputSchema = z.object({ folderId: z.string().min(1) });
+// importDriveFolder — mirror the admin-configured library root (per-artist subfolders) into the
+// library, on demand. Enumerated by the docs-broker service account, so no user Drive scope is
+// involved. `folderId` is legacy: older clients sent a Picker-chosen folder; it is now ignored
+// (kept optional so a pre-update client keeps working until the next Hosting release).
+export const importDriveFolderInputSchema = z.object({ folderId: z.string().optional() });
 export type ImportDriveFolderInput = z.infer<typeof importDriveFolderInputSchema>;
 export const importDriveFolderOutputSchema = z.object({
   imported: z.number(),
