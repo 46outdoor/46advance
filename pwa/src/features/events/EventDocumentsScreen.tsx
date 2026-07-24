@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { useBeforeUnload } from '@/lib/hooks/useBeforeUnload';
+import { FilePickerButton } from '@/components/FilePickerButton';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateKey } from '@/lib/dates/formatting';
@@ -66,15 +67,15 @@ function UploadForm({
   const [inputKey, setInputKey] = useState(0);
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line p-3">
-      <label className="block text-sm">
+      <div className="text-sm">
         <span className="mb-1 block font-semibold text-ink">Upload a document</span>
-        <input
+        <FilePickerButton
           key={inputKey}
-          type="file"
-          className="min-h-11 text-sm sm:min-h-0"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          label="Choose file"
+          ariaLabel="File to upload"
+          onFile={(f) => setFile(f)}
         />
-      </label>
+      </div>
       <select
         className={selectClass}
         value={day}

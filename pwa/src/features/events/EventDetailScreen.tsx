@@ -13,7 +13,8 @@ import { LogoRow } from '@/components/branding/LogoRow';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
-import { savePacketToDrive, useGoogleConnection } from '@/lib/google';
+import { pickDriveFolder, savePacketToDrive, useGoogleConnection } from '@/lib/google';
+import { describeCallableError } from '@/lib/errors/callableError';
 import { slugify } from '@/lib/events/slug';
 import {
   generatePacket,
@@ -86,23 +87,40 @@ export function EventDetailScreen() {
 
   const connectionQuery = useGoogleConnection();
 
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
   const packet = useMutation({
     mutationFn: () => generatePacket(id!),
     onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
     onError: (err) => logger.error('Failed to generate packet', err),
   });
 
-  // Generate a fresh packet, then save it into the caller's Drive (Phase 13).
+  // Generate a fresh packet, then save it into the event's LINKED Drive folder (replacing the
+  // previous one). If this PM's Drive grant doesn't cover that folder yet, the server returns
+  // `no_folder_access`; we open the Picker so they select it once (granting access) and retry.
   const saveToDrive = useMutation({
     mutationFn: async () => {
       const { path } = await generatePacket(id!);
-      return savePacketToDrive(id!, path);
+      let res = await savePacketToDrive(id!, path);
+      if (!res.saved && res.reason === 'no_folder_access') {
+        const picked = await pickDriveFolder();
+        if (picked) res = await savePacketToDrive(id!, path);
+      }
+      return res;
     },
     onSuccess: (res) => {
-      if (res.saved && res.webViewLink)
-        window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
+      if (res.saved) {
+        setSaveMessage(null);
+        if (res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
+        void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
+      } else {
+        setSaveMessage(packetSaveMessage(res.reason, event?.driveFolderName ?? null));
+      }
     },
-    onError: (err) => logger.error('Failed to save packet to Drive', err),
+    onError: (err) => {
+      logger.error('Failed to save packet to Drive', err);
+      setSaveMessage(describeCallableError(err, 'Could not save the packet to Drive.'));
+    },
   });
 
   // Canonicalize the URL to the slug (upgrades id-based + just-created links).
@@ -140,7 +158,7 @@ export function EventDetailScreen() {
           packetPending={packet.isPending}
           packetError={packet.isError}
           saveToDrivePending={saveToDrive.isPending}
-          saveToDriveError={saveToDrive.isError}
+          saveMessage={saveMessage}
           onGeneratePacket={() => packet.mutate()}
           onSaveToDrive={() => saveToDrive.mutate()}
           onEdit={() => setEditing(true)}
@@ -187,6 +205,16 @@ export function EventDetailScreen() {
   );
 }
 
+/** User-facing message for a packet save that didn't complete. */
+function packetSaveMessage(reason: string | null | undefined, folderName: string | null): string {
+  if (reason === 'not_connected') return 'Connect Google in Settings to save packets to Drive.';
+  if (reason === 'no_folder_access') {
+    const where = folderName ? `“${folderName}”` : "the event's Drive folder";
+    return `Couldn't reach ${where} — select it in the picker to grant access, then Save again.`;
+  }
+  return 'Could not save the packet to Drive.';
+}
+
 interface EventDetailHeaderProps {
   event: EventRecord;
   eventId: string;
@@ -196,7 +224,7 @@ interface EventDetailHeaderProps {
   packetPending: boolean;
   packetError: boolean;
   saveToDrivePending: boolean;
-  saveToDriveError: boolean;
+  saveMessage: string | null;
   onGeneratePacket: () => void;
   onSaveToDrive: () => void;
   onEdit: () => void;
@@ -211,7 +239,7 @@ function EventDetailHeader({
   packetPending,
   packetError,
   saveToDrivePending,
-  saveToDriveError,
+  saveMessage,
   onGeneratePacket,
   onSaveToDrive,
   onEdit,
@@ -250,15 +278,27 @@ function EventDetailHeader({
           >
             Tracker
           </Link>
-          <button
-            type="button"
-            onClick={onGeneratePacket}
-            disabled={packetPending}
-            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-          >
-            {packetPending ? 'Generating…' : 'Generate packet'}
-          </button>
-          {hasDrive && (
+          {event.packetDrive?.webViewLink && (
+            <a
+              href={event.packetDrive.webViewLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+            >
+              View current packet
+            </a>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onGeneratePacket}
+              disabled={packetPending}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              {packetPending ? 'Generating…' : 'Generate packet'}
+            </button>
+          )}
+          {canEdit && hasDrive && (
             <button
               type="button"
               onClick={onSaveToDrive}
@@ -287,9 +327,7 @@ function EventDetailHeader({
       {packetError && (
         <p className="text-sm text-accent">Could not generate the packet. Try again.</p>
       )}
-      {saveToDriveError && (
-        <p className="text-sm text-accent">Could not save the packet to Drive.</p>
-      )}
+      {saveMessage && <p className="text-sm text-accent">{saveMessage}</p>}
     </header>
   );
 }

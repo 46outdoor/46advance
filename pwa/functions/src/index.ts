@@ -41,7 +41,7 @@ import {
   generatePacketInputSchema,
   generateQuotePdfInputSchema,
 } from './contracts/callables/pdf.js';
-import { OAUTH_SECRETS, disconnectGoogle } from './google.js';
+import { OAUTH_SECRETS, disconnectGoogle, assertCanEditEvent } from './google.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -99,6 +99,20 @@ const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
+
+/** The packet cover's "generated" stamp — date + time in the event's timezone (so a regenerated
+ *  packet is distinguishable at a glance), e.g. "Jul 24, 2026, 8:40 PM CDT". */
+function formatGeneratedStamp(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date());
+}
 // Event dates (date-only) render in the EVENT's timezone so the PDF shows the intended calendar
 // day regardless of the Cloud Functions server zone (F-6).
 const packetDateFmt = (timeZone: string): Intl.DateTimeFormat =>
@@ -875,6 +889,8 @@ export const generatePacket = onCall(
 
     const db = getFirestore();
     await enforceRateLimit(db, ['generatePacket', uid], 10);
+    // Generating a packet compiles the whole event; restrict to the event PM (or admin).
+    await assertCanEditEvent(db, token, uid, eventId);
     const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
     const ev = eventSnap.data() ?? {};
 
@@ -931,7 +947,7 @@ export const generatePacket = onCall(
       },
       stages,
       logos,
-      generatedAt: PACKET_DATE_FMT.format(new Date()),
+      generatedAt: formatGeneratedStamp(String(ev.timeZone ?? 'America/Chicago')),
     };
 
     let buffer = await renderPacket(data);

@@ -15,6 +15,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     shortCode: overrides.shortCode ?? null,
     driveFolderId: overrides.driveFolderId ?? null,
     driveFolderName: overrides.driveFolderName ?? null,
+    packetDrive: overrides.packetDrive ?? null,
     status: overrides.status ?? 'active',
     departmentIds: overrides.departmentIds ?? [],
     googleCalendarId: overrides.googleCalendarId ?? null,
