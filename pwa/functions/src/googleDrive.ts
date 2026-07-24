@@ -506,7 +506,11 @@ export const savePacketToDrive = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
-    const { eventId, path } = parseCallableData(savePacketToDriveInputSchema, request.data);
+    const { eventId, path, version } = parseCallableData(
+      savePacketToDriveInputSchema,
+      request.data,
+    );
+    const packetVersion = version && version > 0 ? version : 1;
     // Confine to this event's packets — no traversal to other events or objects.
     if (!path.startsWith(`events/${eventId}/packets/`) || path.includes('..')) {
       throw new HttpsError('invalid-argument', 'Invalid packet path.');
@@ -525,7 +529,7 @@ export const savePacketToDrive = onCall(
         'This event has no linked Drive folder — add one on the event, then save.',
       );
     }
-    const fileName = `${await packetBaseName(db, eventData)}.pdf`;
+    const fileName = `${await packetBaseName(db, eventData, packetVersion)}.pdf`;
 
     const fileRef = getStorage().bucket(STORAGE_BUCKET).file(path);
     const [exists] = await fileRef.exists();
@@ -598,9 +602,17 @@ export const savePacketToDrive = onCall(
       }
 
       if (fileId && webViewLink) {
-        await db
-          .doc(`events/${eventId}`)
-          .set({ packetDrive: { fileId, webViewLink, savedAt: Timestamp.now() } }, { merge: true });
+        await db.doc(`events/${eventId}`).set(
+          {
+            packetDrive: {
+              fileId,
+              webViewLink,
+              savedAt: Timestamp.now(),
+              version: packetVersion,
+            },
+          },
+          { merge: true },
+        );
       }
       return { saved: true, webViewLink, fileId: fileId || null };
     } catch (e) {

@@ -7,6 +7,9 @@ import { z } from 'zod';
 
 export const generatePacketInputSchema = z.object({
   eventId: z.string().min(1),
+  /** 1-based packet version for the cover + `{version}` filename token; defaults to the event's
+   *  current version (or 1). The save flow passes the chosen replace/bump version. */
+  version: z.number().int().min(1).optional(),
 });
 export type GeneratePacketInput = z.infer<typeof generatePacketInputSchema>;
 

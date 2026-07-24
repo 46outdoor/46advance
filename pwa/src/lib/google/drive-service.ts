@@ -50,10 +50,18 @@ export interface SavePacketResult {
   webViewLink?: string | null;
 }
 
-/** Copy an already-generated packet (Storage `path`) into the caller's Drive. */
-export async function savePacketToDrive(eventId: string, path: string): Promise<SavePacketResult> {
+/**
+ * Copy an already-generated packet (Storage `path`) into the caller's Drive. `version` names the
+ * packet copy (`{version}` token) and is recorded on `event.packetDrive`; omit it to keep the
+ * event's current version (server defaults to 1).
+ */
+export async function savePacketToDrive(
+  eventId: string,
+  path: string,
+  version?: number,
+): Promise<SavePacketResult> {
   const callable = httpsCallable<SavePacketToDriveInput, SavePacketToDriveOutput>(functions, 'savePacketToDrive');
-  return (await callable({ eventId, path })).data;
+  return (await callable({ eventId, path, version })).data;
 }
 
 /**

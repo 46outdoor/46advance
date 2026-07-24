@@ -26,6 +26,9 @@ export type DriveOkOutput = z.infer<typeof driveOkOutputSchema>;
 export const savePacketToDriveInputSchema = z.object({
   eventId: z.string().min(1),
   path: z.string().min(1),
+  /** 1-based version to save as (matches the version the packet was generated with); the client
+   *  passes the chosen replace/bump version. Defaults to 1. */
+  version: z.number().int().min(1).optional(),
 });
 export type SavePacketToDriveInput = z.infer<typeof savePacketToDriveInputSchema>;
 export const savePacketToDriveOutputSchema = z.object({

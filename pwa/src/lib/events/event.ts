@@ -38,7 +38,7 @@ export interface EventRecord {
   driveFolderName: string | null;
   /** The current packet saved into the linked Drive folder (server-written on Save to Drive);
    *  null until one is saved. Powers the "View current packet" link. */
-  packetDrive: { fileId: string; webViewLink: string; savedAt: Date | null } | null;
+  packetDrive: { fileId: string; webViewLink: string; savedAt: Date | null; version: number } | null;
   status: EventStatus;
   /** Enabled departments (ids) — drive the advance's sections. */
   departmentIds: string[];
@@ -77,6 +77,7 @@ const eventDocSchema = z.object({
       fileId: z.string(),
       webViewLink: z.string(),
       savedAt: z.instanceof(Timestamp).nullable().optional(),
+      version: z.number().optional(),
     })
     .nullable()
     .optional(),
@@ -113,6 +114,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
           fileId: doc.packetDrive.fileId,
           webViewLink: doc.packetDrive.webViewLink,
           savedAt: timestampToDate(doc.packetDrive.savedAt ?? null),
+          version: doc.packetDrive.version ?? 1,
         }
       : null,
     status: doc.status,

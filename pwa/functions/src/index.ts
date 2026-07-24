@@ -902,7 +902,7 @@ export const generatePacket = onCall(
       throw new HttpsError('unauthenticated', 'Sign in required.');
     }
     const { uid, token } = request.auth;
-    const { eventId } = parseCallableData(generatePacketInputSchema, request.data);
+    const { eventId, version } = parseCallableData(generatePacketInputSchema, request.data);
 
     const db = getFirestore();
     await enforceRateLimit(db, ['generatePacket', uid], 10);
@@ -910,6 +910,12 @@ export const generatePacket = onCall(
     await assertCanEditEvent(db, token, uid, eventId);
     const eventSnap = await loadAuthorizedEvent(db, eventId, uid, token);
     const ev = eventSnap.data() ?? {};
+    // The save flow passes the chosen (replace/bump) version; a plain view matches the current one.
+    const currentVersion =
+      typeof ev.packetDrive?.version === 'number' && ev.packetDrive.version > 0
+        ? ev.packetDrive.version
+        : 1;
+    const packetVersion = version ?? currentVersion;
 
     const deptSnap = await db.collection('departments').get();
     const deptName = new Map(deptSnap.docs.map((d) => [d.id, (d.data().name as string) ?? d.id]));
@@ -965,6 +971,7 @@ export const generatePacket = onCall(
       stages,
       logos,
       generatedAt: formatGeneratedStamp(String(ev.timeZone ?? 'America/Chicago')),
+      version: packetVersion,
     };
 
     let buffer = await renderPacket(data);
@@ -980,7 +987,7 @@ export const generatePacket = onCall(
     // Name the object by the admin-configured convention so downloads land with a meaningful
     // filename; the timestamp subfolder keeps each generation unique. The client treats `path`
     // as opaque (getDownloadURL + savePacketToDrive), so the nested path is transparent.
-    const base = await packetBaseName(db, ev);
+    const base = await packetBaseName(db, ev, packetVersion);
     const path = `events/${eventId}/packets/${Date.now()}/${base}.pdf`;
     await getStorage()
       .bucket(STORAGE_BUCKET)
