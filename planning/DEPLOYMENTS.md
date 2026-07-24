@@ -91,6 +91,8 @@ not full XSS protection; tightening to nonce/hash-based inline scripts is a sepa
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-24 | Festivals managed entity (name + logo): `festivals/{id}` rule | `f3f1ebd` #191 | FIRESTORE RULES | deployed as owner; compiled + released clean (member read / admin write) |
+| 2026-07-24 | Events reference a festival + location; create callables persist them; packet logo resolves the festival's mark | `f3f1ebd` #192 | FUNCTIONS | deployed as owner; deploy complete. Client (Festivals admin + event form) awaits the Hosting deploy |
 | 2026-07-24 | Packets save into the event's linked Drive folder (user token, replace-existing), PM-only generate/save, cover date+time, `packetDrive` on the event | `e12f605` #188 | FUNCTIONS | deployed as owner; verified `savePacketToDrive` on OAUTH secrets (user-token path) + `generatePacket` fresh. Client (buttons/gating) awaits the Hosting deploy |
 | 2026-07-24 | Drop the RESTRICTED `drive.metadata.readonly` scope: `importDriveFolder` now enumerates the configured library root via the docs-broker SA | `479244f` #186 | FUNCTIONS | deployed as owner; verified `importDriveFolder` secrets now `DRIVE_SA_KEY` (was OAUTH); `cspReport` re-verified reachable at the `report-uri` host |
 | 2026-07-24 | Quick-wins client release + CSP `report-uri` header (reporting now active) | `d6c60c5` #178 #179 #180 #181 | HOSTING | deployed (run 30055170800); CSP report-only + `report-uri …/cspReport` verified live on `advancethat.web.app` and `46advance.com` |
