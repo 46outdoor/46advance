@@ -85,6 +85,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // App-wide festival list (name + logo): any approved user reads; admin manages.
+    match /festivals/{festivalId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     // App-wide document category list: any approved user reads; admin manages.
     match /documentCategories/{categoryId} {
       allow read: if isActiveUser();

@@ -20,6 +20,7 @@ import {
   setUserOrganizer,
 } from './admin-service';
 import { DepartmentsAdmin } from './DepartmentsAdmin';
+import { FestivalsAdmin } from './FestivalsAdmin';
 import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
 import { PacketNamingAdmin } from './PacketNamingAdmin';
@@ -363,6 +364,8 @@ export function AdminScreen() {
       </div>
 
       <DepartmentsAdmin />
+
+      <FestivalsAdmin />
 
       <DocumentCategoriesAdmin />
 
