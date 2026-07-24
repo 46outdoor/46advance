@@ -6,6 +6,7 @@
  */
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import { createElement } from 'react';
+import { FRAME_MARK_DATA_URI } from './assets/frameMark.js';
 
 const BRAND = '#0a0a0a';
 const ACCENT = '#f04040';
@@ -56,10 +57,10 @@ export interface PacketData {
     links: { label: string; url: string }[];
   };
   stages: PacketStage[];
-  /** Branding logos pre-resolved to data URIs: the show mark (the event's festival logo or a
-   *  per-event override — rendered on the cover) and the shared 46 company marks (the small mark
-   *  in the interior page frame). */
-  logos: { eventLogo: PacketLogo | null; markLogos: PacketLogo[] };
+  /** The show mark pre-resolved to a data URI: the event's festival logo or a per-event override,
+   *  rendered on the cover. (The interior frame's 46 mark is bundled house chrome — see
+   *  FRAME_MARK_DATA_URI — not carried here.) */
+  logos: { eventLogo: PacketLogo | null };
   /** Full-bleed cover background as a data URI (the 46 brand cover; a per-festival override is a
    *  planned extension). Null falls back to the built-in dark cover. */
   coverImageDataUri: string | null;
@@ -130,15 +131,15 @@ const s = StyleSheet.create({
   // White pad + mark that straddles the bottom border, so the 46 mark "breaks" the frame.
   frameMarkWrap: {
     position: 'absolute',
-    bottom: FRAME_INSET - 11,
+    bottom: FRAME_INSET - 13, // center the 26pt mark on the bottom border line
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  frameMarkPad: { backgroundColor: '#fff', paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  frameMarkImg: { height: 22, width: 46, objectFit: 'contain' },
-  frameMarkText: { fontSize: 16, fontWeight: 'bold', color: BRAND, letterSpacing: 1 },
+  frameMarkPad: { backgroundColor: '#fff', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  // The compact "46/" mark is ~1:1 — keep the slot near-square so it isn't letterboxed.
+  frameMarkImg: { height: 26, width: 28, objectFit: 'contain' },
   // ---- Interior header / footer ----
   header: {
     flexDirection: 'row',
@@ -177,14 +178,6 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
   );
 }
 
-/** First resolved company mark (for the interior frame's 46 mark), or null. */
-function firstMarkUri(data: PacketData): string | null {
-  for (const l of data.logos.markLogos) {
-    if (l.headerDataUri) return l.headerDataUri;
-  }
-  return null;
-}
-
 /** Running header (fixed on every content page): event title + meta, with the page number at right. */
 function PageHeader({ data }: { data: PacketData }) {
   const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join(' · ');
@@ -204,11 +197,9 @@ function PageHeader({ data }: { data: PacketData }) {
 
 /**
  * Interior page frame (fixed on every content page): the thin red border inset from the page edge,
- * with the 46 mark centered breaking the bottom edge. Reconstructed in vector; the mark uses the
- * resolved 46 company mark when available, else a text fallback.
+ * with the bundled 46 mark centered breaking the bottom edge. Reconstructed in vector.
  */
-function PageFrame({ data }: { data: PacketData }) {
-  const mark = firstMarkUri(data);
+function PageFrame() {
   return createElement(View, { style: s.frameRoot, fixed: true }, [
     createElement(View, { style: s.frameBorder, key: 'b' }),
     createElement(
@@ -217,9 +208,7 @@ function PageFrame({ data }: { data: PacketData }) {
       createElement(
         View,
         { style: s.frameMarkPad },
-        mark
-          ? createElement(Image, { src: mark, style: s.frameMarkImg })
-          : createElement(Text, { style: s.frameMarkText }, '46 /'),
+        createElement(Image, { src: FRAME_MARK_DATA_URI, style: s.frameMarkImg }),
       ),
     ),
   ]);
@@ -259,7 +248,7 @@ function buildPacketDocument(data: PacketData) {
   // Event production page.
   const ep = data.eventProduction;
   const eventProductionPage = createElement(Page, { size: 'LETTER', style: s.page, key: 'ep' }, [
-    createElement(PageFrame, { data, key: 'f' }),
+    createElement(PageFrame, { key: 'f' }),
     createElement(PageHeader, { data, key: 'h' }),
     createElement(Text, { style: s.h1, key: 'h1' }, 'Festival production'),
     createElement(Text, { style: s.h2, key: 'i' }, 'Site / production info'),
@@ -291,7 +280,7 @@ function buildPacketDocument(data: PacketData) {
   // One page per stage.
   const stagePages = data.stages.map((stage, si) =>
     createElement(Page, { size: 'LETTER', style: s.page, key: `stage-${si}` }, [
-      createElement(PageFrame, { data, key: 'f' }),
+      createElement(PageFrame, { key: 'f' }),
       createElement(PageHeader, { data, key: 'h' }),
       createElement(Text, { style: s.h1, key: 'h1' }, `Stage: ${stage.name}`),
       createElement(Text, { style: s.h2, key: 'ph' }, 'Production (house package)'),

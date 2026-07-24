@@ -757,9 +757,6 @@ interface LogoRef {
   onLight: LogoImageRef | null;
 }
 
-/** The max number of marks rendered in the packet logo row (matches the client). */
-const MAX_PACKET_LOGOS = 3;
-
 /** The largest logo image we'll embed; anything bigger is skipped (keeps the PDF small). */
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
@@ -842,26 +839,16 @@ function resolvePacketCover(_ev: DocumentData): string {
 async function resolvePacketLogos(
   db: Firestore,
   ev: DocumentData,
-): Promise<{ eventLogo: PacketLogo | null; markLogos: PacketLogo[] }> {
-  const brandingSnap = await db.doc('config/branding').get();
-  const defaults = asArray(brandingSnap.exists ? (brandingSnap.data()?.defaultLogos ?? []) : []);
-  const cache = new Map<string, string | null>();
-  const resolve = async (logo: LogoRef): Promise<PacketLogo> => {
-    // Cover festival mark + interior frame mark both sit on white → the onLight variant.
-    const header = variantForBackground(logo, 'light');
-    return { headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null };
-  };
-
-  // Show mark = the per-event override if set, else the picked festival's logo.
+): Promise<{ eventLogo: PacketLogo | null }> {
+  // Show mark (cover) = the per-event override if set, else the picked festival's logo. It sits on
+  // the cover's white area → the onLight variant. (The interior frame's 46 mark is bundled house
+  // chrome, so the packet no longer reads config/branding here.)
   const showLogoRaw = ev.eventLogo ?? (await festivalLogoRaw(db, ev.festivalId));
   const eventRef = parseLogoRef(showLogoRaw);
-  const eventLogo = eventRef ? await resolve(eventRef) : null;
-  const markRefs = defaults
-    .map(parseLogoRef)
-    .filter((l): l is LogoRef => l !== null)
-    .slice(0, MAX_PACKET_LOGOS - (eventLogo ? 1 : 0));
-  const markLogos = await Promise.all(markRefs.map(resolve));
-  return { eventLogo, markLogos };
+  if (!eventRef) return { eventLogo: null };
+  const header = variantForBackground(eventRef, 'light');
+  const headerDataUri = header ? await loadLogoDataUri(header.path, new Map()) : null;
+  return { eventLogo: { headerDataUri } };
 }
 
 /**
