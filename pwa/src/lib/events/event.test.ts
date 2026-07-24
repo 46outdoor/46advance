@@ -36,6 +36,22 @@ describe('parseEvent', () => {
     expect(() => parseEvent('x', { name: 'X', status: 'live', createdBy: 'a' })).toThrow();
   });
 
+  it('defaults packetDrive to null, and parses it when present', () => {
+    expect(parseEvent('x', { name: 'X', status: 'active', createdBy: 'a' }).packetDrive).toBeNull();
+    const saved = Timestamp.fromDate(new Date('2026-07-24T20:40:00Z'));
+    const e = parseEvent('evt-3', {
+      name: 'RTC',
+      status: 'active',
+      createdBy: 'admin-1',
+      packetDrive: { fileId: 'file-1', webViewLink: 'https://drive/x', savedAt: saved },
+    });
+    expect(e.packetDrive).toEqual({
+      fileId: 'file-1',
+      webViewLink: 'https://drive/x',
+      savedAt: saved.toDate(),
+    });
+  });
+
   it('uses an explicit timezone when set', () => {
     const e = parseEvent('x', { name: 'X', status: 'active', createdBy: 'a', timeZone: 'America/Los_Angeles' });
     expect(e.timeZone).toBe('America/Los_Angeles');

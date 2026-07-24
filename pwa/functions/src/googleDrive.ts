@@ -16,7 +16,6 @@
 import { Readable } from 'node:stream';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -55,25 +54,10 @@ import {
 } from './contracts/callables/googleDrive.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
-const APP_FOLDER = '46 Advance';
 const FILE_FIELDS = 'id,name,mimeType,webViewLink,iconLink';
 
 function advancePath(eventId: string, stageId: string, advanceId: string): string {
   return `events/${eventId}/stages/${stageId}/advances/${advanceId}`;
-}
-
-/** Read-level gate (member or admin), mirroring firestore.rules `isMember` — including the
- *  `approved` account requirement, since the Admin SDK bypasses rules. */
-async function assertEventMember(
-  db: Firestore,
-  token: DecodedIdToken,
-  uid: string,
-  eventId: string,
-): Promise<void> {
-  await assertActiveUser({ uid, token });
-  if (token.admin === true) return;
-  const member = await db.doc(`events/${eventId}/members/${uid}`).get();
-  if (!member.exists) throw new HttpsError('permission-denied', 'Not a member of this event.');
 }
 
 export const DRIVE_SA_KEY = defineSecret('DRIVE_SA_KEY');
@@ -501,39 +485,20 @@ export const validateLibraryFolder = onCall(
   },
 );
 
-/** Find-or-create an app-owned Drive folder. `drive.file` lists only files the app created,
- *  so this reliably reuses our own folder rather than colliding with the user's. */
-async function ensureFolder(
-  drive: drive_v3.Drive,
-  name: string,
-  parentId: string | null,
-): Promise<string> {
-  const safe = name.replace(/['\\]/g, '\\$&');
-  const parentClause = parentId ? ` and '${parentId}' in parents` : '';
-  const list = await drive.files.list({
-    q: `mimeType = 'application/vnd.google-apps.folder' and name = '${safe}' and trashed = false${parentClause}`,
-    fields: 'files(id)',
-    spaces: 'drive',
-    pageSize: 1,
-  });
-  const found = list.data.files?.[0]?.id;
-  if (found) return found;
-  const created = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: parentId ? [parentId] : undefined,
-    },
-    fields: 'id',
-  });
-  if (!created.data.id) throw new HttpsError('internal', 'Could not create the Drive folder.');
-  return created.data.id;
+/** A 403/404 from Drive under `drive.file` means this user's grant doesn't cover the folder. */
+function isDriveAccessError(e: unknown): boolean {
+  const err = e as { code?: number | string; status?: number; response?: { status?: number } };
+  const code = Number(err?.code ?? err?.status ?? err?.response?.status);
+  return code === 403 || code === 404;
 }
 
 /**
- * Copy an already-generated packet (Storage) into the caller's Drive under
- * `46 Advance / {event name}`. Member-gated (anyone who can view the event may save their own
- * copy). Graceful `{ saved: false, reason: 'not_connected' }` when Google isn't connected.
+ * Save the event's generated packet into its LINKED Drive folder, replacing the previous one so the
+ * file id + link stay stable. PM-gated (admin or the event production manager). Runs on the caller's
+ * own Drive token — the docs-broker service account has no Drive storage and can't own files in My
+ * Drive — so the folder must have been linked/picked in-app by this PM. When their grant doesn't
+ * cover it yet, we return `{ saved: false, reason: 'no_folder_access' }` and the client re-grants via
+ * the Picker, then retries. On success we record the packet on the event for a "view current" link.
  * Input: { eventId, path } — `path` is the Storage path returned by generatePacket.
  */
 export const savePacketToDrive = onCall(
@@ -548,12 +513,19 @@ export const savePacketToDrive = onCall(
     }
     const db = getFirestore();
     await enforceRateLimit(db, ['savePacketToDrive', uid], 10);
-    await assertEventMember(db, token, uid, eventId);
+    await assertCanEditEvent(db, token, uid, eventId);
 
     const eventSnap = await db.doc(`events/${eventId}`).get();
     if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-    const eventName = String(eventSnap.data()?.name ?? 'Event');
-    const packetName = await packetBaseName(db, eventSnap.data() ?? {});
+    const eventData = eventSnap.data() ?? {};
+    const folderId = typeof eventData.driveFolderId === 'string' ? eventData.driveFolderId : '';
+    if (!folderId) {
+      throw new HttpsError(
+        'failed-precondition',
+        'This event has no linked Drive folder — add one on the event, then save.',
+      );
+    }
+    const fileName = `${await packetBaseName(db, eventData)}.pdf`;
 
     const fileRef = getStorage().bucket(STORAGE_BUCKET).file(path);
     const [exists] = await fileRef.exists();
@@ -565,29 +537,77 @@ export const savePacketToDrive = onCall(
     } catch {
       return { saved: false, reason: 'not_connected' };
     }
-    const [buffer] = await fileRef.download();
     const drive = google.drive({ version: 'v3', auth: client });
-    const root = await ensureFolder(drive, APP_FOLDER, null);
-    const eventFolder = await ensureFolder(drive, eventName, root);
+    const [buffer] = await fileRef.download();
 
-    // A fresh Readable per attempt (a stream can't be re-consumed) so a transient failure can retry.
-    const created = await withGoogleRetry(
-      () =>
-        drive.files.create({
-          requestBody: {
-            name: `${packetName}.pdf`,
-            parents: [eventFolder],
-          },
-          media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
-          fields: 'id,webViewLink',
-        }),
-      { label: 'drive.files.create' },
-    );
-    return {
-      saved: true,
-      webViewLink: created.data.webViewLink ?? null,
-      fileId: created.data.id ?? null,
-    };
+    // Look for an existing packet of the same name to replace. Under `drive.file` an empty result
+    // can also mean the folder isn't in this user's grant yet — the create below then 404s.
+    const escaped = fileName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    let existing: string[] = [];
+    try {
+      const list = await withGoogleRetry(
+        () =>
+          drive.files.list({
+            q: `'${folderId}' in parents and name = '${escaped}' and trashed = false`,
+            fields: 'files(id)',
+            pageSize: 10,
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          }),
+        { label: 'drive.files.list(packet)' },
+      );
+      existing = (list.data.files ?? []).map((f) => f.id).filter((x): x is string => Boolean(x));
+    } catch {
+      existing = [];
+    }
+
+    try {
+      let fileId = '';
+      let webViewLink: string | null = null;
+      if (existing.length > 0) {
+        const [keep, ...dupes] = existing;
+        const updated = await withGoogleRetry(
+          () =>
+            drive.files.update({
+              fileId: keep,
+              media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
+              fields: 'id,webViewLink',
+              supportsAllDrives: true,
+            }),
+          { label: 'drive.files.update(packet)' },
+        );
+        fileId = updated.data.id ?? keep;
+        webViewLink = updated.data.webViewLink ?? null;
+        // Collapse any stray duplicates so exactly one current packet remains.
+        for (const d of dupes) {
+          await drive.files.delete({ fileId: d, supportsAllDrives: true }).catch(() => undefined);
+        }
+      } else {
+        const created = await withGoogleRetry(
+          () =>
+            drive.files.create({
+              requestBody: { name: fileName, parents: [folderId] },
+              media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
+              fields: 'id,webViewLink',
+              supportsAllDrives: true,
+            }),
+          { label: 'drive.files.create(packet)' },
+        );
+        fileId = created.data.id ?? '';
+        webViewLink = created.data.webViewLink ?? null;
+      }
+
+      if (fileId && webViewLink) {
+        await db
+          .doc(`events/${eventId}`)
+          .set({ packetDrive: { fileId, webViewLink, savedAt: Timestamp.now() } }, { merge: true });
+      }
+      return { saved: true, webViewLink, fileId: fileId || null };
+    } catch (e) {
+      if (isDriveAccessError(e)) return { saved: false, reason: 'no_folder_access' };
+      logger.error('Packet save to Drive failed', { error: String(e) });
+      throw new HttpsError('internal', 'Could not save the packet to Drive.');
+    }
   },
 );
 
