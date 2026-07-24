@@ -91,6 +91,7 @@ not full XSS protection; tightening to nonce/hash-based inline scripts is a sepa
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-24 | Packet cover + page-framing redesign (46 house design: full-bleed brand cover + festival logo + event identity; vector red frame + 46 mark on every page). Bundled default cover asset; per-festival cover override wired as an extension point | `3ee2c72` #196 | FUNCTIONS | deployed as owner (`generatePacket` only); deploy complete. Server-side render is live |
 | 2026-07-24 | Packet filename tokens (`{festival}`/`{location}`/`{version}`, mm-dd-yy `{date}`, editable `{type}` label) + packet versioning (cover version, `{version}` token, `packetDrive.version`; save replace/bump) | `aed2ee4` #194 | FUNCTIONS | deployed as owner; deploy complete (`generatePacket` + `savePacketToDrive` updated). Client (admin token editor + replace/bump prompt) awaits the Hosting deploy |
 | 2026-07-24 | Festivals managed entity (name + logo): `festivals/{id}` rule | `f3f1ebd` #191 | FIRESTORE RULES | deployed as owner; compiled + released clean (member read / admin write) |
 | 2026-07-24 | Events reference a festival + location; create callables persist them; packet logo resolves the festival's mark | `f3f1ebd` #192 | FUNCTIONS | deployed as owner; deploy complete. Client (Festivals admin + event form) awaits the Hosting deploy |
