@@ -15,6 +15,8 @@ export const createEventFromTemplateInputSchema = z.object({
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
   shortCode: z.string().nullable().optional(),
+  festivalId: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
   slug: z.string().nullable(),
 });
 export type CreateEventFromTemplateInput = z.infer<typeof createEventFromTemplateInputSchema>;
@@ -37,6 +39,8 @@ export const createBlankEventInputSchema = z.object({
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
   shortCode: z.string().nullable().optional(),
+  festivalId: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
   driveFolderId: z.string().nullable().optional(),
   driveFolderName: z.string().nullable().optional(),
   departmentIds: z.array(z.string()).optional(),

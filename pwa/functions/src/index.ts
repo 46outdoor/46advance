@@ -474,6 +474,8 @@ interface NewEventInput {
   timeZone: string;
   venue: string | null;
   shortCode: string | null;
+  festivalId: string | null;
+  location: string | null;
   slug: string | null;
 }
 
@@ -490,6 +492,8 @@ function parseNewEventInput(data: unknown): NewEventInput {
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: trimmedOrNull(input.venue),
     shortCode: trimmedOrNull(input.shortCode),
+    festivalId: trimmedOrNull(input.festivalId),
+    location: trimmedOrNull(input.location),
     slug: trimmedOrNull(input.slug),
   };
 }
@@ -616,6 +620,8 @@ export const createEventFromTemplate = onCall(async (request) => {
     timeZone: input.timeZone,
     venue: input.venue,
     shortCode: input.shortCode,
+    festivalId: input.festivalId ?? null,
+    location: input.location ?? null,
     status: 'draft',
     departmentIds: asArray(tpl.departmentIds),
     slug,
@@ -692,6 +698,8 @@ export const createBlankEvent = onCall(async (request) => {
       timeZone: input.timeZone ?? 'America/Chicago',
       venue: trimmedOrNull(input.venue),
       shortCode: trimmedOrNull(input.shortCode),
+      festivalId: input.festivalId ?? null,
+      location: trimmedOrNull(input.location),
       driveFolderId: input.driveFolderId ?? null,
       driveFolderName: input.driveFolderName ?? null,
       status: input.status ?? 'draft',
@@ -814,6 +822,13 @@ async function loadLogoDataUri(
  * variant and capping at 3. Each kept logo is resolved to cover (onDark→onLight) and header
  * (onLight→onDark) data URIs. Distinct Storage paths are downloaded once. Never throws.
  */
+/** The raw stored logo of an event's festival (for the auto-applied show mark), or null. */
+async function festivalLogoRaw(db: Firestore, festivalId: unknown): Promise<unknown> {
+  if (typeof festivalId !== 'string' || !festivalId) return null;
+  const snap = await db.doc(`festivals/${festivalId}`).get();
+  return snap.exists ? (snap.data()?.logo ?? null) : null;
+}
+
 async function resolvePacketLogos(
   db: Firestore,
   ev: DocumentData,
@@ -830,7 +845,9 @@ async function resolvePacketLogos(
     };
   };
 
-  const eventRef = parseLogoRef(ev.eventLogo);
+  // Show mark = the per-event override if set, else the picked festival's logo.
+  const showLogoRaw = ev.eventLogo ?? (await festivalLogoRaw(db, ev.festivalId));
+  const eventRef = parseLogoRef(showLogoRaw);
   const eventLogo = eventRef ? await resolve(eventRef) : null;
   const markRefs = defaults
     .map(parseLogoRef)

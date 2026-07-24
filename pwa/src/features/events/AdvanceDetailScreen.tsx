@@ -19,6 +19,8 @@ import type { SectionContent } from '@/lib/advances/fields';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import type { Logo } from '@/lib/branding/logo';
 import { brandingKey, getBranding } from '@/lib/branding/branding-service';
+import { resolveShowLogo, type FestivalRecord } from '@/lib/festivals/festival';
+import { festivalsKey, listFestivals } from '@/lib/festivals/festivals-service';
 import { LogoRow } from '@/components/branding/LogoRow';
 import { listDepartments } from '@/lib/departments/departments-service';
 import {
@@ -43,11 +45,16 @@ const logger = createLogger('Advances');
 function advanceDetailDerived(
   event: EventRecord | null | undefined,
   branding: { defaultLogos: Logo[] } | undefined,
+  festivals: readonly FestivalRecord[],
 ) {
   return {
     timeZone: event?.timeZone ?? APP_TIME_ZONE,
     enabledIds: new Set(event?.departmentIds ?? []),
-    parentEventLogo: event?.eventLogo ?? null,
+    parentEventLogo: resolveShowLogo(
+      event?.eventLogo ?? null,
+      event?.festivalId ?? null,
+      festivals,
+    ),
     defaultLogos: branding?.defaultLogos ?? [],
   };
 }
@@ -78,6 +85,7 @@ export function AdvanceDetailScreen() {
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
 
   const brandingQuery = useQuery({ queryKey: brandingKey(), queryFn: getBranding });
+  const festivalsQuery = useQuery({ queryKey: festivalsKey(), queryFn: listFestivals });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['advances', eventId, stageId] });
@@ -136,6 +144,7 @@ export function AdvanceDetailScreen() {
   const { timeZone, enabledIds, parentEventLogo, defaultLogos } = advanceDetailDerived(
     eventQuery.data,
     brandingQuery.data,
+    festivalsQuery.data ?? [],
   );
   const sectionRows = departments.filter((d) => enabledIds.has(d.id));
 

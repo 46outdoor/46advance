@@ -28,6 +28,12 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Uploads — file button:** the document-upload control (artist library and event documents) is now
   a styled **Choose file** button that shows the selected filename, instead of the browser's default
   grey file input.
+- **Events — festivals + auto-composed name:** an event now belongs to a **festival** (managed in
+  **Admin → Festivals**, each with its own logo) and carries a **Location** (city). The event **name**
+  is auto-built as "Festival Year — Location" (e.g. "Rock the Country 2026 — Ashland") from those parts
+  instead of typed by hand, and the event's **logo comes from its festival** automatically — still
+  overridable per event — alongside the company default marks, so a festival's mark is set once instead
+  of re-uploaded per show. Existing events keep their current name + logo until you re-edit them.
 
 ## 2026-07-23
 
