@@ -184,11 +184,12 @@ export interface GeneratedPacket {
 /**
  * Generate a 46-branded full-event PDF packet (server-side render). The callable
  * uploads to `events/{id}/packets/{ts}.pdf` and returns its Storage path; we resolve
- * a member-gated download URL alongside it.
+ * a member-gated download URL alongside it. `version` sets the version tag on the cover +
+ * filename; omit it to match the event's current saved version (server defaults to 1).
  */
-export async function generatePacket(eventId: string): Promise<GeneratedPacket> {
+export async function generatePacket(eventId: string, version?: number): Promise<GeneratedPacket> {
   const callable = httpsCallable<GeneratePacketInput, PdfPathOutput>(functions, 'generatePacket');
-  const { path } = (await callable({ eventId })).data;
+  const { path } = (await callable({ eventId, version })).data;
   const url = await getDownloadURL(ref(storage, path));
   return { url, path };
 }

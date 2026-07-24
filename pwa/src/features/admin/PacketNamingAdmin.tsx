@@ -1,39 +1,51 @@
 /**
- * Admin: the packet filename convention (`config/packets.filenamePattern`). The server fills
- * the tokens + sanitizes when generating a packet or saving one to Drive. Follows the
- * DocumentLibraryAdmin pattern: local draft, explicit save.
+ * Admin: the packet config (`config/packets`) — the filename convention (`filenamePattern`) and the
+ * `{type}` label (`typeLabel`). The server fills the tokens + sanitizes when generating a packet or
+ * saving one to Drive. Follows the DocumentLibraryAdmin pattern: local draft, explicit save.
  */
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import {
   DEFAULT_PACKET_FILENAME_PATTERN,
+  DEFAULT_PACKET_TYPE_LABEL,
   PACKET_FILENAME_TOKENS,
-  getPacketFilenamePattern,
+  getPacketConfig,
   packetConfigKey,
-  setPacketFilenamePattern,
+  setPacketConfig,
 } from '@/lib/packets/packet-config-service';
 
 const logger = createLogger('PacketNaming');
 
 export function PacketNamingAdmin() {
   const queryClient = useQueryClient();
-  const patternQuery = useQuery({ queryKey: packetConfigKey(), queryFn: getPacketFilenamePattern });
+  const configQuery = useQuery({ queryKey: packetConfigKey(), queryFn: getPacketConfig });
   const [pattern, setPattern] = useState('');
+  const [typeLabel, setTypeLabel] = useState('');
 
   // Hydrate the local draft once the config loads (and on refetch).
   useEffect(() => {
-    if (patternQuery.data !== undefined) setPattern(patternQuery.data);
-  }, [patternQuery.data]);
+    if (configQuery.data) {
+      setPattern(configQuery.data.filenamePattern);
+      setTypeLabel(configQuery.data.typeLabel);
+    }
+  }, [configQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => setPacketFilenamePattern(pattern.trim() || DEFAULT_PACKET_FILENAME_PATTERN),
+    mutationFn: () =>
+      setPacketConfig({
+        filenamePattern: pattern.trim() || DEFAULT_PACKET_FILENAME_PATTERN,
+        typeLabel: typeLabel.trim() || DEFAULT_PACKET_TYPE_LABEL,
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: packetConfigKey() }),
-    onError: (err) => logger.error('Failed to save packet filename pattern', err),
+    onError: (err) => logger.error('Failed to save packet config', err),
   });
 
-  const effective = pattern.trim() || DEFAULT_PACKET_FILENAME_PATTERN;
-  const dirty = effective !== (patternQuery.data ?? DEFAULT_PACKET_FILENAME_PATTERN);
+  const effectivePattern = pattern.trim() || DEFAULT_PACKET_FILENAME_PATTERN;
+  const effectiveType = typeLabel.trim() || DEFAULT_PACKET_TYPE_LABEL;
+  const dirty =
+    effectivePattern !== (configQuery.data?.filenamePattern ?? DEFAULT_PACKET_FILENAME_PATTERN) ||
+    effectiveType !== (configQuery.data?.typeLabel ?? DEFAULT_PACKET_TYPE_LABEL);
 
   return (
     <div className="space-y-4">
@@ -64,9 +76,26 @@ export function PacketNamingAdmin() {
       </dl>
       <p className="text-xs text-ink-muted">
         Default <span className="font-mono">{DEFAULT_PACKET_FILENAME_PATTERN}</span> →{' '}
-        <span className="font-mono">BOTB Summerfest 2026 — Advance Packet.pdf</span>. A blank short
-        code drops cleanly; characters a filename can&rsquo;t contain are stripped.
+        <span className="font-mono">BOTB 07-10-26 v1 — {DEFAULT_PACKET_TYPE_LABEL}.pdf</span> (the
+        version starts at v1 and bumps when you save a new version). Blank tokens drop cleanly;
+        characters a filename can&rsquo;t contain are stripped.
       </p>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Packet type label</span>
+        <input
+          className="min-h-11 w-full max-w-xl rounded border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand sm:min-h-0"
+          value={typeLabel}
+          placeholder={DEFAULT_PACKET_TYPE_LABEL}
+          onChange={(e) => {
+            save.reset();
+            setTypeLabel(e.target.value);
+          }}
+        />
+        <span className="mt-1 block text-xs text-ink-muted">
+          Fills the <span className="font-mono">{'{type}'}</span> token. This is the label for the
+          full packet; department-specific packets will get their own labels later.
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -74,18 +103,19 @@ export function PacketNamingAdmin() {
           onClick={() => save.mutate()}
           className="inline-flex min-h-11 items-center rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:min-h-0"
         >
-          {save.isPending ? 'Saving…' : 'Save pattern'}
+          {save.isPending ? 'Saving…' : 'Save'}
         </button>
-        {pattern.trim() && pattern.trim() !== DEFAULT_PACKET_FILENAME_PATTERN && (
+        {dirty && (
           <button
             type="button"
             className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent sm:min-h-0"
             onClick={() => {
               save.reset();
               setPattern(DEFAULT_PACKET_FILENAME_PATTERN);
+              setTypeLabel(DEFAULT_PACKET_TYPE_LABEL);
             }}
           >
-            Reset to default
+            Reset to defaults
           </button>
         )}
         {save.isSuccess && <span className="text-sm text-status-complete">Saved.</span>}

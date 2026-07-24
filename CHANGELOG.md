@@ -15,7 +15,16 @@ dependency bumps, and planning-doc updates) are omitted.
 
 - **Packets — View current packet:** once a packet has been saved to Drive, a **View current
   packet** button on the event opens it straight from the event's Drive folder (visible to everyone
-  on the event, not just the PM).
+  on the event, not just the PM); it now shows the saved **version** (e.g. "v2").
+- **Packets — versions:** packets now carry a **version** (v1, v2, …) shown on the cover and,
+  optionally, in the filename (the new `{version}` token). Re-saving to Drive asks whether to
+  **replace** the current version or save a **new version** (bump); generating/viewing always
+  matches the current saved version. First save is v1.
+- **Packets — configurable filename tokens:** the **Admin → Packet filename** editor gains a
+  `{festival}`, `{location}`, and `{version}` token, an editable **Packet type label** for the
+  `{type}` token (default "Production and Artist Advance"), and the `{date}` token now formats as
+  **mm-dd-yy**. The default pattern is `{shortCode} {date} {version} — {type}` (festival available
+  but off by default).
 
 ### Changed
 

@@ -56,6 +56,8 @@ export interface PacketData {
    *  and the shared company marks (flanking, smaller). */
   logos: { eventLogo: PacketLogo | null; markLogos: PacketLogo[] };
   generatedAt: string;
+  /** 1-based packet version, shown on the cover. */
+  version: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -204,7 +206,7 @@ function buildPacketDocument(data: PacketData) {
           { style: s.coverSub, key: 'sub' },
           [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  '),
         ),
-        createElement(Text, { style: s.coverSub, key: 'g' }, `Production packet · generated ${data.generatedAt}`),
+        createElement(Text, { style: s.coverSub, key: 'g' }, `Production packet · v${data.version} · generated ${data.generatedAt}`),
         coverItems.length > 0
           ? createElement(
               View,

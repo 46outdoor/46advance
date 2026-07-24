@@ -49,7 +49,18 @@ describe('parseEvent', () => {
       fileId: 'file-1',
       webViewLink: 'https://drive/x',
       savedAt: saved.toDate(),
+      version: 1, // defaults to 1 when the stored doc predates versioning
     });
+  });
+
+  it('preserves an explicit packet version', () => {
+    const e = parseEvent('evt-4', {
+      name: 'RTC',
+      status: 'active',
+      createdBy: 'admin-1',
+      packetDrive: { fileId: 'f', webViewLink: 'https://drive/y', savedAt: null, version: 3 },
+    });
+    expect(e.packetDrive?.version).toBe(3);
   });
 
   it('uses an explicit timezone when set', () => {

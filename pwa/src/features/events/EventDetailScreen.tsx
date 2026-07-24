@@ -34,6 +34,89 @@ import { BookedCallsPanel } from './BookedCallsPanel';
 
 const logger = createLogger('Events');
 
+interface PacketActions {
+  generatePending: boolean;
+  generateError: boolean;
+  onGenerate: () => void;
+  savePending: boolean;
+  saveMessage: string | null;
+  /** Version of the packet currently saved in Drive; null if none saved yet. */
+  savedVersion: number | null;
+  choosingVersion: boolean;
+  onSaveToDrive: () => void;
+  onReplaceVersion: () => void;
+  onBumpVersion: () => void;
+  onCancelVersion: () => void;
+}
+
+/**
+ * Packet generate + save-to-Drive, with the version (replace/bump) flow. Generate + view uses the
+ * event's current saved version (server default) so it always matches Drive — no prompt. Save opens
+ * the replace/bump choice once a packet already exists.
+ */
+function usePacketActions(
+  id: string | undefined,
+  eventId: string | undefined,
+  event: EventRecord | null | undefined,
+): PacketActions {
+  const queryClient = useQueryClient();
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  // Holds the pending replace/bump choice for a re-save.
+  const [choosingVersion, setChoosingVersion] = useState(false);
+
+  const packet = useMutation({
+    mutationFn: () => generatePacket(id!),
+    onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
+    onError: (err) => logger.error('Failed to generate packet', err),
+  });
+
+  // Generate a fresh packet, then save it into the event's LINKED Drive folder. `version` sets the
+  // saved copy's version tag (replace = keep current, bump = next). If this PM's Drive grant doesn't
+  // cover that folder yet, the server returns `no_folder_access`; we open the Picker so they select
+  // it once (granting access) and retry.
+  const saveToDrive = useMutation({
+    mutationFn: async (version: number | undefined) => {
+      const { path } = await generatePacket(id!, version);
+      let res = await savePacketToDrive(id!, path, version);
+      if (!res.saved && res.reason === 'no_folder_access') {
+        const picked = await pickDriveFolder();
+        if (picked) res = await savePacketToDrive(id!, path, version);
+      }
+      return res;
+    },
+    onSuccess: (res) => {
+      setChoosingVersion(false);
+      if (res.saved) {
+        setSaveMessage(null);
+        if (res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
+        void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
+      } else {
+        setSaveMessage(packetSaveMessage(res.reason, event?.driveFolderName ?? null));
+      }
+    },
+    onError: (err) => {
+      logger.error('Failed to save packet to Drive', err);
+      setSaveMessage(describeCallableError(err, 'Could not save the packet to Drive.'));
+    },
+  });
+
+  const savedVersion = event?.packetDrive?.version ?? null;
+  return {
+    generatePending: packet.isPending,
+    generateError: packet.isError,
+    onGenerate: () => packet.mutate(),
+    savePending: saveToDrive.isPending,
+    saveMessage,
+    savedVersion,
+    choosingVersion,
+    // First save (no prior version) goes straight through; a re-save opens the replace/bump choice.
+    onSaveToDrive: () => (savedVersion ? setChoosingVersion(true) : saveToDrive.mutate(undefined)),
+    onReplaceVersion: () => saveToDrive.mutate(savedVersion ?? undefined),
+    onBumpVersion: () => saveToDrive.mutate((savedVersion ?? 0) + 1),
+    onCancelVersion: () => setChoosingVersion(false),
+  };
+}
+
 export function EventDetailScreen() {
   const { eventId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
@@ -90,41 +173,7 @@ export function EventDetailScreen() {
 
   const connectionQuery = useGoogleConnection();
 
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-
-  const packet = useMutation({
-    mutationFn: () => generatePacket(id!),
-    onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
-    onError: (err) => logger.error('Failed to generate packet', err),
-  });
-
-  // Generate a fresh packet, then save it into the event's LINKED Drive folder (replacing the
-  // previous one). If this PM's Drive grant doesn't cover that folder yet, the server returns
-  // `no_folder_access`; we open the Picker so they select it once (granting access) and retry.
-  const saveToDrive = useMutation({
-    mutationFn: async () => {
-      const { path } = await generatePacket(id!);
-      let res = await savePacketToDrive(id!, path);
-      if (!res.saved && res.reason === 'no_folder_access') {
-        const picked = await pickDriveFolder();
-        if (picked) res = await savePacketToDrive(id!, path);
-      }
-      return res;
-    },
-    onSuccess: (res) => {
-      if (res.saved) {
-        setSaveMessage(null);
-        if (res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
-        void queryClient.invalidateQueries({ queryKey: ['events', 'detail', eventId] });
-      } else {
-        setSaveMessage(packetSaveMessage(res.reason, event?.driveFolderName ?? null));
-      }
-    },
-    onError: (err) => {
-      logger.error('Failed to save packet to Drive', err);
-      setSaveMessage(describeCallableError(err, 'Could not save the packet to Drive.'));
-    },
-  });
+  const packetActions = usePacketActions(id, eventId, event);
 
   // Canonicalize the URL to the slug (upgrades id-based + just-created links).
   useEffect(() => {
@@ -159,12 +208,17 @@ export function EventDetailScreen() {
           defaultLogos={defaultLogos}
           showLogo={resolveShowLogo(event.eventLogo, event.festivalId, festivalsQuery.data ?? [])}
           hasDrive={connectionQuery.data?.hasDrive ?? false}
-          packetPending={packet.isPending}
-          packetError={packet.isError}
-          saveToDrivePending={saveToDrive.isPending}
-          saveMessage={saveMessage}
-          onGeneratePacket={() => packet.mutate()}
-          onSaveToDrive={() => saveToDrive.mutate()}
+          packetPending={packetActions.generatePending}
+          packetError={packetActions.generateError}
+          saveToDrivePending={packetActions.savePending}
+          saveMessage={packetActions.saveMessage}
+          savedVersion={packetActions.savedVersion}
+          choosingVersion={packetActions.choosingVersion}
+          onGeneratePacket={packetActions.onGenerate}
+          onSaveToDrive={packetActions.onSaveToDrive}
+          onReplaceVersion={packetActions.onReplaceVersion}
+          onBumpVersion={packetActions.onBumpVersion}
+          onCancelVersion={packetActions.onCancelVersion}
           onEdit={() => setEditing(true)}
         />
       )}
@@ -231,8 +285,15 @@ interface EventDetailHeaderProps {
   packetError: boolean;
   saveToDrivePending: boolean;
   saveMessage: string | null;
+  /** Version of the packet currently saved in Drive; null if none saved yet. */
+  savedVersion: number | null;
+  /** Whether the replace/bump choice is showing (a re-save was requested). */
+  choosingVersion: boolean;
   onGeneratePacket: () => void;
   onSaveToDrive: () => void;
+  onReplaceVersion: () => void;
+  onBumpVersion: () => void;
+  onCancelVersion: () => void;
   onEdit: () => void;
 }
 
@@ -247,8 +308,13 @@ function EventDetailHeader({
   packetError,
   saveToDrivePending,
   saveMessage,
+  savedVersion,
+  choosingVersion,
   onGeneratePacket,
   onSaveToDrive,
+  onReplaceVersion,
+  onBumpVersion,
+  onCancelVersion,
   onEdit,
 }: EventDetailHeaderProps) {
   return (
@@ -292,7 +358,7 @@ function EventDetailHeader({
               rel="noopener noreferrer"
               className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
             >
-              View current packet
+              View current packet{savedVersion ? ` (v${savedVersion})` : ''}
             </a>
           )}
           {canEdit && (
@@ -305,7 +371,7 @@ function EventDetailHeader({
               {packetPending ? 'Generating…' : 'Generate packet'}
             </button>
           )}
-          {canEdit && hasDrive && (
+          {canEdit && hasDrive && !choosingVersion && (
             <button
               type="button"
               onClick={onSaveToDrive}
@@ -314,6 +380,15 @@ function EventDetailHeader({
             >
               {saveToDrivePending ? 'Saving…' : 'Save packet to Drive'}
             </button>
+          )}
+          {canEdit && hasDrive && choosingVersion && (
+            <VersionChoice
+              savedVersion={savedVersion ?? 1}
+              pending={saveToDrivePending}
+              onReplace={onReplaceVersion}
+              onBump={onBumpVersion}
+              onCancel={onCancelVersion}
+            />
           )}
           {canEdit && (
             <button
@@ -336,6 +411,47 @@ function EventDetailHeader({
       )}
       {saveMessage && <p className="text-sm text-accent">{saveMessage}</p>}
     </header>
+  );
+}
+
+interface VersionChoiceProps {
+  savedVersion: number;
+  pending: boolean;
+  onReplace: () => void;
+  onBump: () => void;
+  onCancel: () => void;
+}
+
+/** Re-save prompt: replace the current packet version in Drive, or bump to the next one. */
+function VersionChoice({ savedVersion, pending, onReplace, onBump, onCancel }: VersionChoiceProps) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded border border-accent/40 bg-surface-muted/40 px-2 py-1 text-sm">
+      <span className="text-ink-muted">Save as</span>
+      <button
+        type="button"
+        onClick={onReplace}
+        disabled={pending}
+        className="rounded border border-line px-2 py-1 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        {pending ? 'Saving…' : `Replace v${savedVersion}`}
+      </button>
+      <button
+        type="button"
+        onClick={onBump}
+        disabled={pending}
+        className="rounded border border-line px-2 py-1 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        New v{savedVersion + 1}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={pending}
+        className="text-ink-muted transition-colors hover:text-accent disabled:opacity-50"
+      >
+        Cancel
+      </button>
+    </span>
   );
 }
 
