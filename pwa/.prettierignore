@@ -8,6 +8,9 @@ lib/
 functions/lib/
 *.tsbuildinfo
 
+# Generated binary asset embedded as a base64 data URI (one enormous string literal)
+functions/src/lib/pdf/assets/
+
 # Test / coverage / tooling output
 coverage/
 functions/coverage/
