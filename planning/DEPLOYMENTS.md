@@ -46,25 +46,42 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
-**Hosting live state (verified 2026-07-23).** Owner workflow run `30042323489` deployed current
-`main` at `f0e45ea` (#174). It carries every remediation client change, including the
-revision-compatible structural schedule writes required before the final S12 rules enforcement.
-The workflow build, Hosting deploy, and post-deploy runtime smoke all passed.
+**Hosting live state (verified 2026-07-24).** Owner workflow run `30055170800` deployed `main` at
+`d6c60c5`. It carries the quick-wins client changes — Drive import/picker errors (#178), the
+Packet-filename admin control (#179), the upload-orphan guard (#181) — and the CSP `report-uri`
+header (#180). Verified live: both `advancethat.web.app` and `46advance.com` serve
+`content-security-policy-report-only` ending in `report-uri …/cspReport`, plus HSTS + nosniff.
+(Prior checkpoint: run `30042323489` at `f0e45ea` (#174), the remediation client release.)
 
 Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. Owner-provided Sentry evidence
 confirmed the safe Admin → Observability diagnostic reached production Issues with a release tag and
 a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 
-**Pending the next Hosting deploy (owner).** The quick-wins client changes — real Drive
-import/picker errors (#178), the Packet-filename admin control (#179), and the upload-orphan
-guard (#181) — plus the CSP `report-uri` header (`firebase.json`, #180) ride the next owner
-Hosting release. Until then: the `cspReport` function is live but receives nothing (the header
-isn't served yet), and the packet-naming admin control isn't visible. Flipping CSP from
-**report-only → enforce** is a later, separate owner Hosting deploy, after an observation window
-confirms the collected reports show no legitimate breakage.
+### CSP: report-only → enforce (open thread)
+
+Reporting went live with the 2026-07-24 Hosting release; violations now POST to the `cspReport`
+function and land in Cloud Logging. **Observe before enforcing** — review collected reports with:
+
+```bash
+pwa/scripts/cli/gcloud-safe.sh logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="cspreport" AND jsonPayload.message="CSP violation"' \
+  --limit=100 --freshness=7d \
+  --format="value(timestamp,jsonPayload.violatedDirective,jsonPayload.blockedUri,jsonPayload.documentUri)"
+```
+
+Exercise every Google/Firebase flow (Drive picker + import, Meet/Calendar, packet generate + save
+to Drive, uploads, sign-in) during the window. Any violation from a *legitimate* resource means the
+allowlist needs that origin added **before** enforcing — otherwise enforcing will break that feature.
+
+When the window is clean: in `pwa/firebase.json` rename the header key
+`Content-Security-Policy-Report-Only` → `Content-Security-Policy` (value unchanged), then run the
+owner Hosting deploy. Rollback is the reverse rename + redeploy. Note `script-src` still carries
+`'unsafe-inline'`, so enforcing blocks unexpected external scripts/objects/base-uri/framing but is
+not full XSS protection; tightening to nonce/hash-based inline scripts is a separate effort.
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-24 | Quick-wins client release + CSP `report-uri` header (reporting now active) | `d6c60c5` #178 #179 #180 #181 | HOSTING | deployed (run 30055170800); CSP report-only + `report-uri …/cspReport` verified live on `advancethat.web.app` and `46advance.com` |
 | 2026-07-23 | Quick-wins batch: configurable packet filename (server-side naming) + CSP violation-report collector (`cspReport`) | `fdecd60` #179 · `90e7163` #180 | FUNCTIONS | deployed as owner; `cspReport` **created** (verified POST→204, GET→405, public invoker auto-set); `generatePacket` + all other fns updated OK |
 | 2026-07-23 | S12 restrictive rules: server-owned slug/calendar fields, mandatory schedule revision, dismiss-only call bookings | `f0e45ea` #174 | FIRESTORE RULES | deployed after the Hosting gate; ruleset `ff74a9e8-fd22-4b91-8c49-c56ac2ec8629` |
 | 2026-07-23 | S12 restrictive-rules client compatibility: revision-correct schedule re-date/shift/template writes | `f0e45ea` #174 | HOSTING | deployed (run 30042323489); build + runtime smoke passed |
