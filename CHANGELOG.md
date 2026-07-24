@@ -11,6 +11,14 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ## 2026-07-24
 
+### Changed
+
+- **Packets — redesigned cover & page framing:** the packet now opens with the full 46 brand cover
+  (concert photo + red diagonal) carrying the event's **festival logo** and its name, dates, packet
+  type, version, and generated stamp; every content page is wrapped in the red bordered frame with
+  the 46 mark, matching the 46 house design. (Cover art is a bundled default for now, with a
+  per-festival cover-image override wired for later.)
+
 ### Added
 
 - **Packets — View current packet:** once a packet has been saved to Drive, a **View current

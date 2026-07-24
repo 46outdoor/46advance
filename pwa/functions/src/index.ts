@@ -15,7 +15,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { appendPacketAttachments, type PacketAttachment } from './lib/pdf/attachments.js';
-import { packetBaseName } from './lib/pdf/packetFilename.js';
+import { getPacketConfig, packetBaseName } from './lib/pdf/packetFilename.js';
+import { DEFAULT_COVER_DATA_URI } from './lib/pdf/assets/defaultCover.js';
 import { DRIVE_SA_KEY, brokerDriveClient } from './googleDrive.js';
 import { fetchBrokeredFileBytes, MAX_EMBED_BYTES } from './lib/broker/brokerFetch.js';
 import { renderQuote, fmtMoney, type QuotePdfData } from './lib/pdf/quote.js';
@@ -829,6 +830,15 @@ async function festivalLogoRaw(db: Firestore, festivalId: unknown): Promise<unkn
   return snap.exists ? (snap.data()?.logo ?? null) : null;
 }
 
+/**
+ * The full-bleed cover graphic for a packet. Currently the bundled 46 brand cover; the extension
+ * point for a per-festival cover image lives here (read `ev.festivalId` → `festivals/{id}.coverImage`
+ * once that field exists, falling back to the bundled default).
+ */
+function resolvePacketCover(_ev: DocumentData): string {
+  return DEFAULT_COVER_DATA_URI;
+}
+
 async function resolvePacketLogos(
   db: Firestore,
   ev: DocumentData,
@@ -837,12 +847,9 @@ async function resolvePacketLogos(
   const defaults = asArray(brandingSnap.exists ? (brandingSnap.data()?.defaultLogos ?? []) : []);
   const cache = new Map<string, string | null>();
   const resolve = async (logo: LogoRef): Promise<PacketLogo> => {
-    const cover = variantForBackground(logo, 'dark');
+    // Cover festival mark + interior frame mark both sit on white → the onLight variant.
     const header = variantForBackground(logo, 'light');
-    return {
-      coverDataUri: cover ? await loadLogoDataUri(cover.path, cache) : null,
-      headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null,
-    };
+    return { headerDataUri: header ? await loadLogoDataUri(header.path, cache) : null };
   };
 
   // Show mark = the per-event override if set, else the picked festival's logo.
@@ -955,6 +962,7 @@ export const generatePacket = onCall(
     );
 
     const logos = await resolvePacketLogos(db, ev);
+    const { typeLabel } = await getPacketConfig(db);
 
     const data: PacketData = {
       event: {
@@ -970,6 +978,8 @@ export const generatePacket = onCall(
       },
       stages,
       logos,
+      coverImageDataUri: resolvePacketCover(ev),
+      typeLabel,
       generatedAt: formatGeneratedStamp(String(ev.timeZone ?? 'America/Chicago')),
       version: packetVersion,
     };
