@@ -46,12 +46,14 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
-**Hosting live state (verified 2026-07-24).** Owner workflow run `30055170800` deployed `main` at
-`d6c60c5`. It carries the quick-wins client changes — Drive import/picker errors (#178), the
-Packet-filename admin control (#179), the upload-orphan guard (#181) — and the CSP `report-uri`
-header (#180). Verified live: both `advancethat.web.app` and `46advance.com` serve
-`content-security-policy-report-only` ending in `report-uri …/cspReport`, plus HSTS + nosniff.
-(Prior checkpoint: run `30042323489` at `f0e45ea` (#174), the remediation client release.)
+**Hosting live state (verified 2026-07-24, second deploy).** The owner ran a second Hosting deploy on
+2026-07-24 carrying the accumulated client work: the festivals/event restructure client (Festivals
+admin + event festival/location form, #192), the packet filename-token editor + version replace/bump
+prompt (#194), the Sync-from-Drive/import error surfacing (#186 client), the packet buttons/PM-gating
+(#188 client), **and the CSP `cloudfunctions.net` allowlist fix (#185)**. Verified live on both
+`advancethat.web.app` and `46advance.com`: `content-security-policy-report-only` whose `connect-src`
+now includes `…cloudfunctions.net`, plus `report-uri …/cspReport`, HSTS + nosniff. (Prior checkpoint:
+run `30055170800` at `d6c60c5` (#178–#181), the quick-wins client release.)
 
 Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. Owner-provided Sentry evidence
 confirmed the safe Admin → Observability diagnostic reached production Issues with a release tag and
@@ -62,13 +64,12 @@ a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 Reporting went live with the 2026-07-24 Hosting release; violations now POST to the `cspReport`
 function and land in Cloud Logging.
 
-**PREREQUISITE — #185 must ride a Hosting deploy before enforcing.** The Tier 1/2 observation found
-exactly one gap: the app's Cloud Functions callables (`…cloudfunctions.net/*`) were missing from
-`connect-src`. The fix (PR #185, merged to `main` 2026-07-24) is **not yet live** — the deployed
-policy (last Hosting run `30106260627`, `d2e3c22`) still lacks it. It must ride a Hosting deploy
-**before** the enforce flip; enforcing without it would block every callable (sign-in claims sync,
-Drive, packets, admin). Until #185 is live, expect a steady `cloudfunctions.net` violation in the
-logs — that's the known, already-fixed one; a genuinely clean window can only be judged after it deploys.
+**PREREQUISITE — #185 (cloudfunctions.net allowlist) ✅ NOW LIVE (2026-07-24).** The Tier 1/2
+observation found exactly one gap: the app's Cloud Functions callables (`…cloudfunctions.net/*`) were
+missing from `connect-src`. The fix (PR #185) rode the 2026-07-24 owner Hosting deploy — verified live:
+`connect-src` now lists `…cloudfunctions.net` on both domains. The known `cloudfunctions.net` violation
+should now STOP appearing in the logs. **Next:** observe a clean window (~1 week, target ~2026-07-31) —
+confirm no *other* legitimate-resource violations — then flip to enforce.
 
 **Observe before enforcing** — review collected reports with:
 
@@ -91,6 +92,7 @@ not full XSS protection; tightening to nonce/hash-based inline scripts is a sepa
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-24 | Accumulated client release: festivals/event restructure UI (#192), packet filename-token editor + version replace/bump prompt (#194), Drive import/packet error surfacing (#186/#188 client), **CSP `cloudfunctions.net` allowlist (#185)** | `ffa8b69` #185 #186 #188 #192 #194 | HOSTING | deployed by owner (2nd 2026-07-24 deploy); verified live — `connect-src` now includes `…cloudfunctions.net` on both domains, still report-only. Clears the CSP-enforce prerequisite |
 | 2026-07-24 | Packet cover + page-framing redesign (46 house design: full-bleed brand cover + festival logo + event identity; vector red frame + 46 mark on every page). Bundled default cover asset; per-festival cover override wired as an extension point | `3ee2c72` #196 | FUNCTIONS | deployed as owner (`generatePacket` only); deploy complete. Server-side render is live |
 | 2026-07-24 | Packet filename tokens (`{festival}`/`{location}`/`{version}`, mm-dd-yy `{date}`, editable `{type}` label) + packet versioning (cover version, `{version}` token, `packetDrive.version`; save replace/bump) | `aed2ee4` #194 | FUNCTIONS | deployed as owner; deploy complete (`generatePacket` + `savePacketToDrive` updated). Client (admin token editor + replace/bump prompt) awaits the Hosting deploy |
 | 2026-07-24 | Festivals managed entity (name + logo): `festivals/{id}` rule | `f3f1ebd` #191 | FIRESTORE RULES | deployed as owner; compiled + released clean (member read / admin write) |
