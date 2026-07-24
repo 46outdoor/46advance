@@ -93,11 +93,12 @@ export function brokerDriveClient(): drive_v3.Drive {
  * Short-lived OAuth access token for the browser Picker. Refresh tokens stay server-side; only a
  * transient (~1h) access token is handed to the client.
  *
- * NOTE (P2-15, deferred): this token carries ALL scopes the user granted at connect (calendar +
- * drive.file + drive.metadata.readonly), not `drive.file` alone — a user OAuth access token can't
- * be scope-narrowed from its refresh token. True Picker down-scoping needs a SEPARATE
- * drive.file-only OAuth grant (a second consent + refresh token), which would force every user to
- * re-consent; tracked as a product decision rather than done here.
+ * NOTE (P2-15, partly addressed): this token carries ALL scopes the user granted at connect
+ * (calendar + drive.file), not `drive.file` alone — a user OAuth access token can't be
+ * scope-narrowed from its refresh token. The blast radius shrank when `drive.metadata.readonly`
+ * was dropped from the grant, so the token no longer carries any Drive-wide read. Fully
+ * down-scoping the Picker would still need a SEPARATE drive.file-only OAuth grant (a second
+ * consent + refresh token), forcing every user to re-consent; left as a product decision.
  */
 export const getDriveAccessToken = onCall(
   { secrets: OAUTH_SECRETS, timeoutSeconds: 30 },
@@ -254,7 +255,7 @@ async function collectAllFiles(
 // 512 MiB (not the 256 MiB default): enumerates the whole library into memory like
 // scheduledLibraryDriveSync (already 512 MiB). At the default this OOMs once the library grows.
 export const importDriveFolder = onCall(
-  { secrets: OAUTH_SECRETS, timeoutSeconds: 300, memory: '512MiB' },
+  { secrets: [DRIVE_SA_KEY], timeoutSeconds: 300, memory: '512MiB' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
@@ -262,29 +263,40 @@ export const importDriveFolder = onCall(
     if (token.admin !== true && token.organizer !== true) {
       throw new HttpsError('permission-denied', 'Admin or organizer only.');
     }
-    const { folderId } = parseCallableData(importDriveFolderInputSchema, request.data);
+    // A legacy `folderId` from an older client is accepted and ignored — the folder to mirror is
+    // the admin-configured library root, never an ad-hoc pick.
+    parseCallableData(importDriveFolderInputSchema, request.data);
     const db = getFirestore();
     await enforceRateLimit(db, ['importDriveFolder', uid], 10);
 
-    const client = await authedClientForUser(db, uid);
-    const drive = google.drive({ version: 'v3', auth: client });
-
-    let subfolders: drive_v3.Schema$File[];
-    try {
-      subfolders = await listChildren(drive, folderId, true);
-    } catch {
+    const root = (await db.doc('config/documentsLibrary').get()).data()?.rootFolderId;
+    if (typeof root !== 'string' || !root) {
       throw new HttpsError(
-        'not-found',
-        'Could not read that folder — re-pick it from the Drive picker.',
+        'failed-precondition',
+        'No document library folder is set — choose one in Admin → Document library first.',
       );
     }
-    const { groups, complete } = await enumerateLibrary(drive, folderId, subfolders);
 
-    // NOTE: does NOT touch config/documentsLibrary.rootFolderId — the mirrored library root is set
-    // deliberately by an admin (DocumentLibraryAdmin). Import pulls the picked folder's files into
-    // the library without repointing what the scheduled sync sweeps. Only reconcile removals when the
-    // pick enumerated completely, so a mid-import Drive glitch can't false-flag files as missing.
-    const counts = await upsertLibrary(db, groups, { uid, email: token.email ?? null }, complete);
+    // Enumerate as the docs-broker service account, exactly as scheduledLibraryDriveSync does.
+    // This is why the user grant needs no Drive-wide read: dropping drive.metadata.readonly (a
+    // RESTRICTED scope) keeps the app off Google's security-assessment verification track.
+    const drive = brokerDriveClient();
+    const enumerated = await enumerateLibrary(drive, root).catch(() => null);
+    if (!enumerated) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Could not read the library folder — make sure it is still shared with the document viewer account.',
+      );
+    }
+
+    // Only reconcile removals when enumeration completed, so a mid-run Drive glitch can't
+    // false-flag files as missing.
+    const counts = await upsertLibrary(
+      db,
+      enumerated.groups,
+      { uid, email: token.email ?? null },
+      enumerated.complete,
+    );
     return { imported: counts.imported, skipped: counts.skipped };
   },
 );

@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { artistsFromDocuments, filterArtists } from '@/lib/documents/artistDocument';
 import { listArtistDocuments } from '@/lib/documents/artist-documents-service';
-import { importDriveFolder, pickDriveFolder } from '@/lib/google';
+import { importDriveFolder } from '@/lib/google';
 
 const logger = createLogger('Documents');
 
@@ -22,32 +22,26 @@ export function DocumentsScreen() {
 
   const documentsQuery = useQuery({ queryKey: ['artistDocuments'], queryFn: listArtistDocuments });
 
+  // Syncs the admin-configured library root via the docs-broker service account — no folder pick
+  // and no Drive scope from the caller (see functions/src/googleDrive.ts importDriveFolder).
   const importMutation = useMutation({
-    mutationFn: (folderId: string) => importDriveFolder(folderId),
+    mutationFn: () => importDriveFolder(),
     onSuccess: (result) => {
       setImportError(null);
       setImportMessage(`Imported ${result.imported}, skipped ${result.skipped}.`);
       void queryClient.invalidateQueries({ queryKey: ['artistDocuments'] });
     },
     onError: (err) => {
-      logger.error('Failed to import Drive folder', err);
+      logger.error('Failed to sync the Drive library', err);
       setImportMessage(null);
-      setImportError(describeCallableError(err, 'Could not import from Drive. Please try again.'));
+      setImportError(describeCallableError(err, 'Could not sync from Drive. Please try again.'));
     },
   });
 
-  const onImport = async () => {
+  const onImport = () => {
     setImportMessage(null);
     setImportError(null);
-    try {
-      const folder = await pickDriveFolder();
-      if (folder) importMutation.mutate(folder.id);
-    } catch (err) {
-      logger.error('Failed to open the Drive folder picker', err);
-      setImportError(
-        describeCallableError(err, 'Could not open the Drive picker. Please try again.'),
-      );
-    }
+    importMutation.mutate();
   };
 
   const documents = documentsQuery.data ?? [];
@@ -67,10 +61,11 @@ export function DocumentsScreen() {
           <button
             type="button"
             disabled={importMutation.isPending}
-            onClick={() => void onImport()}
+            onClick={onImport}
+            title="Pull in any files added to the library folder in Drive since the last sync"
             className="min-h-[44px] rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
           >
-            {importMutation.isPending ? 'Importing…' : 'Import from Drive'}
+            {importMutation.isPending ? 'Syncing…' : 'Sync from Drive'}
           </button>
         )}
       </header>
@@ -105,7 +100,8 @@ export function DocumentsScreen() {
       {!documentsQuery.isLoading && documents.length === 0 && (
         <p className="text-sm text-ink-muted">
           No documents yet.
-          {canManage && ' Use “Import from Drive” to bring in an artist-documents folder.'}
+          {canManage &&
+            ' Set the library folder in Admin → Document library, then use “Sync from Drive”.'}
         </p>
       )}
 

@@ -56,10 +56,14 @@ export async function savePacketToDrive(eventId: string, path: string): Promise<
   return (await callable({ eventId, path })).data;
 }
 
-/** Import an artist-docs Drive folder (per-artist subfolders) into the library. Server enumerates. */
-export async function importDriveFolder(folderId: string): Promise<ImportDriveFolderOutput> {
+/**
+ * Mirror the admin-configured document-library root (per-artist subfolders) into the library, on
+ * demand — the same sweep the twice-daily cron runs. The server enumerates as the docs-broker
+ * service account, so this needs no Drive scope from the caller and no folder pick.
+ */
+export async function importDriveFolder(): Promise<ImportDriveFolderOutput> {
   const callable = httpsCallable<ImportDriveFolderInput, ImportDriveFolderOutput>(functions, 'importDriveFolder');
-  return (await callable({ folderId })).data;
+  return (await callable({})).data;
 }
 
 /** Validate a candidate document-library root folder id (admin only) via the docs-broker

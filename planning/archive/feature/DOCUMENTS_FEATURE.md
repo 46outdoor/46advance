@@ -38,6 +38,14 @@ event. Two-way Drive: import existing files, and upload new ones back into the r
   lower verification bar than `drive.readonly`. Still no broad-Drive file *content* read.
   The user **picks the folder** in the Google Picker (folder selection enabled), which grants
   the app access to that folder's tree; a server callable enumerates + imports.
+
+  > **SUPERSEDED 2026-07-24.** Two claims above turned out to be wrong, and the design changed:
+  > Google classifies `drive.metadata.readonly` as a **RESTRICTED** scope (confirmed in the console's
+  > Data Access page), not a lower-bar sensitive one — it forces the security-assessment verification
+  > track. `importDriveFolder` now enumerates the **admin-configured library root via the docs-broker
+  > service account** (as the twice-daily sync always did) instead of a user-picked folder, so
+  > `drive.metadata.readonly` was **removed from the user grant entirely**. The Picker is still used
+  > for linking files to advances and choosing an event's folder, both covered by `drive.file`.
 - **Import (from Drive):** recurse the picked folder's per-artist subfolders → one document
   record per file, tagged with the artist (subfolder name). Files are **linked** (Drive refs:
   `fileId`, `name`, `mimeType`, `iconLink`, `webViewLink`), not copied. De-dupe by `fileId`.

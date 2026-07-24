@@ -37,6 +37,11 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Events — calendar naming:** changing an event's short code or name now also renames its Google
   Calendar to match. Previously the name was set only when the calendar was first created, so a later
   short-code (or name) change never reached the calendar.
+- **Documents — Drive sync, and less Google access:** "Import from Drive" is now **"Sync from Drive"**.
+  It mirrors the library folder set in **Admin → Document library** instead of asking you to pick a
+  folder every time — the same sweep the twice-daily sync already runs. It reads through the
+  document-viewer service account, so connecting your Google account **no longer grants 46 Advance
+  Drive-wide metadata access**: it now asks only for Calendar plus per-file Drive access.
 
 ### Fixed
 
