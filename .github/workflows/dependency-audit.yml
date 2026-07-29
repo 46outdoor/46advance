@@ -1,10 +1,10 @@
 name: Dependency Audit
 
-# Scheduled, NON-blocking security audit. It is intentionally separate from PR CI
-# (ci.yml) so unavoidable transitive advisories in the Google/Firebase dependency
-# chain never gate a pull request. It runs on a weekly schedule and can be kicked
-# off manually. Accepted transitive advisories are tracked, with review dates, in
-# pwa/functions/SECURITY_EXCEPTIONS.md.
+# Scheduled release-policy audit. It is intentionally separate from PR CI so
+# unavoidable transitive advisories never gate ordinary pull requests. The job
+# fails when a high/critical advisory is new or its documented exception has
+# expired. Current exceptions live in pwa/SECURITY_EXCEPTIONS.md and
+# pwa/functions/SECURITY_EXCEPTIONS.md; all findings remain visible warnings.
 on:
   schedule:
     # Mondays at 08:00 UTC.
@@ -31,25 +31,13 @@ jobs:
           cache-dependency-path: |
             pwa/package-lock.json
             pwa/functions/package-lock.json
-      # Audits run against the committed lockfiles, so no install is needed. Advisory-only: findings
-      # are written to the GitHub job summary (visible even when the job stays green) but never fail
-      # the job. Release-blocking policy: a high/critical advisory WITH a non-breaking, in-range fix
-      # blocks release; moderate-or-lower (or fix-only-via-major transitive) advisories are tracked as
-      # time-bounded exceptions in functions/SECURITY_EXCEPTIONS.md.
+      # Audits run against the committed lockfiles, so no install is needed. The
+      # shared policy script writes a compact table to the job summary, emits
+      # annotations when findings need attention, and fails on new/expired high
+      # findings.
       - name: Audit pwa
         working-directory: pwa
-        continue-on-error: true
-        run: |
-          echo "## PWA dependency audit (\`--audit-level=moderate\`)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          npm audit --audit-level=moderate 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+        run: npm run audit:dependencies
       - name: Audit pwa/functions
         working-directory: pwa/functions
-        continue-on-error: true
-        run: |
-          echo "## Functions dependency audit (\`--audit-level=moderate\`)" >> "$GITHUB_STEP_SUMMARY"
-          echo "_Accepted transitive advisories are documented in \`functions/SECURITY_EXCEPTIONS.md\`; anything not listed there is NEW and needs triage._" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          npm audit --audit-level=moderate 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+        run: npm run audit:dependencies

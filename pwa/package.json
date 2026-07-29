@@ -21,6 +21,7 @@
     "test:rules": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:exec --only firestore,storage \"vitest run --config vitest.rules.config.ts\"",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs",
     "deadcode": "node scripts/deadcode-check.mjs",
+    "audit:dependencies": "node scripts/dependency-audit.mjs --label PWA",
     "dev:emulator": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start --only auth,firestore",
     "emulators": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start"
   },
