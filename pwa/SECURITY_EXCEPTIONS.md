@@ -7,7 +7,7 @@ exceptions.
 
 ## Accepted advisories
 
-### React Router `<8.3.0` — RSC-mode CSRF bypass (GHSA-qwww-vcr4-c8h2)
+### React Router `>=7.12.0 <8.3.0` — RSC-mode CSRF bypass (GHSA-qwww-vcr4-c8h2)
 
 - **Severity:** high
 - **Affected scope:** The advisory applies only to React Router's unstable RSC

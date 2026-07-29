@@ -72,8 +72,9 @@ dependency bump now clears the advisory (see the evaluation note below).
   date has arrived. A direct-dependency high/critical with a fix only in a new major is a
   **deliberate security-major bump** (evaluate + apply), e.g. the 2026-07-23 `nodemailer 6 → 9`
   upgrade.
-- **Tracked exception (does not block):** moderate-or-lower advisories, and any advisory whose only
-  fix is a breaking change to a transitive Google/Firebase-SDK or dev-only dependency. Record it here
-  with a scope rationale, an `Accepted` date, and a `Review by` date.
+- **Tracked exception (does not block while its review date is in the future):**
+  moderate-or-lower advisories, and any advisory whose only fix is a breaking change to a transitive
+  Google/Firebase-SDK or dev-only dependency. Record it here with a scope rationale, an `Accepted`
+  date, and a `Review by` date.
 - The scheduled `dependency-audit` workflow surfaces all advisories in its job summary; anything not
   listed here is NEW and must be triaged against this policy.

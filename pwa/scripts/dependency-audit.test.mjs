@@ -62,9 +62,14 @@ describe('dependency audit release policy', () => {
 ### Example (GHSA-aaaa-bbbb-cccc)
 
 - **Review by:** 2026-09-01
+
+### Registry fallback (NPM-12345)
+
+- **Review by:** 2026-10-01
 `);
 
     expect(exceptions.get('GHSA-AAAA-BBBB-CCCC')).toEqual({ reviewBy: '2026-09-01' });
+    expect(exceptions.get('NPM-12345')).toEqual({ reviewBy: '2026-10-01' });
   });
 
   it('blocks new and expired high findings but not current exceptions or moderate findings', () => {

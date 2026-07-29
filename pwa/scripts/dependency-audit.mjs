@@ -36,7 +36,7 @@ export function collectAdvisories(report) {
 export function parseExceptions(markdown) {
   const exceptions = new Map();
   const sections = markdown.matchAll(
-    /^### .*\((GHSA-[a-z0-9-]+)\)([\s\S]*?)(?=^### |^## |(?![\s\S]))/gim,
+    /^### .*\((GHSA-[a-z0-9-]+|NPM-\d+)\)([\s\S]*?)(?=^### |^## |(?![\s\S]))/gim,
   );
   for (const section of sections) {
     const reviewBy = section[2].match(/\*\*Review by:\*\* (\d{4}-\d{2}-\d{2})/i)?.[1];
@@ -100,7 +100,14 @@ function main() {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 10 * 1024 * 1024,
+    timeout: 120_000,
   });
+
+  if (result.error) {
+    process.stderr.write(`${label}: failed to run npm audit: ${result.error.message}\n`);
+    process.exitCode = 1;
+    return;
+  }
 
   if (!result.stdout) {
     process.stderr.write(result.stderr || `${label}: npm audit returned no report.\n`);
