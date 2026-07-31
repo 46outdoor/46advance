@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { getDocs, updateDoc, writeBatch, type DocumentData } from 'firebase/firestore';
-import { getDefaultTemplate, setDefaultTemplate } from './templates-service';
+import { getDefaultTemplate, patchTemplate, setDefaultTemplate } from './templates-service';
 
 // Mock the Firestore app handle so no real Firebase is initialized.
 vi.mock('@/services/firebase', () => ({ db: {} }));
@@ -126,5 +126,21 @@ describe('templates-service default flag', () => {
     );
 
     expect(await getDefaultTemplate()).toBeNull();
+  });
+
+  // patchTemplate writes a single doc, so it can't clear the flag from the others — letting
+  // `isDefault` through here would leave two masters and make the create-form pick arbitrarily.
+  it('patchTemplate refuses to write isDefault and does not touch Firestore', async () => {
+    await expect(patchTemplate('a', { isDefault: true })).rejects.toThrow(/setDefaultTemplate/);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it('patchTemplate still writes other fields', async () => {
+    await patchTemplate('a', { name: 'Renamed' });
+
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      { path: 'templates/a' },
+      { name: 'Renamed', updatedAt: 'server-ts' },
+    );
   });
 });
