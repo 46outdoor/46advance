@@ -45,8 +45,11 @@ describe('sortFestivals', () => {
 });
 
 describe('resolveShowLogo', () => {
-  const festLogo: Logo = { onDark: null, onLight: null, name: 'festival' };
-  const override: Logo = { onDark: null, onLight: null, name: 'override' };
+  const image = (path: string) => ({ path, url: `https://example.test/${path}` });
+  const festLogo: Logo = { onDark: image('fest'), onLight: null, name: 'festival' };
+  const override: Logo = { onDark: image('override'), onLight: null, name: 'override' };
+  /** What clearing a per-event override actually stores: present, but with no usable variant. */
+  const clearedOverride: Logo = { onDark: null, onLight: null, name: null };
   const festivals: FestivalRecord[] = [{ id: 'f1', name: 'RTC', logo: festLogo, order: 0 }];
 
   it('prefers the per-event override', () => {
@@ -57,9 +60,26 @@ describe('resolveShowLogo', () => {
     expect(resolveShowLogo(null, 'f1', festivals)).toBe(festLogo);
   });
 
+  /**
+   * Regression: clearing an override writes an empty logo instead of removing the field, and an
+   * empty object is truthy — so a truthiness check returned it and never reached the festival,
+   * leaving the event with no show mark even though its festival had one.
+   */
+  it('falls through a CLEARED override to the festival logo', () => {
+    expect(resolveShowLogo(clearedOverride, 'f1', festivals)).toBe(festLogo);
+  });
+
   it('is null with no override and no matching festival', () => {
     expect(resolveShowLogo(null, null, festivals)).toBeNull();
     expect(resolveShowLogo(null, 'unknown', festivals)).toBeNull();
+    expect(resolveShowLogo(clearedOverride, 'unknown', festivals)).toBeNull();
+  });
+
+  it('is null when the matched festival has no usable logo', () => {
+    const bare: FestivalRecord[] = [
+      { id: 'f1', name: 'RTC', logo: { onDark: null, onLight: null, name: null }, order: 0 },
+    ];
+    expect(resolveShowLogo(clearedOverride, 'f1', bare)).toBeNull();
   });
 });
 

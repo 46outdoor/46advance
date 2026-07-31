@@ -894,9 +894,20 @@ async function resolvePacketLogos(
   // Show mark (cover) = the per-event override if set, else the picked festival's logo. It sits on
   // the cover's white area → the onLight variant. (The interior frame's 46 mark is bundled house
   // chrome, so the packet no longer reads config/branding here.)
-  const showLogoRaw = ev.eventLogo ?? (await festivalLogoRaw(db, ev.festivalId));
-  const eventRef = parseLogoRef(showLogoRaw);
-  if (!eventRef) return { eventLogo: null };
+  // Parse the override BEFORE deciding to fall back. Clearing a per-event override stores an EMPTY
+  // logo ({onDark: null, onLight: null}) rather than removing the field, so `??` never fires — it
+  // only sees null/undefined — and the packet would render with no mark even when the event's
+  // festival has a perfectly good one. `parseLogoRef` returns null when no variant is usable.
+  const eventRef =
+    parseLogoRef(ev.eventLogo) ?? parseLogoRef(await festivalLogoRaw(db, ev.festivalId));
+  if (!eventRef) {
+    // Say so rather than returning a quietly logo-less packet — "no mark configured" and "the mark
+    // failed to embed" look identical in the output, and only one of them is the user's doing.
+    warnings.push(
+      'No logo was available for this packet — the event has no logo override and its festival has none either.',
+    );
+    return { eventLogo: null };
+  }
 
   const cache = new Map<string, string | null>();
   const preferred = variantForBackground(eventRef, 'light');
