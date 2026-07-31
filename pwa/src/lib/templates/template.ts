@@ -73,7 +73,8 @@ export interface TemplateInput {
   members: TemplateMember[];
   scheduleTemplateIds: string[];
   eventLogo: Logo | null;
-  isDefault: boolean;
+  /** Deliberately no `isDefault` — it's an exclusive flag, and a create/whole-doc write can't
+   *  clear it from the other templates. `setDefaultTemplate` is the only writer. */
 }
 
 const templateStageSchema = z.object({
@@ -146,6 +147,5 @@ export function emptyTemplateInput(): TemplateInput {
     members: [],
     scheduleTemplateIds: [],
     eventLogo: null,
-    isDefault: false,
   };
 }

@@ -51,7 +51,9 @@ export function TemplateEditorScreen() {
     mutationFn: (isDefault: boolean) => setDefaultTemplate(templateId!, isDefault),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['template', templateId] }),
+        // Prefix, not ['template', templateId] — promotion demotes the other templates too, so
+        // every cached detail query is stale, not just this one's.
+        queryClient.invalidateQueries({ queryKey: ['template'] }),
         queryClient.invalidateQueries({ queryKey: ['templates'] }),
       ]);
     },

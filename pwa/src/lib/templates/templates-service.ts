@@ -43,8 +43,14 @@ export async function deleteTemplate(id: string): Promise<void> {
   await deleteDoc(doc(db, 'templates', id));
 }
 
-/** Patch specific template fields (keys may be dot-paths, e.g. `stageProduction.s1.content.audio`). */
+/** Patch specific template fields (keys may be dot-paths, e.g. `stageProduction.s1.content.audio`).
+ *  Rejects `isDefault`: this writes one doc, so it can't clear the flag from the others and would
+ *  leave two masters. `TemplateInput` omits the field for the same reason — this guards the
+ *  untyped dot-path path that the type system can't. */
 export async function patchTemplate(id: string, data: Record<string, unknown>): Promise<void> {
+  if ('isDefault' in data) {
+    throw new Error('Use setDefaultTemplate to set isDefault — patchTemplate breaks exclusivity.');
+  }
   await updateDoc(doc(db, 'templates', id), { ...data, updatedAt: serverTimestamp() });
 }
 
