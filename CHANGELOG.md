@@ -40,6 +40,10 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
+- **Drive picker — list view and Starred:** the Google Drive picker now opens in **list** view
+  instead of the thumbnail grid, so more items fit on screen. The **folder** picker (linking an
+  event's Drive folder, the document library) also gains a **Starred** tab — it previously had only
+  My Drive, Shared with me, and Shared drives, so a starred folder still meant hunting for it.
 
 ### Fixed
 

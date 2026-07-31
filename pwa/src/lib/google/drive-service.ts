@@ -285,11 +285,14 @@ export async function pickDriveFiles(): Promise<string[]> {
   return new Promise<string[]>((resolve) => {
     // Browsable file views (folders shown, but only files are selectable). Company files are
     // usually shared into the user's account or in a shared drive, so expose those tabs too.
-    const browsable = (view: PickerDocsView) => view.setIncludeFolders(true).setSelectFolderEnabled(false);
+    // LIST over the default grid: these are documents picked by name, and the grid's thumbnails
+    // push most of the list below the fold.
+    const browsable = (view: PickerDocsView) =>
+      view.setIncludeFolders(true).setSelectFolderEnabled(false).setMode(picker.DocsViewMode.LIST);
     const myDrive = browsable(new picker.DocsView(picker.ViewId.DOCS));
     const sharedWithMe = browsable(new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false));
     const sharedDrives = browsable(new picker.DocsView(picker.ViewId.DOCS).setEnableDrives(true));
-    const starred = new picker.DocsView(picker.ViewId.DOCS).setStarred(true);
+    const starred = browsable(new picker.DocsView(picker.ViewId.DOCS).setStarred(true));
 
     const builder = new picker.PickerBuilder()
       .setOAuthToken(token)
@@ -327,10 +330,16 @@ export async function pickDriveFolder(): Promise<DriveFolderRef | null> {
   if (!picker) throw new Error('Drive Picker is unavailable.');
 
   return new Promise<DriveFolderRef | null>((resolve) => {
-    const folderView = (view: PickerDocsView) => view.setIncludeFolders(true).setSelectFolderEnabled(true);
+    // LIST over the default grid: folder tiles carry no useful thumbnail, so the grid just shows
+    // fewer folders per screen.
+    const folderView = (view: PickerDocsView) =>
+      view.setIncludeFolders(true).setSelectFolderEnabled(true).setMode(picker.DocsViewMode.LIST);
     const myDrive = folderView(new picker.DocsView(picker.ViewId.DOCS));
     const sharedWithMe = folderView(new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false));
     const sharedDrives = folderView(new picker.DocsView(picker.ViewId.DOCS).setEnableDrives(true));
+    // Starred — the file picker has had this; the folder picker didn't, so a starred event folder
+    // still meant hunting through My Drive.
+    const starred = folderView(new picker.DocsView(picker.ViewId.DOCS).setStarred(true));
 
     const builder = new picker.PickerBuilder()
       .setOAuthToken(token)
@@ -339,6 +348,7 @@ export async function pickDriveFolder(): Promise<DriveFolderRef | null> {
       .addView(myDrive)
       .addView(sharedWithMe)
       .addView(sharedDrives)
+      .addView(starred)
       .setCallback((data) => {
         if (data.action === picker.Action.PICKED) {
           const picked = data.docs?.[0];
