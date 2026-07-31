@@ -7,7 +7,7 @@ import { canFinalizeSection, canUnlockSection, type SectionStatus } from '@/lib/
 import type { EventRole } from '@/lib/rbac/roles';
 import { listDepartments } from '@/lib/departments/departments-service';
 import type { ProductionAttachment } from '@/lib/production/production';
-import { getEvent } from './events-service';
+import { getEvent } from '@/lib/events/events-read';
 import {
   addStageProductionAttachment,
   getStageProduction,

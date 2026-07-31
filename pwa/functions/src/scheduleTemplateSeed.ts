@@ -16,9 +16,9 @@ import {
   type Firestore,
 } from 'firebase-admin/firestore';
 import type { BatchLike } from './lib/db/chunkedBatch.js';
+import { asArray } from './lib/db/docValues.js';
 import { shiftDayKey, zonedDayKey } from './lib/dates/zonedTime.js';
 
-const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const asStringOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
 const DAY_TYPES = new Set(['travel', 'loadIn', 'show', 'loadOut', 'offDay']);

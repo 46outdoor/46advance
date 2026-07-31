@@ -24,6 +24,7 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
 import { assertActiveUser, assertAdmin } from './lib/auth/authorize.js';
 import { ChunkedBatch, type BatchLike } from './lib/db/chunkedBatch.js';
+import { asArray } from './lib/db/docValues.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
   deleteUserInputSchema,
@@ -95,6 +96,9 @@ export { notifyOnRegistration } from './registrationNotify.js';
 
 // Re-name an event's Google calendar when its short code / name changes (post-creation).
 export { renameEventCalendarOnChange } from './eventCalendarRename.js';
+
+// Push a master template's production content onto events that already exist. ./templatePush.ts.
+export { pushTemplateProduction } from './templatePush.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {
@@ -465,7 +469,6 @@ const trimmedOrNull = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
 
 /** Read an array-typed field, defaulting to an empty array when absent/mismatched. */
-const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 interface NewEventInput {
   templateId: string;

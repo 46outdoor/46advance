@@ -19,6 +19,10 @@ vi.mock('@/contexts/auth-context', () => ({ useAuth: () => auth }));
 vi.mock('./events-service', () => ({
   createEvent: vi.fn(),
   createEventFromTemplate: vi.fn(),
+}));
+
+// listEvents moved to the shared lib read module (a feature may not import another feature).
+vi.mock('@/lib/events/events-read', () => ({
   listEvents: vi.fn(async () => [
     {
       id: 'event-1',

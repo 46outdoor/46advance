@@ -221,6 +221,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Event slug reservation (server, WS-G) | `functions/src/lib/events/slug.ts` (`reserveEventSlug`/`findFreeSlug` transactional claim against the `slugs/{slug}` collection — locked server-only) + `functions/src/eventSlug.ts` (`renameEventSlug` callable). Client rename wrapper: `renameEventSlug` in `src/features/events/events-service.ts` |
 | PWA stale-chunk recovery | `src/lib/pwa/recovery.ts` (`isDynamicImportError`/`recoverFromStaleChunk`) + `src/lib/pwa/lazyWithRetry.tsx` (resilient lazy routes) |
 | Event/festival model  | `src/lib/events/event.ts` (type + Zod + parser)          |
+| Event reads (shared)  | `src/lib/events/events-read.ts` (`listEvents`/`getEvent` — in `lib/` because more than one feature reads events and a feature may not import another feature; **writes** stay in `src/features/events/events-service.ts`) |
 | Stage model           | `src/lib/events/stage.ts` (type + Zod + parser)          |
 | Departments (config)  | `src/lib/departments/` (`department.ts` + `departments-service.ts`) |
 | Festivals (config)    | `src/lib/festivals/` (`festival.ts` model + `festivals-service.ts` CRUD; admin-managed name + logo; events reference `festivalId`) — admin UI `src/features/admin/FestivalsAdmin.tsx` |
@@ -229,6 +230,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
 | Lineup helpers (day-aware slots) | `src/lib/advances/lineup.ts` (`buildSlotArtistLookup` for `{artist N}`, `performanceDayKey`, `advanceHasData`/`advanceDataSummary`); slot-first editing UI in `src/features/events/LineupPanel.tsx` |
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`; `isDefault` flags the master house package — `getDefaultTemplate` reads it, `setDefaultTemplate` enforces at-most-one via a batch that clears the rest) |
+| Template push to existing events | `src/lib/templates/template-push-service.ts` (callable wrapper + `PUSH_TARGET_LIMIT`) + `src/features/templates/PushToEventsPanel.tsx` (sections → explicit targets → preview → confirm; resolves field labels via `src/lib/advances/fields.ts`). Backend: `functions/src/templatePush.ts` (`pushTemplateProduction` — admin-only, rate-limited, one `dryRun`-flagged callable for both preview and apply; merge writes, stages matched by name) |
 | Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
 | Packet filename config | `src/lib/packets/packet-config-service.ts` (client read/write) + `functions/src/lib/pdf/packetFilename.ts` (`formatPacketFilename`/`packetBaseName` — server fills tokens + sanitizes) — admin-set `config/packets` naming convention |

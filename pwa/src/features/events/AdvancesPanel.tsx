@@ -7,7 +7,7 @@ import { slotLabel, type Advance, type AdvanceInput } from '@/lib/advances/advan
 import { eventDays } from '@/lib/events/event';
 import { APP_TIME_ZONE, formatZonedDate } from '@/lib/dates/timezone';
 import { createAdvance, listAdvances } from './advances-service';
-import { getEvent } from './events-service';
+import { getEvent } from '@/lib/events/events-read';
 import { AdvanceForm } from './AdvanceForm';
 
 const logger = createLogger('Advances');

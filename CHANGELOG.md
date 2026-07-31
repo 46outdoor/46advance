@@ -22,6 +22,16 @@ dependency bumps, and planning-doc updates) are omitted.
   per-stage house packages), departments, default roles, event logo, and schedule templates. All
   are ticked by default, so leaving it alone copies the whole package as before, and unticking
   **default roles** still leaves you on the event as its production manager.
+- **Event templates — push to existing events:** a template can now be pushed onto shows that
+  **already exist**, not just new ones. A **Push to existing events** panel in the template editor
+  copies the template's **production record** (site/production info, production contacts, reference
+  links) and its **per-stage house packages** onto the events you pick — roles and schedules are
+  deliberately never touched, and no stages are created (a template stage with no same-named stage
+  on the event is listed as skipped). Tick each target show one by one — nothing is pre-selected,
+  there's no select-all, and it's 25 events per push — then **Preview changes** to see, per event,
+  exactly which fields would change and from what to what (and which events already match). Apply
+  unlocks only after a preview and asks to confirm. Fields the template doesn't carry are left
+  alone; contacts and links are replaced as whole lists. Admin only, and a push can't be undone.
 
 ### Changed
 

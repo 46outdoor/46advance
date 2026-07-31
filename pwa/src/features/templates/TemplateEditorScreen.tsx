@@ -21,6 +21,7 @@ import { ProductionContactsEditor } from '@/components/production/ProductionCont
 import { ProductionLinksEditor } from '@/components/production/ProductionLinksEditor';
 import { StagesEditor } from './StagesEditor';
 import { TemplateRolesEditor } from './TemplateRolesEditor';
+import { PushToEventsPanel } from './PushToEventsPanel';
 
 const logger = createLogger('Templates');
 
@@ -202,6 +203,11 @@ export function TemplateEditorScreen() {
                 ))}
               </div>
             ))}
+          </Block>
+
+          {/* Admin-only, like the rest of this screen — the /templates/:id route is AdminGate'd. */}
+          <Block title="Push to existing events">
+            <PushToEventsPanel key={`push-${t.id}`} templateId={t.id} />
           </Block>
         </>
       )}
