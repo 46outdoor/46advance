@@ -9,7 +9,8 @@ import { countPendingApproval } from '@/lib/users/approval';
 
 /** App frame: dark, branded chrome (sticky header that shrinks on scroll) + light content. */
 export function AppShell({ children }: { children: ReactNode }) {
-  const scrolled = useScrolled(8);
+  // Thresholds live in the hook — they're tied to how far this header collapses (see its header).
+  const scrolled = useScrolled();
   const { user, isAdmin, signOut } = useAuth();
   // Admins see a count of accounts awaiting approval on the Admin link — a standing nudge that new
   // registrations need action, without opening the Admin screen. Shares the ['admin','users'] cache.

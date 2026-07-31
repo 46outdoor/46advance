@@ -331,9 +331,16 @@ the app needs **editable templates for creating new events**:
 
 ### Per-template logos (built)
 
-Each event shows **up to 3 logos**: a show-specific **event logo** first, then the **shared default
-marks** (typically 46 → Peachtree). The defaults are managed once (admin) and auto-apply; only the event
-logo varies per show. The effective row is `[eventLogo, …defaultLogos]`, capped at 3.
+Each event shows **up to 3 logos**: the **shared default marks** (typically 46 → Peachtree) with the
+**show mark between them** — 46 → show → Peachtree — so the company branding brackets the show
+identity. The defaults are managed once (admin) and auto-apply; only the show mark varies per show.
+The row is `[firstDefault, showMark, …restOfDefaults]`, empties dropped first (so a blank default
+can't displace the show mark), capped at 3 *(order decided 2026-07-31 — was show-mark-first)*.
+
+> The **show mark** is the event's per-event logo override, falling back to its **festival's** logo
+> (`resolveShowLogo`). A festival's mark therefore belongs on the **festival** (Admin → Festivals),
+> not in the shared defaults: a company default applies to *every* event regardless of festival, and
+> — because the row caps at 3 — is silently dropped once a show mark exists.
 
 - **Two variants per logo.** Every logo holds an `onDark` (white/light) and an `onLight` (dark/color)
   image, so it reads on any background; render code picks the variant for the surface and falls back to

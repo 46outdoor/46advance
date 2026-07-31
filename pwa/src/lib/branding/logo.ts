@@ -62,7 +62,16 @@ export function logoForBackground(logo: Logo, background: 'dark' | 'light'): Log
   return primary ?? fallback;
 }
 
-/** The effective logo row: the show logo first, then the shared defaults; capped at 3. */
+/**
+ * The effective logo row, capped at 3: the show mark sits BETWEEN the company marks — first
+ * default, show mark, then the remaining defaults (typically 46 → show → Peachtree), so the
+ * company branding brackets the show identity.
+ *
+ * Empty defaults are dropped before the show mark is placed, so a blank slot in the configured
+ * defaults can't push the show mark out of the middle position.
+ */
 export function effectiveLogos(eventLogo: Logo | null, defaults: readonly Logo[]): Logo[] {
-  return [eventLogo, ...defaults].filter(hasLogo).slice(0, 3);
+  const present = defaults.filter(hasLogo);
+  if (!hasLogo(eventLogo)) return present.slice(0, 3);
+  return [...present.slice(0, 1), eventLogo, ...present.slice(1)].slice(0, 3);
 }
