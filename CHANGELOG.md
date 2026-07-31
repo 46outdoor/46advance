@@ -46,6 +46,10 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Sign-in — no more false "pending approval" flash:** signing in briefly showed **"Account pending
   approval"** for a second or two before the app loaded, even for accounts that were already
   approved. The screen now stays on **Loading…** until your access level is actually known.
+- **Packets — "Generate packet" works again:** the **Generate packet** button failed immediately with
+  "Could not generate the packet. Try again." Only that button was affected — **Save packet to Drive**
+  and **View current packet** kept working, which is why it went unnoticed since packet versioning
+  shipped on 2026-07-24.
 
 ## 2026-07-24
 

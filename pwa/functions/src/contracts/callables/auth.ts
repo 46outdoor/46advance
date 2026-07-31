@@ -6,6 +6,14 @@
  * Pure Zod — no firebase imports — so it compiles under both the Functions
  * (nodenext/CJS) and the PWA (bundler/ESM) toolchains. Import via the `@contracts`
  * alias on the client; via a relative `./contracts/...js` path in Functions.
+ *
+ * ⚠ OPTIONAL FIELDS MUST BE `.nullish()`, NOT `.optional()`, if a client can ever pass the
+ * value as `undefined`. The Firebase callable client encodes with `if (data == null) return
+ * null` — loose equality — so a property explicitly set to `undefined` arrives as `null`, and
+ * `.optional()` rejects `null` with `invalid-argument` (HTTP 400). This silently broke
+ * `generatePacket` for a week. Either omit the key entirely on the client (`...(v !== undefined
+ * && { v })`) or accept `.nullish()` here; prefer both. Handlers reading the value with `??`
+ * need no change, since `??` treats null and undefined alike.
  */
 import { z } from 'zod';
 

@@ -152,7 +152,9 @@ export interface GeneratedPacket {
  */
 export async function generatePacket(eventId: string, version?: number): Promise<GeneratedPacket> {
   const callable = httpsCallable<GeneratePacketInput, PdfPathOutput>(functions, 'generatePacket');
-  const { path } = (await callable({ eventId, version })).data;
+  // Omit `version` entirely rather than sending it as undefined — the callable client encodes an
+  // explicitly-undefined property as null (see the @contracts auth.ts header).
+  const { path } = (await callable({ eventId, ...(version !== undefined && { version }) })).data;
   const url = await getDownloadURL(ref(storage, path));
   return { url, path };
 }
