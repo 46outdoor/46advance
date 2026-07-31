@@ -54,6 +54,10 @@ export interface EventRecord {
   slug: string | null;
   /** Show-specific logo (cloned from the template; overridable per event). */
   eventLogo: Logo | null;
+  /** The template this event was created from (`templates/{id}`); server-written at creation.
+   *  Null for blank events and for anything created before this was recorded — provenance
+   *  can't be reconstructed after the fact, so it only labels the template-push target list. */
+  templateId: string | null;
   createdBy: string;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -87,6 +91,7 @@ const eventDocSchema = z.object({
   bookingLabel: z.string().nullable().optional(),
   slug: z.string().nullable().optional(),
   eventLogo: logoSchema.nullable().optional(),
+  templateId: z.string().nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
@@ -123,6 +128,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     bookingLabel: doc.bookingLabel ?? null,
     slug: doc.slug ?? null,
     eventLogo: doc.eventLogo ? parseLogo(doc.eventLogo) : null,
+    templateId: doc.templateId ?? null,
     createdBy: doc.createdBy,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),

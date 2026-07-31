@@ -14,6 +14,7 @@ import {
   getDefaultMasterTemplate,
   listScheduleTemplates,
 } from '@/lib/schedules/schedule-templates-service';
+import type { TemplateInclude } from '@contracts/callables/events';
 import { createEvent, createEventFromTemplate, listEvents } from './events-service';
 import { applyTemplateDaysToEvent } from './schedule-days-service';
 import { listStages } from './stages-service';
@@ -23,20 +24,52 @@ import { EventStatusBadge } from './EventStatusBadge';
 
 const logger = createLogger('Events');
 
+/** Every section on — what "create from template" meant before section selection existed. */
+const ALL_SECTIONS: TemplateInclude = {
+  production: true,
+  stages: true,
+  departments: true,
+  members: true,
+  logo: true,
+  schedule: true,
+};
+
+/** The "Bring over" checkboxes, in the order they read on the form. */
+const SECTION_LABELS: readonly { key: keyof TemplateInclude; label: string }[] = [
+  { key: 'production', label: 'Production record' },
+  { key: 'stages', label: 'Stages & house packages' },
+  { key: 'departments', label: 'Departments' },
+  { key: 'members', label: 'Default roles' },
+  { key: 'logo', label: 'Event logo' },
+  { key: 'schedule', label: 'Schedule templates' },
+];
+
+/** The picker's effective value: the user's explicit choice, else the flagged default
+ *  template, else Blank event. `null` means "hasn't chosen yet", so the default can win
+ *  once the templates query resolves without syncing query data into state. */
+function resolveTemplateId(choice: string | null, templates: readonly TemplateRecord[]): string {
+  if (choice !== null) return choice;
+  return templates.find((t) => t.isDefault)?.id ?? '';
+}
+
 /** Decision 23 (SCHEDULE_REDESIGN): after creating an event, the default master schedule
  * template auto-applies only when the chosen event template didn't supply schedule
- * templates itself (or no event template was used). Best-effort — a failure here never
- * fails the creation; the schedule can be imported manually later. */
+ * templates itself (or no event template was used). Unchecking "Schedule templates" means
+ * the event template isn't supplying them either, so the master falls through as it does
+ * for a blank event. Best-effort — a failure here never fails the creation; the schedule
+ * can be imported manually later. */
 async function applyDefaultMasterSchedule(
   eventId: string,
   input: EventInput,
   templateId: string,
   eventTemplates: readonly TemplateRecord[],
   uid: string,
+  include: TemplateInclude,
 ): Promise<void> {
   try {
     const chosen = templateId ? eventTemplates.find((t) => t.id === templateId) : undefined;
-    if (chosen && chosen.scheduleTemplateIds.length > 0) return; // the event template wins
+    // The event template wins only when it actually supplies schedule templates.
+    if (chosen && include.schedule && chosen.scheduleTemplateIds.length > 0) return;
     if (!input.startDate) return; // offsets have no anchor without a start date
     const master = await getDefaultMasterTemplate();
     if (!master) return;
@@ -57,6 +90,67 @@ async function applyDefaultMasterSchedule(
   }
 }
 
+/** Template picker + the per-section "Bring over" opt-outs. Extracted so the screen's
+ *  render function stays under the complexity gate. */
+function TemplatePicker({
+  templates,
+  templateId,
+  include,
+  onTemplateChange,
+  onToggleSection,
+}: {
+  templates: readonly TemplateRecord[];
+  templateId: string;
+  include: TemplateInclude;
+  onTemplateChange: (id: string) => void;
+  onToggleSection: (key: keyof TemplateInclude) => void;
+}) {
+  if (templates.length === 0) return null;
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Start from template (optional)</span>
+        <select
+          className="min-h-[44px] w-full rounded border border-line px-3 py-2 outline-none focus:border-brand sm:w-72"
+          value={templateId}
+          onChange={(e) => onTemplateChange(e.target.value)}
+        >
+          <option value="">Blank event</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.isDefault ? `${t.name} (default)` : t.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {templateId !== '' && (
+        <fieldset className="rounded border border-line p-3">
+          <legend className="px-1 text-sm font-semibold text-ink">Bring over</legend>
+          <p className="text-xs text-ink-muted">
+            Everything comes across by default — uncheck anything this event should start fresh.
+          </p>
+          <div className="mt-1 grid gap-1 sm:grid-cols-2">
+            {SECTION_LABELS.map((s) => (
+              <label
+                key={s.key}
+                className="inline-flex min-h-[44px] items-center gap-2 text-sm text-ink"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={include[s.key]}
+                  onChange={() => onToggleSection(s.key)}
+                />
+                {s.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
 export function EventsListScreen() {
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
@@ -64,7 +158,9 @@ export function EventsListScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | EventStatus>('all');
   const [search, setSearch] = useState('');
-  const [templateId, setTemplateId] = useState('');
+  /** The user's explicit pick; `null` until they touch the picker (see resolveTemplateId). */
+  const [templateChoice, setTemplateChoice] = useState<string | null>(null);
+  const [include, setInclude] = useState<TemplateInclude>(ALL_SECTIONS);
 
   const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
 
@@ -77,24 +173,22 @@ export function EventsListScreen() {
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
   const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: listTemplates });
 
+  const templates = templatesQuery.data ?? [];
+  const templateId = resolveTemplateId(templateChoice, templates);
+
   const create = useMutation({
     mutationFn: async (input: EventInput) => {
       const id = templateId
-        ? await createEventFromTemplate(templateId, input)
+        ? await createEventFromTemplate(templateId, input, include)
         : await createEvent(input);
-      await applyDefaultMasterSchedule(
-        id,
-        input,
-        templateId,
-        templatesQuery.data ?? [],
-        viewer!.uid,
-      );
+      await applyDefaultMasterSchedule(id, input, templateId, templates, viewer!.uid, include);
       return id;
     },
     onSuccess: (id) => {
       void queryClient.invalidateQueries({ queryKey: ['events'] });
       setShowCreate(false);
-      setTemplateId('');
+      setTemplateChoice(null);
+      setInclude(ALL_SECTIONS);
       navigate(`/events/${id}`);
     },
     onError: (err) => logger.error('Failed to create event', err),
@@ -130,30 +224,13 @@ export function EventsListScreen() {
 
       {showCreate && canCreateEvents(viewer) && (
         <div className="space-y-3 rounded-lg border border-line bg-surface-muted/40 p-4">
-          {(templatesQuery.data ?? []).length > 0 && (
-            <label className="block text-sm">
-              <span className="mb-1 block font-semibold text-ink">
-                Start from template (optional)
-              </span>
-              <select
-                className="w-72 rounded border border-line px-3 py-2 outline-none focus:border-brand"
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-              >
-                <option value="">Blank event</option>
-                {(templatesQuery.data ?? []).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              {templateId && (
-                <span className="mt-1 block text-xs text-ink-muted">
-                  Departments, stages, production, and roles come from the template.
-                </span>
-              )}
-            </label>
-          )}
+          <TemplatePicker
+            templates={templates}
+            templateId={templateId}
+            include={include}
+            onTemplateChange={setTemplateChoice}
+            onToggleSection={(key) => setInclude((prev) => ({ ...prev, [key]: !prev[key] }))}
+          />
           <EventForm
             departments={departmentsQuery.data ?? []}
             submitLabel={templateId ? 'Create from template' : 'Create event'}

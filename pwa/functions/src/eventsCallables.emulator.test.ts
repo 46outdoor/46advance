@@ -5,7 +5,7 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createBlankEvent, renameEventSlug } from './index';
+import { createBlankEvent, createEventFromTemplate, renameEventSlug } from './index';
 import { authContext, callableRequest, clearEmulators, testEnv } from './testing/emulatorHarness';
 
 if (getApps().length === 0) initializeApp();
@@ -201,5 +201,105 @@ describe('createBlankEvent — authoritative revocation (AC-3)', () => {
       callableRequest(baseInput({ eventId: 'evt-admin-floor' }), ADMIN),
     );
     expect(res).toEqual({ eventId: 'evt-admin-floor' });
+  });
+});
+
+// Master-template section selection: `include` narrows which parts of the blueprint clone onto
+// the new event. Omitting it must reproduce the historical full-blueprint behavior exactly, so
+// an older client that knows nothing about the selection is unaffected.
+describe('createEventFromTemplate — include selection', () => {
+  const TEMPLATE_ID = 'tpl-house';
+  const LEAD_UID = 'lead-uid';
+
+  beforeEach(async () => {
+    await clearEmulators();
+    await db.doc(`users/${ORGANIZER.uid}`).set({ approved: true });
+    await db.doc(`templates/${TEMPLATE_ID}`).set({
+      name: '46 House Package',
+      isDefault: true,
+      departmentIds: ['audio', 'lighting'],
+      stages: [{ id: 's1', name: 'Main Stage', order: 0 }],
+      eventProduction: {
+        info: { siteContact: 'Pat Reilly' },
+        contacts: [{ role: 'PM', name: 'Alex', phone: '555-0100', email: 'alex@example.com' }],
+        links: [{ label: 'Site map', url: 'https://example.com/map' }],
+      },
+      stageProduction: { s1: { content: { audio: { foh: { console: 'S6L' } } } } },
+      members: [{ uid: LEAD_UID, role: 'department-lead' }],
+      eventLogo: { onDark: { url: 'https://x/d.png', path: 'templates/t/d' }, onLight: null },
+      scheduleTemplateIds: [],
+    });
+  });
+
+  const create = (include?: Record<string, boolean>) =>
+    testEnv.wrap(createEventFromTemplate)(
+      callableRequest(
+        {
+          templateId: TEMPLATE_ID,
+          ...(include ? { include } : {}),
+          name: 'Alpha Festival',
+          startDate: null,
+          endDate: null,
+          venue: 'Grounds',
+          slug: 'alpha-festival',
+        },
+        ORGANIZER,
+      ),
+    );
+
+  const stagesOf = async (eventId: string) =>
+    (await db.collection(`events/${eventId}/stages`).get()).docs;
+
+  it('omitting `include` clones the full blueprint (backward compatible)', async () => {
+    const { eventId } = await create();
+    const evt = await db.doc(`events/${eventId}`).get();
+    expect(evt.get('departmentIds')).toEqual(['audio', 'lighting']);
+    expect(evt.get('eventLogo')).not.toBeNull();
+
+    const production = await db.doc(`events/${eventId}/production/record`).get();
+    expect(production.get('info')).toEqual({ siteContact: 'Pat Reilly' });
+    expect(production.get('contacts')).toHaveLength(1);
+
+    const stages = await stagesOf(eventId);
+    expect(stages).toHaveLength(1);
+    expect(stages[0].get('name')).toBe('Main Stage');
+    const housePackage = await db.doc(`${stages[0].ref.path}/production/record`).get();
+    expect(housePackage.get('content')).toEqual({ audio: { foh: { console: 'S6L' } } });
+
+    expect((await db.doc(`events/${eventId}/members/${LEAD_UID}`).get()).exists).toBe(true);
+  });
+
+  it('always records the source templateId, whatever the selection', async () => {
+    const { eventId } = await create({ production: false, stages: false, members: false });
+    expect((await db.doc(`events/${eventId}`).get()).get('templateId')).toBe(TEMPLATE_ID);
+  });
+
+  it('members:false drops the template roles but still writes the creator’s PM membership', async () => {
+    const { eventId } = await create({ members: false });
+    // An event must never exist without its creator's membership — that would orphan it.
+    const creator = await db.doc(`events/${eventId}/members/${ORGANIZER.uid}`).get();
+    expect(creator.exists).toBe(true);
+    expect(creator.get('role')).toBe('production-manager');
+    expect((await db.doc(`events/${eventId}/members/${LEAD_UID}`).get()).exists).toBe(false);
+  });
+
+  it('production:false leaves no production record', async () => {
+    const { eventId } = await create({ production: false });
+    expect((await db.doc(`events/${eventId}/production/record`).get()).exists).toBe(false);
+    expect(await stagesOf(eventId)).toHaveLength(1); // unaffected
+  });
+
+  it('stages:false drops the stages and their house packages with them', async () => {
+    // Per-stage packages are keyed by stage, so they have nowhere to land without stages.
+    const { eventId } = await create({ stages: false });
+    expect(await stagesOf(eventId)).toHaveLength(0);
+    expect((await db.doc(`events/${eventId}/production/record`).get()).exists).toBe(true);
+  });
+
+  it('departments:false and logo:false leave those fields empty', async () => {
+    const { eventId } = await create({ departments: false, logo: false });
+    const evt = await db.doc(`events/${eventId}`).get();
+    expect(evt.get('departmentIds')).toEqual([]);
+    expect(evt.get('eventLogo')).toBeNull();
   });
 });

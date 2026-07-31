@@ -32,6 +32,7 @@ import type {
   CreateEventFromTemplateOutput,
   RenameEventSlugInput,
   RenameEventSlugOutput,
+  TemplateInclude,
 } from '@contracts/callables/events';
 import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pdf';
 
@@ -194,10 +195,15 @@ export async function generatePacket(eventId: string, version?: number): Promise
   return { url, path };
 }
 
-/** Create an event from a template (clones the blueprint server-side). Returns the new id. */
+/**
+ * Create an event from a template (clones the blueprint server-side). Returns the new id.
+ * `include` narrows which parts of the blueprint come across; omit it to clone everything
+ * (the contract defaults every section to `true`, so an absent `include` means "all").
+ */
 export async function createEventFromTemplate(
   templateId: string,
   input: EventInput,
+  include?: TemplateInclude,
 ): Promise<string> {
   const callable = httpsCallable<CreateEventFromTemplateInput, CreateEventFromTemplateOutput>(
     functions,
@@ -205,6 +211,7 @@ export async function createEventFromTemplate(
   );
   const result = await callable({
     templateId,
+    ...(include ? { include } : {}),
     name: input.name,
     startDate: input.startDate ? input.startDate.getTime() : null,
     endDate: input.endDate ? input.endDate.getTime() : null,

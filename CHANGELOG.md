@@ -9,6 +9,28 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-07-31
+
+### Added
+
+- **Event templates — house default:** one event template can now be flagged **"Default for new
+  events"** in the template editor (and carries a **Default** badge in the templates list) — the
+  standard 46 house package. Only one template holds it at a time; turning it on clears it from
+  the rest, the same way master schedule templates work.
+- **New event — choose what carries over:** creating an event from a template now offers a
+  checklist of which parts of the package to bring across — production record, stages (with their
+  per-stage house packages), departments, default roles, event logo, and schedule templates. All
+  are ticked by default, so leaving it alone copies the whole package as before, and unticking
+  **default roles** still leaves you on the event as its production manager.
+
+### Changed
+
+- **New events start from the house package:** the **Start from template** picker now pre-selects
+  the default template instead of **Blank event**, so a new show inherits the standard 46 package
+  without anyone having to remember to pick it — **Blank event** is still there to start from
+  scratch. Creating an event **copies** the package in, so later edits to the template shape
+  **future** events only and never change events already created.
+
 ## 2026-07-24
 
 ### Changed

@@ -28,6 +28,15 @@ describe('parseTemplate', () => {
     expect(t.members).toEqual([]);
   });
 
+  it('defaults isDefault to false when the field is absent', () => {
+    expect(parseTemplate('x', { name: 'Bare' }).isDefault).toBe(false);
+  });
+
+  it('reads isDefault through when present', () => {
+    expect(parseTemplate('x', { name: 'Master', isDefault: true }).isDefault).toBe(true);
+    expect(parseTemplate('x', { name: 'Not master', isDefault: false }).isDefault).toBe(false);
+  });
+
   it('rejects a bad member role', () => {
     expect(() => parseTemplate('x', { name: 'N', members: [{ uid: 'u', role: 'owner' }] })).toThrow();
   });

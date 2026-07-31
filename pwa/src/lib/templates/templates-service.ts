@@ -11,6 +11,7 @@ import {
   getDocs,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { parseTemplate, type TemplateInput, type TemplateRecord } from './template';
@@ -45,4 +46,26 @@ export async function deleteTemplate(id: string): Promise<void> {
 /** Patch specific template fields (keys may be dot-paths, e.g. `stageProduction.s1.content.audio`). */
 export async function patchTemplate(id: string, data: Record<string, unknown>): Promise<void> {
   await updateDoc(doc(db, 'templates', id), { ...data, updatedAt: serverTimestamp() });
+}
+
+/** The master house package the create-event form pre-selects, if one is flagged. */
+export async function getDefaultTemplate(): Promise<TemplateRecord | null> {
+  const all = await listTemplates();
+  return all.find((t) => t.isDefault) ?? null;
+}
+
+/** Promoting a template demotes every other one in the same batch, so the "master"
+ *  flag can never be ambiguous — the create-event form reads exactly one default. */
+export async function setDefaultTemplate(id: string, isDefault: boolean): Promise<void> {
+  if (!isDefault) {
+    await updateDoc(doc(db, 'templates', id), { isDefault: false, updatedAt: serverTimestamp() });
+    return;
+  }
+  const others = (await listTemplates()).filter((t) => t.id !== id && t.isDefault);
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'templates', id), { isDefault: true, updatedAt: serverTimestamp() });
+  for (const other of others) {
+    batch.update(doc(db, 'templates', other.id), { isDefault: false, updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
 }

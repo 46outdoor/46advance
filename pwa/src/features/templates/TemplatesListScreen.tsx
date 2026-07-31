@@ -74,6 +74,11 @@ export function TemplatesListScreen() {
           <li key={t.id} className="flex items-center justify-between py-3">
             <Link to={`/templates/${t.id}`} className="font-semibold text-brand hover:text-accent">
               {t.name}
+              {t.isDefault && (
+                <span className="ml-2 rounded-full bg-ink px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-surface">
+                  Default
+                </span>
+              )}
             </Link>
             <button
               type="button"

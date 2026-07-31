@@ -55,6 +55,10 @@ export interface TemplateRecord {
   scheduleTemplateIds: string[];
   /** Show-specific logo (cloned onto events created from this template). */
   eventLogo: Logo | null;
+  /** The master house package: auto-selected on the create-event form when no other
+   *  template is picked. At most one template carries it — `setDefaultTemplate` clears
+   *  the flag from every other in the same batch (mirrors schedule templates' master). */
+  isDefault: boolean;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -69,6 +73,7 @@ export interface TemplateInput {
   members: TemplateMember[];
   scheduleTemplateIds: string[];
   eventLogo: Logo | null;
+  isDefault: boolean;
 }
 
 const templateStageSchema = z.object({
@@ -100,6 +105,7 @@ const templateDocSchema = z.object({
   members: z.array(templateMemberSchema).optional(),
   scheduleTemplateIds: z.array(z.string()).optional(),
   eventLogo: logoSchema.nullable().optional(),
+  isDefault: z.boolean().optional(),
   createdAt: z.instanceof(Timestamp).nullable().optional(),
   updatedAt: z.instanceof(Timestamp).nullable().optional(),
 });
@@ -124,6 +130,7 @@ export function parseTemplate(id: string, data: unknown): TemplateRecord {
     members: doc.members ?? [],
     scheduleTemplateIds: doc.scheduleTemplateIds ?? [],
     eventLogo: doc.eventLogo ? parseLogo(doc.eventLogo) : null,
+    isDefault: doc.isDefault ?? false,
     createdAt: timestampToDate(doc.createdAt ?? null),
     updatedAt: timestampToDate(doc.updatedAt ?? null),
   };
@@ -139,5 +146,6 @@ export function emptyTemplateInput(): TemplateInput {
     members: [],
     scheduleTemplateIds: [],
     eventLogo: null,
+    isDefault: false,
   };
 }
