@@ -40,6 +40,11 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
+- **Packets — clearer cover layout:** under the title, the cover now lists the **venue name**,
+  **venue address** and **dates** on their own lines instead of running them together, and the
+  packet type, version and generated stamp move down the page as a footer. (Venue name and address
+  are one stored field, split at the first colon — a venue entered without one stays on a single
+  line.)
 - **Logos — the show mark is now 4× the company marks:** the festival (or per-event) logo renders
   four times the height of the company marks that flank it, up from twice, so the show identity
   leads. The show mark is the event's logo override, or its **festival's** logo if there's no

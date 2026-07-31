@@ -109,11 +109,23 @@ const s = StyleSheet.create({
     transform: 'rotate(-32deg)',
   },
   // Event identity block, sitting in the cover's lower-right white area, right-aligned.
-  coverBlock: { position: 'absolute', right: 46, bottom: 54, left: 150, alignItems: 'flex-end' },
+  // Identity block sits above the footer line, so `bottom` clears it.
+  coverBlock: { position: 'absolute', right: 46, bottom: 92, left: 150, alignItems: 'flex-end' },
   coverLogo: { maxHeight: 74, maxWidth: 300, marginBottom: 14, objectFit: 'contain' },
   coverTitle: { fontSize: 22, fontWeight: 'bold', color: BRAND, textAlign: 'right' },
-  coverMeta: { fontSize: 11, color: INK, marginTop: 6, textAlign: 'right' },
-  coverSub: { fontSize: 9, color: MUTED, marginTop: 8, textAlign: 'right' },
+  // Venue name, venue address and dates each get their own line; tighter leading keeps them
+  // reading as one block under the title rather than three unrelated statements.
+  coverMeta: { fontSize: 11, color: INK, marginTop: 6, textAlign: 'right', lineHeight: 1.4 },
+  /** Packet type · version · generated stamp — pinned low as a cover footer. */
+  coverFooter: {
+    position: 'absolute',
+    right: 46,
+    bottom: 40,
+    left: 150,
+    fontSize: 9,
+    color: MUTED,
+    textAlign: 'right',
+  },
   // ---- Interior page frame ----
   page: { padding: CONTENT_PAD, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   // Full-page anchor so the border + mark position relative to the page (not a collapsed wrapper).
@@ -214,6 +226,31 @@ function PageFrame() {
   ]);
 }
 
+/**
+ * The cover's identity lines under the title: venue name, venue address, dates — one per line.
+ *
+ * `venue` is a SINGLE stored field, so name and address are only separable by convention: entries
+ * read "Boyd County Fairgrounds: 1760 Addington Road…", so the first colon splits them. A venue
+ * with no colon simply stays on one line rather than being guessed at. Storing the address
+ * separately on the event is the only way to make this exact.
+ */
+export function coverMetaLines(data: {
+  event: { venue?: string | null; dateRange?: string | null };
+}): string[] {
+  const lines: string[] = [];
+  const venue = data.event.venue?.trim();
+  if (venue) {
+    const at = venue.indexOf(':');
+    const name = at > 0 ? venue.slice(0, at).trim() : '';
+    const address = at > 0 ? venue.slice(at + 1).trim() : '';
+    if (name && address) lines.push(name, address);
+    else lines.push(venue);
+  }
+  const dates = data.event.dateRange?.trim();
+  if (dates) lines.push(dates);
+  return lines;
+}
+
 function buildPacketDocument(data: PacketData) {
   const deptName = new Map(data.departments.map((d) => [d.id, d.name]));
 
@@ -230,19 +267,16 @@ function buildPacketDocument(data: PacketData) {
         ? createElement(Image, { src: data.logos.eventLogo.headerDataUri, style: s.coverLogo, key: 'logo' })
         : null,
       createElement(Text, { style: s.coverTitle, key: 't' }, data.event.name),
-      [data.event.venue, data.event.dateRange].filter(Boolean).length > 0
-        ? createElement(
-            Text,
-            { style: s.coverMeta, key: 'meta' },
-            [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  '),
-          )
-        : null,
-      createElement(
-        Text,
-        { style: s.coverSub, key: 'sub' },
-        `${data.typeLabel} · v${data.version} · generated ${data.generatedAt}`,
+      // Venue name, venue address, then dates — one per line.
+      ...coverMetaLines(data).map((line, i) =>
+        createElement(Text, { style: s.coverMeta, key: `meta-${i}` }, line),
       ),
     ]),
+    createElement(
+      Text,
+      { style: s.coverFooter, key: 'footer' },
+      `${data.typeLabel} · v${data.version} · generated ${data.generatedAt}`,
+    ),
   ]);
 
   // Event production page.
