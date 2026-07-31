@@ -5,7 +5,7 @@ import { createLogger } from '@/lib/logger';
 import { EVENT_PRODUCTION_FIELDS, getDepartmentFields } from '@/lib/advances/fields';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listUsers } from '@/lib/users/users-service';
-import { getTemplate, patchTemplate } from '@/lib/templates/templates-service';
+import { getTemplate, patchTemplate, setDefaultTemplate } from '@/lib/templates/templates-service';
 import { listScheduleTemplates } from '@/lib/schedules/schedule-templates-service';
 import {
   scheduleTemplateCategoryLabel,
@@ -46,6 +46,18 @@ export function TemplateEditorScreen() {
     onError: (err) => logger.error('Failed to save template', err),
   });
 
+  // Exclusivity runs as a batch across every template, so this can't go through `patch`.
+  const setDefault = useMutation({
+    mutationFn: (isDefault: boolean) => setDefaultTemplate(templateId!, isDefault),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['template', templateId] }),
+        queryClient.invalidateQueries({ queryKey: ['templates'] }),
+      ]);
+    },
+    onError: (err) => logger.error('Failed to set the default template', err),
+  });
+
   if (!templateId) return null;
   const t = templateQuery.data;
   const departments = departmentsQuery.data ?? [];
@@ -69,6 +81,14 @@ export function TemplateEditorScreen() {
             pending={patch.isPending}
             onSave={(name) => patch.mutate({ name })}
           />
+
+          <Block title="Default template">
+            <DefaultField
+              checked={t.isDefault}
+              pending={setDefault.isPending}
+              onChange={(isDefault) => setDefault.mutate(isDefault)}
+            />
+          </Block>
 
           <Block title="Event logo">
             <EventLogoField
@@ -224,6 +244,34 @@ function NameField({
       >
         Save name
       </button>
+    </div>
+  );
+}
+
+function DefaultField({
+  checked,
+  pending,
+  onChange,
+}: {
+  checked: boolean;
+  pending?: boolean;
+  onChange: (isDefault: boolean) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="inline-flex min-h-11 items-center gap-2 text-sm text-ink sm:min-h-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={pending}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        Default for new events
+      </label>
+      <p className="text-sm text-ink-muted">
+        New events start from this template's package unless another is picked. Only one template
+        can be the default — turning this on clears it from the rest.
+      </p>
     </div>
   );
 }

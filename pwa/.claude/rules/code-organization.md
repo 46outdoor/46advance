@@ -94,7 +94,11 @@ concept has a canonical home, every other site imports from it — never redefin
 ### DRY in Tests
 
 - Extract repeated mock objects to `src/testing/` or colocated `__fixtures__/` files
-- Use typed mock factories from `src/testing/firebaseMocks.ts` and `src/testing/mockFactories.ts`
+- Mock Firestore with the established per-file idiom (`vi.mock('@/services/firebase')` + a
+  spread-`importActual` mock of `firebase/firestore` stubbing only the IO entry points) —
+  see `src/lib/rbac/membership.test.ts`. There is no shared mock-factory module; if the same
+  stub shows up a third time, extract one to `src/testing/` and record it in the AGENTS.md
+  canonical sources table
 - Use `describe.each` / `it.each` for parameterized test cases
 - Share test setup via `beforeEach` — don't repeat in every test
 

@@ -208,8 +208,8 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Config: integrations  | `src/config/integrations.ts`                             |
 | Config: feature flags | `src/config/featureFlags.ts`                             |
 | Config: security      | `src/config/security.ts`                                 |
-| Test mocks: Firebase  | `src/testing/firebaseMocks.ts`                           |
-| Test mocks: domain    | `src/testing/mockFactories.ts`                           |
+| Global test setup     | `src/testing/setup.ts` (jsdom `matchMedia` shim; wired via `vite.config.ts` → `setupFiles`) |
+| Firestore mocking (client tests) | Per-file idiom, not a shared factory: `vi.mock('@/services/firebase', () => ({ db: {} }))` + a spread-`importActual` mock of `firebase/firestore` stubbing only the IO entry points, so `Timestamp` stays real for the Zod schemas. Reference: `src/lib/rbac/membership.test.ts`, `src/lib/templates/templates-service.test.ts` |
 | Functions handler test harness | `functions/src/testing/emulatorHarness.ts` (wrap callables vs live Auth/Firestore emulators; run via `test:emulator`) |
 | Authenticated E2E (emulator) | `tests/emulator/` (deterministic personas + REST seeder + Playwright sign-in/isolated-context fixtures; run via `test:e2e:emulator`, demo-46advance only) |
 | Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
@@ -228,7 +228,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance section state machine | `src/lib/advances/sections.ts` (keys, status, finalize/unlock) |
 | Advance content fields (registry) | `src/lib/advances/fields.ts` (per-department FieldDef sets) |
 | Lineup helpers (day-aware slots) | `src/lib/advances/lineup.ts` (`buildSlotArtistLookup` for `{artist N}`, `performanceDayKey`, `advanceHasData`/`advanceDataSummary`); slot-first editing UI in `src/features/events/LineupPanel.tsx` |
-| Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`) |
+| Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`; `isDefault` flags the master house package — `getDefaultTemplate` reads it, `setDefaultTemplate` enforces at-most-one via a batch that clears the rest) |
 | Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
 | Packet filename config | `src/lib/packets/packet-config-service.ts` (client read/write) + `functions/src/lib/pdf/packetFilename.ts` (`formatPacketFilename`/`packetBaseName` — server fills tokens + sanitizes) — admin-set `config/packets` naming convention |

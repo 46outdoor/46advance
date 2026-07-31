@@ -268,13 +268,23 @@ the South; see § UI / §7). Distinct from a band advance; one (or a few) per ev
   **Phase 5** (before templates, which seed it). Field taxonomy from
   [`PRODUCTION_ADVANCE_REFERENCE.md`](archive/reference/PRODUCTION_ADVANCE_REFERENCE.md). Drives the §7 PDF.
 
-> **Queued (2026-07-18): master house production advance.** Keep at least one **"master"
-> house production advance** (the standard 46 package). New events **inherit it
-> automatically on creation** — copied in as the event's starting house production
-> record — with the option to edit the copy per event or discard it and start from
-> scratch. Mirrors the default-master pattern used by schedule templates (one flagged
-> default, auto-applied at event creation); edits to the master affect future events
-> only, never records already copied to existing events.
+> **Built (2026-07-31): master house production advance.** An event template can be flagged
+> the **default** — the master 46 house package. At most one carries the flag
+> (`isDefault` on the template model; `setDefaultTemplate` clears the others in a batch,
+> `getDefaultTemplate` reads it), mirroring the schedule-template default-master pattern.
+> The new-event form **pre-selects** it instead of "Blank event", so a new event inherits
+> the house package without anyone picking it; **Blank event** still starts from scratch.
+> The create form also chooses **which sections carry over** — production record, stages
+> (with their per-stage house packages), departments, default roles, event logo, schedule
+> templates — all on by default, and the creator's own production-manager membership is
+> written regardless. Events record the template they were created from. Creation **copies**
+> values and never references the template, so edits to the master affect future events only.
+> Model in `src/lib/templates/`; admin toggle in the template editor, **Default** badge in
+> the templates list.
+>
+> **Not yet built (follow-up):** the other half — a **"Push to existing events…"** action in
+> the template editor: pick sections, tick target events from a multi-select list (nothing
+> pre-checked, no push-to-all), preview a per-event field-level diff, then apply.
 
 ## 6. Event / Advance Templates
 

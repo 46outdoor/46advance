@@ -36,6 +36,8 @@ import { resolveDisplayName } from './lib/auth/displayName.js';
 import {
   createBlankEventInputSchema,
   createEventFromTemplateInputSchema,
+  templateIncludeSchema,
+  type TemplateInclude,
 } from './contracts/callables/events.js';
 import { reserveEventSlug } from './lib/events/slug.js';
 import {
@@ -467,6 +469,8 @@ const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 interface NewEventInput {
   templateId: string;
+  /** Which parts of the template blueprint to clone. Omitted by the caller → every key true. */
+  include: TemplateInclude;
   name: string;
   startDate: Timestamp | null;
   endDate: Timestamp | null;
@@ -485,6 +489,9 @@ function parseNewEventInput(data: unknown): NewEventInput {
   const input = parseCallableData(createEventFromTemplateInputSchema, data);
   return {
     templateId: input.templateId,
+    // Resolved once here so every seed step reads the same selection. An omitted `include`
+    // parses to all-true, i.e. today's clone-everything behavior.
+    include: templateIncludeSchema.parse(input.include ?? {}),
     name: input.name, // schema trims + requires non-empty
     startDate: toTimestamp(input.startDate),
     endDate: toTimestamp(input.endDate),
@@ -499,11 +506,13 @@ function parseNewEventInput(data: unknown): NewEventInput {
   };
 }
 
-/** Seed the caller as PM, then template members (without clobbering the caller). */
-function seedEventMembers(
+/**
+ * Seed the creator's production-manager membership. Unconditional — an event must never
+ * exist without its creator, regardless of the template selection.
+ */
+function seedCreatorMembership(
   batch: BatchLike,
   eventRef: DocumentReference,
-  tpl: DocumentData,
   uid: string,
   now: FieldValue,
 ): void {
@@ -513,6 +522,16 @@ function seedEventMembers(
     addedAt: now,
     uid,
   });
+}
+
+/** Seed the template's default member list (without clobbering the creator's PM row). */
+function seedTemplateMembers(
+  batch: BatchLike,
+  eventRef: DocumentReference,
+  tpl: DocumentData,
+  uid: string,
+  now: FieldValue,
+): void {
   for (const m of asArray(tpl.members)) {
     const member = m as DocumentData;
     if (
@@ -576,12 +595,15 @@ function seedEventStages(
 }
 
 /**
- * Create a new event from a template (admin|organizer). Clones the full blueprint —
+ * Create a new event from a template (admin|organizer). Clones the blueprint —
  * enabled departments + stages + event production record + per-stage production
- * (house package) + default roles — and adds the caller as production-manager. Artist
+ * (house package) + default roles + logo + linked schedule templates — and adds the caller
+ * as production-manager. The optional `include` selection narrows which of those parts come
+ * across (omitted → all of them, the historical behavior); the caller's own membership is
+ * always written, and the source `templateId` is always recorded on the event. Artist
  * Advances are NOT seeded. Runs with the Admin SDK so an organizer can seed members.
- * Input: { templateId, name, startDate?: number|null, endDate?: number|null, venue?: string|null }
- * (dates are epoch millis). Returns { eventId }.
+ * Input: { templateId, include?, name, startDate?: number|null, endDate?: number|null,
+ * venue?: string|null } (dates are epoch millis). Returns { eventId }.
  */
 export const createEventFromTemplate = onCall(async (request) => {
   if (!request.auth) {
@@ -594,6 +616,7 @@ export const createEventFromTemplate = onCall(async (request) => {
   }
 
   const input = parseNewEventInput(request.data ?? {});
+  const { include } = input; // per-section selection; every key true when omitted
 
   const db = getFirestore();
   await enforceRateLimit(db, ['createEventFromTemplate', uid], 20);
@@ -624,22 +647,30 @@ export const createEventFromTemplate = onCall(async (request) => {
     festivalId: input.festivalId ?? null,
     location: input.location ?? null,
     status: 'draft',
-    departmentIds: asArray(tpl.departmentIds),
+    departmentIds: include.departments ? asArray(tpl.departmentIds) : [],
     slug,
-    eventLogo: tpl.eventLogo ?? null,
+    eventLogo: include.logo ? (tpl.eventLogo ?? null) : null,
+    // Provenance: which template this event was created from (recorded even when the
+    // selection cloned nothing, so "events from this template" can list it later).
+    templateId: input.templateId,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
   });
 
-  seedEventMembers(batch, eventRef, tpl, uid, now);
-  seedEventProduction(batch, eventRef, tpl, now);
-  const stageIdByName = seedEventStages(batch, eventRef, tpl, now);
+  seedCreatorMembership(batch, eventRef, uid, now);
+  if (include.members) seedTemplateMembers(batch, eventRef, tpl, uid, now);
+  if (include.production) seedEventProduction(batch, eventRef, tpl, now);
+  // Skipping stages also skips their house packages (they're seeded per stage) — intended.
+  // Schedule seeding still runs; its items just won't resolve to a stage.
+  const stageIdByName = include.stages
+    ? seedEventStages(batch, eventRef, tpl, now)
+    : new Map<string, string>();
 
   const scheduleTemplateIds = asArray(tpl.scheduleTemplateIds).filter(
     (x): x is string => typeof x === 'string',
   );
-  if (scheduleTemplateIds.length > 0 && input.startDate) {
+  if (include.schedule && scheduleTemplateIds.length > 0 && input.startDate) {
     await seedScheduleFromTemplates(
       db,
       batch,

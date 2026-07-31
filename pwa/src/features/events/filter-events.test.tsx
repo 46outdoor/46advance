@@ -24,6 +24,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     bookingLabel: overrides.bookingLabel ?? null,
     slug: overrides.slug ?? null,
     eventLogo: overrides.eventLogo ?? null,
+    templateId: overrides.templateId ?? null,
     createdBy: overrides.createdBy ?? 'uid',
     createdAt: overrides.createdAt ?? null,
     updatedAt: overrides.updatedAt ?? null,
