@@ -71,6 +71,24 @@ missing from `connect-src`. The fix (PR #185) rode the 2026-07-24 owner Hosting 
 should now STOP appearing in the logs. **Next:** observe a clean window (~1 week, target ~2026-07-31) —
 confirm no *other* legitimate-resource violations — then flip to enforce.
 
+**PREREQUISITE 2 — `frame-src` missing the Auth handler domain ⛔ NOT YET LIVE (found 2026-07-31).**
+The observation window closed **not clean**. The `logging read` above returned exactly one violation
+over the 7 days:
+
+```
+2026-07-31T03:10:25Z   frame-src   https://advancethat.firebaseapp.com   https://advancethat.web.app/
+```
+
+That origin is the **Firebase Auth handler domain** (`VITE_FIREBASE_AUTH_DOMAIN`); the Auth Web SDK
+mounts a hidden iframe at `https://<authDomain>/__/auth/iframe` for popup/redirect sign-in. It matched
+nothing in the old `frame-src` (`*.google.com` does **not** cover `firebaseapp.com`), so **flipping to
+enforce before this fix would have broken Google/Apple sign-in in production** — and silently, since a
+blocked auth iframe fails without a clear error. `frame-src` now lists the domain explicitly.
+
+**The enforce clock restarts.** The fix must be Hosting-deployed, then observed clean over a *fresh*
+window — verifying no violations after the fix is live is the whole point of the report-only phase, so
+the fix and the enforce flip must be **separate releases**, never the same one.
+
 **Observe before enforcing** — review collected reports with:
 
 ```bash
