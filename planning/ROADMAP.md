@@ -31,8 +31,8 @@ questions.
 - Apps: web (`pwa/`) and native (`mobile/`) per the workspace governance.
 - **No separate freelance section** (MPA has one; exclude here).
 - **Custom domain:** **46advance.com** (production web). Implications: add to Firebase Auth
-  **authorized domains**; set OAuth **redirect URIs** (Google/Apple sign-in + per-user
-  Calendar/Meet/Drive) to it; use for the PWA manifest and mobile deep/universal links;
+  **authorized domains**; set OAuth **redirect URIs** (per-user Calendar/Meet/Drive — sign-in
+  providers are excluded, §3) to it; use for the PWA manifest and mobile deep/universal links;
   staging on a subdomain (e.g. `staging.46advance.com`). Hosting (incl. the domain) is
   **managed externally** — agents never deploy hosting.
 - **Firebase project:** **`advancethat`** (display name "46 Advance", project # 518865772715),
@@ -92,8 +92,11 @@ questions.
 
 ## 3. Authentication
 
-- **Primary:** email / password.
-- **Secondary (optional):** Google, Apple.
+- **Only method:** email / password.
+- **Google + Apple sign-in — excluded (decided 2026-07-31).** Previously listed here as optional
+  secondary providers; neither was ever built and neither will be. Do **not** add them back without
+  an explicit new decision. Note this is distinct from the **per-user Google OAuth** in §12, which
+  authorizes Calendar/Meet/Drive access for an already-signed-in user and stays exactly as it is.
 - **Password reset:** a forgot-password screen (`/forgot-password`) sends the Firebase reset email.
 
 **Account approval (decided + built):** new accounts start **pending** — they authenticate but are
@@ -101,7 +104,8 @@ blocked from all app data by the UI `AuthGate` **and** by `firestore.rules` / `s
 `approved` custom claim) until an **admin approves** them (`setUserApproved`). Admins are
 auto-approved; the claim is set by `syncUserClaims` (default pending).
 
-**Mobile:** same set — email/password, Google via native sign-in, Apple sign-in (native); see `mobile/AGENTS.md` auth patterns.
+**Mobile:** same single method — email/password. (Native Google/Apple sign-in is excluded along with
+the web providers, so `mobile/` needs no `@react-native-google-signin` or Apple-auth dependency.)
 
 ## 4. Roles & Permissions (RBAC)
 
@@ -543,6 +547,9 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 - Flex integration — **excluded**.
 - Lasso integration — **deferred** (future, low priority).
 - Freelance section — **excluded**.
+- **Google / Apple sign-in — excluded** (2026-07-31). Email/password is the only sign-in method, on
+  web and native. Per-user Google **OAuth** for Calendar/Meet/Drive (§12) is unaffected — that
+  authorizes API access for a user who has already signed in.
 
 ## 14. MPA import/adapt candidates (preliminary — to confirm later)
 
@@ -557,7 +564,7 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 - Event/advance **templates** — MPA `form-builder` and `event-form` features are strong adapt candidates.
 - Google Calendar sync (MPA has a calendar feature) — strong adapt candidate.
 - **Google Drive** (Docs/Sheets/file storage) — MPA has Drive config (`config/integrations.ts`); adapt. (Slack would be new.)
-- Email/password + Google auth flows — adapt; add Apple.
+- Email/password auth flows — adapt. (Google/Apple sign-in **excluded** — see §3.)
 
 ## Decisions (resolved)
 
@@ -585,7 +592,8 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 **Q&A round 4 — 2026-06-21:**
 
 - **UI theme:** **adopt the 46 Entertainment brand** (derive from the website; replaces MPA's dark/zinc default — concrete tokens in the design phase).
-- **Apple sign-in:** support on **web + iOS**.
+- **Apple sign-in:** support on **web + iOS**. *(Superseded 2026-07-31 — Apple and Google sign-in
+  are excluded; email/password only. See §3.)*
 - **Google Drive (explore):** target **attach/link Drive files to advances**, **store generated packets in Drive**, **source template content from Drive**. (Sheets/Docs export not targeted.)
 - **Schedules → Calendar:** **push schedule items** to the org-owned per-event calendar.
 
