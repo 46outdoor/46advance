@@ -61,7 +61,8 @@ export async function savePacketToDrive(
   version?: number,
 ): Promise<SavePacketResult> {
   const callable = httpsCallable<SavePacketToDriveInput, SavePacketToDriveOutput>(functions, 'savePacketToDrive');
-  return (await callable({ eventId, path, version })).data;
+  // Omit `version` rather than sending undefined — the callable client encodes it as null.
+  return (await callable({ eventId, path, ...(version !== undefined && { version }) })).data;
 }
 
 /**

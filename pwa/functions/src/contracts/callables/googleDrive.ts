@@ -27,8 +27,11 @@ export const savePacketToDriveInputSchema = z.object({
   eventId: z.string().min(1),
   path: z.string().min(1),
   /** 1-based version to save as (matches the version the packet was generated with); the client
-   *  passes the chosen replace/bump version. Defaults to 1. */
-  version: z.number().int().min(1).optional(),
+   *  passes the chosen replace/bump version. Defaults to 1.
+   *  `.nullish()`, not `.optional()`: a first-ever save has no replace/bump choice and passes
+   *  undefined, which the callable client encodes as `null` (see the auth.ts header). The handler
+   *  reads `version && version > 0 ? version : 1`, so null already falls back correctly. */
+  version: z.number().int().min(1).nullish(),
 });
 export type SavePacketToDriveInput = z.infer<typeof savePacketToDriveInputSchema>;
 export const savePacketToDriveOutputSchema = z.object({
