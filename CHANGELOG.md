@@ -40,6 +40,10 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
+- **Events — venue name and address are separate fields:** an event now has a **Venue name** and a
+  separate **Venue address**, instead of one combined box. The packet cover prints each on its own
+  line, and the address shows on the event page and is searchable. Existing events keep whatever is
+  in the old field and still print correctly — split them by editing the event when convenient.
 - **Packets — clearer cover layout:** under the title, the cover now lists the **venue name**,
   **venue address** and **dates** on their own lines instead of running them together, and the
   packet type, version and generated stamp move down the page as a footer. (Venue name and address

@@ -66,6 +66,7 @@ const EVENT: EventRecord = {
   slug: 'riverside-fest',
   status: 'active',
   venue: 'Riverfront',
+  venueAddress: '1760 Addington Road, Ashland, KY 41102',
   startDate: new Date('2026-08-15T05:00:00.000Z'),
   endDate: new Date('2026-08-17T05:00:00.000Z'),
   loadInDays: 0,

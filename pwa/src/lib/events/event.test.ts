@@ -4,6 +4,30 @@ import { composeEventName, eventDays, eventInputSchema, parseEvent } from './eve
 import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 
 describe('parseEvent', () => {
+  // Venue NAME and street address are stored separately so the packet cover can print each on its
+  // own line. Events created before the split have them combined in `venue` and no `venueAddress`;
+  // the packet falls back to splitting on a colon for those, so null here must survive as null.
+  it('reads venueAddress, defaulting to null on events predating the field', () => {
+    const withAddress = parseEvent('evt-a', {
+      name: 'Rock the Country 2026',
+      status: 'active',
+      createdBy: 'admin-1',
+      venue: 'Boyd County Fairgrounds',
+      venueAddress: '1760 Addington Road. Ashland, KY 41102',
+    });
+    expect(withAddress.venue).toBe('Boyd County Fairgrounds');
+    expect(withAddress.venueAddress).toBe('1760 Addington Road. Ashland, KY 41102');
+
+    const legacy = parseEvent('evt-b', {
+      name: 'Older Event',
+      status: 'active',
+      createdBy: 'admin-1',
+      venue: 'Boyd County Fairgrounds: 1760 Addington Road',
+    });
+    expect(legacy.venueAddress).toBeNull();
+    expect(legacy.venue).toBe('Boyd County Fairgrounds: 1760 Addington Road');
+  });
+
   it('normalizes timestamps and passes through fields', () => {
     const e = parseEvent('evt-1', {
       name: 'Summerfest 2026',

@@ -20,7 +20,13 @@ export interface QuotePdfLine {
 }
 
 export interface QuotePdfData {
-  event: { name: string; venue?: string | null; dateRange?: string | null };
+  /** `venue` is the venue NAME; `venueAddress` is separate (legacy events keep both in `venue`). */
+  event: {
+    name: string;
+    venue?: string | null;
+    venueAddress?: string | null;
+    dateRange?: string | null;
+  };
   artistName: string;
   quote: {
     title: string;
@@ -64,7 +70,11 @@ const s = StyleSheet.create({
 });
 
 function buildQuoteDocument(data: QuotePdfData) {
-  const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  ');
+  // Include the address: for events created since the venue split, `venue` is the NAME alone, so
+  // omitting it here would quietly drop the address from every new quote.
+  const meta = [data.event.venue, data.event.venueAddress, data.event.dateRange]
+    .filter(Boolean)
+    .join('  ·  ');
 
   const tableHeader = createElement(View, { style: s.thRow, key: 'th' }, [
     createElement(View, { style: s.cDesc, key: 'd' }, createElement(Text, { style: s.th }, 'Description')),

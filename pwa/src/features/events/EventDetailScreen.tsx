@@ -433,6 +433,7 @@ function EventDetailHeader({
         {formatZonedDateRange(event.startDate, event.endDate, event.timeZone)}
       </p>
       {event.venue && <p className="text-ink-muted">{event.venue}</p>}
+      {event.venueAddress && <p className="text-ink-muted">{event.venueAddress}</p>}
       <LogoRow eventLogo={showLogo} defaults={defaultLogos} className="pt-1" />
       {packetError && (
         <p className="text-sm text-accent">Could not generate the packet. Try again.</p>
