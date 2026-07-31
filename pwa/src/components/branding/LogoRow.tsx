@@ -2,15 +2,16 @@ import { useTheme } from '@/contexts/theme-context';
 import { hasLogo, logoForBackground, type Logo, type LogoImage } from '@/lib/branding/logo';
 
 /**
- * One shared scale for every logo row so the branding reads the same everywhere:
- * the event logo is 2× the mark height, each mark sits in an equal fixed-width slot
- * (keeping mark centers equidistant from the event logo and stopping wide wordmarks
- * outweighing compact marks), and the gap is half the event height. `sm` is exactly
- * half of `md`. The packet PDF mirrors these ratios (functions/src/lib/pdf/packet.tsx).
+ * One shared scale for every logo row so the branding reads the same everywhere: the show mark is
+ * **4× the company-mark height** (owner call, 2026-07-31 — was 2×) so the show identity dominates,
+ * and each company mark sits in an equal fixed-width slot, keeping their centers equidistant from
+ * the show mark and stopping a wide wordmark outweighing a compact one. `sm` is exactly half of
+ * `md` throughout. The gap is deliberately NOT tied to the show-mark height — at 4× that scaled to
+ * a gap wider than the marks themselves.
  */
 const SIZES = {
-  md: { gap: 'gap-12', event: 'h-24', mark: 'h-12 w-44' },
-  sm: { gap: 'gap-6', event: 'h-12', mark: 'h-6 w-22' },
+  md: { gap: 'gap-12', event: 'h-48', mark: 'h-12 w-44' },
+  sm: { gap: 'gap-6', event: 'h-24', mark: 'h-6 w-22' },
 } as const;
 
 interface Props {

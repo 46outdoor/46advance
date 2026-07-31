@@ -331,16 +331,19 @@ the app needs **editable templates for creating new events**:
 
 ### Per-template logos (built)
 
-Each event shows **up to 3 logos**: the **shared default marks** (typically 46 → Peachtree) with the
-**show mark between them** — 46 → show → Peachtree — so the company branding brackets the show
-identity. The defaults are managed once (admin) and auto-apply; only the show mark varies per show.
-The row is `[firstDefault, showMark, …restOfDefaults]`, empties dropped first (so a blank default
-can't displace the show mark), capped at 3 *(order decided 2026-07-31 — was show-mark-first)*.
+Each event shows **up to 3 logos**, laid out by `src/components/branding/LogoRow.tsx` — the sole
+owner of row order and sizing:
 
-> The **show mark** is the event's per-event logo override, falling back to its **festival's** logo
-> (`resolveShowLogo`). A festival's mark therefore belongs on the **festival** (Admin → Festivals),
-> not in the shared defaults: a company default applies to *every* event regardless of festival, and
-> — because the row caps at 3 — is silently dropped once a show mark exists.
+- The **show mark sits in the middle at 2× the mark height**, with the **shared default marks**
+  split to either side (46 · show · Peachtree). Marks occupy equal fixed-width slots so a wide
+  wordmark can't outweigh a compact one, and the gap is half the show-mark height.
+- With **no** show mark the defaults render as a plain centered row of up to 3, all the same size —
+  which is what an event with no festival and no override looks like.
+
+The **show mark** is the event's per-event logo override, falling back to its **festival's** logo
+(`resolveShowLogo`). A festival's mark therefore belongs on the **festival** (Admin → Festivals),
+not in the shared defaults: a company default applies to *every* event regardless of festival, and
+is dropped once a show mark exists (the row keeps at most two defaults alongside it).
 
 - **Two variants per logo.** Every logo holds an `onDark` (white/light) and an `onLight` (dark/color)
   image, so it reads on any background; render code picks the variant for the surface and falls back to

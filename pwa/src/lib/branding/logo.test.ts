@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  effectiveLogos,
   emptyLogo,
   hasLogo,
   logoForBackground,
@@ -30,41 +29,6 @@ describe('branding/logo', () => {
     // Fallback when the preferred variant is missing.
     expect(logoForBackground({ onDark: img('d'), onLight: null, name: null }, 'light')?.path).toBe('d');
     expect(logoForBackground({ onDark: null, onLight: img('l'), name: null }, 'dark')?.path).toBe('l');
-  });
-
-  it('effectiveLogos: show mark between the company marks, dropping empties, capped at 3', () => {
-    const ev: Logo = { onDark: img('e'), onLight: null, name: 'Event' };
-    const d1: Logo = { onDark: img('46'), onLight: img('46l'), name: '46' };
-    const d2: Logo = { onDark: img('pt'), onLight: null, name: 'Peachtree' };
-    const d3: Logo = { onDark: img('x'), onLight: null, name: 'Extra' };
-    const row = effectiveLogos(ev, [d1, emptyLogo(), d2, d3]);
-    expect(row.map((l) => l.name)).toEqual(['46', 'Event', 'Peachtree']);
-  });
-
-  // An empty slot among the defaults must not become the "first default" and shove the show
-  // mark out of the middle.
-  it('effectiveLogos: a leading empty default does not displace the show mark', () => {
-    const ev: Logo = { onDark: img('e'), onLight: null, name: 'Event' };
-    const d1: Logo = { onDark: img('46'), onLight: null, name: '46' };
-    const d2: Logo = { onDark: img('pt'), onLight: null, name: 'Peachtree' };
-    const row = effectiveLogos(ev, [emptyLogo(), d1, d2]);
-    expect(row.map((l) => l.name)).toEqual(['46', 'Event', 'Peachtree']);
-  });
-
-  it('effectiveLogos: with a single company mark the show mark follows it', () => {
-    const ev: Logo = { onDark: img('e'), onLight: null, name: 'Event' };
-    const d1: Logo = { onDark: img('46'), onLight: null, name: '46' };
-    expect(effectiveLogos(ev, [d1]).map((l) => l.name)).toEqual(['46', 'Event']);
-  });
-
-  it('effectiveLogos: with no company marks the show mark stands alone', () => {
-    const ev: Logo = { onDark: img('e'), onLight: null, name: 'Event' };
-    expect(effectiveLogos(ev, []).map((l) => l.name)).toEqual(['Event']);
-  });
-
-  it('effectiveLogos with no event logo uses defaults only', () => {
-    const d1: Logo = { onDark: img('46'), onLight: null, name: '46' };
-    expect(effectiveLogos(null, [d1]).map((l) => l.name)).toEqual(['46']);
   });
 
   it('parseLogo normalizes missing variants/name to null', () => {

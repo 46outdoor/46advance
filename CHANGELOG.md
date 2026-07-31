@@ -40,9 +40,9 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
-- **Logos — the show mark now sits between the company marks:** the logo row reads **46 → show mark →
-  Peachtree** instead of leading with the show mark, so the company branding brackets the show
-  identity. The show mark is the event's logo override, or its **festival's** logo if there's no
+- **Logos — the show mark is now 4× the company marks:** the festival (or per-event) logo renders
+  four times the height of the company marks that flank it, up from twice, so the show identity
+  leads. The show mark is the event's logo override, or its **festival's** logo if there's no
   override — so a festival's mark belongs on the festival (**Admin → Festivals**), not in the shared
   default marks. A mark added to the shared defaults appears on *every* event whatever its festival,
   and drops off once a show mark exists (the row shows at most three).
@@ -65,6 +65,10 @@ dependency bumps, and planning-doc updates) are omitted.
   **refuses** such a file and tells you to re-save it as PNG or JPEG; if one is already stored, the
   packet falls back to the logo's other variant; and generating a packet that had to leave something
   out shows a caution naming the image to fix, instead of looking like a clean packet.
+- **Logos — clearing an event's logo override now falls back to the festival:** removing a show's
+  logo override left the event with **no** show mark at all instead of falling back to its
+  festival's logo — in the app and in generated packets. Clearing an override stores an empty logo
+  rather than removing it, and the fallback treated "empty" as "set".
 - **Header — no more flickering on scroll:** scrolling a little made the shrinking header rapidly
   flip between its two sizes. Shrinking the header made the page shorter, which scrolled you back
   above the trigger point, which grew it again — a loop. It now needs a decisive scroll to shrink and

@@ -6,7 +6,7 @@
  * events consume) — mirrors the departments pattern, plus a dual-variant logo.
  */
 import { z } from 'zod';
-import { logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
+import { hasLogo, logoSchema, parseLogo, type Logo } from '@/lib/branding/logo';
 
 export interface FestivalRecord {
   id: string;
@@ -52,7 +52,11 @@ export function resolveShowLogo(
   festivalId: string | null,
   festivals: readonly FestivalRecord[],
 ): Logo | null {
-  if (eventLogo) return eventLogo;
+  // `hasLogo`, not truthiness: clearing a per-event override stores an EMPTY logo
+  // ({onDark: null, onLight: null}) rather than removing the field, and an empty object is
+  // truthy — so a truthiness check swallows the override and never reaches the festival,
+  // leaving the event with no show mark at all.
+  if (hasLogo(eventLogo)) return eventLogo;
   const festival = festivalId ? festivals.find((f) => f.id === festivalId) : null;
-  return festival?.logo ?? null;
+  return hasLogo(festival?.logo ?? null) ? (festival?.logo ?? null) : null;
 }
