@@ -900,7 +900,14 @@ async function resolvePacketLogos(
   // festival has a perfectly good one. `parseLogoRef` returns null when no variant is usable.
   const eventRef =
     parseLogoRef(ev.eventLogo) ?? parseLogoRef(await festivalLogoRaw(db, ev.festivalId));
-  if (!eventRef) return { eventLogo: null };
+  if (!eventRef) {
+    // Say so rather than returning a quietly logo-less packet — "no mark configured" and "the mark
+    // failed to embed" look identical in the output, and only one of them is the user's doing.
+    warnings.push(
+      'No logo was available for this packet — the event has no logo override and its festival has none either.',
+    );
+    return { eventLogo: null };
+  }
 
   const cache = new Map<string, string | null>();
   const preferred = variantForBackground(eventRef, 'light');
