@@ -24,6 +24,8 @@ export function filterEvents(
 
 /** True when the lowercased query appears in any searchable field of the event. */
 function matchesEvent(event: EventRecord, query: string): boolean {
-  const haystacks = [event.name, event.venue];
+  // venueAddress is searched too: since the venue split, a street address lives there rather than
+  // inside `venue`, so omitting it would stop "Addington" finding a show it used to find.
+  const haystacks = [event.name, event.venue, event.venueAddress];
   return haystacks.some((value) => value != null && value.toLowerCase().includes(query));
 }

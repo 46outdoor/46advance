@@ -49,7 +49,14 @@ export interface PacketLogo {
 }
 
 export interface PacketData {
-  event: { name: string; venue?: string | null; dateRange?: string | null };
+  event: {
+    name: string;
+    /** Venue NAME. Legacy events may still hold "Name: Address" here — see coverMetaLines. */
+    venue?: string | null;
+    /** Street address, stored separately; absent/null on events created before the field existed. */
+    venueAddress?: string | null;
+    dateRange?: string | null;
+  };
   departments: { id: string; name: string }[];
   eventProduction: {
     info: PacketContent;
@@ -192,7 +199,11 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
 
 /** Running header (fixed on every content page): event title + meta, with the page number at right. */
 function PageHeader({ data }: { data: PacketData }) {
-  const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join(' · ');
+  // Compact title block, so venue / address / dates stay on ONE line here (the cover is where
+  // they each get their own). Legacy events keep their combined "Name: Address" venue as-is.
+  const meta = [data.event.venue, data.event.venueAddress, data.event.dateRange]
+    .filter(Boolean)
+    .join(' · ');
   return createElement(View, { style: s.header, fixed: true }, [
     createElement(View, { style: s.headerText, key: 'tx' }, [
       createElement(Text, { style: s.headerTitle, key: 't' }, `${data.event.name} — ${data.typeLabel}`),
@@ -227,24 +238,38 @@ function PageFrame() {
 }
 
 /**
+ * LEGACY path: split a combined venue field into name + address lines.
+ *
+ * Events created before `venueAddress` existed hold both in the single `venue` field, separable
+ * only by convention: entries read "Boyd County Fairgrounds: 1760 Addington Road…", so the FIRST
+ * colon splits them. A venue with no colon (or one where either side would come out empty) simply
+ * stays on one line rather than being guessed at — mangling a real venue name is the worse failure.
+ */
+function legacyVenueLines(venue: string): string[] {
+  const at = venue.indexOf(':');
+  const name = at > 0 ? venue.slice(0, at).trim() : '';
+  const address = at > 0 ? venue.slice(at + 1).trim() : '';
+  return name && address ? [name, address] : [venue];
+}
+
+/**
  * The cover's identity lines under the title: venue name, venue address, dates — one per line.
  *
- * `venue` is a SINGLE stored field, so name and address are only separable by convention: entries
- * read "Boyd County Fairgrounds: 1760 Addington Road…", so the first colon splits them. A venue
- * with no colon simply stays on one line rather than being guessed at. Storing the address
- * separately on the event is the only way to make this exact.
+ * When the event carries an explicit `venueAddress`, both fields print verbatim — no colon
+ * guessing, so a venue name that legitimately contains a colon survives intact. The convention
+ * split above is kept only as the fallback for legacy events that have no `venueAddress`.
  */
 export function coverMetaLines(data: {
-  event: { venue?: string | null; dateRange?: string | null };
+  event: { venue?: string | null; venueAddress?: string | null; dateRange?: string | null };
 }): string[] {
   const lines: string[] = [];
   const venue = data.event.venue?.trim();
-  if (venue) {
-    const at = venue.indexOf(':');
-    const name = at > 0 ? venue.slice(0, at).trim() : '';
-    const address = at > 0 ? venue.slice(at + 1).trim() : '';
-    if (name && address) lines.push(name, address);
-    else lines.push(venue);
+  const venueAddress = data.event.venueAddress?.trim();
+  if (venueAddress) {
+    if (venue) lines.push(venue);
+    lines.push(venueAddress);
+  } else if (venue) {
+    lines.push(...legacyVenueLines(venue));
   }
   const dates = data.event.dateRange?.trim();
   if (dates) lines.push(dates);

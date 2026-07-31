@@ -40,6 +40,9 @@ export const createEventFromTemplateInputSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
+  /** Street address, separate from the venue NAME above so the packet cover can print each
+   *  on its own line. `.nullish()` per the auth.ts header — clients may omit it. */
+  venueAddress: z.string().nullish(),
   shortCode: z.string().nullable().optional(),
   festivalId: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
@@ -64,6 +67,9 @@ export const createBlankEventInputSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable(),
+  /** Street address, separate from the venue NAME above so the packet cover can print each
+   *  on its own line. `.nullish()` per the auth.ts header — clients may omit it. */
+  venueAddress: z.string().nullish(),
   shortCode: z.string().nullable().optional(),
   festivalId: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
