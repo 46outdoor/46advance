@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { formatDate } from '@/lib/dates/formatting';
+import { FilePickerButton } from '@/components/FilePickerButton';
 import { validateUpload } from '@/lib/storage/uploads';
 import type { ProductionAttachment } from '@/lib/production/production';
 
@@ -19,11 +20,10 @@ function sizeLabel(bytes: number): string {
 
 /** Attachment list + upload (stage plots / CAD / site maps). */
 export function AttachmentsEditor({ attachments, readOnly, uploading, onUpload, onRemove }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const pick = (file: File | undefined) => {
-    if (!file) return;
+  // FilePickerButton clears its own input, so re-picking the same file still fires.
+  const pick = (file: File) => {
     const err = validateUpload(file);
     if (err) {
       setError(err);
@@ -31,7 +31,6 @@ export function AttachmentsEditor({ attachments, readOnly, uploading, onUpload, 
     }
     setError(null);
     onUpload(file);
-    if (inputRef.current) inputRef.current.value = '';
   };
 
   return (
@@ -63,14 +62,13 @@ export function AttachmentsEditor({ attachments, readOnly, uploading, onUpload, 
       </ul>
 
       {!readOnly && (
-        <div className="flex items-center gap-3">
-          <input
-            ref={inputRef}
-            type="file"
+        <div className="flex flex-wrap items-center gap-3">
+          <FilePickerButton
+            label="Choose file"
+            ariaLabel="Choose an attachment to upload"
             accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf"
             disabled={uploading}
-            onChange={(e) => pick(e.target.files?.[0])}
-            className="text-sm"
+            onFile={pick}
           />
           {uploading && <span className="text-sm text-ink-muted">Uploading…</span>}
           {error && <span className="text-sm text-accent">{error}</span>}
