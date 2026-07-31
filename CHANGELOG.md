@@ -50,6 +50,21 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Sign-in — no more false "pending approval" flash:** signing in briefly showed **"Account pending
   approval"** for a second or two before the app loaded, even for accounts that were already
   approved. The screen now stays on **Loading…** until your access level is actually known.
+- **Packets — "Generate packet" works again:** the **Generate packet** button failed immediately with
+  "Could not generate the packet. Try again." Only that button was affected — **Save packet to Drive**
+  and **View current packet** kept working, which is why it went unnoticed since packet versioning
+  shipped on 2026-07-24.
+- **Festival logos can be uploaded:** setting a festival's logo in **Admin → Festivals** always failed
+  — the upload was rejected before it started. No festival logo could be saved since festivals
+  shipped, which is also why events fell back to their template's logo.
+- **Packets — logos that silently vanished:** a logo saved as `.png` but actually in another format
+  (WebP is the common one — design tools export it and the file gets renamed) was dropped from the
+  generated packet with no error, so packets came out missing their event mark. Now: the uploader
+  **refuses** such a file and tells you to re-save it as PNG or JPEG; if one is already stored, the
+  packet falls back to the logo's other variant; and generating a packet that had to leave something
+  out shows a caution naming the image to fix, instead of looking like a clean packet.
+- **Uploads — "Choose file" buttons:** the logo and attachment pickers still showed the browser's
+  plain grey file input instead of the styled **Choose file** button used elsewhere.
 
 ## 2026-07-24
 

@@ -160,3 +160,38 @@ describe('storage.rules — contact photos (uploader-scoped)', () => {
     await assertSucceeds(deleteObject(ref(storageFor(TECH), `contacts/photos/${TECH}/mine.png`)));
   });
 });
+
+// Regression: the festivals feature shipped an admin logo uploader (`festivals/{id}/logo/...`) with
+// no matching storage.rules block. Storage denies by default, so every upload 403'd and no festival
+// logo could ever be set. Mirrors the templates/branding rules.
+describe('storage.rules — festival logos', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // "\x89PNG"
+  const pngMeta = { contentType: 'image/png' };
+  const logoPath = 'festivals/fest-1/logo/onDark-1.png';
+
+  it('an admin can upload a festival logo', async () => {
+    await assertSucceeds(
+      uploadBytes(ref(storageFor(ADMIN.uid, ADMIN.token), logoPath), PNG, pngMeta),
+    );
+  });
+
+  it('a non-admin approved user cannot upload a festival logo', async () => {
+    await assertFails(uploadBytes(ref(storageFor(PM), logoPath), PNG, pngMeta));
+  });
+
+  it('any approved user can read a festival logo, but anonymous cannot', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), logoPath), PNG, pngMeta);
+    });
+    await assertSucceeds(getBytes(ref(storageFor(TECH), logoPath)));
+    await assertFails(getBytes(ref(storageAnon(), logoPath)));
+  });
+
+  it('only an admin can delete a festival logo', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), logoPath), PNG, pngMeta);
+    });
+    await assertFails(deleteObject(ref(storageFor(PM), logoPath)));
+    await assertSucceeds(deleteObject(ref(storageFor(ADMIN.uid, ADMIN.token), logoPath)));
+  });
+});

@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { deleteFile, uploadFile, validateUpload, type UploadedFile } from '@/lib/storage/uploads';
+import { FilePickerButton } from '@/components/FilePickerButton';
+import {
+  deleteFile,
+  uploadFile,
+  validateImageUpload,
+  type UploadedFile,
+} from '@/lib/storage/uploads';
 import type { Logo } from '@/lib/branding/logo';
 
 interface Props {
@@ -16,13 +22,22 @@ interface Props {
   disabled?: boolean;
 }
 
+// `ariaLabel` is spelled out per variant: the two pickers sit side by side, so a bare
+// "Choose file" gives a screen reader no way to tell them apart.
 const VARIANTS = [
-  { key: 'onDark', label: 'For dark backgrounds', hint: 'white / light mark', swatch: 'bg-brand' },
+  {
+    key: 'onDark',
+    label: 'For dark backgrounds',
+    hint: 'white / light mark',
+    swatch: 'bg-brand',
+    ariaLabel: 'Choose a logo file for dark backgrounds',
+  },
   {
     key: 'onLight',
     label: 'For light backgrounds',
     hint: 'dark / color mark',
     swatch: 'bg-surface border border-line',
+    ariaLabel: 'Choose a logo file for light backgrounds',
   },
 ] as const;
 
@@ -31,9 +46,11 @@ export function LogoUploader({ logo, pathPrefix, onChange, disabled }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const pick = async (variant: 'onDark' | 'onLight', file: File | undefined): Promise<void> => {
-    if (!file) return;
-    const err = validateUpload(file);
+  const pick = async (variant: 'onDark' | 'onLight', file: File): Promise<void> => {
+    // Byte-level check, not just the extension: every logo in the app lands in a PDF packet, and
+    // the renderer embeds PNG/JPEG only — a mislabelled WebP would upload fine and silently render
+    // as a missing logo. See `validateImageUpload`.
+    const err = await validateImageUpload(file);
     if (err) {
       setError(err);
       return;
@@ -91,12 +108,12 @@ export function LogoUploader({ logo, pathPrefix, onChange, disabled }: Props) {
                 )}
               </div>
             ) : (
-              <input
-                type="file"
+              <FilePickerButton
+                label="Choose file"
                 accept=".png,.jpg,.jpeg"
                 disabled={disabled || busy === v.key}
-                onChange={(e) => void pick(v.key, e.target.files?.[0])}
-                className="text-xs"
+                ariaLabel={v.ariaLabel}
+                onFile={(file) => void pick(v.key, file)}
               />
             )}
             {busy === v.key && <p className="mt-1 text-xs text-ink-muted">Uploading…</p>}

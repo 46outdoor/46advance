@@ -16,6 +16,7 @@ import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { appendPacketAttachments, type PacketAttachment } from './lib/pdf/attachments.js';
 import { getPacketConfig, packetBaseName } from './lib/pdf/packetFilename.js';
+import { EMBEDDABLE_IMAGE_FORMATS, sniffImageFormat } from './contracts/imageFormat.js';
 import { DEFAULT_COVER_DATA_URI } from './lib/pdf/assets/defaultCover.js';
 import { DRIVE_SA_KEY, brokerDriveClient } from './googleDrive.js';
 import { fetchBrokeredFileBytes, MAX_EMBED_BYTES } from './lib/broker/brokerFetch.js';
@@ -819,12 +820,13 @@ function variantForBackground(logo: LogoRef, background: 'dark' | 'light'): Logo
 
 /**
  * Download a Storage object once and base64-encode it to a data URI. Defensive: a missing,
- * oversized, or failed download returns null (logged) rather than throwing, so a bad logo
- * never breaks packet generation. Results are memoized per-path in `cache`.
+ * oversized, unembeddable, or failed download returns null (logged, and appended to `warnings`)
+ * rather than throwing, so a bad logo never breaks packet generation. Memoized per-path in `cache`.
  */
 async function loadLogoDataUri(
   path: string,
   cache: Map<string, string | null>,
+  warnings: string[] = [],
 ): Promise<string | null> {
   const cached = cache.get(path);
   if (cached !== undefined) return cached;
@@ -836,13 +838,27 @@ async function loadLogoDataUri(
     const size = typeof metadata.size === 'number' ? metadata.size : Number(metadata.size ?? 0);
     if (size > MAX_LOGO_BYTES) {
       logger.warn('generatePacket: logo too large; skipping', { path, size });
+      warnings.push(`A logo image was too large to embed (over 2 MB): ${path}`);
     } else {
       const [buffer] = await file.download();
-      const contentType = metadata.contentType ?? 'image/png';
-      dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+      const format = sniffImageFormat(buffer);
+      if (EMBEDDABLE_IMAGE_FORMATS.includes(format)) {
+        dataUri = `data:image/${format};base64,${buffer.toString('base64')}`;
+      } else {
+        // The stored contentType claims PNG here — trusting it is exactly how this went unnoticed.
+        logger.warn('generatePacket: logo is not an embeddable PNG/JPEG; skipping', {
+          path,
+          detected: format,
+          storedContentType: metadata.contentType ?? null,
+        });
+        warnings.push(
+          `A logo image isn't a PNG or JPEG (detected ${format}) so it couldn't be added to the packet. Re-upload it as PNG or JPEG: ${path}`,
+        );
+      }
     }
   } catch (err) {
     logger.warn('generatePacket: logo download failed; skipping', { path, err });
+    warnings.push(`A logo image could not be read from storage: ${path}`);
   }
   cache.set(path, dataUri);
   return dataUri;
@@ -873,6 +889,7 @@ function resolvePacketCover(_ev: DocumentData): string {
 async function resolvePacketLogos(
   db: Firestore,
   ev: DocumentData,
+  warnings: string[] = [],
 ): Promise<{ eventLogo: PacketLogo | null }> {
   // Show mark (cover) = the per-event override if set, else the picked festival's logo. It sits on
   // the cover's white area → the onLight variant. (The interior frame's 46 mark is bundled house
@@ -880,8 +897,26 @@ async function resolvePacketLogos(
   const showLogoRaw = ev.eventLogo ?? (await festivalLogoRaw(db, ev.festivalId));
   const eventRef = parseLogoRef(showLogoRaw);
   if (!eventRef) return { eventLogo: null };
-  const header = variantForBackground(eventRef, 'light');
-  const headerDataUri = header ? await loadLogoDataUri(header.path, new Map()) : null;
+
+  const cache = new Map<string, string | null>();
+  const preferred = variantForBackground(eventRef, 'light');
+  let headerDataUri = preferred ? await loadLogoDataUri(preferred.path, cache, warnings) : null;
+
+  // Fall back to the opposite variant when the preferred one is unusable. An event whose onLight
+  // still points at a stale/broken template logo shouldn't lose its show mark when a perfectly
+  // good onDark is sitting right there.
+  if (!headerDataUri) {
+    const alternate = preferred === eventRef.onLight ? eventRef.onDark : eventRef.onLight;
+    if (alternate && alternate.path !== preferred?.path) {
+      headerDataUri = await loadLogoDataUri(alternate.path, cache, warnings);
+      if (headerDataUri) {
+        warnings.push(
+          "Used the event logo's other variant on the packet cover because the preferred one couldn't be embedded.",
+        );
+      }
+    }
+  }
+  if (!headerDataUri) warnings.push('The packet was generated without an event logo.');
   return { eventLogo: { headerDataUri } };
 }
 
@@ -982,7 +1017,10 @@ export const generatePacket = onCall(
       }),
     );
 
-    const logos = await resolvePacketLogos(db, ev);
+    // Non-fatal render problems (an unembeddable logo, say) are returned so the caller can say the
+    // packet came out degraded — otherwise a missing mark looks exactly like a correct packet.
+    const warnings: string[] = [];
+    const logos = await resolvePacketLogos(db, ev, warnings);
     const { typeLabel } = await getPacketConfig(db);
 
     const data: PacketData = {
@@ -1024,7 +1062,7 @@ export const generatePacket = onCall(
       .bucket(STORAGE_BUCKET)
       .file(path)
       .save(buffer, { contentType: 'application/pdf' });
-    return { path };
+    return warnings.length > 0 ? { path, warnings } : { path };
   },
 );
 

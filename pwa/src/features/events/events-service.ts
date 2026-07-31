@@ -142,6 +142,13 @@ export interface GeneratedPacket {
   url: string;
   /** Storage path — used to save the packet into the caller's Drive (Phase 13). */
   path: string;
+  /**
+   * Non-fatal problems the server worked around while rendering — e.g. a logo the PDF renderer
+   * couldn't embed (it takes PNG/JPEG only, so a WebP saved as `.png` silently decodes to nothing).
+   * Human-readable, each naming the Storage path where relevant. Empty means a clean render; a
+   * degraded packet is still a valid packet, so these are cautions, not failures.
+   */
+  warnings: string[];
 }
 
 /**
@@ -152,9 +159,15 @@ export interface GeneratedPacket {
  */
 export async function generatePacket(eventId: string, version?: number): Promise<GeneratedPacket> {
   const callable = httpsCallable<GeneratePacketInput, PdfPathOutput>(functions, 'generatePacket');
-  const { path } = (await callable({ eventId, version })).data;
+  // Omit `version` entirely rather than sending it as undefined — the callable client encodes an
+  // explicitly-undefined property as null (see the @contracts auth.ts header).
+  const { path, warnings } = (
+    await callable({ eventId, ...(version !== undefined && { version }) })
+  ).data;
   const url = await getDownloadURL(ref(storage, path));
-  return { url, path };
+  // `warnings` is optional in the contract: a function deployed before the field existed omits it,
+  // and the server also omits it on a clean render. Normalize to [] so callers never branch on undefined.
+  return { url, path, warnings: warnings ?? [] };
 }
 
 /**
