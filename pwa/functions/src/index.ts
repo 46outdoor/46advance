@@ -16,7 +16,7 @@ import { seedScheduleFromTemplates } from './scheduleTemplateSeed';
 import { renderPacket, type PacketData, type PacketLogo } from './lib/pdf/packet.js';
 import { appendPacketAttachments, type PacketAttachment } from './lib/pdf/attachments.js';
 import { getPacketConfig, packetBaseName } from './lib/pdf/packetFilename.js';
-import { sniffImageFormat } from './contracts/imageFormat.js';
+import { EMBEDDABLE_IMAGE_FORMATS, sniffImageFormat } from './contracts/imageFormat.js';
 import { DEFAULT_COVER_DATA_URI } from './lib/pdf/assets/defaultCover.js';
 import { DRIVE_SA_KEY, brokerDriveClient } from './googleDrive.js';
 import { fetchBrokeredFileBytes, MAX_EMBED_BYTES } from './lib/broker/brokerFetch.js';
@@ -842,7 +842,7 @@ async function loadLogoDataUri(
     } else {
       const [buffer] = await file.download();
       const format = sniffImageFormat(buffer);
-      if (format === 'png' || format === 'jpeg') {
+      if (EMBEDDABLE_IMAGE_FORMATS.includes(format)) {
         dataUri = `data:image/${format};base64,${buffer.toString('base64')}`;
       } else {
         // The stored contentType claims PNG here — trusting it is exactly how this went unnoticed.

@@ -12,9 +12,11 @@
  *   2. Barrel files (`**​/index.ts`) — deliberate re-export aggregators; consumers
  *      import screens/services from the canonical module directly, so the barrel's
  *      re-exports always look unused.
- *   3. `contracts/callables/*` — the shared Zod contract surface pairs every schema
- *      with its `z.infer` type by design (some are server-only with no caller yet).
- *      That symmetry is intentional API, not dead code.
+ *   3. `contracts/*` — the shared client+Functions surface. ts-prune runs against
+ *      `tsconfig.app.json` (the CLIENT project) only, so it cannot see Functions-side
+ *      consumers: an export used solely by `functions/src/**` looks unused from here.
+ *      It also pairs every callable schema with its `z.infer` type by design (some
+ *      server-only with no caller yet). Both are intentional API, not dead code.
  *
  * A newly-added export that nothing imports slips past all three filters and fails
  * the gate. Fix by importing it, or delete it (git remembers).
@@ -30,9 +32,7 @@ const bin = path.join(pwaRoot, 'node_modules', '.bin', 'ts-prune');
 const raw = execFileSync(bin, ['-p', 'tsconfig.app.json'], { cwd: pwaRoot, encoding: 'utf8' });
 
 const isFalsePositive = (line) =>
-  line.includes('(used in module)') ||
-  /(^|\/)index\.ts:/.test(line) ||
-  line.includes('contracts/callables/');
+  line.includes('(used in module)') || /(^|\/)index\.ts:/.test(line) || line.includes('contracts/');
 
 const dead = raw
   .split('\n')

@@ -50,10 +50,6 @@ export function sniffImageFormat(bytes: Uint8Array): ImageFormat {
   return 'unknown';
 }
 
-/** The formats the PDF renderer can actually embed. */
+/** The formats the PDF renderer can actually embed. Callers that need to explain the rejection
+ *  sniff first and test membership here, so "what's embeddable" is defined in exactly one place. */
 export const EMBEDDABLE_IMAGE_FORMATS: readonly ImageFormat[] = ['png', 'jpeg'];
-
-/** True when these bytes can be embedded in a generated packet. */
-export function isEmbeddableImage(bytes: Uint8Array): boolean {
-  return EMBEDDABLE_IMAGE_FORMATS.includes(sniffImageFormat(bytes));
-}

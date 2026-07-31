@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isEmbeddableImage, sniffImageFormat } from './imageFormat.js';
+import { EMBEDDABLE_IMAGE_FORMATS, sniffImageFormat } from './imageFormat.js';
 
 /**
  * Regression: an event logo was a WebP saved as `logo.png` with contentType `image/png`. Filename,
@@ -53,11 +53,19 @@ describe('sniffImageFormat', () => {
   });
 });
 
-describe('isEmbeddableImage', () => {
-  it('accepts only what the PDF renderer can embed', () => {
-    expect(isEmbeddableImage(PNG)).toBe(true);
-    expect(isEmbeddableImage(JPEG)).toBe(true);
-    expect(isEmbeddableImage(WEBP)).toBe(false);
-    expect(isEmbeddableImage(GIF)).toBe(false);
+describe('EMBEDDABLE_IMAGE_FORMATS', () => {
+  // The renderer's PNG/JPEG-only limit is the whole reason this module exists; widening this list
+  // without widening the renderer would silently reintroduce the vanishing-logo bug.
+  it('covers exactly what the PDF renderer can embed', () => {
+    expect([...EMBEDDABLE_IMAGE_FORMATS].sort()).toEqual(['jpeg', 'png']);
+  });
+
+  it.each([
+    ['PNG', PNG, true],
+    ['JPEG', JPEG, true],
+    ['WebP', WEBP, false],
+    ['GIF', GIF, false],
+  ])('%s embeddable = %s', (_label, buffer, expected) => {
+    expect(EMBEDDABLE_IMAGE_FORMATS.includes(sniffImageFormat(buffer))).toBe(expected);
   });
 });
