@@ -57,6 +57,14 @@ service firebase.storage {
       allow write: if isAdmin() && validUpload();
       allow delete: if isAdmin();
     }
+    // Per-festival logos (Admin → Festivals) — admin-managed; any approved user reads. Same shape
+    // as templates/branding above. This match was missing when the festivals feature shipped, so
+    // every festival-logo upload was denied by default (403) and no festival logo could be set.
+    match /festivals/{allPaths=**} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() && validUpload();
+      allow delete: if isAdmin();
+    }
     // Contact directory photos live at contacts/photos/{uploaderUid}/{file}. Any approved user
     // reads; a user may only write/delete within their OWN uid folder (admin: any) — previously
     // any approved user could overwrite/delete any photo. Legacy flat photos

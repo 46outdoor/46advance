@@ -27,6 +27,7 @@ import {
 } from './events-service';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
+import { PacketWarnings } from '@/components/packets/PacketWarnings';
 import { StagesPanel } from './StagesPanel';
 import { LineupPanel } from './LineupPanel';
 import { EventContactsPanel } from './EventContactsPanel';
@@ -40,6 +41,12 @@ interface PacketActions {
   onGenerate: () => void;
   savePending: boolean;
   saveMessage: string | null;
+  /**
+   * Non-fatal render problems from the most recent generate/save — the packet exists and opens,
+   * it's just degraded (e.g. a logo that couldn't be embedded). Empty = a clean render.
+   */
+  packetWarnings: string[];
+  onDismissWarnings: () => void;
   /** Version of the packet currently saved in Drive; null if none saved yet. */
   savedVersion: number | null;
   choosingVersion: boolean;
@@ -61,12 +68,21 @@ function usePacketActions(
 ): PacketActions {
   const queryClient = useQueryClient();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  // Non-fatal render problems from the last generate/save. Cleared when a new run starts so a
+  // stale caution can never be read as describing the packet that just came back.
+  const [packetWarnings, setPacketWarnings] = useState<string[]>([]);
   // Holds the pending replace/bump choice for a re-save.
   const [choosingVersion, setChoosingVersion] = useState(false);
 
   const packet = useMutation({
     mutationFn: () => generatePacket(id!),
-    onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
+    onMutate: () => setPacketWarnings([]),
+    // The packet is valid even when it rendered degraded, so it still opens — the caution is
+    // surfaced alongside it, never in place of it.
+    onSuccess: ({ url, warnings }) => {
+      setPacketWarnings(warnings);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
     onError: (err) => logger.error('Failed to generate packet', err),
   });
 
@@ -76,16 +92,19 @@ function usePacketActions(
   // it once (granting access) and retry.
   const saveToDrive = useMutation({
     mutationFn: async (version: number | undefined) => {
-      const { path } = await generatePacket(id!, version);
+      // Save generates its own packet, so it carries the same render cautions as Generate.
+      const { path, warnings } = await generatePacket(id!, version);
       let res = await savePacketToDrive(id!, path, version);
       if (!res.saved && res.reason === 'no_folder_access') {
         const picked = await pickDriveFolder();
         if (picked) res = await savePacketToDrive(id!, path, version);
       }
-      return res;
+      return { res, warnings };
     },
-    onSuccess: (res) => {
+    onMutate: () => setPacketWarnings([]),
+    onSuccess: ({ res, warnings }) => {
       setChoosingVersion(false);
+      setPacketWarnings(warnings);
       if (res.saved) {
         setSaveMessage(null);
         if (res.webViewLink) window.open(res.webViewLink, '_blank', 'noopener,noreferrer');
@@ -107,6 +126,8 @@ function usePacketActions(
     onGenerate: () => packet.mutate(),
     savePending: saveToDrive.isPending,
     saveMessage,
+    packetWarnings,
+    onDismissWarnings: () => setPacketWarnings([]),
     savedVersion,
     choosingVersion,
     // First save (no prior version) goes straight through; a re-save opens the replace/bump choice.
@@ -212,6 +233,8 @@ export function EventDetailScreen() {
           packetError={packetActions.generateError}
           saveToDrivePending={packetActions.savePending}
           saveMessage={packetActions.saveMessage}
+          packetWarnings={packetActions.packetWarnings}
+          onDismissWarnings={packetActions.onDismissWarnings}
           savedVersion={packetActions.savedVersion}
           choosingVersion={packetActions.choosingVersion}
           onGeneratePacket={packetActions.onGenerate}
@@ -285,6 +308,9 @@ interface EventDetailHeaderProps {
   packetError: boolean;
   saveToDrivePending: boolean;
   saveMessage: string | null;
+  /** Non-fatal render cautions from the last generate/save; empty renders nothing. */
+  packetWarnings: string[];
+  onDismissWarnings: () => void;
   /** Version of the packet currently saved in Drive; null if none saved yet. */
   savedVersion: number | null;
   /** Whether the replace/bump choice is showing (a re-save was requested). */
@@ -308,6 +334,8 @@ function EventDetailHeader({
   packetError,
   saveToDrivePending,
   saveMessage,
+  packetWarnings,
+  onDismissWarnings,
   savedVersion,
   choosingVersion,
   onGeneratePacket,
@@ -410,6 +438,7 @@ function EventDetailHeader({
         <p className="text-sm text-accent">Could not generate the packet. Try again.</p>
       )}
       {saveMessage && <p className="text-sm text-accent">{saveMessage}</p>}
+      <PacketWarnings warnings={packetWarnings} onDismiss={onDismissWarnings} />
     </header>
   );
 }

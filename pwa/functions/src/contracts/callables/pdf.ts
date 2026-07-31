@@ -27,6 +27,13 @@ export type GenerateQuotePdfInput = z.infer<typeof generateQuotePdfInputSchema>;
 // generatePacket → a Storage path; the client resolves a member-gated download URL.
 export const pdfPathOutputSchema = z.object({
   path: z.string().min(1),
+  /**
+   * Non-fatal problems the render worked around — surfaced so a silently-degraded packet doesn't
+   * look identical to a correct one. Today: a logo variant that couldn't be embedded (the PDF
+   * renderer takes PNG/JPEG only, so a WebP saved as `.png` decodes to nothing), where the render
+   * falls back to the other variant or drops the mark. Absent/empty means a clean render.
+   */
+  warnings: z.array(z.string()).optional(),
 });
 export type PdfPathOutput = z.infer<typeof pdfPathOutputSchema>;
 
