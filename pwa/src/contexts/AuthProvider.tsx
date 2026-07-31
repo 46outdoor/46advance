@@ -77,6 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Sync once per sign-in (token refreshes re-fire this with the same uid).
       if (syncedUid.current === nextUser.uid) return;
       syncedUid.current = nextUser.uid;
+      // Re-enter loading for the new identity. `loading` is false by now on a fresh sign-in (the
+      // signed-out branch above set it), and `approved` still holds its false default — so without
+      // this the gate renders "Account pending approval" for the length of the syncUserClaims round
+      // trip before the real claim arrives. It also stops the previous account's claims leaking
+      // into the next one on a direct account switch. Batched with setUser above, so the gate sees
+      // user-present + loading in one render, never the gap between them.
+      setLoading(true);
       void (async () => {
         await applyClaims(nextUser);
         setLoading(false);
