@@ -282,9 +282,25 @@ the South; see § UI / §7). Distinct from a band advance; one (or a few) per ev
 > Model in `src/lib/templates/`; admin toggle in the template editor, **Default** badge in
 > the templates list.
 >
-> **Not yet built (follow-up):** the other half — a **"Push to existing events…"** action in
-> the template editor: pick sections, tick target events from a multi-select list (nothing
-> pre-checked, no push-to-all), preview a per-event field-level diff, then apply.
+> **Built (2026-07-31): push to existing events.** The other half — a **Push to existing events**
+> panel in the template editor retrofits shows that already exist, where before the template only
+> ever applied at creation time. Scope is deliberately narrow: **production content only** — the
+> event production record (info fields, production contacts, reference links) and the per-stage
+> house packages, each a toggle, both on by default. **Roles and schedule templates are excluded
+> on purpose:** roles would change who can see a live show, and schedule days would seed into
+> schedules that already hold real content. Targets are ticked one at a time — **nothing
+> pre-selected, no push-to-all**, 25 events max — with events created from this template grouped
+> ahead of the rest. **Preview, then confirm:** a per-event field-level diff (from → to, plus the
+> events that already match) must come back before Apply unlocks, and changing the sections or the
+> target list clears the preview, so an apply can never run against a stale one. Writes **merge** —
+> only keys the template actually carries are written, so an event-local field the template doesn't
+> have survives — and stages are matched by **name** (a template's stage ids differ from those on
+> events seeded from it); an unmatched template stage is reported as skipped, never created.
+> Contacts and reference links are replaced as whole lists (ordered, no stable per-entry identity)
+> and preview as a count change. Admin-only, rate-limited, not reversible. Client
+> `src/lib/templates/template-push-service.ts` + `src/features/templates/PushToEventsPanel.tsx`;
+> backend `functions/src/templatePush.ts` (`pushTemplateProduction` — one callable with a `dryRun`
+> flag so preview and apply share a code path and can't drift).
 
 ## 6. Event / Advance Templates
 

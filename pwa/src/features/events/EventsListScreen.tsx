@@ -15,7 +15,8 @@ import {
   listScheduleTemplates,
 } from '@/lib/schedules/schedule-templates-service';
 import type { TemplateInclude } from '@contracts/callables/events';
-import { createEvent, createEventFromTemplate, listEvents } from './events-service';
+import { listEvents } from '@/lib/events/events-read';
+import { createEvent, createEventFromTemplate } from './events-service';
 import { applyTemplateDaysToEvent } from './schedule-days-service';
 import { listStages } from './stages-service';
 import { filterEvents } from './filter-events';

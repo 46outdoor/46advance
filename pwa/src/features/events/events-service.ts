@@ -5,12 +5,9 @@
  */
 import {
   collection,
-  collectionGroup,
   doc,
-  getDoc,
   getDocs,
   limit,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -19,12 +16,11 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { db, functions, storage } from '@/services/firebase';
-import { createLogger } from '@/lib/logger';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord } from '@/lib/events/event';
+import { getEvent } from '@/lib/events/events-read';
 import { defaultEventSlug } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
-import type { Viewer } from '@/lib/rbac/permissions';
 import type {
   CreateBlankEventInput,
   CreateBlankEventOutput,
@@ -35,11 +31,6 @@ import type {
   TemplateInclude,
 } from '@contracts/callables/events';
 import type { GeneratePacketInput, PdfPathOutput } from '@contracts/callables/pdf';
-
-const logger = createLogger('Events');
-
-/** Defensive ceiling on the admin all-events read; if hit, add cursor pagination (roadmap). */
-const EVENTS_READ_CAP = 500;
 
 /**
  * Create a blank event + the creator's production-manager membership. Runs server-side
@@ -78,11 +69,6 @@ export async function createEvent(input: EventInput): Promise<string> {
   return result.data.eventId;
 }
 
-export async function getEvent(eventId: string): Promise<EventRecord | null> {
-  const snap = await getDoc(doc(db, 'events', eventId));
-  return snap.exists() ? parseEvent(snap.id, snap.data()) : null;
-}
-
 /**
  * Resolve an event by its URL slug, falling back to a doc-id lookup (so old
  * `/events/{id}` links and not-yet-slugged events keep working).
@@ -100,30 +86,6 @@ export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord 
     // Slug query denied (viewer isn't a member of the matching event) → try the id.
   }
   return getEvent(slugOrId);
-}
-
-/** Events the viewer can see: all (admin) or those they're a member of. */
-export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
-  let events: EventRecord[];
-  if (viewer.isAdmin) {
-    const snap = await getDocs(
-      query(collection(db, 'events'), orderBy('name'), limit(EVENTS_READ_CAP)),
-    );
-    if (snap.size >= EVENTS_READ_CAP) {
-      logger.warn(`Admin events list hit the ${EVENTS_READ_CAP}-event read cap — add pagination.`);
-    }
-    events = snap.docs.map((d) => parseEvent(d.id, d.data()));
-  } else {
-    const memberSnap = await getDocs(
-      query(collectionGroup(db, 'members'), where('uid', '==', viewer.uid)),
-    );
-    const eventIds = memberSnap.docs
-      .map((d) => d.ref.parent.parent?.id)
-      .filter((id): id is string => Boolean(id));
-    const fetched = await Promise.all(eventIds.map((id) => getEvent(id)));
-    events = fetched.filter((e): e is EventRecord => e !== null);
-  }
-  return events.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
