@@ -41,6 +41,12 @@ dependency bumps, and planning-doc updates) are omitted.
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
 
+### Fixed
+
+- **Sign-in — no more false "pending approval" flash:** signing in briefly showed **"Account pending
+  approval"** for a second or two before the app loaded, even for accounts that were already
+  approved. The screen now stays on **Loading…** until your access level is actually known.
+
 ## 2026-07-24
 
 ### Changed
