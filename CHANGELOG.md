@@ -46,6 +46,10 @@ dependency bumps, and planning-doc updates) are omitted.
   override — so a festival's mark belongs on the festival (**Admin → Festivals**), not in the shared
   default marks. A mark added to the shared defaults appears on *every* event whatever its festival,
   and drops off once a show mark exists (the row shows at most three).
+- **Drive picker — list view and Starred:** the Google Drive picker now opens in **list** view
+  instead of the thumbnail grid, so more items fit on screen. The **folder** picker (linking an
+  event's Drive folder, the document library) also gains a **Starred** tab — it previously had only
+  My Drive, Shared with me, and Shared drives, so a starred folder still meant hunting for it.
 
 ### Fixed
 

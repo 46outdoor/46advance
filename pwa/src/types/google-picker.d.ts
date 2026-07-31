@@ -14,6 +14,8 @@ interface PickerDocsView {
   setOwnedByMe(ownedByMe: boolean): PickerDocsView;
   setStarred(starred: boolean): PickerDocsView;
   setEnableDrives(enable: boolean): PickerDocsView;
+  /** Grid (default) vs list layout — `picker.DocsViewMode.LIST` / `.GRID`. */
+  setMode(mode: string): PickerDocsView;
 }
 
 interface PickerResponseDoc {
@@ -45,6 +47,7 @@ interface GooglePickerNamespace {
   DocsView: new (viewId?: string) => PickerDocsView;
   PickerBuilder: new () => PickerBuilder;
   ViewId: { DOCS: string };
+  DocsViewMode: { LIST: string; GRID: string };
   Feature: { MULTISELECT_ENABLED: string; SUPPORT_DRIVES: string };
   Action: { PICKED: string; CANCEL: string };
 }
