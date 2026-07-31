@@ -79,7 +79,7 @@ The chosen stack reuses Firebase. The project is provisioned:
 | Concern | Web (`pwa/`) | Mobile (`mobile/`) |
 | ------- | ------------ | ------------------ |
 | Firestore SDK | `firebase/firestore` (web) | `@react-native-firebase/firestore` (native) |
-| Auth SDK | `firebase/auth` (web) | `@react-native-firebase/auth` + `@react-native-google-signin/google-signin` |
+| Auth SDK | `firebase/auth` (web) | `@react-native-firebase/auth` (email/password only — no social-sign-in package; ROADMAP §3) |
 | Timestamp handling | `src/lib/firestore/timestamps.ts` helpers | Native SDK returns `FirebaseFirestoreTypes.Timestamp` — convert at read time |
 | Offline | Service worker + IndexedDB | Native SDK persistence (on by default) |
 

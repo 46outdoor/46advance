@@ -23,7 +23,7 @@ Shares the same Firebase backend as `pwa/`.
 - **Routing**: `expo-router` v6 (file-based, typed routes enabled)
 - **Navigation primitives**: `@react-navigation/bottom-tabs`, `@react-navigation/native`
 - **Firebase**: `@react-native-firebase/*` (app, app-check, auth, firestore) — NOT the web SDK
-- **Auth providers**: `@react-native-google-signin/google-signin`, `expo-apple-authentication`
+- **Auth providers**: none — email/password only (Google/Apple sign-in excluded, `planning/ROADMAP.md` §3)
 - **Server state**: TanStack Query v5 (same as web)
 - **Styling**: NativeWind 4.x + Tailwind CSS 3.4
 - **Storage**: `expo-secure-store` for sensitive values
@@ -155,8 +155,15 @@ the debug provider.
 
 ### Auth
 
-- Google Sign-In: `@react-native-google-signin/google-signin` returns an ID token → `auth().signInWithCredential(GoogleAuthProvider.credential(idToken))`
-- Apple Sign-In: `expo-apple-authentication` returns an identity token → exchange similarly
+- **Email/password only** — `auth().signInWithEmailAndPassword(...)`. Google and Apple sign-in are
+  **excluded** (`planning/ROADMAP.md` §3), so don't add `@react-native-google-signin/google-signin`
+  or `expo-apple-authentication`. Apple's App Store rule requiring Sign in with Apple applies only
+  to apps offering third-party sign-in, so email/password-only sidesteps it.
+- Accounts still start **pending** and need admin approval — mirror the web `AuthGate` states
+  (loading → verify email → pending approval), and keep "claims not yet resolved" distinct from
+  "not approved" or the gate flashes a false pending screen.
+- Per-user Google **OAuth** for Calendar/Meet/Drive is unaffected — that authorizes API access for
+  an already-signed-in user and still uses native OAuth (e.g. `expo-auth-session`).
 - Secure persistence: `expo-secure-store` for refresh artifacts; never AsyncStorage for sensitive values
 
 ## Styling (NativeWind)
