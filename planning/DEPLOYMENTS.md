@@ -71,7 +71,7 @@ missing from `connect-src`. The fix (PR #185) rode the 2026-07-24 owner Hosting 
 should now STOP appearing in the logs. **Next:** observe a clean window (~1 week, target ~2026-07-31) —
 confirm no *other* legitimate-resource violations — then flip to enforce.
 
-**PREREQUISITE 2 — `frame-src` missing the Auth handler domain ⛔ NOT YET LIVE (found 2026-07-31).**
+**PREREQUISITE 2 — `frame-src` missing the Auth handler domain ✅ NOW LIVE (2026-07-31).**
 The observation window closed **not clean**. The `logging read` above returned exactly one violation
 over the 7 days:
 
@@ -85,9 +85,18 @@ nothing in the old `frame-src` (`*.google.com` does **not** cover `firebaseapp.c
 enforce before this fix would have broken Google/Apple sign-in in production** — and silently, since a
 blocked auth iframe fails without a clear error. `frame-src` now lists the domain explicitly.
 
-**The enforce clock restarts.** The fix must be Hosting-deployed, then observed clean over a *fresh*
-window — verifying no violations after the fix is live is the whole point of the report-only phase, so
-the fix and the enforce flip must be **separate releases**, never the same one.
+**The enforce clock restarts — window opened 2026-07-31.** The fix rode the 2026-07-31 owner Hosting
+release; verified live on **both** domains (`frame-src` now lists `https://advancethat.firebaseapp.com`
+on `advancethat.web.app` and `46advance.com`, still report-only, smoke check passed on both).
+
+**Next:** observe a fresh window (~1 week, target ~2026-08-07), then flip only if clean. The fix and
+the enforce flip must be **separate releases** — verifying no violations *after* the fix is live is
+the whole point of the report-only phase.
+
+> **The window only records what someone actually triggers.** The last one surfaced a single
+> violation across 7 days, which says these paths see little production traffic — a silent window is
+> not evidence of a clean one. During this window deliberately exercise: sign-in, Drive picker +
+> sync, Meet/Calendar, packet generate + save to Drive, uploads, and the template push.
 
 **Observe before enforcing** — review collected reports with:
 
@@ -110,6 +119,7 @@ not full XSS protection; tightening to nonce/hash-based inline scripts is a sepa
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |
+| 2026-07-31 | Accumulated client release: master-template default picker + per-section "bring over" checkboxes (#203), default-flag exclusivity hardening (#204), push-to-existing-events panel (#206), sign-in false "pending approval" flash fix (#209), **CSP `frame-src` Auth handler domain (#208)** | `af3e715` #203 #204 #206 #208 #209 | HOSTING | deployed by owner; verified live on **both** domains — `frame-src` now lists `…firebaseapp.com` on `advancethat.web.app` and `46advance.com` (still report-only), and `post-deploy-smoke.sh` passed on both (app shell + assets + security headers). Clears CSP prerequisite 2; **fresh enforce observation window opens 2026-07-31** |
 | 2026-07-31 | Push a template's production content onto events that already exist: new `pushTemplateProduction` callable (admin-only, rate-limited; one `dryRun`-flagged handler serves both preview and apply, merge writes only the keys the template carries, stages matched by name and never created) | `9385f4b` #206 | FUNCTIONS | deployed as owner (`pushTemplateProduction` only — a new callable; the `asArray` extraction that also touched `index.ts`/`scheduleTemplateSeed.ts` is byte-identical, so the existing fleet needed no redeploy); verified **created** + `ACTIVE`, nodejs22, `run.invoker: allUsers` matching the other callables, secrets health passed before and after. **Inert until the client ships** — nothing calls it until the next Hosting release |
 | 2026-07-31 | Master house package: `createEventFromTemplate` takes an optional `include` selection (production / stages / departments / members / logo / schedule), always writes the creator's PM membership, and records the source `templateId` on the event | `4e1cd63` #203 | FUNCTIONS | deployed as owner (`createEventFromTemplate` only — every changed helper is called solely by it); verified `ACTIVE`, nodejs22, and the secrets health check passed both before and after. **Client half awaits the next Hosting release** — and must not ship before this deploy, or the "Bring over" checkboxes would render while the old callable silently ignored `include` |
 | 2026-07-24 | Packet frame 46 mark: use the bundled compact `46/` brand mark (was the wide `46 / ENTERTAINMENT` branding lockup, illegible in the frame slot). Packet render no longer reads `config/branding` | `eda3750` #199 | FUNCTIONS | deployed as owner (`generatePacket` only); deploy complete. Server-side render is live |
