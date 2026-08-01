@@ -88,9 +88,11 @@ Not urgent. The cheap partial fix, if this is deferred, is simply to **reorder**
 sections so the ones named by in-app instructions sit near the top — that addresses the observed
 failure without any structural change.
 
-## Open questions
+## Decisions (resolved 2026-07-31)
 
-- Is the four-way grouping right, or is "Event setup" (5 sections) heavy enough to want Templates
-  and Schedule templates split into their own tab?
-- Should the tab remember the last one visited per user, or always default? Defaulting is simpler
-  and more predictable; remembering favours daily admins.
+- **Four-way grouping stands.** Event setup keeps all five sections; Templates and Schedule
+  templates are not split into a fifth tab.
+- **Always default** to People & access — no per-user memory of the last tab. Predictable beats
+  personalised here: an admin following "Admin → Festivals" lands somewhere they can reason about,
+  and there's no stored state to explain when two people see different things. The `?tab=` param
+  still makes any tab linkable and shareable.
