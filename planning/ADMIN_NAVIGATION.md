@@ -1,6 +1,8 @@
 # Admin screen — navigation proposal
 
-**Status:** proposal, not started. Raised 2026-07-31 after a section proved hard to find in use.
+**Status:** implemented 2026-07-31 (same day; see the Decisions section for the two resolved
+questions). `AdminScreen.tsx` went 528 → 168 lines; the four inline sections became components;
+the three deep-link call sites now link to their tab via `src/lib/admin/tabs.ts`.
 
 ## The problem, concretely
 

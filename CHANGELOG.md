@@ -40,6 +40,13 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
+- **Admin — organized into tabs:** the admin page's thirteen sections now sit under four tabs —
+  **People & access**, **Event setup**, **Documents**, and **Branding & output** — instead of one
+  long scroll, so sections like Festivals are no longer buried below the fold. **Pending approval**
+  stays above the tabs on every view (those accounts are locked out until someone acts), and the
+  in-app hints that name admin sections ("Add festivals in Admin → Festivals first") are now links
+  that land on the right tab. Each tab has its own address, so it can be bookmarked and the back
+  button walks tab history.
 - **Events — venue name and address are separate fields:** an event now has a **Venue name** and a
   separate **Venue address**, instead of one combined box. The packet cover prints each on its own
   line, and the address shows on the event page and is searchable. Existing events keep whatever is

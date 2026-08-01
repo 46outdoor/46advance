@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
+import { adminTabPath } from '@/lib/admin/tabs';
 import { EVENT_PRODUCTION_FIELDS, getDepartmentFields } from '@/lib/advances/fields';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listUsers } from '@/lib/users/users-service';
@@ -356,7 +357,11 @@ function ScheduleTemplatesField({
       </p>
       {all.length === 0 ? (
         <p className="text-sm text-ink-muted">
-          No schedule templates yet (create them in Admin → Schedule templates).
+          No schedule templates yet (create them in Admin →{' '}
+          <Link to={adminTabPath('event-setup')} className="text-accent underline">
+            Schedule templates
+          </Link>
+          ).
         </p>
       ) : (
         <div className="space-y-1 text-sm">
