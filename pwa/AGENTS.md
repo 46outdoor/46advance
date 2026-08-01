@@ -21,7 +21,7 @@ Primary web client for 46 Entertainment, running as a Progressive Web App.
 - **Build**: Vite 7 with PWA support
 - **State**: React Query v5 for server state, Context for global UI state
 - **Database**: Firebase Web SDK (Firestore, Auth, Functions, Storage)
-- **Styling**: Tailwind CSS 4 — **46 brand theme** (dark chrome + light content; tokens `#0a0a0a`/`#f04040`, fonts **Nexa + Hikou** (licensed, self-hosted), status neutral→amber→green). Tokens in `src/index.css`; see planning/ROADMAP.md § UI.
+- **Styling**: Tailwind CSS 4 — **46 brand theme** (dark chrome + light content; tokens `#0a0a0a`/`#f04040`, fonts **Poppins** (OFL, body) **+ Hikou** (licensed, all-caps display — headings only; see `guides/FONT_LICENSES.md`), self-hosted, status neutral→amber→green). Tokens in `src/index.css`; see planning/ROADMAP.md § UI.
 - **Routing**: React Router v7 with lazy code splitting
 - **Validation**: Zod for runtime validation
 - **Testing**: Vitest (unit), Playwright (E2E)
