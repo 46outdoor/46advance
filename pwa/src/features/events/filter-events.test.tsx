@@ -12,6 +12,7 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     loadOutDays: overrides.loadOutDays ?? 0,
     timeZone: overrides.timeZone ?? 'America/Chicago',
     venue: overrides.venue ?? null,
+    venueAddress: overrides.venueAddress ?? null,
     shortCode: overrides.shortCode ?? null,
     festivalId: overrides.festivalId ?? null,
     location: overrides.location ?? null,
@@ -41,6 +42,21 @@ const events: EventRecord[] = [
 const ids = (records: EventRecord[]): string[] => records.map((r) => r.id);
 
 describe('filterEvents', () => {
+  // Since the venue split the street address lives in venueAddress, so searching by street has to
+  // look there — otherwise a query that used to match the combined venue string silently stops.
+  it('matches on the venue address as well as the name and venue', () => {
+    const events = [
+      makeEvent({
+        id: 'a',
+        name: 'Alpha',
+        venue: 'Boyd County Fairgrounds',
+        venueAddress: '1760 Addington Road',
+      }),
+      makeEvent({ id: 'b', name: 'Beta', venue: 'Elsewhere', venueAddress: '9 Other Street' }),
+    ];
+    expect(filterEvents(events, 'all', 'addington').map((e) => e.id)).toEqual(['a']);
+    expect(filterEvents(events, 'all', 'fairgrounds').map((e) => e.id)).toEqual(['a']);
+  });
   it('returns everything when status is "all" and search is empty', () => {
     expect(ids(filterEvents(events, 'all', ''))).toEqual(['1', '2', '3', '4']);
   });

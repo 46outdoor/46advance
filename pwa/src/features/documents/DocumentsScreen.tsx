@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { adminTabPath } from '@/lib/admin/tabs';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { artistsFromDocuments, filterArtists } from '@/lib/documents/artistDocument';
 import { listArtistDocuments } from '@/lib/documents/artist-documents-service';
@@ -100,8 +101,16 @@ export function DocumentsScreen() {
       {!documentsQuery.isLoading && documents.length === 0 && (
         <p className="text-sm text-ink-muted">
           No documents yet.
-          {canManage &&
-            ' Set the library folder in Admin → Document library, then use “Sync from Drive”.'}
+          {canManage && (
+            <>
+              {' '}
+              Set the library folder in Admin →{' '}
+              <Link to={adminTabPath('documents')} className="text-accent underline">
+                Document library
+              </Link>
+              , then use “Sync from Drive”.
+            </>
+          )}
         </p>
       )}
 

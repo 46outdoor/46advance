@@ -49,7 +49,14 @@ export interface PacketLogo {
 }
 
 export interface PacketData {
-  event: { name: string; venue?: string | null; dateRange?: string | null };
+  event: {
+    name: string;
+    /** Venue NAME. Legacy events may still hold "Name: Address" here — see coverMetaLines. */
+    venue?: string | null;
+    /** Street address, stored separately; absent/null on events created before the field existed. */
+    venueAddress?: string | null;
+    dateRange?: string | null;
+  };
   departments: { id: string; name: string }[];
   eventProduction: {
     info: PacketContent;
@@ -109,11 +116,23 @@ const s = StyleSheet.create({
     transform: 'rotate(-32deg)',
   },
   // Event identity block, sitting in the cover's lower-right white area, right-aligned.
-  coverBlock: { position: 'absolute', right: 46, bottom: 54, left: 150, alignItems: 'flex-end' },
+  // Identity block sits above the footer line, so `bottom` clears it.
+  coverBlock: { position: 'absolute', right: 46, bottom: 92, left: 150, alignItems: 'flex-end' },
   coverLogo: { maxHeight: 74, maxWidth: 300, marginBottom: 14, objectFit: 'contain' },
   coverTitle: { fontSize: 22, fontWeight: 'bold', color: BRAND, textAlign: 'right' },
-  coverMeta: { fontSize: 11, color: INK, marginTop: 6, textAlign: 'right' },
-  coverSub: { fontSize: 9, color: MUTED, marginTop: 8, textAlign: 'right' },
+  // Venue name, venue address and dates each get their own line; tighter leading keeps them
+  // reading as one block under the title rather than three unrelated statements.
+  coverMeta: { fontSize: 11, color: INK, marginTop: 6, textAlign: 'right', lineHeight: 1.4 },
+  /** Packet type · version · generated stamp — pinned low as a cover footer. */
+  coverFooter: {
+    position: 'absolute',
+    right: 46,
+    bottom: 40,
+    left: 150,
+    fontSize: 9,
+    color: MUTED,
+    textAlign: 'right',
+  },
   // ---- Interior page frame ----
   page: { padding: CONTENT_PAD, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   // Full-page anchor so the border + mark position relative to the page (not a collapsed wrapper).
@@ -180,7 +199,11 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
 
 /** Running header (fixed on every content page): event title + meta, with the page number at right. */
 function PageHeader({ data }: { data: PacketData }) {
-  const meta = [data.event.venue, data.event.dateRange].filter(Boolean).join(' · ');
+  // Compact title block, so venue / address / dates stay on ONE line here (the cover is where
+  // they each get their own). Legacy events keep their combined "Name: Address" venue as-is.
+  const meta = [data.event.venue, data.event.venueAddress, data.event.dateRange]
+    .filter(Boolean)
+    .join(' · ');
   return createElement(View, { style: s.header, fixed: true }, [
     createElement(View, { style: s.headerText, key: 'tx' }, [
       createElement(Text, { style: s.headerTitle, key: 't' }, `${data.event.name} — ${data.typeLabel}`),
@@ -214,6 +237,45 @@ function PageFrame() {
   ]);
 }
 
+/**
+ * LEGACY path: split a combined venue field into name + address lines.
+ *
+ * Events created before `venueAddress` existed hold both in the single `venue` field, separable
+ * only by convention: entries read "Boyd County Fairgrounds: 1760 Addington Road…", so the FIRST
+ * colon splits them. A venue with no colon (or one where either side would come out empty) simply
+ * stays on one line rather than being guessed at — mangling a real venue name is the worse failure.
+ */
+function legacyVenueLines(venue: string): string[] {
+  const at = venue.indexOf(':');
+  const name = at > 0 ? venue.slice(0, at).trim() : '';
+  const address = at > 0 ? venue.slice(at + 1).trim() : '';
+  return name && address ? [name, address] : [venue];
+}
+
+/**
+ * The cover's identity lines under the title: venue name, venue address, dates — one per line.
+ *
+ * When the event carries an explicit `venueAddress`, both fields print verbatim — no colon
+ * guessing, so a venue name that legitimately contains a colon survives intact. The convention
+ * split above is kept only as the fallback for legacy events that have no `venueAddress`.
+ */
+export function coverMetaLines(data: {
+  event: { venue?: string | null; venueAddress?: string | null; dateRange?: string | null };
+}): string[] {
+  const lines: string[] = [];
+  const venue = data.event.venue?.trim();
+  const venueAddress = data.event.venueAddress?.trim();
+  if (venueAddress) {
+    if (venue) lines.push(venue);
+    lines.push(venueAddress);
+  } else if (venue) {
+    lines.push(...legacyVenueLines(venue));
+  }
+  const dates = data.event.dateRange?.trim();
+  if (dates) lines.push(dates);
+  return lines;
+}
+
 function buildPacketDocument(data: PacketData) {
   const deptName = new Map(data.departments.map((d) => [d.id, d.name]));
 
@@ -230,19 +292,16 @@ function buildPacketDocument(data: PacketData) {
         ? createElement(Image, { src: data.logos.eventLogo.headerDataUri, style: s.coverLogo, key: 'logo' })
         : null,
       createElement(Text, { style: s.coverTitle, key: 't' }, data.event.name),
-      [data.event.venue, data.event.dateRange].filter(Boolean).length > 0
-        ? createElement(
-            Text,
-            { style: s.coverMeta, key: 'meta' },
-            [data.event.venue, data.event.dateRange].filter(Boolean).join('  ·  '),
-          )
-        : null,
-      createElement(
-        Text,
-        { style: s.coverSub, key: 'sub' },
-        `${data.typeLabel} · v${data.version} · generated ${data.generatedAt}`,
+      // Venue name, venue address, then dates — one per line.
+      ...coverMetaLines(data).map((line, i) =>
+        createElement(Text, { style: s.coverMeta, key: `meta-${i}` }, line),
       ),
     ]),
+    createElement(
+      Text,
+      { style: s.coverFooter, key: 'footer' },
+      `${data.typeLabel} · v${data.version} · generated ${data.generatedAt}`,
+    ),
   ]);
 
   // Event production page.

@@ -24,7 +24,12 @@ export interface EventRecord {
   loadOutDays: number;
   /** IANA timezone for this event's schedule (default Central). */
   timeZone: string;
+  /** Venue NAME only (e.g. "Boyd County Fairgrounds"). */
   venue: string | null;
+  /** Street address, stored separately so the packet cover can print it on its own line.
+   *  Null on events created before this field existed — those keep name and address combined
+   *  in `venue`, which the packet still splits on a colon as a fallback. */
+  venueAddress: string | null;
   /** Optional short code (e.g. "BOTB"); names the event's Google calendar and prefixes
    *  advance-call titles. Stored as entered (trimmed); null = unset. */
   shortCode: string | null;
@@ -71,6 +76,7 @@ const eventDocSchema = z.object({
   loadOutDays: z.number().int().min(0).optional(),
   timeZone: z.string().optional(),
   venue: z.string().nullable().optional(),
+  venueAddress: z.string().nullable().optional(),
   shortCode: z.string().nullable().optional(),
   festivalId: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
@@ -109,6 +115,7 @@ export function parseEvent(id: string, data: unknown): EventRecord {
     loadOutDays: doc.loadOutDays ?? 0,
     timeZone: doc.timeZone ?? APP_TIME_ZONE,
     venue: doc.venue ?? null,
+    venueAddress: doc.venueAddress ?? null,
     shortCode: doc.shortCode ?? null,
     festivalId: doc.festivalId ?? null,
     location: doc.location ?? null,
@@ -165,6 +172,7 @@ export const eventInputSchema = z
     loadOutDays: z.number().int().min(0).optional(),
     timeZone: z.string().optional(),
     venue: z.string().trim().optional(),
+    venueAddress: z.string().trim().optional(),
     shortCode: z.string().trim().max(16).optional(),
     festivalId: z.string().trim().optional(),
     location: z.string().trim().optional(),

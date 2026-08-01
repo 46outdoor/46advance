@@ -235,6 +235,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
 | Packet filename config | `src/lib/packets/packet-config-service.ts` (client read/write) + `functions/src/lib/pdf/packetFilename.ts` (`formatPacketFilename`/`packetBaseName` — server fills tokens + sanitizes) — admin-set `config/packets` naming convention |
 | Logo UI (upload + display) | `src/components/branding/` (`LogoUploader` dual-variant, `LogoRow` theme-aware) |
+| Admin tabs (registry + deep links) | `src/lib/admin/tabs.ts` (`ADMIN_TABS`/`parseAdminTab`/`adminTabPath` — in `lib/` so other features can deep-link to `/admin?tab=…` without importing `features/admin`; ids are public URLs, don't rename) |
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 | Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |

@@ -482,6 +482,7 @@ interface NewEventInput {
   loadOutDays: number;
   timeZone: string;
   venue: string | null;
+  venueAddress: string | null;
   shortCode: string | null;
   festivalId: string | null;
   location: string | null;
@@ -503,6 +504,7 @@ function parseNewEventInput(data: unknown): NewEventInput {
     loadOutDays: input.loadOutDays ?? 0,
     timeZone: input.timeZone ?? 'America/Chicago',
     venue: trimmedOrNull(input.venue),
+    venueAddress: trimmedOrNull(input.venueAddress),
     shortCode: trimmedOrNull(input.shortCode),
     festivalId: trimmedOrNull(input.festivalId),
     location: trimmedOrNull(input.location),
@@ -607,7 +609,7 @@ function seedEventStages(
  * always written, and the source `templateId` is always recorded on the event. Artist
  * Advances are NOT seeded. Runs with the Admin SDK so an organizer can seed members.
  * Input: { templateId, include?, name, startDate?: number|null, endDate?: number|null,
- * venue?: string|null } (dates are epoch millis). Returns { eventId }.
+ * venue?: string|null, venueAddress?: string|null } (dates are epoch millis). Returns { eventId }.
  */
 export const createEventFromTemplate = onCall(async (request) => {
   if (!request.auth) {
@@ -647,6 +649,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     loadOutDays: input.loadOutDays,
     timeZone: input.timeZone,
     venue: input.venue,
+    venueAddress: input.venueAddress,
     shortCode: input.shortCode,
     festivalId: input.festivalId ?? null,
     location: input.location ?? null,
@@ -733,6 +736,7 @@ export const createBlankEvent = onCall(async (request) => {
       loadOutDays: input.loadOutDays ?? 0,
       timeZone: input.timeZone ?? 'America/Chicago',
       venue: trimmedOrNull(input.venue),
+      venueAddress: trimmedOrNull(input.venueAddress),
       shortCode: trimmedOrNull(input.shortCode),
       festivalId: input.festivalId ?? null,
       location: trimmedOrNull(input.location),
@@ -894,9 +898,20 @@ async function resolvePacketLogos(
   // Show mark (cover) = the per-event override if set, else the picked festival's logo. It sits on
   // the cover's white area → the onLight variant. (The interior frame's 46 mark is bundled house
   // chrome, so the packet no longer reads config/branding here.)
-  const showLogoRaw = ev.eventLogo ?? (await festivalLogoRaw(db, ev.festivalId));
-  const eventRef = parseLogoRef(showLogoRaw);
-  if (!eventRef) return { eventLogo: null };
+  // Parse the override BEFORE deciding to fall back. Clearing a per-event override stores an EMPTY
+  // logo ({onDark: null, onLight: null}) rather than removing the field, so `??` never fires — it
+  // only sees null/undefined — and the packet would render with no mark even when the event's
+  // festival has a perfectly good one. `parseLogoRef` returns null when no variant is usable.
+  const eventRef =
+    parseLogoRef(ev.eventLogo) ?? parseLogoRef(await festivalLogoRaw(db, ev.festivalId));
+  if (!eventRef) {
+    // Say so rather than returning a quietly logo-less packet — "no mark configured" and "the mark
+    // failed to embed" look identical in the output, and only one of them is the user's doing.
+    warnings.push(
+      'No logo was available for this packet — the event has no logo override and its festival has none either.',
+    );
+    return { eventLogo: null };
+  }
 
   const cache = new Map<string, string | null>();
   const preferred = variantForBackground(eventRef, 'light');
@@ -1027,6 +1042,8 @@ export const generatePacket = onCall(
       event: {
         name: String(ev.name ?? ''),
         venue: ev.venue ?? null,
+        // Null on legacy events — the cover then falls back to splitting `venue` on its colon.
+        venueAddress: ev.venueAddress ?? null,
         dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
       },
       departments,
@@ -1131,6 +1148,7 @@ export const generateQuotePdf = onCall(
       event: {
         name: String(ev.name ?? ''),
         venue: ev.venue ?? null,
+        venueAddress: ev.venueAddress ?? null,
         dateRange: fmtRange(ev.startDate, ev.endDate, String(ev.timeZone ?? 'America/Chicago')),
       },
       artistName: String(adv.artistName ?? ''),

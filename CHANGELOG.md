@@ -40,6 +40,32 @@ dependency bumps, and planning-doc updates) are omitted.
   without anyone having to remember to pick it — **Blank event** is still there to start from
   scratch. Creating an event **copies** the package in, so later edits to the template shape
   **future** events only and never change events already created.
+- **Admin — organized into tabs:** the admin page's thirteen sections now sit under four tabs —
+  **People & access**, **Event setup**, **Documents**, and **Branding & output** — instead of one
+  long scroll, so sections like Festivals are no longer buried below the fold. **Pending approval**
+  stays above the tabs on every view (those accounts are locked out until someone acts), and the
+  in-app hints that name admin sections ("Add festivals in Admin → Festivals first") are now links
+  that land on the right tab. Each tab has its own address, so it can be bookmarked and the back
+  button walks tab history.
+- **Events — venue name and address are separate fields:** an event now has a **Venue name** and a
+  separate **Venue address**, instead of one combined box. The packet cover prints each on its own
+  line, and the address shows on the event page and is searchable. Existing events keep whatever is
+  in the old field and still print correctly — split them by editing the event when convenient.
+- **Packets — clearer cover layout:** under the title, the cover now lists the **venue name**,
+  **venue address** and **dates** on their own lines instead of running them together, and the
+  packet type, version and generated stamp move down the page as a footer. (Venue name and address
+  are one stored field, split at the first colon — a venue entered without one stays on a single
+  line.)
+- **Logos — the show mark is now 4× the company marks:** the festival (or per-event) logo renders
+  four times the height of the company marks that flank it, up from twice, so the show identity
+  leads. The show mark is the event's logo override, or its **festival's** logo if there's no
+  override — so a festival's mark belongs on the festival (**Admin → Festivals**), not in the shared
+  default marks. A mark added to the shared defaults appears on *every* event whatever its festival,
+  and drops off once a show mark exists (the row shows at most three).
+- **Drive picker — list view and Starred:** the Google Drive picker now opens in **list** view
+  instead of the thumbnail grid, so more items fit on screen. The **folder** picker (linking an
+  event's Drive folder, the document library) also gains a **Starred** tab — it previously had only
+  My Drive, Shared with me, and Shared drives, so a starred folder still meant hunting for it.
 
 ### Fixed
 
@@ -59,6 +85,14 @@ dependency bumps, and planning-doc updates) are omitted.
   **refuses** such a file and tells you to re-save it as PNG or JPEG; if one is already stored, the
   packet falls back to the logo's other variant; and generating a packet that had to leave something
   out shows a caution naming the image to fix, instead of looking like a clean packet.
+- **Logos — clearing an event's logo override now falls back to the festival:** removing a show's
+  logo override left the event with **no** show mark at all instead of falling back to its
+  festival's logo — in the app and in generated packets. Clearing an override stores an empty logo
+  rather than removing it, and the fallback treated "empty" as "set".
+- **Header — no more flickering on scroll:** scrolling a little made the shrinking header rapidly
+  flip between its two sizes. Shrinking the header made the page shorter, which scrolled you back
+  above the trigger point, which grew it again — a loop. It now needs a decisive scroll to shrink and
+  a decisive scroll back to grow, so it can't set itself off.
 - **Uploads — "Choose file" buttons:** the logo and attachment pickers still showed the browser's
   plain grey file input instead of the styled **Choose file** button used elsewhere.
 

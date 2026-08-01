@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
+import { adminTabPath } from '@/lib/admin/tabs';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { pickDriveFolder } from '@/lib/google';
 import {
@@ -30,6 +32,7 @@ interface EventFormProps {
     loadOutDays?: number;
     timeZone?: string;
     venue: string | null;
+    venueAddress?: string | null;
     shortCode?: string | null;
     festivalId?: string | null;
     location?: string | null;
@@ -147,6 +150,7 @@ interface EventFormValues {
   loadOutDays: number;
   timeZone: string;
   venue: string;
+  venueAddress: string;
   shortCode: string;
   festivalId: string;
   location: string;
@@ -169,6 +173,7 @@ function parseEventForm(v: EventFormValues) {
     loadOutDays: v.loadOutDays,
     timeZone: v.timeZone,
     venue: v.venue.trim() || undefined,
+    venueAddress: v.venueAddress.trim() || undefined,
     shortCode: v.shortCode.trim() || undefined,
     festivalId: v.festivalId,
     location: v.location.trim() || undefined,
@@ -179,6 +184,14 @@ function parseEventForm(v: EventFormValues) {
     slug: v.slug.trim() || undefined,
     ...(v.showStatus ? { status: v.status } : {}),
   });
+}
+
+/** Initial venue name + address form values. Hoisted out of EventForm so the split field's
+ *  optional-chaining branches don't count against its complexity. */
+function initialVenue(
+  initial: { venue: string | null; venueAddress?: string | null } | undefined,
+): { name: string; address: string } {
+  return { name: initial?.venue ?? '', address: initial?.venueAddress ?? '' };
 }
 
 /** Initial linked-folder state from an event, or null. Hoisted out of EventForm for complexity. */
@@ -261,7 +274,16 @@ function FestivalNameFields({
         </p>
         <p className="mt-0.5 text-xs text-ink-muted">
           Auto-built from festival + year + location.
-          {festivals.length === 0 && !loading && ' Add festivals in Admin → Festivals first.'}
+          {festivals.length === 0 && !loading && (
+            <>
+              {' '}
+              Add festivals in Admin →{' '}
+              <Link to={adminTabPath('event-setup')} className="text-accent underline">
+                Festivals
+              </Link>{' '}
+              first.
+            </>
+          )}
         </p>
       </div>
     </>
@@ -320,7 +342,9 @@ export function EventForm({
   const [loadInDays, setLoadInDays] = useState(() => initial?.loadInDays ?? 0);
   const [loadOutDays, setLoadOutDays] = useState(() => initial?.loadOutDays ?? 0);
   const [timeZone, setTimeZone] = useState(dates.timeZone);
-  const [venue, setVenue] = useState(initial?.venue ?? '');
+  const venueInitial = initialVenue(initial);
+  const [venue, setVenue] = useState(venueInitial.name);
+  const [venueAddress, setVenueAddress] = useState(venueInitial.address);
   const [shortCode, setShortCode] = useState(initial?.shortCode ?? '');
   const [driveFolder, setDriveFolder] = useState(initialDriveFolder(initial));
   const [bookingLabel, setBookingLabel] = useState(initial?.bookingLabel ?? '');
@@ -366,6 +390,7 @@ export function EventForm({
       loadOutDays,
       timeZone,
       venue,
+      venueAddress,
       shortCode,
       festivalId,
       location,
@@ -453,14 +478,29 @@ export function EventForm({
           ))}
         </select>
       </label>
-      <label className="block text-sm sm:col-span-2">
-        <span className="mb-1 block font-semibold text-ink">Venue</span>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Venue name</span>
         <input
-          className={inputClass}
+          className={`${inputClass} min-h-11 sm:min-h-0`}
           value={venue}
           onChange={(e) => setVenue(e.target.value)}
-          placeholder="Riverside Park"
+          placeholder="Boyd County Fairgrounds"
         />
+        <span className="mt-1 block text-xs text-ink-muted">
+          The venue on its own — keep the street address in the next field.
+        </span>
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-semibold text-ink">Venue address</span>
+        <input
+          className={`${inputClass} min-h-11 sm:min-h-0`}
+          value={venueAddress}
+          onChange={(e) => setVenueAddress(e.target.value)}
+          placeholder="1760 Addington Road, Ashland, KY 41102"
+        />
+        <span className="mt-1 block text-xs text-ink-muted">
+          Optional. Prints on its own line under the venue name on the PDF packet cover.
+        </span>
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-ink">Short code</span>
