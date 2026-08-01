@@ -56,7 +56,7 @@ src/
 ├── providers/               # app-providers.tsx wraps React Query, Auth, etc.
 └── services/                # firebase.ts, app-check.ts
 
-assets/                       # Icons, splash, fonts
+assets/                       # Icons, splash, fonts — Poppins (OFL) may be bundled; Hikou may NOT (its EULA prohibits app embedding — pwa/guides/FONT_LICENSES.md)
 GoogleService-Info.plist      # iOS Firebase config (references the shared project)
 google-services.json          # Android Firebase config (references the shared project)
 app.json                      # Expo config (bundle IDs, plugins, intent filters)
