@@ -26,20 +26,20 @@
     "emulators": "FIREBASE_PROJECT=demo-46advance ./scripts/cli/firebase-safe.sh emulators:start"
   },
   "dependencies": {
-    "@sentry/react": "^10.67.0",
+    "@sentry/react": "^10.68.0",
     "@tanstack/react-query": "^5.101.4",
-    "@tanstack/react-virtual": "^3.14.8",
+    "@tanstack/react-virtual": "^3.14.9",
     "firebase": "^11.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-easy-crop": "^6.2.2",
+    "react-easy-crop": "^6.2.3",
     "react-router-dom": "^7.18.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@firebase/rules-unit-testing": "^4.0.1",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@sentry/vite-plugin": "^4.9.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.6.0",
