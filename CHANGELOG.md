@@ -62,6 +62,10 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Fixed
 
+- **Update banner — Reload works with multiple tabs open:** clicking **Reload** on the "new version
+  available" banner could do nothing when the update had been spotted by another open tab — the new
+  version activated quietly and the page just sat there. Reload now always reloads, with a safety
+  fallback that forces it within two seconds either way.
 - **Sign-in — no more false "pending approval" flash:** signing in briefly showed **"Account pending
   approval"** for a second or two before the app loaded, even for accounts that were already
   approved. The screen now stays on **Loading…** until your access level is actually known.
