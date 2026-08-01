@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
+import { adminTabPath } from '@/lib/admin/tabs';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { pickDriveFolder } from '@/lib/google';
 import {
@@ -272,7 +274,16 @@ function FestivalNameFields({
         </p>
         <p className="mt-0.5 text-xs text-ink-muted">
           Auto-built from festival + year + location.
-          {festivals.length === 0 && !loading && ' Add festivals in Admin → Festivals first.'}
+          {festivals.length === 0 && !loading && (
+            <>
+              {' '}
+              Add festivals in Admin →{' '}
+              <Link to={adminTabPath('event-setup')} className="text-accent underline">
+                Festivals
+              </Link>{' '}
+              first.
+            </>
+          )}
         </p>
       </div>
     </>
