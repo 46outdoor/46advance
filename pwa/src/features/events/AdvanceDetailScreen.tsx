@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canEditEvent } from '@/lib/rbac/permissions';
-import { getEventRole } from '@/lib/rbac/membership';
+import { canEditDepartment, canEditEvent, type Viewer } from '@/lib/rbac/permissions';
+import { getEventMember } from '@/lib/rbac/membership';
+import type { EventMember } from '@/lib/rbac/roles';
 import {
   canFinalizeSection,
   canUnlockSection,
@@ -76,9 +77,9 @@ export function AdvanceDetailScreen() {
     enabled: !!eventId && !!stageId && !!advanceId,
   });
 
-  const roleQuery = useQuery({
-    queryKey: ['events', 'role', eventId, user?.uid],
-    queryFn: () => getEventRole(user!.uid, eventId!),
+  const memberQuery = useQuery({
+    queryKey: ['events', 'member', eventId, user?.uid],
+    queryFn: () => getEventMember(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
 
@@ -133,10 +134,8 @@ export function AdvanceDetailScreen() {
   if (!user || !eventId || !stageId || !advanceId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
-  const role = roleQuery.data ?? null;
-  const canEdit = canEditEvent(viewer, role);
-  const canFinalize = canFinalizeSection(viewer, role);
-  const canUnlock = canUnlockSection(viewer, role);
+  const member = memberQuery.data ?? null;
+  const canEdit = canEditEvent(viewer, member?.role ?? null);
   const advance = advanceQuery.data;
 
   // One section per enabled department (ordered), status from the advance.
@@ -196,9 +195,8 @@ export function AdvanceDetailScreen() {
         <AdvanceSectionsPanel
           advance={advance}
           sectionRows={sectionRows}
-          canEdit={canEdit}
-          canFinalize={canFinalize}
-          canUnlock={canUnlock}
+          viewer={viewer}
+          member={member}
           statusPending={setStatus.isPending}
           contentPending={saveContent.isPending}
           onSetStatus={(deptId, status) => setStatus.mutate({ key: deptId, status })}
@@ -377,9 +375,8 @@ function AdvanceEditPanel({
 function AdvanceSectionsPanel({
   advance,
   sectionRows,
-  canEdit,
-  canFinalize,
-  canUnlock,
+  viewer,
+  member,
   statusPending,
   contentPending,
   onSetStatus,
@@ -387,9 +384,8 @@ function AdvanceSectionsPanel({
 }: {
   advance: Advance;
   sectionRows: DepartmentRecord[];
-  canEdit: boolean;
-  canFinalize: boolean;
-  canUnlock: boolean;
+  viewer: Viewer;
+  member: EventMember | null;
   statusPending: boolean;
   contentPending: boolean;
   onSetStatus: (deptId: SectionKey, status: SectionStatus) => void;
@@ -408,9 +404,9 @@ function AdvanceSectionsPanel({
           deptName={dept.name}
           state={sectionStateFor(advance.sections, dept.id)}
           content={advance.content[dept.id] ?? {}}
-          canEdit={canEdit}
-          canFinalize={canFinalize}
-          canUnlock={canUnlock}
+          canEdit={canEditDepartment(viewer, member, dept.id)}
+          canFinalize={canFinalizeSection(viewer, member, dept.id)}
+          canUnlock={canUnlockSection(viewer, member, dept.id)}
           statusPending={statusPending}
           contentPending={contentPending}
           onSetStatus={onSetStatus}

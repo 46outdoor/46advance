@@ -7,8 +7,7 @@
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToDate } from '@/lib/firestore/timestamps';
-import { canEditEvent, type Viewer } from '@/lib/rbac/permissions';
-import type { EventRole } from '@/lib/rbac/roles';
+import { canEditDepartment, type MemberAccess, type Viewer } from '@/lib/rbac/permissions';
 
 /** A section key is a department id. */
 export type SectionKey = string;
@@ -78,12 +77,21 @@ export function isValidSectionTransition(from: SectionStatus, to: SectionStatus)
   return from === to || ALLOWED_TRANSITIONS[from].includes(to);
 }
 
-/** PM + admin may finalize (lock) a section. */
-export function canFinalizeSection(viewer: Viewer, role: EventRole | null): boolean {
-  return canEditEvent(viewer, role);
+/** PM + admin may finalize (lock) any section; a department-lead their assigned departments. */
+export function canFinalizeSection(
+  viewer: Viewer,
+  member: MemberAccess | null,
+  deptId: string,
+): boolean {
+  return canEditDepartment(viewer, member, deptId);
 }
 
-/** PM + admin may unlock a finalized section (decision: same as edit scope). */
-export function canUnlockSection(viewer: Viewer, role: EventRole | null): boolean {
-  return canEditEvent(viewer, role);
+/** Unlocking a finalized section — decision (2026-08-03): same scope as finalize, so a
+ *  department editor can reopen their own department without a PM round-trip. */
+export function canUnlockSection(
+  viewer: Viewer,
+  member: MemberAccess | null,
+  deptId: string,
+): boolean {
+  return canEditDepartment(viewer, member, deptId);
 }

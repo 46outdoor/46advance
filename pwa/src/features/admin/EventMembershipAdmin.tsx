@@ -4,12 +4,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
 import { userFullName, userShortName } from '@/lib/users/userName';
-import {
-  assignEventMember,
-  listAllEvents,
-  listEventMembers,
-  removeEventMember,
-} from './admin-service';
+import { listEventMembers } from '@/lib/rbac/membership';
+import { assignEventMember, listAllEvents, removeEventMember } from './admin-service';
 import { useAdminUsersQuery } from './useAdminUsers';
 
 const logger = createLogger('Admin');

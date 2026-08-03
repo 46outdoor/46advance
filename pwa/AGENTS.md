@@ -213,9 +213,10 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Functions handler test harness | `functions/src/testing/emulatorHarness.ts` (wrap callables vs live Auth/Firestore emulators; run via `test:emulator`) |
 | Authenticated E2E (emulator) | `tests/emulator/` (deterministic personas + REST seeder + Playwright sign-in/isolated-context fixtures; run via `test:e2e:emulator`, demo-46advance only) |
 | Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
-| RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib)     |
-| Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates)          |
-| Per-event membership IO | `src/lib/rbac/membership.ts`                           |
+| RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib; member docs carry `departments` + denormalized `email`/`displayName`) |
+| Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates, incl. `canEditDepartment`/`canManageMembers`) |
+| Per-event membership IO | `src/lib/rbac/membership.ts` (`getEventMember`/`getEventRole`/`listEventMembers` + `eventMembersKey`) |
+| Membership writes (PM-facing) | `src/features/events/event-members-service.ts` (assign/remove/tech-auto-enroll callable wrappers) + `functions/src/members.ts` (`assignEventMember`/`removeEventMember` — PM-or-admin gate, add-by-email, `ifAbsent`); Team UI `src/features/events/EventTeamPanel.tsx` |
 | Callable authorization (approved gate) | `functions/src/lib/auth/authorize.ts` (`assertApproved`/`assertAdmin` — Admin-SDK callables re-assert the rules' `isActiveUser`/admin gates) |
 | Event slug/id resolution (hook) | `src/features/events/useResolvedEvent.ts` (resolve a slug-or-id route param → canonical event; key sub-queries on `event.id`) |
 | Event slug reservation (server, WS-G) | `functions/src/lib/events/slug.ts` (`reserveEventSlug`/`findFreeSlug` transactional claim against the `slugs/{slug}` collection — locked server-only) + `functions/src/eventSlug.ts` (`renameEventSlug` callable). Client rename wrapper: `renameEventSlug` in `src/features/events/events-service.ts` |

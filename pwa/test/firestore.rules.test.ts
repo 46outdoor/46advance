@@ -29,7 +29,8 @@ let testEnv: RulesTestEnvironment;
 const ADMIN = { uid: 'admin-1', token: { admin: true } };
 const ORGANIZER = { uid: 'user-org', token: { organizer: true, approved: true } }; // global event creator
 const PM = 'user-pm'; // production-manager on event A, tech on event B
-const LEAD = 'user-lead'; // department-lead on event A
+const LEAD = 'user-lead'; // department-lead on event A (no departments assigned — read-only)
+const DEPT = 'user-dept'; // department-lead on event A assigned departments: ['audio']
 const TECH = 'user-tech'; // tech on event A
 const OUTSIDER = 'user-out'; // approved, but member of nothing
 const PENDING = 'user-pending'; // approved:false — a member awaiting approval / revoked
@@ -74,6 +75,12 @@ beforeEach(async () => {
       role: 'department-lead',
       addedBy: 'admin-1',
       uid: LEAD,
+    });
+    await setDoc(doc(db, 'events/event-a/members', DEPT), {
+      role: 'department-lead',
+      addedBy: 'admin-1',
+      uid: DEPT,
+      departments: ['audio'],
     });
     await setDoc(doc(db, 'events/event-a/members', TECH), {
       role: 'tech',
@@ -858,6 +865,113 @@ describe('firestore.rules — production records', () => {
     await assertFails(
       setDoc(doc(dbFor(LEAD), 'events/event-a/stages/stg-a/production/record'), {
         content: { audio: { foh_console: 'no' } },
+      }),
+    );
+  });
+});
+
+describe('firestore.rules — department-scoped section writes (assigned department-lead)', () => {
+  const advPath = 'events/event-a/stages/stg-a/advances/adv-1';
+  const stageProdPath = 'events/event-a/stages/stg-a/production/record';
+
+  it('assigned dept-lead edits their department: advance content + status + updatedAt', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'content.audio': { foh_console: 'DM7' },
+        'sections.audio': { status: 'in_progress', finalizedAt: null, finalizedBy: null },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('assigned dept-lead can finalize and unlock their own section', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'sections.audio': { status: 'complete', finalizedAt: null, finalizedBy: DEPT },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'sections.audio': { status: 'in_progress', finalizedAt: null, finalizedBy: null },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('cannot touch another department', async () => {
+    await assertFails(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'content.lighting': { dimmers: '96' },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'sections.lighting': { status: 'in_progress', finalizedAt: null, finalizedBy: null },
+      }),
+    );
+  });
+
+  it('cannot smuggle other fields alongside their department', async () => {
+    await assertFails(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'content.audio': { foh_console: 'DM7' },
+        artistName: 'Renamed Band',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(DEPT), advPath), {
+        'content.audio': { foh_console: 'DM7' },
+        googleCalendarEventId: 'forged',
+      }),
+    );
+  });
+
+  it('stage production: create + update within their department only', async () => {
+    // First write materializes the record (setDoc merge → create).
+    await assertSucceeds(
+      setDoc(doc(dbFor(DEPT), stageProdPath), {
+        content: { audio: { foh_console: 'DM7' } },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbFor(DEPT), stageProdPath), {
+        'sections.audio': { status: 'in_progress', finalizedAt: null, finalizedBy: null },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(DEPT), stageProdPath), {
+        'content.lighting': { dimmers: '96' },
+      }),
+    );
+  });
+
+  it('stage production create cannot include another department', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(DEPT), stageProdPath), {
+        content: { audio: { ok: 'y' }, lighting: { no: 'n' } },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('event-level production and other event surfaces stay PM-only', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(DEPT), 'events/event-a/production/record'), {
+        info: { crew_parking: 'no' },
+      }),
+    );
+    await assertFails(updateDoc(doc(dbFor(DEPT), 'events/event-a'), { name: 'Renamed' }));
+  });
+
+  it('an UNASSIGNED department-lead still cannot write any section', async () => {
+    await assertFails(
+      updateDoc(doc(dbFor(LEAD), advPath), {
+        'content.audio': { foh_console: 'no' },
+        updatedAt: serverTimestamp(),
       }),
     );
   });

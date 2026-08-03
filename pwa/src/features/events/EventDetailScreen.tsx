@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
-import { getEventRole } from '@/lib/rbac/membership';
+import { getEventMember } from '@/lib/rbac/membership';
 import { formatZonedDateRange } from '@/lib/dates/timezone';
 import type { EventInput, EventRecord } from '@/lib/events/event';
 import { emptyLogo, supersededLogoPaths, type Logo } from '@/lib/branding/logo';
@@ -15,6 +15,7 @@ import { festivalsKey, listFestivals } from '@/lib/festivals/festivals-service';
 import { LogoUploader } from '@/components/branding/LogoUploader';
 import { deleteStoredAssets } from '@/lib/storage/uploads';
 import { listDepartments } from '@/lib/departments/departments-service';
+import type { DepartmentRecord } from '@/lib/departments/department';
 import { pickDriveFolder, savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { slugify } from '@/lib/events/slug';
@@ -31,6 +32,7 @@ import { PacketWarnings } from '@/components/packets/PacketWarnings';
 import { StagesPanel } from './StagesPanel';
 import { LineupPanel } from './LineupPanel';
 import { EventContactsPanel } from './EventContactsPanel';
+import { EventTeamPanel } from './EventTeamPanel';
 import { BookedCallsPanel } from './BookedCallsPanel';
 
 const logger = createLogger('Events');
@@ -138,6 +140,15 @@ function usePacketActions(
   };
 }
 
+/** The event's enabled departments, resolved against the app-wide list (hoisted out of the
+ *  component so its branches don't count against the screen's complexity budget). */
+function enabledDepartments(
+  all: DepartmentRecord[] | undefined,
+  event: EventRecord,
+): DepartmentRecord[] {
+  return (all ?? []).filter((d) => event.departmentIds.includes(d.id));
+}
+
 export function EventDetailScreen() {
   const { eventId } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
@@ -154,9 +165,9 @@ export function EventDetailScreen() {
   // The route param may be a slug; resolve to the canonical doc id for writes + sub-links.
   const id = event?.id;
 
-  const roleQuery = useQuery({
-    queryKey: ['events', 'role', id, user?.uid],
-    queryFn: () => getEventRole(user!.uid, id!),
+  const memberQuery = useQuery({
+    queryKey: ['events', 'member', id, user?.uid],
+    queryFn: () => getEventMember(user!.uid, id!),
     enabled: !!id && !!user,
   });
 
@@ -206,7 +217,8 @@ export function EventDetailScreen() {
   if (!user || !eventId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
-  const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
+  const viewerRole = memberQuery.data?.role ?? null;
+  const canEdit = canEditEvent(viewer, viewerRole);
   const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
@@ -280,6 +292,12 @@ export function EventDetailScreen() {
           <StagesPanel eventId={event.id} canEdit={canEdit} />
           <LineupPanel event={event} canEdit={canEdit} />
           <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
+          <EventTeamPanel
+            eventId={event.id}
+            viewer={viewer}
+            viewerRole={viewerRole}
+            departments={enabledDepartments(departmentsQuery.data, event)}
+          />
         </>
       )}
     </section>

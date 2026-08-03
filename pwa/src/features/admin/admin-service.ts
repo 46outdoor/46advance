@@ -17,18 +17,8 @@ import type {
   SetUserOrganizerInput,
   SetUserOrganizerOutput,
 } from '@contracts/callables/auth';
-import {
-  eventRoleSchema,
-  parseEventMember,
-  type EventMember,
-  type EventRole,
-} from '@/lib/rbac/roles';
+import { eventRoleSchema, type EventRole } from '@/lib/rbac/roles';
 import { parseEvent, type EventRecord } from '@/lib/events/event';
-
-/** A membership row with its user id attached. */
-export interface EventMemberRow extends EventMember {
-  uid: string;
-}
 
 /** All events (admin reads every event per firestore.rules), name-sorted — for the assign picker. */
 export async function listAllEvents(): Promise<EventRecord[]> {
@@ -36,12 +26,6 @@ export async function listAllEvents(): Promise<EventRecord[]> {
   return snap.docs
     .map((d) => parseEvent(d.id, d.data()))
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** All members of an event. */
-export async function listEventMembers(eventId: string): Promise<EventMemberRow[]> {
-  const snap = await getDocs(collection(db, 'events', eventId, 'members'));
-  return snap.docs.map((d) => ({ uid: d.id, ...parseEventMember(d.data()) }));
 }
 
 /** Assign (or update) a user's per-event role. `addedBy` is the acting admin's uid. */

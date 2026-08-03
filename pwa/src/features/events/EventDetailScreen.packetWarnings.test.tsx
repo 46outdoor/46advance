@@ -36,7 +36,18 @@ vi.mock('@/lib/google', () => ({
   useGoogleConnection: () => ({ data: { hasDrive: true } }),
 }));
 
-vi.mock('@/lib/rbac/membership', () => ({ getEventRole: vi.fn(async () => 'production-manager') }));
+vi.mock('@/lib/rbac/membership', () => ({
+  getEventMember: vi.fn(async () => ({
+    role: 'production-manager',
+    addedBy: 'admin-uid',
+    addedAt: null,
+    departments: [],
+    email: null,
+    displayName: null,
+  })),
+  listEventMembers: vi.fn(async () => []),
+  eventMembersKey: (eventId: string) => ['events', 'members', eventId] as const,
+}));
 vi.mock('@/lib/branding/branding-service', () => ({
   brandingKey: () => ['branding'],
   getBranding: vi.fn(async () => ({ defaultLogos: [] })),

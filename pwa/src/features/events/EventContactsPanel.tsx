@@ -11,6 +11,8 @@ import {
   setEventContactNotes,
   type ResolvedEventContact,
 } from './event-contacts-service';
+import { enrollTechIfAbsent } from './event-members-service';
+import { eventMembersKey } from '@/lib/rbac/membership';
 
 const logger = createLogger('EventContacts');
 
@@ -143,7 +145,22 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event-contacts', eventId] });
 
   const attach = useMutation({
-    mutationFn: () => attachContact(eventId, pickContactId, roleLabel || null, uid),
+    mutationFn: async () => {
+      await attachContact(eventId, pickContactId, roleLabel || null, uid);
+      // Crew → access: a contact linked to an app account is auto-enrolled as a read-only
+      // `tech` member so they can open the event. `ifAbsent` (server-enforced) means an
+      // existing PM/department-lead/tech keeps their role. Best-effort: the attach above
+      // already succeeded, so a failure here (e.g. account not approved yet) only warns.
+      const contact = directoryQuery.data?.find((c) => c.id === pickContactId);
+      if (contact?.userId && contact.userId !== uid) {
+        try {
+          await enrollTechIfAbsent(eventId, contact.userId);
+          void queryClient.invalidateQueries({ queryKey: eventMembersKey(eventId) });
+        } catch (err) {
+          logger.warn('Crew member attached, but tech access could not be granted', err);
+        }
+      }
+    },
     onSuccess: () => {
       void invalidate();
       setPickContactId('');

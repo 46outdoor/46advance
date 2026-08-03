@@ -35,15 +35,23 @@ describe('section state machine', () => {
 });
 
 describe('section finalize/unlock permissions', () => {
-  it('admin and production-manager can finalize and unlock', () => {
-    expect(canFinalizeSection(admin, null)).toBe(true);
-    expect(canFinalizeSection(member, 'production-manager')).toBe(true);
-    expect(canUnlockSection(member, 'production-manager')).toBe(true);
+  it('admin and production-manager can finalize and unlock any section', () => {
+    expect(canFinalizeSection(admin, null, 'audio')).toBe(true);
+    expect(canFinalizeSection(member, { role: 'production-manager' }, 'audio')).toBe(true);
+    expect(canUnlockSection(member, { role: 'production-manager' }, 'audio')).toBe(true);
   });
 
-  it('department-lead and tech cannot finalize or unlock', () => {
-    expect(canFinalizeSection(member, 'department-lead')).toBe(false);
-    expect(canFinalizeSection(member, 'tech')).toBe(false);
-    expect(canUnlockSection(member, null)).toBe(false);
+  it('department-lead can finalize and unlock only their assigned departments', () => {
+    const lead = { role: 'department-lead', departments: ['audio'] } as const;
+    expect(canFinalizeSection(member, lead, 'audio')).toBe(true);
+    expect(canUnlockSection(member, lead, 'audio')).toBe(true);
+    expect(canFinalizeSection(member, lead, 'lighting')).toBe(false);
+    expect(canUnlockSection(member, lead, 'lighting')).toBe(false);
+  });
+
+  it('unassigned department-lead and tech cannot finalize or unlock', () => {
+    expect(canFinalizeSection(member, { role: 'department-lead' }, 'audio')).toBe(false);
+    expect(canFinalizeSection(member, { role: 'tech' }, 'audio')).toBe(false);
+    expect(canUnlockSection(member, null, 'audio')).toBe(false);
   });
 });

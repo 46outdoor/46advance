@@ -7,10 +7,12 @@
  * - **Global admin** = Firebase custom claim `admin: true` (not a per-event role).
  * - **Per-event role** = `events/{eventId}/members/{uid}.role` (one of EVENT_ROLES).
  *
- * v1 capability matrix is encoded in `permissions.ts`:
+ * Capability matrix is encoded in `permissions.ts`:
  *   admin (global)      → view + edit + flag + manage members (any event)
- *   production-manager  → view + edit + flag
- *   department-lead     → view + flag/comment (read-only otherwise)
+ *   production-manager  → view + edit + flag + manage members (their event)
+ *   department-lead     → view + flag/comment; edits the advance/stage-production sections
+ *                         of their ASSIGNED departments (`departments` below) — read-only
+ *                         elsewhere and read-only everywhere when none are assigned
  *   tech                → view only
  */
 import { z } from 'zod';
@@ -44,6 +46,12 @@ export interface EventMember {
   role: EventRole;
   addedBy: string;
   addedAt: Date | null;
+  /** Department ids a `department-lead` may edit (advance + stage-production sections). */
+  departments: string[];
+  /** Denormalized account email/name for the Team roster (non-admin PMs can't read the
+   *  users directory). Null on rows written before this feature. */
+  email: string | null;
+  displayName: string | null;
 }
 
 /** Validated input for assigning/updating a member (the client-supplied fields). */
@@ -54,6 +62,9 @@ const eventMemberDocSchema = z.object({
   role: eventRoleSchema,
   addedBy: z.string().min(1),
   addedAt: z.instanceof(Timestamp).nullable().optional(),
+  departments: z.array(z.string()).optional(),
+  email: z.string().nullable().optional(),
+  displayName: z.string().nullable().optional(),
 });
 
 /**
@@ -66,5 +77,8 @@ export function parseEventMember(data: unknown): EventMember {
     role: doc.role,
     addedBy: doc.addedBy,
     addedAt: timestampToDate(doc.addedAt ?? null),
+    departments: doc.departments ?? [],
+    email: doc.email ?? null,
+    displayName: doc.displayName ?? null,
   };
 }

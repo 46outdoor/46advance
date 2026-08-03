@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canEditEvent } from '@/lib/rbac/permissions';
+import { canEditDepartment, canEditEvent } from '@/lib/rbac/permissions';
 import type { SectionContent } from '@/lib/advances/fields';
 import { canFinalizeSection, canUnlockSection, type SectionStatus } from '@/lib/advances/sections';
-import type { EventRole } from '@/lib/rbac/roles';
+import type { EventMember } from '@/lib/rbac/roles';
 import { listDepartments } from '@/lib/departments/departments-service';
 import type { ProductionAttachment } from '@/lib/production/production';
 import { getEvent } from '@/lib/events/events-read';
@@ -26,11 +26,11 @@ const logger = createLogger('Production');
 export function StageProductionPanel({
   eventId,
   stageId,
-  role,
+  member,
 }: {
   eventId: string;
   stageId: string;
-  role: EventRole | null;
+  member: EventMember | null;
 }) {
   const { user, isAdmin, isOrganizer } = useAuth();
   const queryClient = useQueryClient();
@@ -86,9 +86,8 @@ export function StageProductionPanel({
   });
 
   const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
-  const canEdit = viewer ? canEditEvent(viewer, role) : false;
-  const canFinalize = viewer ? canFinalizeSection(viewer, role) : false;
-  const canUnlock = viewer ? canUnlockSection(viewer, role) : false;
+  // Whole-record scope (attachments): PM/admin. Sections are gated per department below.
+  const canEdit = viewer ? canEditEvent(viewer, member?.role ?? null) : false;
 
   const enabledIds = new Set(eventQuery.data?.departmentIds ?? []);
   const sectionRows = (departmentsQuery.data ?? []).filter((d) => enabledIds.has(d.id));
@@ -115,9 +114,9 @@ export function StageProductionPanel({
               }
             }
             content={production.content[dept.id] ?? {}}
-            canEdit={canEdit}
-            canFinalize={canFinalize}
-            canUnlock={canUnlock}
+            canEdit={viewer ? canEditDepartment(viewer, member, dept.id) : false}
+            canFinalize={viewer ? canFinalizeSection(viewer, member, dept.id) : false}
+            canUnlock={viewer ? canUnlockSection(viewer, member, dept.id) : false}
             statusPending={setStatus.isPending}
             contentPending={saveContent.isPending}
             onSetStatus={(deptId, status) => setStatus.mutate({ key: deptId, status })}
