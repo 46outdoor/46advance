@@ -7,13 +7,16 @@ import type { EventRecord } from '@/lib/events/event';
 import type { StageRecord } from '@/lib/events/stage';
 import type { LocatedAdvance } from '@/lib/tracker/tracker';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
-import { listStages } from './stages-service';
+import { listStages, setStageSlotBaseline } from './stages-service';
 import { createAdvance, deleteAdvance, updateAdvanceLineup } from './advances-service';
 import { LineupPanel } from './LineupPanel';
 
 vi.mock('@/contexts/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 vi.mock('@/lib/tracker/tracker-service', () => ({ listEventAdvances: vi.fn() }));
-vi.mock('./stages-service', () => ({ listStages: vi.fn() }));
+vi.mock('./stages-service', () => ({
+  listStages: vi.fn(),
+  setStageSlotBaseline: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('./advances-service', () => ({
   createAdvance: vi.fn().mockResolvedValue('new-id'),
   deleteAdvance: vi.fn().mockResolvedValue(undefined),
@@ -57,8 +60,8 @@ const event = (over: Partial<EventRecord> = {}): EventRecord =>
     ...over,
   }) as unknown as EventRecord;
 
-const stage = (id: string, name: string): StageRecord =>
-  ({ id, name, order: 0 }) as unknown as StageRecord;
+const stage = (id: string, name: string, slotBaselines: Record<string, number> = {}): StageRecord =>
+  ({ id, name, order: 0, slotBaselines }) as unknown as StageRecord;
 
 function renderPanel(ev = event(), canEdit = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -147,11 +150,31 @@ describe('LineupPanel', () => {
     expect(await screen.findByText(/5 · Artist 5/)).toBeInTheDocument();
     expect(screen.queryByText(/6 · Artist 6/)).not.toBeInTheDocument();
 
+    // The +/− handlers run through a mutation's optimistic cache patch (async), so
+    // the row appears a tick after the click — unlike the old synchronous setState.
     fireEvent.click(screen.getByRole('button', { name: '+ Add slot' }));
-    expect(screen.getByText(/6 · Artist 6/)).toBeInTheDocument();
+    expect(await screen.findByText(/6 · Artist 6/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '− Remove slot' }));
-    expect(screen.queryByText(/6 · Artist 6/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/6 · Artist 6/)).not.toBeInTheDocument());
+  });
+
+  it('persists the slot count when adding/trimming (the fix for slots reappearing on refresh)', async () => {
+    renderPanel();
+    await screen.findByText(/5 · Artist 5/);
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add slot' }));
+    await waitFor(() => expect(setStageSlotBaseline).toHaveBeenCalledWith('e1', 'main', '', 6));
+
+    fireEvent.click(screen.getByRole('button', { name: '− Remove slot' }));
+    await waitFor(() => expect(setStageSlotBaseline).toHaveBeenCalledWith('e1', 'main', '', 5));
+  });
+
+  it('renders the stored slot baseline instead of the default', async () => {
+    vi.mocked(listStages).mockResolvedValue([stage('main', 'Main Stage', { default: 2 })]);
+    renderPanel();
+    expect(await screen.findByText(/2 · Direct Support/)).toBeInTheDocument();
+    expect(screen.queryByText(/3 · Artist 3/)).not.toBeInTheDocument();
   });
 
   it('refuses to remove the last slot while an artist holds it', async () => {

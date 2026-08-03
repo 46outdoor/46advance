@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { deleteStageCascade } from './event-cleanup-service';
-import { parseStage, type StageInput, type StageRecord } from '@/lib/events/stage';
+import { parseStage, slotBaselineKey, type StageInput, type StageRecord } from '@/lib/events/stage';
 
 function stagesCol(eventId: string) {
   return collection(db, 'events', eventId, 'stages');
@@ -56,6 +56,20 @@ export async function updateStage(
   await updateDoc(doc(db, 'events', eventId, 'stages', stageId), {
     name: input.name,
     notes: input.notes ?? null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Persist the lineup slot count for one show day (the +/− slot buttons). Without this
+ *  the count was component state only and reset to the default on every refresh. */
+export async function setStageSlotBaseline(
+  eventId: string,
+  stageId: string,
+  groupKey: string,
+  count: number,
+): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId, 'stages', stageId), {
+    [`slotBaselines.${slotBaselineKey(groupKey)}`]: count,
     updatedAt: serverTimestamp(),
   });
 }

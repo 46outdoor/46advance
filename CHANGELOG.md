@@ -23,6 +23,14 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Checklist templates (admin):** a new panel on the admin **Event setup** tab manages the
   reusable checklist templates PMs import — name plus one line per item, per section.
 
+### Fixed
+
+- **Lineup slot count now sticks:** adding or removing open lineup slots only changed the
+  screen you were looking at — after a refresh the list snapped back to the default 5 (main
+  stage) / 4 (side stage) rows, resurrecting removed slots and dropping added ones. The
+  chosen slot count is now saved per stage and show day, so the lineup looks the same when
+  you come back.
+
 - **Team & access — manage who's on your event:** a new panel on the event screen (visible to
   admins and the event's production managers) lists everyone with access and their role. Add
   people by **email**, change roles, or remove them — no admin needed. Designating a co-**Production
