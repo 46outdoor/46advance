@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
@@ -44,6 +45,7 @@ function DepartmentPicker({
 
 function MemberRow({
   member,
+  label,
   isSelf,
   viewerIsAdmin,
   departments,
@@ -53,6 +55,7 @@ function MemberRow({
   onRemove,
 }: {
   member: EventMemberRow;
+  label: string;
   isSelf: boolean;
   viewerIsAdmin: boolean;
   departments: DepartmentRecord[];
@@ -67,11 +70,9 @@ function MemberRow({
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm">
-          <span className="font-medium text-ink">
-            {member.displayName ?? member.email ?? member.uid}
-          </span>
+          <span className="font-medium text-ink">{label}</span>
           {isSelf && <span className="ml-2 text-xs text-ink-muted">(you)</span>}
-          {member.displayName && member.email && (
+          {member.email && member.email !== label && (
             <span className="ml-2 text-xs text-ink-muted">{member.email}</span>
           )}
         </span>
@@ -135,6 +136,7 @@ interface EventTeamPanelProps {
  * event's production managers; enforcement lives in the callables + firestore.rules.
  */
 export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: EventTeamPanelProps) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<EventRole>('tech');
@@ -263,6 +265,13 @@ export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: Eve
             <MemberRow
               key={m.uid}
               member={m}
+              // Legacy rows predate the denormalized fields (see scripts/backfill-member-display.ts);
+              // your own row can always fall back to the signed-in profile.
+              label={
+                m.displayName ??
+                m.email ??
+                (m.uid === viewer.uid ? (user?.displayName ?? user?.email ?? m.uid) : m.uid)
+              }
               isSelf={m.uid === viewer.uid}
               viewerIsAdmin={viewer.isAdmin}
               departments={departments}
