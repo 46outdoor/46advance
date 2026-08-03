@@ -9,6 +9,7 @@ import { DepartmentsAdmin } from './DepartmentsAdmin';
 import { TemplatesAdmin } from './TemplatesAdmin';
 import { ScheduleTemplatesAdmin } from './ScheduleTemplatesAdmin';
 import { CrewTypesAdmin } from './CrewTypesAdmin';
+import { ChecklistTemplatesAdmin } from './ChecklistTemplatesAdmin';
 import { DocumentCategoriesAdmin } from './DocumentCategoriesAdmin';
 import { DocumentLibraryAdmin } from './DocumentLibraryAdmin';
 import { BrandingAdmin } from './BrandingAdmin';
@@ -98,6 +99,7 @@ function TabSections({ tab }: { tab: AdminTabId }): ReactElement {
           <TemplatesAdmin />
           <ScheduleTemplatesAdmin />
           <CrewTypesAdmin />
+          <ChecklistTemplatesAdmin />
         </>
       );
     case 'documents':

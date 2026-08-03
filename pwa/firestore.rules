@@ -162,6 +162,13 @@ service cloud.firestore {
       allow write: if isActiveUser() && (isAdmin() || isOrganizer());
     }
 
+    // Event-checklist templates: any approved user reads (PMs import them onto their
+    // events); admin manages (the admin Event-setup tab).
+    match /checklistTemplates/{templateId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     // App-level branding config (config/branding): shared default logo marks. Any approved user reads; admin manages.
     match /config/{configId} {
       allow read: if isActiveUser();
@@ -364,6 +371,18 @@ service cloud.firestore {
       match /contacts/{attachId} {
         allow read: if isAdmin() || isMember(eventId);
         allow create, update, delete: if canEditEvent(eventId);
+      }
+
+      // Event checklist: a PM-only working surface — READ requires canEditEvent too, so
+      // department leads / techs never see it (decision 2026-08-03). `completedAt` doubles
+      // as the done flag (null = not done) and is client-set: the completion time is
+      // deliberately user-editable. Not part of the advance tracker.
+      match /checklist/{itemId} {
+        allow read: if canEditEvent(eventId);
+        allow create, update: if canEditEvent(eventId)
+          && nonEmptyStr(request.resource.data, 'text')
+          && fieldIn(request.resource.data, 'section', ['main', 'post-show']);
+        allow delete: if canEditEvent(eventId);
       }
 
       // Event documents (Documents PR 4): Drive files in the event's linked folder,

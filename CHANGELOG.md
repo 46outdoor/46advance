@@ -13,6 +13,16 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Event Checklist:** every event now has a private checklist for its Production Managers —
+  invisible to Department Leads and Techs (enforced by the security rules, not just hidden).
+  Two fixed sections (the main list plus **Post-Show**); drag items into any order or between
+  sections; ticking an item stamps the completion time (shown as mm/dd h:mm AM/PM in the
+  event's timezone) and the stamp is click-to-edit if you need to correct it. Events start
+  with a blank checklist — add items by hand and/or **import a checklist template** (imports
+  append, so you can combine templates). Deliberately not part of the advance tracker.
+- **Checklist templates (admin):** a new panel on the admin **Event setup** tab manages the
+  reusable checklist templates PMs import — name plus one line per item, per section.
+
 - **Team & access — manage who's on your event:** a new panel on the event screen (visible to
   admins and the event's production managers) lists everyone with access and their role. Add
   people by **email**, change roles, or remove them — no admin needed. Designating a co-**Production

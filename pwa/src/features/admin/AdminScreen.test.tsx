@@ -26,6 +26,9 @@ vi.mock('./TemplatesAdmin', () => ({
 vi.mock('./ScheduleTemplatesAdmin', () => ({
   ScheduleTemplatesAdmin: () => <div data-testid="schedule-templates-admin" />,
 }));
+vi.mock('./ChecklistTemplatesAdmin', () => ({
+  ChecklistTemplatesAdmin: () => <div data-testid="checklist-templates-admin" />,
+}));
 vi.mock('./CrewTypesAdmin', () => ({
   CrewTypesAdmin: () => <div data-testid="crew-types-admin" />,
 }));

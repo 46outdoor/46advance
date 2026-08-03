@@ -69,6 +69,7 @@ vi.mock('./EventForm', () => ({ EventForm: () => null }));
 vi.mock('./StagesPanel', () => ({ StagesPanel: () => null }));
 vi.mock('./LineupPanel', () => ({ LineupPanel: () => null }));
 vi.mock('./EventContactsPanel', () => ({ EventContactsPanel: () => null }));
+vi.mock('./EventChecklistPanel', () => ({ EventChecklistPanel: () => null }));
 vi.mock('./BookedCallsPanel', () => ({ BookedCallsPanel: () => null }));
 
 const EVENT: EventRecord = {
