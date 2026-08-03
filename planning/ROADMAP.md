@@ -53,11 +53,12 @@ questions.
   branding** (true black/white, not generic zinc). "Adopt brand" = brand the dark theme, not switch to light.
 - **Typography.** Bold sans-serif. Distinctive: **bold condensed numerals** ("46") and
   **letter-spaced uppercase** labels (per the logo); clean sans body for data. **Fonts (captured
-  from site CSS):** primary **Nexa** (geometric sans — Black/Bold/Book; Nexa Black ≈ the logo
-  numerals) + accent **Hikou**; fallback Helvetica/Arial/sans-serif. Self-host woff2 (as the site
-  does) for `pwa/` + `mobile/`. Nexa/Hikou are the org's **licensed brand fonts** and are
-  **self-hosted directly** across app + PDF **(decided 2026-06-25 — supersedes the earlier
-  OFL-substitute plan; Poppins/Archivo dropped).**
+  from site CSS):** the site uses **Nexa** — but the org never actually held a Nexa license, so it
+  was **removed 2026-08-01**. Current pairing: **Hikou** (Tugcu — licensed 2026-08-01) as the
+  **display voice** — it is an ALL-CAPS face, so headings/accents only — and **Poppins** (OFL, the
+  originally-planned Nexa substitute, revived) for **all body text**. Self-hosted woff/woff2 in
+  `pwa/public/fonts/`. License constraints per face (PDF embedding, mobile bundling — Hikou is
+  web-only; Poppins can go anywhere): `pwa/guides/FONT_LICENSES.md`.
 - **Motifs.** **Diagonal slash** — small in the logo *and* scaled up as a bold **red diagonal
   page-divider** (thin silver edges) on document covers — a signature device. Plus a
   **right-facing arrow** (CTAs / forward momentum). The slash is the hero brand accent.
@@ -81,7 +82,7 @@ questions.
   - **Dark/primary surface:** `#0a0a0a` (near-black — the site's black). White `#ffffff`. (Corrected from an earlier `#273449` misread — that hex was the most-frequent in the site CSS but was a component color, not the page background.)
   - **Neutrals:** light `#f2f2f2` / `#f7f7f7`; mid grey `#b3b3b3` / `#a2a2a2`; dark grey `#262626` / `#525763`.
   - **Accents:** **red `#f04040`** (signature) · orange `#ff853c` · lime `#8dff1c` (use sparingly).
-  - **Fonts:** **Nexa** (primary) **+ Hikou** (display accent) — the org's licensed brand fonts, **self-hosted directly** across app + PDF (`pwa/public/fonts/`). See Typography. *(The earlier OFL-substitute plan — Poppins/Archivo — was dropped 2026-06-25.)*
+  - **Fonts:** **Poppins** (OFL — body) **+ Hikou** (licensed — all-caps display), self-hosted in `pwa/public/fonts/`; the packet PDF stays Helvetica (license-gated). See Typography and `pwa/guides/FONT_LICENSES.md`. *(Nexa removed 2026-08-01 — never actually licensed.)*
   - Status colors stay distinct from brand red (neutral → amber → green; amber/green may harmonize with brand orange/lime).
   - **Themes (built):** light (default) **+ an opt-in dark theme** on these tokens — the dark chrome
     (`brand`) and red `accent` carry across both; only content surfaces/text/lines flip. A header
@@ -610,7 +611,7 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 **Q&A round 5 — design (2026-06-21, after reviewing 46entertainment.com + 46 production packets):**
 
 - **Brand palette:** **black / white / red** (red = signature accent, from the diagonal-slash band) + silver-grey; additional color via event photography.
-- **Fonts:** **self-host the licensed Nexa** (primary) **+ Hikou** (display accent) directly across app + PDF. *(Updated 2026-06-25: the org owns the licenses; the earlier OFL-substitute plan — Poppins/Archivo — was dropped.)*
+- **Fonts:** **self-host the licensed Nexa** (primary) **+ Hikou** (display accent) directly across app + PDF. *(Updated 2026-06-25: the org owns the licenses; Poppins/Archivo dropped. Superseded 2026-08-01: the Nexa half was wrong — no Nexa license was ever held. Nexa removed; Hikou Desktop License purchased (all-caps display voice, web-only); Poppins revived for body. Terms: `pwa/guides/FONT_LICENSES.md`.)*
 - **App base theme:** **dark, branded chrome (nav/header/sidebars) + light content areas** (readability for dense forms/tables).
 - **Status colors:** **neutral/grey → amber → green** (not started → in progress → complete). **Red is reserved for brand/primary, not status** — supersedes round 3's "red = not started".
 - **Photography:** dramatic event photography on **entry/landing, empty states, and PDF report covers**; work screens stay clean.

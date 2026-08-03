@@ -27,10 +27,15 @@ export function ThemeSpecimen() {
           Type
         </h2>
         <p className="font-display text-5xl font-black tracking-tight">
-          46<span className="text-accent">/</span> Nexa Black
+          46<span className="text-accent">/</span> Hikou display
+        </p>
+        <p className="font-display text-2xl">
+          Hikou is ALL-CAPS — this line is typed in lowercase. Headings only, never body.
         </p>
         <p className="font-sans text-base">
-          Nexa Book — the quick brown fox jumps over 13 lazy dogs.
+          Poppins body — the quick brown fox jumps over 13 lazy dogs. 0123456789.{' '}
+          <span className="font-semibold">Semibold</span>, <span className="font-bold">bold</span>{' '}
+          and <span className="font-black">black</span> are real faces, not synthesized.
         </p>
         <p className="font-accent text-2xl uppercase tracking-[0.2em]">Hikou accent</p>
       </div>
