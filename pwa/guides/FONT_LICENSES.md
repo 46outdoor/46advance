@@ -16,7 +16,7 @@ body text. The repo keeps the four text faces (Light/Regular ± oblique); the de
 | --- | --- | --- |
 | Webfont on the PWA | **Yes** | Webfont clause, up to 500k views/month — far above this app's traffic. |
 | Embedding in generated PDFs (packets/quotes) | **Only if** the font is **not extractable** and the document is not for sale | `@react-pdf/renderer` embeds extractable subsets, so wiring Hikou into the packet renderer would sit on the wrong side of this clause. The renderer deliberately uses **Helvetica** — change that only with a licensing answer in hand. |
-| Bundling in the native mobile app | **No** | "May not embed the fonts in apps" is explicit. `mobile/` needs an app-embedding tier from the foundry, or headings go Poppins on native. Do not copy Hikou files into the Expo bundle. |
+| Bundling in the native mobile app | **No** | "May not embed the fonts in apps" is explicit. **Decided 2026-08-03: the native app uses Poppins for all type, headings included** — no Hikou tier will be purchased. Do not copy Hikou files into the Expo bundle. |
 | Redistribution | **No** | The files live in this (private) repo and are served as webfonts — both fine. Making the repo public, or shipping the files anywhere users can take them *as fonts*, is redistribution. |
 | Desktop installs | 3 computers, the licensed user only | Design work on the owner's machines. |
 
