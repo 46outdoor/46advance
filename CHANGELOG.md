@@ -9,6 +9,14 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## 2026-08-01
+
+### Changed
+
+- **New typefaces:** headings now set in **Hikou** — the licensed 46 display face (all-caps by
+  design) — and body text in **Poppins**, a clean geometric sans, replacing Nexa throughout. PDF
+  packets are unaffected. If text looks odd after the update, reload once to pick up the new fonts.
+
 ## 2026-07-31
 
 ### Added

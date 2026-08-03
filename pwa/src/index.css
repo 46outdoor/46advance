@@ -1,41 +1,75 @@
 @import 'tailwindcss';
 
-/* Self-hosted 46 brand fonts (Nexa primary, Hikou accent) — internal-tool use of the
-   company's licensed brand fonts. Files in public/fonts. */
+/* Self-hosted fonts (see guides/FONT_LICENSES.md). Nexa was removed 2026-08-01 — it was
+   never actually licensed. HIKOU (Tugcu Design, licensed) is the display voice: it is an
+   ALL-CAPS face (its "lowercase" glyphs are the capitals verbatim — verified from the
+   outlines), so it sets headings/accents only, never body text. Its faces claim weight
+   RANGES so `font-bold`/`font-black` (600–900) headings resolve to Regular instead of the
+   browser synthesising faux-bold. POPPINS (OFL — the roadmap's original Nexa substitute)
+   is the body text face, one file per weight the app actually uses. */
 @font-face {
-  font-family: 'Nexa';
-  src:
-    url('/fonts/Nexa/Nexa-Book.woff2') format('woff2'),
-    url('/fonts/Nexa/Nexa-Book.woff') format('woff');
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins/Poppins-regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Nexa';
-  src:
-    url('/fonts/Nexa/Nexa-Bold.woff2') format('woff2'),
-    url('/fonts/Nexa/Nexa-Bold.woff') format('woff');
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins/Poppins-medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins/Poppins-semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins/Poppins-bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Nexa';
-  src:
-    url('/fonts/Nexa/Nexa-Black.woff2') format('woff2'),
-    url('/fonts/Nexa/Nexa-Black.woff') format('woff');
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins/Poppins-black.woff2') format('woff2');
   font-weight: 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Hikou';
+  src: url('/fonts/Hikou/Hikou-Light.woff') format('woff');
+  font-weight: 100 399;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Hikou';
+  src: url('/fonts/Hikou/Hikou-Light-Oblique.woff') format('woff');
+  font-weight: 100 399;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Hikou';
   src:
     url('/fonts/Hikou/hikou_regular-webfont.woff2') format('woff2'),
-    url('/fonts/Hikou/hikou_regular-webfont.woff') format('woff');
-  font-weight: 400;
+    url('/fonts/Hikou/Hikou-Regular.woff') format('woff');
+  font-weight: 400 900;
   font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Hikou';
+  src: url('/fonts/Hikou/Hikou-Oblique.woff') format('woff');
+  font-weight: 400 900;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -57,9 +91,9 @@
   --color-status-progress: #f59e0b; /* in progress */
   --color-status-complete: #22c55e; /* complete */
 
-  --font-sans: 'Nexa', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
-  --font-display: 'Nexa', sans-serif;
-  --font-accent: 'Hikou', 'Nexa', sans-serif;
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+  --font-display: 'Hikou', 'Poppins', sans-serif; /* all-caps display face — headings only */
+  --font-accent: 'Hikou', 'Poppins', sans-serif;
 }
 
 /* Dark theme — redefine the *content* tokens under `.dark` on <html>. The signature
