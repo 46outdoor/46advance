@@ -23,9 +23,10 @@ import {
   performanceDayKey,
 } from '@/lib/advances/lineup';
 import { eventDays, type EventRecord } from '@/lib/events/event';
+import { slotBaselineKey, type StageRecord } from '@/lib/events/stage';
 import type { LocatedAdvance } from '@/lib/tracker/tracker';
 import { listEventAdvances } from '@/lib/tracker/tracker-service';
-import { listStages } from './stages-service';
+import { listStages, setStageSlotBaseline } from './stages-service';
 import { createAdvance, deleteAdvance, updateAdvanceLineup } from './advances-service';
 
 const logger = createLogger('Lineup');
@@ -45,6 +46,12 @@ interface RemoveInput {
   located: LocatedAdvance;
   /** 'clear' keeps the advance without a slot; 'delete' removes it and its data. */
   mode: 'clear' | 'delete';
+}
+
+interface BaselineInput {
+  stageId: string;
+  groupKey: string;
+  count: number;
 }
 
 /** One lineup group: a show day (or the undated pool). */
@@ -124,6 +131,26 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
     onError: (err) => logger.error('Failed to remove the lineup slot', err),
   });
 
+  // Persisted +/− slot count (per stage, per show day). Optimistic cache patch so the
+  // buttons feel instant and rapid clicks compound correctly; a failed write refetches.
+  const setBaseline = useMutation({
+    mutationFn: ({ stageId, groupKey, count }: BaselineInput) =>
+      setStageSlotBaseline(event.id, stageId, groupKey, count),
+    onMutate: ({ stageId, groupKey, count }) => {
+      queryClient.setQueryData<StageRecord[]>(['stages', event.id], (prev) =>
+        prev?.map((s) =>
+          s.id === stageId
+            ? { ...s, slotBaselines: { ...s.slotBaselines, [slotBaselineKey(groupKey)]: count } }
+            : s,
+        ),
+      );
+    },
+    onError: (err) => {
+      logger.error('Failed to save the slot count', err);
+      void queryClient.invalidateQueries({ queryKey: ['stages', event.id] });
+    },
+  });
+
   const stages = stagesQuery.data ?? [];
   const groups = lineupGroups(event, located);
   const busy = book.isPending || remove.isPending;
@@ -156,7 +183,7 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
                 <StageLineupCard
                   key={stage.id}
                   eventId={event.id}
-                  stageName={stage.name}
+                  stage={stage}
                   defaultSlots={index === 0 ? 5 : 4}
                   group={group}
                   occupants={located.filter(
@@ -171,6 +198,9 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
                     book.mutate({ stageId: stage.id, slot, dayKey: group.key, name })
                   }
                   onRemove={(l, mode) => remove.mutate({ located: l, mode })}
+                  onSetBaseline={(count) =>
+                    setBaseline.mutate({ stageId: stage.id, groupKey: group.key, count })
+                  }
                 />
               ))}
             </div>
@@ -182,7 +212,7 @@ export function LineupPanel({ event, canEdit }: { event: EventRecord; canEdit: b
 
 function StageLineupCard({
   eventId,
-  stageName,
+  stage,
   defaultSlots,
   group,
   occupants,
@@ -190,9 +220,10 @@ function StageLineupCard({
   busy,
   onBook,
   onRemove,
+  onSetBaseline,
 }: {
   eventId: string;
-  stageName: string;
+  stage: StageRecord;
   /** Open rows before anything is booked: 5 for the first (main) stage, 4 for side stages. */
   defaultSlots: number;
   group: LineupGroup;
@@ -201,17 +232,19 @@ function StageLineupCard({
   busy: boolean;
   onBook: (slot: number, name: string) => void;
   onRemove: (located: LocatedAdvance, mode: 'clear' | 'delete') => void;
+  onSetBaseline: (count: number) => void;
 }) {
   const highest = Math.max(0, ...occupants.map((l) => l.advance.slot ?? 0));
-  // "+ Add slot" extends and "− Remove slot" trims from the end — an occupied last
-  // row must lose its artist first. The undated pool only shows slots in use.
-  const [baseline, setBaseline] = useState(defaultSlots);
+  // "+ Add slot" extends and "− Remove slot" trims from the end, persisted per show day
+  // on the stage doc (slotBaselines) so the chosen count survives a refresh. An occupied
+  // last row must lose its artist first. The undated pool only shows slots in use.
+  const baseline = stage.slotBaselines[slotBaselineKey(group.key)] ?? defaultSlots;
   const slotCount = group.canBook ? Math.max(baseline, highest, 1) : highest;
 
   return (
     <section className="rounded-lg border border-line">
       <header className="border-b border-line px-3 py-2 text-sm font-bold text-ink">
-        {stageName}
+        {stage.name}
       </header>
       <ol className="divide-y divide-line/60">
         {Array.from({ length: slotCount }, (_, i) => i + 1).map((slot) => (
@@ -233,7 +266,7 @@ function StageLineupCard({
           <button
             type="button"
             className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted transition-colors hover:text-accent sm:min-h-0"
-            onClick={() => setBaseline(slotCount + 1)}
+            onClick={() => onSetBaseline(slotCount + 1)}
           >
             + Add slot
           </button>
@@ -242,7 +275,7 @@ function StageLineupCard({
             disabled={slotCount <= Math.max(highest, 1)}
             title="The last slot must be open before it can be removed"
             className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted transition-colors hover:text-accent disabled:opacity-40 sm:min-h-0"
-            onClick={() => setBaseline(Math.max(slotCount - 1, 1))}
+            onClick={() => onSetBaseline(Math.max(slotCount - 1, 1))}
           >
             − Remove slot
           </button>
