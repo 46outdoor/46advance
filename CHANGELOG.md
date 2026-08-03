@@ -25,6 +25,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Fixed
 
+- **Schedule artist names now fill in:** `{artist N}` placeholders on schedule rows that
+  don't name a stage (which includes everything imported from a schedule template) stayed
+  stuck on the generic slot labels ("Headliner", "Artist 3") instead of showing the booked
+  artist. Stage-less rows now resolve against the event's main stage — on screen and on the
+  Google Calendar push — so the lineup propagates without editing every row. A row meant for
+  a different stage still resolves against whichever stage you set on it.
 - **Lineup slot count now sticks:** adding or removing open lineup slots only changed the
   screen you were looking at — after a refresh the list snapped back to the default 5 (main
   stage) / 4 (side stage) rows, resurrecting removed slots and dropping added ones. The
