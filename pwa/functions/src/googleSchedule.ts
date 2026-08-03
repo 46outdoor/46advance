@@ -68,6 +68,22 @@ function resolvePlaceholders(
   });
 }
 
+/** The event's FIRST stage (lowest order, then name — matches the client's listStages
+ * sort). Stage-less {artist N} rows resolve against it, mirroring the schedule screen:
+ * template-imported rows carry no per-row stage, and without this fallback their
+ * placeholders pushed to the calendar as generic slot labels. */
+async function firstStageId(db: Firestore, eventId: string): Promise<string | null> {
+  const snap = await db.collection(`events/${eventId}/stages`).get();
+  const stages = snap.docs
+    .map((d) => ({
+      id: d.id,
+      order: typeof d.data().order === 'number' ? (d.data().order as number) : 0,
+      name: String(d.data().name ?? ''),
+    }))
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return stages[0]?.id ?? null;
+}
+
 /** (stageId:slot) → artist for every stage this day's items reference. Day-aware
  * (mirrors the client's lib/advances/lineup.ts): an advance whose performance day —
  * in the event's timezone — IS this day wins its slot; an undated advance is a
@@ -379,11 +395,20 @@ export const reconcileScheduleDay = onCall(
     }
 
     const dateKey = String(day.date ?? dayId);
-    const artistBySlot = await loadSlotArtists(db, eventId, items, dateKey, eventTz);
+    // Resolution-only stage defaulting: stage-less rows borrow the event's first stage
+    // so their {artist N} placeholders resolve. Never persisted — writeBackCalendarIds
+    // maps the FRESH doc's items, so the stored rows keep stageId null.
+    const defaultStageId = await firstStageId(db, eventId);
+    const resolvedItems = defaultStageId
+      ? items.map((i) =>
+          typeof i.stageId === 'string' && i.stageId ? i : { ...i, stageId: defaultStageId },
+        )
+      : items;
+    const artistBySlot = await loadSlotArtists(db, eventId, resolvedItems, dateKey, eventTz);
     const results = await reconcileItems(
       calendar,
       calendarId,
-      items,
+      resolvedItems,
       dateKey,
       eventTz,
       artistBySlot,

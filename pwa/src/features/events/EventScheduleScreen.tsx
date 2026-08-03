@@ -578,12 +578,18 @@ export function EventScheduleScreen() {
       buildSlotArtistLookup(advancesQuery.data ?? [], eventQuery.data?.timeZone ?? APP_TIME_ZONE),
     [advancesQuery.data, eventQuery.data?.timeZone],
   );
+  // Stage-less rows resolve against the event's FIRST stage (the main stage — same
+  // convention as the lineup's default slots). Template-imported rows carry no stageId,
+  // which used to leave every {artist N} stuck on the generic slot label. A row meant
+  // for a side stage sets its Stage explicitly in the editor.
+  const defaultStageId = stages[0]?.id ?? null;
   const resolveTextForDay =
     (day: ScheduleDay): ResolveItemText =>
     (item, text) =>
-      resolveArtistPlaceholders(text, (slot) =>
-        item.stageId ? slotLookup.resolve(day.date, item.stageId, slot) : null,
-      );
+      resolveArtistPlaceholders(text, (slot) => {
+        const stageId = item.stageId ?? defaultStageId;
+        return stageId ? slotLookup.resolve(day.date, stageId, slot) : null;
+      });
 
   if (!user || !eventParam) return null;
   const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
