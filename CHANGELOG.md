@@ -9,6 +9,25 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+## [Unreleased]
+
+### Added
+
+- **Team & access — manage who's on your event:** a new panel on the event screen (visible to
+  admins and the event's production managers) lists everyone with access and their role. Add
+  people by **email**, change roles, or remove them — no admin needed. Designating a co-**Production
+  Manager** gives them the exact same read/write access as the event's creator (the creator is
+  simply the first PM). You can't change or remove *yourself*, so an event always keeps at least
+  one production manager. Everyone else stays read-only by default: **Techs** are view-only, and
+  **Department Leads** are view + flag until you assign them departments.
+- **Department editors:** a Department Lead can now be assigned specific departments (e.g. Audio)
+  in Team & access. They can then edit, finalize, and unlock **those departments' sections** on
+  artist advances and stage house packages — and nothing else on the event. Enforced by the
+  security rules, not just the UI.
+- **Crew → access:** attaching a crew member (Crew panel) whose contact is linked to an app
+  account now automatically gives that account read-only **Tech** access to the event, so the
+  people on your crew list can actually open the show. Existing members are never downgraded.
+
 ## 2026-08-01
 
 ### Changed

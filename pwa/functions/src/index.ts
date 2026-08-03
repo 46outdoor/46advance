@@ -101,6 +101,9 @@ export { renameEventCalendarOnChange } from './eventCalendarRename.js';
 // Push a master template's production content onto events that already exist. ./templatePush.ts.
 export { pushTemplateProduction } from './templatePush.js';
 
+// PM-facing per-event membership (Team & access panel + the Crew panel's tech auto-enroll).
+export { assignEventMember, removeEventMember } from './members.js';
+
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -520,6 +523,7 @@ function seedCreatorMembership(
   batch: BatchLike,
   eventRef: DocumentReference,
   uid: string,
+  token: DecodedIdToken,
   now: FieldValue,
 ): void {
   batch.set(eventRef.collection('members').doc(uid), {
@@ -527,6 +531,9 @@ function seedCreatorMembership(
     addedBy: uid,
     addedAt: now,
     uid,
+    // Denormalized for the Team roster (non-admin PMs can't read the users directory).
+    email: token.email ?? null,
+    displayName: typeof token.name === 'string' && token.name.trim() ? token.name.trim() : null,
   });
 }
 
@@ -665,7 +672,7 @@ export const createEventFromTemplate = onCall(async (request) => {
     updatedAt: now,
   });
 
-  seedCreatorMembership(batch, eventRef, uid, now);
+  seedCreatorMembership(batch, eventRef, uid, token, now);
   if (include.members) seedTemplateMembers(batch, eventRef, tpl, uid, now);
   if (include.production) seedEventProduction(batch, eventRef, tpl, now);
   // Skipping stages also skips their house packages (they're seeded per stage) — intended.
@@ -755,6 +762,9 @@ export const createBlankEvent = onCall(async (request) => {
       addedBy: uid,
       addedAt: now,
       uid,
+      // Denormalized for the Team roster (non-admin PMs can't read the users directory).
+      email: token.email ?? null,
+      displayName: typeof token.name === 'string' && token.name.trim() ? token.name.trim() : null,
     });
   });
   return { eventId: input.eventId };

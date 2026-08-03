@@ -119,9 +119,9 @@ Initial roles (extensible — more may be added later):
 | Role | Scope (initial) |
 | ---- | --------------- |
 | **admin** | Top-level; likely a single person. Sets per-event assignments (who gets which role on which event). |
-| **production manager** | Full read/write on events they're assigned to (assignment set by admin). |
-| **department lead** | Read + **flag/comment** on assigned events; cannot finalize/unlock sections or edit content (decided — mirrors the `canFlagEvent` gate). |
-| **tech** | Read-only access to advance information. |
+| **production manager** | Full read/write on events they're assigned to — same access as the event creator (who is simply auto-assigned this role). Also manages the event's member roster (Team & access panel), so a creator can designate a co-PM. |
+| **department lead** | Read + **flag/comment** on assigned events. With **assigned departments** (`members.departments`, set in Team & access), can additionally edit + finalize/unlock those departments' sections on advances and stage production records; read-only elsewhere and read-only everywhere when none are assigned (the default). |
+| **tech** | Read-only access to advance information. Attaching a crew contact that's linked to an app account auto-enrolls that account as tech (never downgrades an existing role). |
 
 - **Departments (decided):** a configurable, admin-managed list (app-wide), used by department-lead roles, schedules, and packets.
 - **Default role/permission template (decided):** creating an event auto-populates a default
@@ -135,8 +135,13 @@ Initial roles (extensible — more may be added later):
 > **Built — execution Phase 1:** per-event RBAC via Firebase custom claims — admin / production
 > manager / department lead / tech granted **per advance/event**, with the effective role
 > resolved per (user, event) and enforced in `firestore.rules` + rules tests; admin-managed
-> departments config (full CRUD incl. **rename**). Model in `src/lib/rbac/`. (Department-lead
-> scope resolved: read + flag — see the role table above.)
+> departments config (full CRUD incl. **rename**). Model in `src/lib/rbac/`.
+>
+> **Built — Team & access (2026-08-03):** PM-facing roster management on the event screen —
+> add-by-email via the `assignEventMember`/`removeEventMember` callables (PM-or-admin gate,
+> approved accounts only, no self-changes so an event always keeps a PM), department-scoped
+> editing for department leads (`members.departments` + the dept-scoped write branch in
+> `firestore.rules`), and crew→tech auto-enroll from the Crew panel.
 
 **Mobile:** enforce the *same* per-event roles via shared Firebase custom claims + callable contracts; the mobile app is primarily a consumer of these checks.
 

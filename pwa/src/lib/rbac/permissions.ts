@@ -48,7 +48,32 @@ export function canFlag(viewer: Viewer, role: EventRole | null): boolean {
   return viewer.isAdmin || role === 'production-manager' || role === 'department-lead';
 }
 
-/** v1: membership is admin-managed only (broader assignment scopes deferred). */
-export function canManageMembers(viewer: Viewer): boolean {
-  return viewer.isAdmin;
+/** The membership fields the department-scoped predicates need (subset of EventMember). */
+export interface MemberAccess {
+  role: EventRole;
+  /** Department ids a department-lead may edit; absent/empty = read-only (default). */
+  departments?: readonly string[];
+}
+
+/**
+ * May edit one department's section (content + status) on advances and stage production
+ * records: full event editors always; a department-lead only for their assigned departments.
+ * Mirrors the dept-scoped write branch in `firestore.rules`.
+ */
+export function canEditDepartment(
+  viewer: Viewer,
+  member: MemberAccess | null,
+  deptId: string,
+): boolean {
+  if (canEditEvent(viewer, member?.role ?? null)) return true;
+  return member?.role === 'department-lead' && (member.departments ?? []).includes(deptId);
+}
+
+/**
+ * May manage the event's member roster (assign/remove roles): admin or the event's
+ * production manager. Enforced server-side by the assignEventMember/removeEventMember
+ * callables (`assertCanEditEvent`); this predicate is the UI mirror.
+ */
+export function canManageMembers(viewer: Viewer, role: EventRole | null): boolean {
+  return viewer.isAdmin || role === 'production-manager';
 }

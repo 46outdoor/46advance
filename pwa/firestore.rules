@@ -7,7 +7,8 @@ rules_version = '2';
 //   global admin       (token.admin == true)     -> everything
 //   global organizer   (token.organizer == true) -> may create events (must also be approved)
 //   production-manager (per-event role)           -> read + write stages/advances + flag
-//   department-lead    (per-event role)           -> read + flag
+//   department-lead    (per-event role)           -> read + flag; writes the advance/stage-
+//                        production sections of its ASSIGNED departments (members.departments)
 //   tech               (per-event role)           -> read
 //
 // Pending/revoked accounts (no `approved` claim) are blocked here, not just in the UI
@@ -59,6 +60,37 @@ service cloud.firestore {
       return isAdmin()
         || hasEventRole(eventId, 'production-manager')
         || hasEventRole(eventId, 'department-lead');
+    }
+
+    // ---- Department-scoped editing (Team & access) ----
+    // A department-lead may edit the advance / stage-production SECTIONS of their assigned
+    // departments (`members/{uid}.departments`, written by the assignEventMember callable)
+    // and nothing else. Mirrors canEditDepartment in src/lib/rbac/permissions.ts.
+    function assignedDepts(eventId) {
+      return get(memberPath(eventId)).data.get('departments', []);
+    }
+    // Update-only: the write touches ONLY the section maps (+ updatedAt), and every changed
+    // department key — in both `content` and `sections` — is an assigned department. All
+    // other fields (artistName, createdBy, googleCalendarEventId, …) are excluded by the
+    // top-level key allowlist, so the PM branch's immutability pins aren't needed here.
+    function isDeptSectionUpdate(eventId) {
+      return hasEventRole(eventId, 'department-lead')
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['content', 'sections', 'updatedAt'])
+        && request.resource.data.get('content', {})
+            .diff(resource.data.get('content', {}))
+            .affectedKeys().hasOnly(assignedDepts(eventId))
+        && request.resource.data.get('sections', {})
+            .diff(resource.data.get('sections', {}))
+            .affectedKeys().hasOnly(assignedDepts(eventId));
+    }
+    // Create (the first write to a not-yet-created stage-production record): same key
+    // discipline, on the raw keys — there is no `resource` to diff against.
+    function isDeptSectionCreate(eventId) {
+      return hasEventRole(eventId, 'department-lead')
+        && request.resource.data.keys().hasOnly(['content', 'sections', 'updatedAt'])
+        && request.resource.data.get('content', {}).keys().hasOnly(assignedDepts(eventId))
+        && request.resource.data.get('sections', {}).keys().hasOnly(assignedDepts(eventId));
     }
 
     // ---- Document shape validators (mirror the client Zod parsers in src/lib/*) ----
@@ -251,10 +283,12 @@ service cloud.firestore {
             && request.resource.data.createdBy == request.auth.uid
             && nonEmptyStr(request.resource.data, 'artistName')
             && !request.resource.data.keys().hasAny(['googleCalendarEventId']);
-          allow update: if canEditEvent(eventId)
+          allow update: if (canEditEvent(eventId)
             && request.resource.data.createdBy == resource.data.createdBy // owner immutable
             && nonEmptyStr(request.resource.data, 'artistName')
-            && keysUnchanged(['googleCalendarEventId']);
+            && keysUnchanged(['googleCalendarEventId']))
+            // Department editor: their assigned departments' content/sections only.
+            || isDeptSectionUpdate(eventId);
           allow delete: if canEditEvent(eventId);
 
           // Linked Google Drive files — server-written only (link/removeDriveFile
@@ -297,10 +331,14 @@ service cloud.firestore {
           }
         }
 
-        // Per-stage technical production record (house package): member read; PM/admin write.
+        // Per-stage technical production record (house package): member read; PM/admin
+        // write; a department-lead writes their assigned departments' sections (the
+        // create branch covers the merge-write that first materializes the record).
         match /production/{recordId} {
           allow read: if isAdmin() || isMember(eventId);
-          allow write: if canEditEvent(eventId);
+          allow create: if canEditEvent(eventId) || isDeptSectionCreate(eventId);
+          allow update: if canEditEvent(eventId) || isDeptSectionUpdate(eventId);
+          allow delete: if canEditEvent(eventId);
 
           // Attachments (stage plots / CAD / maps) — one doc per file; member read, PM/admin write.
           match /attachments/{attachId} {

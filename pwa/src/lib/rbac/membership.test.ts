@@ -37,6 +37,29 @@ describe('rbac/membership IO', () => {
     expect(member?.role).toBe('tech');
     expect(member?.addedBy).toBe('admin-uid');
     expect(member?.addedAt).toBeNull();
+    // Fields added by Team & access default sanely on legacy rows.
+    expect(member?.departments).toEqual([]);
+    expect(member?.email).toBeNull();
+    expect(member?.displayName).toBeNull();
+  });
+
+  it('getEventMember parses departments + denormalized display fields when present', async () => {
+    mockGetDoc.mockResolvedValue(
+      memberSnapshot({
+        role: 'department-lead',
+        addedBy: 'pm-uid',
+        addedAt: null,
+        departments: ['audio'],
+        email: 'lead@example.com',
+        displayName: 'Lea D.',
+      }),
+    );
+
+    const member = await getEventMember('user-1', 'event-1');
+
+    expect(member?.departments).toEqual(['audio']);
+    expect(member?.email).toBe('lead@example.com');
+    expect(member?.displayName).toBe('Lea D.');
   });
 
   it('getEventMember returns null when the user is not a member', async () => {

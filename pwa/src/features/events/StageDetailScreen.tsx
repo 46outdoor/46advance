@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
-import { getEventRole } from '@/lib/rbac/membership';
+import { getEventMember } from '@/lib/rbac/membership';
 import type { StageInput } from '@/lib/events/stage';
 import { deleteStage, getStage, updateStage } from './stages-service';
 import { StageForm } from './StageForm';
@@ -31,9 +31,9 @@ export function StageDetailScreen() {
     enabled: !!eventId && !!stageId,
   });
 
-  const roleQuery = useQuery({
-    queryKey: ['events', 'role', eventId, user?.uid],
-    queryFn: () => getEventRole(user!.uid, eventId!),
+  const memberQuery = useQuery({
+    queryKey: ['events', 'member', eventId, user?.uid],
+    queryFn: () => getEventMember(user!.uid, eventId!),
     enabled: !!eventId && !!user,
   });
 
@@ -58,7 +58,7 @@ export function StageDetailScreen() {
   if (!user || !eventParam || !stageId) return null;
 
   const viewer = { uid: user.uid, isAdmin, isOrganizer };
-  const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
+  const canEdit = canEditEvent(viewer, memberQuery.data?.role ?? null);
   const stage = stageQuery.data;
 
   return (
@@ -118,7 +118,11 @@ export function StageDetailScreen() {
       )}
 
       {stage && eventId && (
-        <StageProductionPanel eventId={eventId} stageId={stageId} role={roleQuery.data ?? null} />
+        <StageProductionPanel
+          eventId={eventId}
+          stageId={stageId}
+          member={memberQuery.data ?? null}
+        />
       )}
       {stage && eventId && <AdvancesPanel eventId={eventId} stageId={stageId} canEdit={canEdit} />}
     </section>
