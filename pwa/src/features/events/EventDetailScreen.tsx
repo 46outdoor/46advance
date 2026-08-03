@@ -32,6 +32,7 @@ import { PacketWarnings } from '@/components/packets/PacketWarnings';
 import { StagesPanel } from './StagesPanel';
 import { LineupPanel } from './LineupPanel';
 import { EventContactsPanel } from './EventContactsPanel';
+import { EventChecklistPanel } from './EventChecklistPanel';
 import { EventTeamPanel } from './EventTeamPanel';
 import { BookedCallsPanel } from './BookedCallsPanel';
 
@@ -291,6 +292,7 @@ export function EventDetailScreen() {
           <BookedCallsPanel eventId={event.id} canEdit={canEdit} timeZone={event.timeZone} />
           <StagesPanel eventId={event.id} canEdit={canEdit} />
           <LineupPanel event={event} canEdit={canEdit} />
+          <EventChecklistPanel eventId={event.id} timeZone={event.timeZone} canEdit={canEdit} />
           <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
           <EventTeamPanel
             eventId={event.id}

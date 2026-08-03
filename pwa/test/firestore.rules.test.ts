@@ -104,6 +104,17 @@ beforeEach(async () => {
       createdBy: PM,
       sections: { audio: { status: 'in_progress', finalizedAt: null, finalizedBy: null } },
     });
+    // Event checklist (PM-only surface) + an admin-managed checklist template.
+    await setDoc(doc(db, 'events/event-a/checklist/chk-1'), {
+      text: 'Book crew bus',
+      section: 'main',
+      order: 0,
+      completedAt: null,
+    });
+    await setDoc(doc(db, 'checklistTemplates/ctpl-1'), {
+      name: 'Standard show',
+      items: [{ text: 'Confirm power', section: 'main' }],
+    });
     // Google (Phase 11b): a connection status doc + server-only token/state docs.
     await setDoc(doc(db, 'googleConnections', PM), { connected: true, email: 'pm@x.com' });
     await setDoc(doc(db, 'googleTokens', PM), { refreshToken: 'secret-refresh' });
@@ -974,6 +985,77 @@ describe('firestore.rules — department-scoped section writes (assigned departm
         updatedAt: serverTimestamp(),
       }),
     );
+  });
+});
+
+describe('firestore.rules — event checklist (PM-only surface)', () => {
+  const chk = (id: string) => `events/event-a/checklist/${id}`;
+
+  it('PM can read, create, complete (user-set timestamp), and delete items', async () => {
+    const db = dbFor(PM);
+    await assertSucceeds(getDoc(doc(db, chk('chk-1'))));
+    await assertSucceeds(
+      setDoc(doc(db, chk('chk-new')), {
+        text: 'Advance catering',
+        section: 'post-show',
+        order: 0,
+        completedAt: null,
+      }),
+    );
+    // The completion time is deliberately client-set AND editable.
+    await assertSucceeds(
+      updateDoc(doc(db, chk('chk-1')), { completedAt: Timestamp.fromDate(new Date()) }),
+    );
+    await assertSucceeds(deleteDoc(doc(db, chk('chk-1'))));
+  });
+
+  it('admin can read and write', async () => {
+    const db = dbFor(ADMIN.uid, ADMIN.token);
+    await assertSucceeds(getDoc(doc(db, chk('chk-1'))));
+    await assertSucceeds(updateDoc(doc(db, chk('chk-1')), { text: 'Renamed' }));
+  });
+
+  it('department-leads and techs cannot even READ the checklist', async () => {
+    await assertFails(getDoc(doc(dbFor(LEAD), chk('chk-1'))));
+    await assertFails(getDoc(doc(dbFor(DEPT), chk('chk-1'))));
+    await assertFails(getDoc(doc(dbFor(TECH), chk('chk-1'))));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), chk('chk-1'))));
+  });
+
+  it('non-PMs cannot write items', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(TECH), chk('chk-t')), { text: 'x', section: 'main', order: 0 }),
+    );
+    await assertFails(updateDoc(doc(dbFor(DEPT), chk('chk-1')), { text: 'y' }));
+  });
+
+  it('shape: text required, section must be a known key', async () => {
+    const db = dbFor(PM);
+    await assertFails(setDoc(doc(db, chk('bad-1')), { text: '', section: 'main', order: 0 }));
+    await assertFails(setDoc(doc(db, chk('bad-2')), { text: 'ok', section: 'encore', order: 0 }));
+  });
+});
+
+describe('firestore.rules — checklistTemplates (admin-managed config)', () => {
+  it('any approved user reads (PMs import them); pending/anon cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'checklistTemplates/ctpl-1')));
+    await assertFails(
+      getDoc(doc(dbFor(PENDING, { approved: false }), 'checklistTemplates/ctpl-1')),
+    );
+    await assertFails(getDoc(doc(dbAnon(), 'checklistTemplates/ctpl-1')));
+  });
+
+  it('only admin writes', async () => {
+    await assertSucceeds(
+      setDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'checklistTemplates/ctpl-2'), {
+        name: 'Festival',
+        items: [],
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'checklistTemplates/ctpl-3'), { name: 'Nope', items: [] }),
+    );
+    await assertFails(deleteDoc(doc(dbFor(PM), 'checklistTemplates/ctpl-1')));
   });
 });
 
