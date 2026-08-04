@@ -87,6 +87,7 @@ export function ScheduleDayCard({
   crewTypes,
   resolveText,
   onEditDay,
+  onDuplicateDay,
   onDeleteDay,
   onAddItem,
   onCommitItem,
@@ -102,6 +103,8 @@ export function ScheduleDayCard({
   crewTypes: readonly string[];
   resolveText: ResolveItemText;
   onEditDay: () => void;
+  /** Copy this day (items included) onto a new day — only the template editor offers it. */
+  onDuplicateDay?: () => void;
   onDeleteDay: () => void;
   onAddItem: () => void;
   onCommitItem: (item: ScheduleDayItem) => void;
@@ -133,6 +136,15 @@ export function ScheduleDayCard({
               >
                 Edit day
               </button>
+              {onDuplicateDay && (
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center text-xs font-semibold underline-offset-2 hover:underline sm:min-h-0"
+                  onClick={onDuplicateDay}
+                >
+                  Duplicate day
+                </button>
+              )}
               <button
                 type="button"
                 className="inline-flex min-h-11 items-center text-xs font-semibold underline-offset-2 hover:underline sm:min-h-0"

@@ -5,7 +5,12 @@
  */
 import { useState, type FormEvent } from 'react';
 import { SCHEDULE_DAY_TYPES, type ScheduleDayType } from '@/lib/schedules/dayTypes';
-import { templateDayLabel, type ScheduleTemplateDay } from '@/lib/schedules/scheduleTemplate';
+import {
+  TEMPLATE_DAY_OFFSET_MAX,
+  TEMPLATE_DAY_OFFSET_MIN,
+  templateDayLabel,
+  type ScheduleTemplateDay,
+} from '@/lib/schedules/scheduleTemplate';
 
 export interface TemplateDayMeta {
   offset: number;
@@ -23,7 +28,7 @@ const inputClass =
 function offsetOptions(used: readonly number[], current?: number): number[] {
   const taken = new Set(used);
   const options: number[] = [];
-  for (let o = -7; o <= 9; o += 1) {
+  for (let o = TEMPLATE_DAY_OFFSET_MIN; o <= TEMPLATE_DAY_OFFSET_MAX; o += 1) {
     if (!taken.has(o) || o === current) options.push(o);
   }
   return options;

@@ -37,6 +37,11 @@ export function scheduleTemplateCategoryLabel(c: ScheduleTemplateCategory): stri
 export const SCHEDULE_TEMPLATE_KINDS = ['standard', 'master'] as const;
 export type ScheduleTemplateKind = (typeof SCHEDULE_TEMPLATE_KINDS)[number];
 
+/** The offset axis the editor offers: Day -7 through Show day 10. (The doc schema
+ * doesn't bound offsets — this is the UI's working range.) */
+export const TEMPLATE_DAY_OFFSET_MIN = -7;
+export const TEMPLATE_DAY_OFFSET_MAX = 9;
+
 /** Relative-day label for a template day. Show days count from the event start ("Show
  * day 2"); any other day type reads as its position on the offset axis ("Day -3" /
  * "Day +2"), since a load-out or travel day isn't a show day. (Templates have no real
@@ -230,6 +235,47 @@ export function resolveTemplateDays(
     }),
   ];
   return composeTemplateDays(sources);
+}
+
+/** First untaken offset after `offset`, or null when everything up to the max is taken. */
+function nextFreeOffsetAfter(days: readonly ScheduleTemplateDay[], offset: number): number | null {
+  const taken = new Set(days.map((d) => d.offset));
+  let free = offset + 1;
+  while (taken.has(free)) free += 1;
+  return free <= TEMPLATE_DAY_OFFSET_MAX ? free : null;
+}
+
+/** True when duplicateTemplateDay would succeed: the day exists and a free offset is
+ * left to land the copy on. */
+export function canDuplicateTemplateDay(
+  days: readonly ScheduleTemplateDay[],
+  offset: number,
+): boolean {
+  return days.some((d) => d.offset === offset) && nextFreeOffsetAfter(days, offset) !== null;
+}
+
+/** Duplicate the day at `offset` onto the first free offset after it — metadata and
+ * items copied, items with fresh ids (and copied fields/crew) so editing the copy never
+ * bleeds into the source. Returns the new sorted day list, or null when the source
+ * doesn't exist or every offset through the max is taken. */
+export function duplicateTemplateDay(
+  days: readonly ScheduleTemplateDay[],
+  offset: number,
+): ScheduleTemplateDay[] | null {
+  const source = days.find((d) => d.offset === offset);
+  const free = nextFreeOffsetAfter(days, offset);
+  if (!source || free === null) return null;
+  const copy: ScheduleTemplateDay = {
+    ...source,
+    offset: free,
+    items: source.items.map((i) => ({
+      ...i,
+      id: crypto.randomUUID(),
+      fields: { ...i.fields },
+      crew: i.crew.map((c) => ({ ...c })),
+    })),
+  };
+  return [...days, copy].sort((a, b) => a.offset - b.offset);
 }
 
 /** Total item count across a template's own days (list-screen display). */
