@@ -13,6 +13,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Schedule templates — duplicate a day:** every day card in the schedule-template editor
+  now has a **Duplicate day** button that copies the whole day — day type, title, notes,
+  and every item — onto the next open day. Building "Show day 2" from "Show day 1" no
+  longer means re-entering each row; duplicate, then tweak what differs. The button hides
+  in the rare case there's no open day left after that one.
+
 - **Event Checklist:** every event now has a private checklist for its Production Managers —
   invisible to Department Leads and Techs (enforced by the security rules, not just hidden).
   Two fixed sections (the main list plus **Post-Show**); drag items into any order or between

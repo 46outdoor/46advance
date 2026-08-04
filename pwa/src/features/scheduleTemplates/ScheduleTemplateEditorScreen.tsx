@@ -12,6 +12,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import {
   SCHEDULE_TEMPLATE_CATEGORIES,
+  canDuplicateTemplateDay,
+  duplicateTemplateDay,
   scheduleTemplateCategoryLabel,
   templateDayChipLabel,
   templateDaysToInput,
@@ -235,6 +237,11 @@ function Editor({
             crewTypes={crewTypesQuery.data ?? []}
             resolveText={resolveNothing}
             onEditDay={() => setEditingOffset(day.offset)}
+            onDuplicateDay={
+              canDuplicateTemplateDay(days, day.offset)
+                ? () => setDays((prev) => duplicateTemplateDay(prev, day.offset) ?? prev)
+                : undefined
+            }
             onDeleteDay={() => setDays((prev) => prev.filter((d) => d.offset !== day.offset))}
             onAddItem={() =>
               setDayItems(day.offset, [...day.items.map(templateItemToDayItem), blankItem()])

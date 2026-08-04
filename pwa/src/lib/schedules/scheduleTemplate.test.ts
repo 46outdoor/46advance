@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  TEMPLATE_DAY_OFFSET_MAX,
+  canDuplicateTemplateDay,
   composeTemplateDays,
   dayItemToTemplateItem,
+  duplicateTemplateDay,
   parseScheduleTemplate,
   resolveTemplateDays,
   scheduleTemplateInputSchema,
@@ -143,6 +146,46 @@ describe('resolveTemplateDays', () => {
     expect(resolved[0].title).toBe('Master Rig Day');
     expect(resolved[0].items.map((i) => i.id)).toEqual(['a', 'b']);
     expect(resolved.some((d) => d.offset === 5)).toBe(false);
+  });
+});
+
+describe('duplicateTemplateDay', () => {
+  it('copies metadata and items onto the next offset, minting fresh item ids', () => {
+    const src = day(0, [item('a'), item('b')], 'Rig Day');
+    const result = duplicateTemplateDay([src], 0);
+    expect(result?.map((d) => d.offset)).toEqual([0, 1]);
+    const copy = result![1];
+    expect(copy.dayType).toBe(src.dayType);
+    expect(copy.title).toBe('Rig Day');
+    expect(copy.items.map((i) => i.item)).toEqual(['Crew Call', 'Crew Call']);
+    const ids = new Set([...src.items, ...copy.items].map((i) => i.id));
+    expect(ids.size).toBe(4);
+  });
+
+  it('skips taken offsets and returns the list sorted', () => {
+    const result = duplicateTemplateDay([day(1), day(0, [item('a')])], 0);
+    expect(result?.map((d) => d.offset)).toEqual([0, 1, 2]);
+    expect(result?.[2].items).toHaveLength(1);
+  });
+
+  it('does not alias fields/crew between source and copy', () => {
+    const src = day(0, [
+      item('a', { fields: { location: 'FOH' }, crew: [{ type: 'Hands', quantity: 4, hours: 8 }] }),
+    ]);
+    const copyItem = duplicateTemplateDay([src], 0)![1].items[0];
+    expect(copyItem.fields).toEqual({ location: 'FOH' });
+    expect(copyItem.fields).not.toBe(src.items[0].fields);
+    expect(copyItem.crew[0]).toEqual(src.items[0].crew[0]);
+    expect(copyItem.crew[0]).not.toBe(src.items[0].crew[0]);
+  });
+
+  it('returns null for a missing source or when every offset through the max is taken', () => {
+    expect(duplicateTemplateDay([day(0)], 5)).toBeNull();
+    expect(canDuplicateTemplateDay([day(0)], 5)).toBe(false);
+    const full = Array.from({ length: TEMPLATE_DAY_OFFSET_MAX + 1 }, (_, o) => day(o));
+    expect(duplicateTemplateDay(full, 0)).toBeNull();
+    expect(canDuplicateTemplateDay(full, 0)).toBe(false);
+    expect(canDuplicateTemplateDay([day(0)], 0)).toBe(true);
   });
 });
 
