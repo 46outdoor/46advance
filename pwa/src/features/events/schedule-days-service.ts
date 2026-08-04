@@ -252,7 +252,9 @@ export async function removeCalendarEvents(
     failed += results.filter((r) => r.status === 'rejected').length;
   }
   if (failed > 0) {
-    logger.warn(`Could not remove ${failed} calendar event(s); they may remain on the event calendar.`);
+    logger.warn(
+      `Could not remove ${failed} calendar event(s); they may remain on the event calendar.`,
+    );
   }
 }
 
