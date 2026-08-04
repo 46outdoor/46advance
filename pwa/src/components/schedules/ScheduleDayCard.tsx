@@ -3,7 +3,7 @@
  * (day type drives the color; type label + title + description inline, date right), the
  * day-notes line, and the items grid — Start | End | Duration | Type | Item |
  * Description — on shared column widths so every card's columns align down the page.
- * View rows resolve `{artist N}` placeholders and show per-type fields / crew lines as
+ * View rows resolve `{artist_N}` placeholders and show per-type fields / crew lines as
  * muted sub-rows; edit mode swaps rows for inline editors and adds day-level controls.
  * Shared by the event schedule (and the template editor, redesign PR 3).
  */

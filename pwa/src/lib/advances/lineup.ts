@@ -1,7 +1,7 @@
 /**
  * Day-aware lineup helpers over advances. The lineup IS the advances: each advance
  * carries its stage (via the subcollection it lives in) plus `slot` and
- * `performanceDate`, and `{artist N}` placeholders resolve against them. Day identity
+ * `performanceDate`, and `{artist_N}` placeholders resolve against them. Day identity
  * uses the advance's local calendar date (`dateInputValue` round-trip — performance
  * dates are stored as local-midnight instants, see lib/dates/parsing.ts), which is the
  * same convention the advance form's day dropdown uses and matches schedule-day keys
@@ -28,7 +28,7 @@ export interface SlotArtistLookup {
   resolve(dayKey: string, stageId: string, slot: number): string | null;
 }
 
-/** Build the day-aware `{artist N}` lookup from an event's advances. */
+/** Build the day-aware `{artist_N}` lookup from an event's advances. */
 export function buildSlotArtistLookup(
   advances: readonly StageAdvanceRef[],
   timeZone: string,

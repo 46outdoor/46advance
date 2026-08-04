@@ -7,7 +7,7 @@ import { z } from 'zod';
 // reconcileScheduleDay — reconcile every item of one schedule day with the event's
 // Google calendar (redesign PR 4): pushToCalendar items with a start time get their
 // calendar events created/updated (instants derived from the day's date + wall-clock
-// times in the event's timezone, {artist N} placeholders resolved); others get any
+// times in the event's timezone, {artist_N}/{artist_b_N} placeholders resolved); others get any
 // existing event removed. Per-item calendar ids write back transactionally.
 export const reconcileScheduleDayInputSchema = z.object({
   eventId: z.string().min(1),

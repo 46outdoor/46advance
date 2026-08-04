@@ -236,25 +236,45 @@ describe('sortDayItems', () => {
 });
 
 describe('resolveArtistPlaceholders', () => {
-  const resolve = (slot: number) => (slot === 1 ? 'Jelly Roll' : null);
+  // Stage 0 (main): slot 1 booked. Stage 1 (side / 'b'): slot 1 booked.
+  const resolve = (stage: number, slot: number) => {
+    if (stage === 0 && slot === 1) return 'Jelly Roll';
+    if (stage === 1 && slot === 1) return 'Side Headliner';
+    return null;
+  };
 
-  it('replaces resolvable placeholders with the booked artist', () => {
+  it('replaces resolvable placeholders — underscore and legacy space forms hit the main stage', () => {
+    expect(resolveArtistPlaceholders('{artist_1} set', resolve)).toBe('Jelly Roll set');
     expect(resolveArtistPlaceholders('{artist 1} set', resolve)).toBe('Jelly Roll set');
+  });
+
+  it('a stage letter picks the lineup by stage order — b is the second stage', () => {
+    expect(resolveArtistPlaceholders('{artist_b_1} set', resolve)).toBe('Side Headliner set');
+    expect(resolveArtistPlaceholders('{artist_a_1} set', resolve)).toBe('Jelly Roll set');
+    // Space-separated letter form is accepted too.
+    expect(resolveArtistPlaceholders('{artist b 1} set', resolve)).toBe('Side Headliner set');
+    // A letter past the event's stages falls back to the slot label.
+    expect(resolveArtistPlaceholders('{artist_c_1} set', resolve)).toBe('Headliner set');
   });
 
   it('renders unbooked slots as the canonical lineup slot label; case-insensitive', () => {
     expect(resolveArtistPlaceholders('{Artist 2} soundcheck', resolve)).toBe('Direct Support soundcheck');
-    expect(resolveArtistPlaceholders('{artist 1} set', () => null)).toBe('Headliner set');
-    expect(resolveArtistPlaceholders('{artist 4} set', resolve)).toBe('Artist 4 set');
+    expect(resolveArtistPlaceholders('{Artist_B_2} soundcheck', resolve)).toBe('Direct Support soundcheck');
+    expect(resolveArtistPlaceholders('{artist_1} set', () => null)).toBe('Headliner set');
+    expect(resolveArtistPlaceholders('{artist_4} set', resolve)).toBe('Artist 4 set');
+    expect(resolveArtistPlaceholders('{artist_12} set', resolve)).toBe('Artist 12 set');
   });
 
   it('falls back on a blank resolution too (empty artist name never renders a gap)', () => {
-    expect(resolveArtistPlaceholders('{artist 1} set', () => '')).toBe('Headliner set');
+    expect(resolveArtistPlaceholders('{artist_1} set', () => '')).toBe('Headliner set');
   });
 
-  it('handles multiple placeholders in one string and leaves plain text alone', () => {
-    expect(resolveArtistPlaceholders('{artist 1} then {artist 2}', resolve)).toBe('Jelly Roll then Direct Support');
+  it('handles multiple placeholders in one string; plain and malformed text stay put', () => {
+    expect(resolveArtistPlaceholders('{artist_1} then {artist_b_1}', resolve)).toBe(
+      'Jelly Roll then Side Headliner',
+    );
     expect(resolveArtistPlaceholders('Doors', resolve)).toBe('Doors');
+    expect(resolveArtistPlaceholders('{artist_bb_1}', resolve)).toBe('{artist_bb_1}');
   });
 });
 

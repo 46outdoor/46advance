@@ -3,7 +3,7 @@
  * calendar + per-user OAuth). Client-orchestrated auto-push: after a day save the client
  * calls `reconcileScheduleDay`, which reconciles every item of that day — pushToCalendar
  * items with a start time get their events created/updated (instants derived from the
- * day's date + wall-clock times in the event's timezone; `{artist N}` placeholders
+ * day's date + wall-clock times in the event's timezone; `{artist_N}` / `{artist_b_N}` placeholders
  * resolved against the lineup), everything else gets any existing event removed. The
  * per-item `googleCalendarEventId`s write back in a TRANSACTION that patches only that
  * field on the fresh doc, so a concurrent whole-day client save is never clobbered.
@@ -38,7 +38,7 @@ import {
 
 const DEFAULT_DURATION_MIN = 30;
 const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const ARTIST_PLACEHOLDER_RE = /\{artist\s+(\d+)\}/gi;
+const ARTIST_PLACEHOLDER_RE = /\{artist(?:[\s_]+([a-z]))?[\s_]+(\d+)\}/gi;
 
 const asWallClock = (v: unknown): string | null =>
   typeof v === 'string' && WALL_CLOCK_RE.test(v) ? v : null;
@@ -55,53 +55,47 @@ function slotLabel(slot: number): string {
   return `Artist ${slot}`;
 }
 
-/** Resolve `{artist N}` against the lineup map for the item's stage; unbooked slots
- * render the canonical slot label (matches the client). */
+/** Resolve artist placeholders (matches the client): the placeholder names its lineup
+ * stage by ORDER — `{artist_N}` / legacy `{artist N}` is the first (main) stage,
+ * `{artist_b_N}` the second, `{artist_c_N}` the third… — never the row's own stage.
+ * Unbooked slots render the canonical slot label. */
 function resolvePlaceholders(
   text: string,
-  stageId: string | null,
+  stageOrder: readonly string[],
   artistBySlot: Map<string, string>,
 ): string {
-  return text.replace(ARTIST_PLACEHOLDER_RE, (_m, n: string) => {
+  return text.replace(ARTIST_PLACEHOLDER_RE, (_m, letter: string | undefined, n: string) => {
     const slot = Number(n);
+    const stageId = stageOrder[letter ? letter.toLowerCase().charCodeAt(0) - 97 : 0];
     return (stageId ? artistBySlot.get(`${stageId}:${slot}`) : undefined) ?? slotLabel(slot);
   });
 }
 
-/** The event's FIRST stage (lowest order, then name — matches the client's listStages
- * sort). Stage-less {artist N} rows resolve against it, mirroring the schedule screen:
- * template-imported rows carry no per-row stage, and without this fallback their
- * placeholders pushed to the calendar as generic slot labels. */
-async function firstStageId(db: Firestore, eventId: string): Promise<string | null> {
+/** The event's stage ids by order (lowest `order`, then name — matches the client's
+ * listStages sort). Placeholder letters index into this list: [0] = main, [1] = 'b'. */
+async function orderedStageIds(db: Firestore, eventId: string): Promise<string[]> {
   const snap = await db.collection(`events/${eventId}/stages`).get();
-  const stages = snap.docs
+  return snap.docs
     .map((d) => ({
       id: d.id,
       order: typeof d.data().order === 'number' ? (d.data().order as number) : 0,
       name: String(d.data().name ?? ''),
     }))
-    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-  return stages[0]?.id ?? null;
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+    .map((s) => s.id);
 }
 
-/** (stageId:slot) → artist for every stage this day's items reference. Day-aware
- * (mirrors the client's lib/advances/lineup.ts): an advance whose performance day —
- * in the event's timezone — IS this day wins its slot; an undated advance is a
- * stage-wide fallback; an advance dated to a DIFFERENT day doesn't resolve here. */
+/** (stageId:slot) → artist for the given stages. Day-aware (mirrors the client's
+ * lib/advances/lineup.ts): an advance whose performance day — in the event's timezone —
+ * IS this day wins its slot; an undated advance is a stage-wide fallback; an advance
+ * dated to a DIFFERENT day doesn't resolve here. */
 async function loadSlotArtists(
   db: Firestore,
   eventId: string,
-  items: readonly DocumentData[],
+  stageIds: readonly string[],
   dayKey: string,
   timeZone: string,
 ): Promise<Map<string, string>> {
-  const stageIds = [
-    ...new Set(
-      items
-        .map((i) => (typeof i.stageId === 'string' && i.stageId ? i.stageId : null))
-        .filter((s): s is string => s !== null),
-    ),
-  ];
   const map = new Map<string, string>();
   const dated = new Map<string, string>();
   await Promise.all(
@@ -129,12 +123,12 @@ async function loadSlotArtists(
  * per-type fields (minus location — it gets the event's location slot), and crew lines. */
 function buildDescriptionLines(
   item: DocumentData,
-  stageId: string | null,
+  stageOrder: readonly string[],
   artistBySlot: Map<string, string>,
 ): string[] {
   const lines: string[] = [];
   if (typeof item.description === 'string' && item.description) {
-    lines.push(resolvePlaceholders(item.description, stageId, artistBySlot));
+    lines.push(resolvePlaceholders(item.description, stageOrder, artistBySlot));
   }
   const fields =
     item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
@@ -157,6 +151,7 @@ function buildEventBody(
   item: DocumentData,
   dateKey: string,
   timeZone: string,
+  stageOrder: readonly string[],
   artistBySlot: Map<string, string>,
 ): calendar_v3.Schema$Event | null {
   const baseKey = item.nextDay === true ? shiftDayKey(dateKey, 1) : dateKey;
@@ -170,12 +165,11 @@ function buildEventBody(
   }
   if (!end) end = new Date(start.getTime() + DEFAULT_DURATION_MIN * 60_000);
 
-  const stageId = typeof item.stageId === 'string' && item.stageId ? item.stageId : null;
   const fields =
     item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
-  const lines = buildDescriptionLines(item, stageId, artistBySlot);
+  const lines = buildDescriptionLines(item, stageOrder, artistBySlot);
   return {
-    summary: resolvePlaceholders(String(item.item ?? 'Schedule item'), stageId, artistBySlot),
+    summary: resolvePlaceholders(String(item.item ?? 'Schedule item'), stageOrder, artistBySlot),
     location: typeof fields.location === 'string' && fields.location ? fields.location : undefined,
     description: lines.join('\n') || undefined,
     start: { dateTime: start.toISOString(), timeZone },
@@ -273,6 +267,7 @@ async function reconcileItems(
   items: readonly DocumentData[],
   dateKey: string,
   timeZone: string,
+  stageOrder: readonly string[],
   artistBySlot: Map<string, string>,
 ): Promise<ItemResult[]> {
   const results: ItemResult[] = [];
@@ -282,7 +277,7 @@ async function reconcileItems(
     const existing =
       typeof item.googleCalendarEventId === 'string' ? item.googleCalendarEventId : null;
     const body = shouldHaveEvent(item)
-      ? buildEventBody(item, dateKey, timeZone, artistBySlot)
+      ? buildEventBody(item, dateKey, timeZone, stageOrder, artistBySlot)
       : null;
     if (!body) {
       if (existing && calendarId) await deleteCalendarEvent(calendar, calendarId, existing);
@@ -395,22 +390,18 @@ export const reconcileScheduleDay = onCall(
     }
 
     const dateKey = String(day.date ?? dayId);
-    // Resolution-only stage defaulting: stage-less rows borrow the event's first stage
-    // so their {artist N} placeholders resolve. Never persisted — writeBackCalendarIds
-    // maps the FRESH doc's items, so the stored rows keep stageId null.
-    const defaultStageId = await firstStageId(db, eventId);
-    const resolvedItems = defaultStageId
-      ? items.map((i) =>
-          typeof i.stageId === 'string' && i.stageId ? i : { ...i, stageId: defaultStageId },
-        )
-      : items;
-    const artistBySlot = await loadSlotArtists(db, eventId, resolvedItems, dateKey, eventTz);
+    // Placeholders name their lineup stage by order ({artist_N} → first stage,
+    // {artist_b_N} → second), so resolution needs the ordered stage ids — the rows'
+    // own stages are irrelevant to it.
+    const stageOrder = await orderedStageIds(db, eventId);
+    const artistBySlot = await loadSlotArtists(db, eventId, stageOrder, dateKey, eventTz);
     const results = await reconcileItems(
       calendar,
       calendarId,
-      resolvedItems,
+      items,
       dateKey,
       eventTz,
+      stageOrder,
       artistBySlot,
     );
     const orphans = await writeBackCalendarIds(db, dayRef, results);
