@@ -31,6 +31,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Fixed
 
+- **Show days can be deleted again:** deleting a schedule day used to wait for every one of
+  its calendar-pushed items to be removed from Google Calendar before the day itself went —
+  so a show day with a full grid could hang for minutes (and look undeletable) whenever those
+  calendar calls piled up and timed out. The day now deletes immediately and the calendar
+  cleanup runs in the background, a few events at a time; if any event can't be removed it
+  stays on the Google calendar and a warning is logged, but the schedule is already correct.
 - **Schedule artist names now fill in:** `{artist N}` placeholders on schedule rows that
   don't name a stage (which includes everything imported from a schedule template) stayed
   stuck on the generic slot labels ("Headliner", "Artist 3") instead of showing the booked
