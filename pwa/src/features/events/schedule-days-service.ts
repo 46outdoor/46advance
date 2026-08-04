@@ -30,6 +30,7 @@ import { createLogger } from '@/lib/logger';
 import { shiftDayKey, zonedDayKey } from '@/lib/dates/timezone';
 import type { ScheduleTemplateDay, ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
 import {
+  matchItemsBySignature,
   parseScheduleDay,
   scheduleDayInputSchema,
   scheduleDayMetaSchema,
@@ -344,13 +345,63 @@ function templateItemToDayItem(
   };
 }
 
+/** How an import treats template items that already exist on the target day (same
+ * identity signature — type + custom label, start/end, the +1 flag, name, stage):
+ * append copies anyway, skip them, or replace the existing rows' content with the
+ * template's version. */
+export type TemplateImportMode = 'add' | 'skip' | 'replace';
+
+/** Resolve template days against the event's start date: the date key each day lands
+ * on, with its items in day-item shape (stages matched by name, fresh ids). */
+function resolveTemplateDayDates(
+  resolvedDays: readonly ScheduleTemplateDay[],
+  eventStart: Date | null,
+  timeZone: string,
+  stages: readonly { id: string; name: string }[],
+): { date: string; day: ScheduleTemplateDay; items: ScheduleDayItem[] }[] {
+  if (!eventStart)
+    throw new Error('Set the event’s start date before applying a schedule template.');
+  const baseKey = zonedDayKey(eventStart, timeZone);
+  const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
+  return resolvedDays.map((day) => ({
+    date: shiftDayKey(baseKey, day.offset),
+    day,
+    items: day.items.map((i) => templateItemToDayItem(i, stageByName)),
+  }));
+}
+
+/** Pre-flight for the import panel: how many of the template's items already exist on
+ * the schedule (same date + same identity signature). Decides whether the user gets the
+ * add / skip / replace choice before anything is written. */
+export async function previewTemplateImport(
+  eventId: string,
+  resolvedDays: readonly ScheduleTemplateDay[],
+  eventStart: Date | null,
+  timeZone: string,
+  stages: readonly { id: string; name: string }[],
+): Promise<{ total: number; duplicates: number }> {
+  const targets = resolveTemplateDayDates(resolvedDays, eventStart, timeZone, stages);
+  const existing = new Map((await listScheduleDays(eventId)).map((d) => [d.id, d]));
+  let total = 0;
+  let duplicates = 0;
+  for (const { date, items } of targets) {
+    total += items.length;
+    const current = existing.get(date);
+    if (current) duplicates += matchItemsBySignature(current.items, items).matched.length;
+  }
+  return { total, duplicates };
+}
+
 /**
  * Apply resolved template days to an event's schedule (decision 22): a resolved day
  * landing on a date that already has a card merges its items into that card — the
  * event day keeps its own metadata — while new dates get the template day's metadata.
  * Offsets resolve against the event's start date in its timezone (offset 0 = the
- * start date). One atomic batch; returns the item count and the affected date keys
- * (so the caller can fire calendar reconciles for them).
+ * start date). `mode` says what happens to incoming items that already exist on their
+ * target day: 'add' appends copies (the pre-dedupe behavior), 'skip' leaves them out,
+ * 'replace' lands the template's content on the matching row — which keeps its id and
+ * its server-owned calendar event, so the reconcile updates in place. One atomic batch;
+ * returns per-mode counts and the date keys that changed (for calendar reconciles).
  */
 export async function applyTemplateDaysToEvent(
   eventId: string,
@@ -359,28 +410,20 @@ export async function applyTemplateDaysToEvent(
   timeZone: string,
   stages: readonly { id: string; name: string }[],
   uid: string,
-): Promise<{ added: number; dates: string[] }> {
-  if (!eventStart)
-    throw new Error('Set the event’s start date before applying a schedule template.');
-  const baseKey = zonedDayKey(eventStart, timeZone);
-  const stageByName = new Map(stages.map((s) => [s.name.trim().toLowerCase(), s.id]));
+  mode: TemplateImportMode = 'add',
+): Promise<{ added: number; replaced: number; skipped: number; dates: string[] }> {
+  const targets = resolveTemplateDayDates(resolvedDays, eventStart, timeZone, stages);
   const existing = new Map((await listScheduleDays(eventId)).map((d) => [d.id, d]));
   const batch = writeBatch(db);
   let added = 0;
+  let replaced = 0;
+  let skipped = 0;
   const dates: string[] = [];
-  for (const day of resolvedDays) {
-    const date = shiftDayKey(baseKey, day.offset);
-    const items = day.items.map((i) => templateItemToDayItem(i, stageByName));
-    added += items.length;
-    dates.push(date);
+  for (const { date, day, items } of targets) {
     const current = existing.get(date);
-    if (current) {
-      batch.update(dayDoc(eventId, date), {
-        items: [...current.items, ...items],
-        revision: current.revision + 1,
-        updatedAt: serverTimestamp(),
-      });
-    } else {
+    if (!current) {
+      added += items.length;
+      dates.push(date);
       batch.set(dayDoc(eventId, date), {
         date,
         dayType: day.dayType,
@@ -393,10 +436,36 @@ export async function applyTemplateDaysToEvent(
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      continue;
     }
+    const { fresh, matched } =
+      mode === 'add'
+        ? { fresh: items, matched: [] as ReturnType<typeof matchItemsBySignature>['matched'] }
+        : matchItemsBySignature(current.items, items);
+    if (mode === 'skip') skipped += matched.length;
+    let dayItems = current.items;
+    if (mode === 'replace' && matched.length > 0) {
+      const replacement = new Map(
+        matched.map(({ existing: row, incoming }) => [
+          row.id,
+          { ...incoming, id: row.id, googleCalendarEventId: row.googleCalendarEventId },
+        ]),
+      );
+      dayItems = dayItems.map((i) => replacement.get(i.id) ?? i);
+      replaced += matched.length;
+    }
+    added += fresh.length;
+    // Nothing landed on this day (everything skipped) — leave its revision untouched.
+    if (fresh.length === 0 && !(mode === 'replace' && matched.length > 0)) continue;
+    dates.push(date);
+    batch.update(dayDoc(eventId, date), {
+      items: [...dayItems, ...fresh],
+      revision: current.revision + 1,
+      updatedAt: serverTimestamp(),
+    });
   }
   await batch.commit();
-  return { added, dates };
+  return { added, replaced, skipped, dates };
 }
 
 /** Firestore caps a batch at 500 writes; each shifted day costs a delete + a set (plus

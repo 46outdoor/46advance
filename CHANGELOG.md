@@ -13,6 +13,15 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Schedule import — duplicate detection:** importing a schedule template into a schedule
+  that already has rows no longer silently doubles them. The import now checks first: if any
+  of the template's items are already there (same day, type, time, name, and stage — details
+  like description and crew don't have to match), you choose how to land it — **add new items
+  only** (skip the duplicates), **replace duplicates + add new** (the matching rows take the
+  template's latest description, details, and crew; their calendar events update in place), or
+  **add everything anyway** (the old behavior). A clean import runs exactly as before, and the
+  confirmation now reports what happened ("Imported — 6 added, 12 replaced").
+
 - **Schedule templates — duplicate a day:** every day card in the schedule-template editor
   now has a **Duplicate day** button that copies the whole day — day type, title, notes,
   and every item — onto the next open day. Building "Show day 2" from "Show day 1" no

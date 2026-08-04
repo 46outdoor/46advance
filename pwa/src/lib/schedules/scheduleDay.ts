@@ -231,6 +231,63 @@ export function sortDayItems<T extends { startTime: string | null; nextDay?: boo
   return [...items].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
+/** The identity slice of a row for duplicate detection when a template is imported onto
+ * a schedule that already has rows: what the row IS — type (+ custom label), times, name,
+ * stage — not its free-text details (description / fields / crew), which a replace-mode
+ * import is allowed to update. */
+export type ScheduleItemIdentity = Pick<
+  ScheduleDayItem,
+  'type' | 'customLabel' | 'startTime' | 'endTime' | 'nextDay' | 'item' | 'stageId'
+>;
+
+/** Name/label normalization for signature comparison: trimmed, case-insensitive,
+ * whitespace runs collapsed. */
+const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Content signature over the identity slice. Names and custom labels compare
+ * normalized; the custom label counts only for custom-type rows (it's normalized away
+ * on non-custom rows at save time). JSON-encoded so free-text fields can't collide
+ * with the tuple structure. */
+export function dayItemSignature(i: ScheduleItemIdentity): string {
+  return JSON.stringify([
+    i.type,
+    i.type === 'custom' ? normalizeName(i.customLabel ?? '') : '',
+    i.startTime,
+    i.endTime,
+    i.nextDay,
+    normalizeName(i.item),
+    i.stageId,
+  ]);
+}
+
+/** Match `incoming` rows one-to-one against `existing` rows with the same signature —
+ * each existing row is claimed at most once, so two identical incoming rows against one
+ * existing row yield one match and one fresh. Returns the unmatched incoming rows
+ * (`fresh`) and the matched pairs, both in incoming order. */
+export function matchItemsBySignature(
+  existing: readonly ScheduleDayItem[],
+  incoming: readonly ScheduleDayItem[],
+): {
+  fresh: ScheduleDayItem[];
+  matched: { existing: ScheduleDayItem; incoming: ScheduleDayItem }[];
+} {
+  const unclaimed = new Map<string, ScheduleDayItem[]>();
+  for (const item of existing) {
+    const sig = dayItemSignature(item);
+    const queue = unclaimed.get(sig);
+    if (queue) queue.push(item);
+    else unclaimed.set(sig, [item]);
+  }
+  const fresh: ScheduleDayItem[] = [];
+  const matched: { existing: ScheduleDayItem; incoming: ScheduleDayItem }[] = [];
+  for (const item of incoming) {
+    const claimed = unclaimed.get(dayItemSignature(item))?.shift();
+    if (claimed) matched.push({ existing: claimed, incoming: item });
+    else fresh.push(item);
+  }
+  return { fresh, matched };
+}
+
 /** Replace `{artist N}` placeholders in item text. `resolve` maps a slot number to the
  * artist holding it on the item's stage; unresolved (or blank) slots render the lineup
  * slot label — "Headliner" / "Direct Support" / "Artist N" — until an act is booked,

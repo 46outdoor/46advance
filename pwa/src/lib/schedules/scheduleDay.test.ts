@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
 import {
+  dayItemSignature,
   itemDurationLabel,
+  matchItemsBySignature,
   parseScheduleDay,
   resolveArtistPlaceholders,
   scheduleDayInputSchema,
@@ -253,5 +255,76 @@ describe('resolveArtistPlaceholders', () => {
   it('handles multiple placeholders in one string and leaves plain text alone', () => {
     expect(resolveArtistPlaceholders('{artist 1} then {artist 2}', resolve)).toBe('Jelly Roll then Direct Support');
     expect(resolveArtistPlaceholders('Doors', resolve)).toBe('Doors');
+  });
+});
+
+describe('dayItemSignature + matchItemsBySignature (template-import dedupe)', () => {
+  const sigItem = (over: Partial<ScheduleDayItem> = {}): ScheduleDayItem => ({
+    id: 'x',
+    type: 'production',
+    customLabel: null,
+    startTime: '08:00',
+    endTime: null,
+    endEstimated: false,
+    nextDay: false,
+    item: 'Crew Call',
+    description: null,
+    stageId: null,
+    fields: {},
+    crew: [],
+    pushToCalendar: true,
+    googleCalendarEventId: null,
+    ...over,
+  });
+
+  it('matches on identity, ignoring free-text details (description/fields/crew) and ids', () => {
+    const existing = [sigItem({ id: 'a', description: 'old note', crew: [{ type: 'Hands', quantity: 4, hours: 8 }] })];
+    const incoming = [sigItem({ id: 'b', description: 'new note', fields: { location: 'FOH' } })];
+    const { fresh, matched } = matchItemsBySignature(existing, incoming);
+    expect(fresh).toEqual([]);
+    expect(matched).toHaveLength(1);
+    expect(matched[0].existing.id).toBe('a');
+    expect(matched[0].incoming.id).toBe('b');
+  });
+
+  it('is case- and whitespace-insensitive on the item name', () => {
+    expect(dayItemSignature(sigItem({ item: '  crew   CALL ' }))).toBe(dayItemSignature(sigItem()));
+  });
+
+  it('treats different time, stage, or nextDay as a different row', () => {
+    const base = sigItem();
+    for (const variant of [
+      sigItem({ startTime: '09:00' }),
+      sigItem({ endTime: '17:00' }),
+      sigItem({ stageId: 's1' }),
+      sigItem({ nextDay: true }),
+      sigItem({ item: 'Doors' }),
+    ]) {
+      expect(dayItemSignature(variant)).not.toBe(dayItemSignature(base));
+    }
+  });
+
+  it('counts the custom label only on custom-type rows, normalized like the name', () => {
+    const a = sigItem({ type: 'custom', customLabel: 'Pyro' });
+    const b = sigItem({ type: 'custom', customLabel: 'Rehearsal' });
+    expect(dayItemSignature(a)).not.toBe(dayItemSignature(b));
+    expect(dayItemSignature(sigItem({ customLabel: 'Pyro' }))).toBe(dayItemSignature(sigItem()));
+    expect(dayItemSignature(sigItem({ type: 'custom', customLabel: ' Pyro   FX ' }))).toBe(
+      dayItemSignature(sigItem({ type: 'custom', customLabel: 'pyro fx' })),
+    );
+  });
+
+  it('is not fooled by delimiter-looking characters inside free-text fields', () => {
+    const a = sigItem({ type: 'custom', customLabel: 'foo|08:00', startTime: '09:00', item: 'bar' });
+    const b = sigItem({ type: 'custom', customLabel: 'foo', startTime: '08:00', endTime: '09:00', item: '|bar' });
+    expect(dayItemSignature(a)).not.toBe(dayItemSignature(b));
+  });
+
+  it('claims each existing row at most once (two identical incoming → one match, one fresh)', () => {
+    const existing = [sigItem({ id: 'a' })];
+    const incoming = [sigItem({ id: 'b' }), sigItem({ id: 'c' })];
+    const { fresh, matched } = matchItemsBySignature(existing, incoming);
+    expect(matched.map((m) => [m.existing.id, m.incoming.id])).toEqual([['a', 'b']]);
+    expect(fresh.map((i) => i.id)).toEqual(['c']);
   });
 });
