@@ -506,6 +506,14 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 - **Google Calendar (planned):**
   - Read-only sync *from* existing calendars.
   - Write *to* **application-specific calendars** — **org-owned, one per event/festival** (decided; created as needed). **Schedule items push to these calendars** (decided).
+
+  > **Change proposed 2026-08-06 (not yet approved).** The per-event calendars would be retired
+  > in favor of one **per-user ICS subscription feed** carrying all of a user's events, with a
+  > per-event digest/items choice. Driven by two findings: the app has **no calendar-sharing
+  > code at all** (no `acl.insert` anywhere — sharing is done by hand in Google's web UI), and
+  > Google Calendar **cannot filter a shared calendar per recipient**, so "one calendar, each
+  > user picks their events" is only achievable with a generated per-user feed. Full spec and
+  > phasing in [`CALENDAR_SUBSCRIPTIONS.md`](CALENDAR_SUBSCRIPTIONS.md).
 - **Google Meet (desired):** most advance calls happen on Meet — explore generating/attaching
   Meet links for advance calls. Meet links are created via Google Calendar events with
   conferencing, so this **builds on the Calendar integration**. Per-user creds (see auth model).
@@ -659,7 +667,10 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 - What does an "advance" contain for a multi-day festival (sections/fields)? **Resolved** —
   built in §5 (configurable per-department sections, Phases 2–4; see Decisions § Q&A round 6).
 - Calendar: which dates/events flow to app-specific calendars; one calendar per
-  event/festival or global?
+  event/festival or global? **Proposed answer 2026-08-06 — global**, as a per-user ICS
+  subscription feed rather than shared Google calendars (per-recipient filtering is impossible
+  in Google's sharing model). See [`CALENDAR_SUBSCRIPTIONS.md`](CALENDAR_SUBSCRIPTIONS.md);
+  proposed, not yet approved or built.
 - Templates: what exactly is in the standard "stage and production package" (the template content)?
 - PDF packets: which sections compose a packet? Branding/letterhead requirements?
   (Scope + server-side generation decided.)

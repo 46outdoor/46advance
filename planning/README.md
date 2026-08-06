@@ -9,11 +9,12 @@ filed by category.
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
 - **[DEPLOYMENTS.md](DEPLOYMENTS.md)** — deployment & rollback ledger: the build release
   identifier, who deploys each target, rollback steps, and a record of backend deploys.
+- **[CALENDAR_SUBSCRIPTIONS.md](CALENDAR_SUBSCRIPTIONS.md)** — per-user ICS subscription feed
+  replacing the per-event Google calendars (**proposed**, not started).
 
-No feature phase plan is in flight — phases 0–13 are built and archived, and the forensic
-remediation plan (all phases 0–3) is complete and archived under `archive/fix/`. When the next
-feature phase starts, add its `PHASE_*_PLAN.md` here, then move it to `archive/feature/` on
-completion.
+Phases 0–13 are built and archived, and the forensic remediation plan (all phases 0–3) is
+complete and archived under `archive/fix/`. When the next feature phase starts, add its
+`PHASE_*_PLAN.md` here, then move it to `archive/feature/` on completion.
 
 ## Archive
 When a phase ships (or a doc is otherwise complete), move it into [`archive/`](archive/) under
