@@ -15,7 +15,6 @@ import {
   createCalendarFeed,
   getCalendarFeedStatus,
   rotateCalendarFeed,
-  webcalUrl,
 } from '@/lib/calendar/feed-service';
 
 const logger = createLogger('CalendarFeed');
@@ -53,11 +52,9 @@ function MintedUrl({ url }: { url: string }) {
       </div>
       <div className="space-y-1 text-sm text-ink-muted">
         <p>
-          <span className="font-medium text-ink">Apple Calendar:</span>{' '}
-          <a href={webcalUrl(url)} className="text-accent underline">
-            subscribe with one tap
-          </a>{' '}
-          — or File → New Calendar Subscription on a Mac and paste the URL.
+          <span className="font-medium text-ink">Apple Calendar:</span> File → New Calendar
+          Subscription on a Mac, or Settings → Apps → Calendar → Accounts → Add Subscribed
+          Calendar on iPhone — then paste the URL.
         </p>
         <p>
           <span className="font-medium text-ink">Google Calendar:</span> Other calendars → “+” →

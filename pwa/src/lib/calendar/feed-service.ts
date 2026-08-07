@@ -47,7 +47,3 @@ export async function rotateCalendarFeed(): Promise<string> {
   return (await callable({})).data.url;
 }
 
-/** webcal:// variant of a feed URL — one-tap subscribe on Apple platforms. */
-export function webcalUrl(url: string): string {
-  return url.replace(/^https:\/\//, 'webcal://');
-}

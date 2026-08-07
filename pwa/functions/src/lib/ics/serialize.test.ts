@@ -11,6 +11,12 @@ describe('escapeIcsText', () => {
   it('escapes the backslash first so introduced sequences are not double-escaped', () => {
     expect(escapeIcsText('a\\nb')).toBe('a\\\\nb');
   });
+
+  it('normalizes CRLF to one escaped newline and strips a bare CR', () => {
+    expect(escapeIcsText('line1\r\nline2')).toBe('line1\\nline2');
+    expect(escapeIcsText('a\rb')).toBe('ab');
+    expect(escapeIcsText('a\r\rb')).toBe('ab');
+  });
 });
 
 describe('icsUtcStamp', () => {

@@ -7,10 +7,14 @@
  * which the client builder never did.
  */
 
-/** Escape text per RFC 5545 (backslash, newline, comma, semicolon). */
+/** Escape text per RFC 5545 (backslash, newline, comma, semicolon). CRLF normalizes to
+ * one escaped newline and a bare CR is stripped — raw CR must never reach the output,
+ * where it could read as a content-line break (defense-in-depth; 2026-08-07 review). */
 export function escapeIcsText(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '')
     .replace(/\n/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
