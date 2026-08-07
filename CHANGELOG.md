@@ -13,6 +13,17 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Calendar subscription feed (Phase 1):** Settings now has a **Calendar subscription**
+  card that creates your personal "46 Advance" calendar URL — subscribe once in Apple or
+  Google Calendar and every event you're a member of appears automatically, each schedule
+  day as an all-day summary of the day's times, items, and stages (artist placeholders
+  resolved, same as the app). The URL is a private credential shown only when it's
+  created; you can rotate it at any time (the old URL stops updating immediately), and
+  admin revocation or account deletion kills it server-side. Note: Google Calendar
+  refreshes subscribed feeds on its own schedule — often many hours — so don't rely on
+  it for show-day changes. The existing per-event Google calendars keep working
+  unchanged; they're retired in a later phase.
+
 - **Schedule import — duplicate detection:** importing a schedule template into a schedule
   that already has rows no longer silently doubles them. The import now checks first: if any
   of the template's items are already there (same day, type, time, name, and stage — details

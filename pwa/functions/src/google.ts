@@ -23,6 +23,7 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
+import { httpsFunctionUrl } from './lib/http/functionUrl.js';
 import {
   deterministicCalendarEventId,
   insertCalendarEventIdempotent,
@@ -40,8 +41,6 @@ const CLIENT_ID = defineSecret('GOOGLE_OAUTH_CLIENT_ID');
 const CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
 export const OAUTH_SECRETS = [CLIENT_ID, CLIENT_SECRET];
 
-const PROJECT_ID = 'advancethat';
-const REGION = 'us-central1';
 /** Org operating timezone — Central. Calendar events carry it explicitly. */
 export const TIME_ZONE = 'America/Chicago';
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -70,10 +69,7 @@ const SCOPES = [
  * 2nd-gen cloudfunctions.net alias in prod and the emulator URL locally.
  */
 function callbackUrl(): string {
-  if (process.env.FUNCTIONS_EMULATOR === 'true') {
-    return `http://127.0.0.1:5001/${PROJECT_ID}/${REGION}/googleAuthCallback`;
-  }
-  return `https://${REGION}-${PROJECT_ID}.cloudfunctions.net/googleAuthCallback`;
+  return httpsFunctionUrl('googleAuthCallback');
 }
 
 export function oauthClient(): AuthClient {

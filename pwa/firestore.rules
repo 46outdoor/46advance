@@ -225,6 +225,15 @@ service cloud.firestore {
     match /rateLimits/{limitId} {
       allow read, write: if false;
     }
+    // Calendar feed bearer-token lookup (doc id = sha256 of the token) and the
+    // one-active-feed pointer — Admin SDK only, never client-readable or -writable
+    // (status flows through the getCalendarFeedStatus callable).
+    match /calendarFeeds/{tokenHash} {
+      allow read, write: if false;
+    }
+    match /calendarFeedOwners/{uid} {
+      allow read, write: if false;
+    }
 
     // Canonical event-slug reservations (WS-G): doc id = the slug, body `{ eventId }`. The
     // uniqueness lock behind event URLs — claimed/released ONLY by the Admin SDK (createBlankEvent,

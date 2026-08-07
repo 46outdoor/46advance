@@ -47,6 +47,7 @@ import {
   generateQuotePdfInputSchema,
 } from './contracts/callables/pdf.js';
 import { OAUTH_SECRETS, disconnectGoogle, assertCanEditEvent } from './google.js';
+import { revokeCalendarFeedForUser } from './calendarFeedTokens.js';
 
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
@@ -103,6 +104,15 @@ export { pushTemplateProduction } from './templatePush.js';
 
 // PM-facing per-event membership (Team & access panel + the Crew panel's tech auto-enroll).
 export { assignEventMember, removeEventMember } from './members.js';
+
+// Calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1): the public
+// per-user ICS endpoint + the credential mint/rotate/status callables.
+export { calendarFeed } from './calendarFeed.js';
+export {
+  createCalendarFeed,
+  rotateCalendarFeed,
+  getCalendarFeedStatus,
+} from './calendarFeedTokens.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {
@@ -337,6 +347,9 @@ export const setUserApproved = onCall({ secrets: OAUTH_SECRETS }, async (request
   if (!approved) {
     await adminAuth.revokeRefreshTokens(uid);
     await disconnectGoogle(db, uid);
+    // Calendar feed URLs are bearer credentials — revocation must kill them too. The
+    // endpoint's authoritative user check is the backstop if this write is interrupted.
+    await revokeCalendarFeedForUser(db, uid);
   }
   return { uid, approved };
 });
@@ -416,9 +429,11 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
   await enforceRateLimit(db, ['deleteUser', request.auth.uid], 30);
   const adminAuth = getAuth();
 
-  // Revoke access + drop the Google integration BEFORE deleting anything else.
+  // Revoke access + drop the Google integration + kill the calendar feed BEFORE
+  // deleting anything else (the feed URL is a bearer credential).
   await adminAuth.revokeRefreshTokens(uid).catch(() => undefined);
   await disconnectGoogle(db, uid);
+  await revokeCalendarFeedForUser(db, uid, true);
 
   // Delete the Auth account; tolerate only "already deleted". Any other error means the
   // account may still be live — fail loudly instead of reporting success.

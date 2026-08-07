@@ -1378,6 +1378,15 @@ describe('firestore.rules — Google connection (Phase 11b)', () => {
     await assertFails(getDoc(doc(dbFor(PM), 'googleOAuthStates/state-1')));
     await assertFails(setDoc(doc(dbFor(PM), 'googleOAuthStates/state-2'), { uid: PM }));
   });
+
+  it('calendar feed token + owner docs are server-only (even the owner / admin)', async () => {
+    await assertFails(getDoc(doc(dbFor(PM), 'calendarFeeds/some-token-hash')));
+    await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'calendarFeeds/some-token-hash')));
+    await assertFails(setDoc(doc(dbFor(PM), 'calendarFeeds/some-token-hash'), { uid: PM }));
+    await assertFails(getDoc(doc(dbFor(PM), 'calendarFeedOwners', PM)));
+    await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'calendarFeedOwners', PM)));
+    await assertFails(setDoc(doc(dbFor(PM), 'calendarFeedOwners', PM), { activeTokenHash: 'x' }));
+  });
 });
 
 describe('firestore.rules — booked-call inbox (Phase 11b sync)', () => {

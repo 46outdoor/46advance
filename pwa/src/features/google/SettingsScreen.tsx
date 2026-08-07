@@ -6,6 +6,7 @@
 import { ThemeSetting } from '@/components/ThemeSetting';
 import { ProfilePhotoSection } from './ProfilePhotoSection';
 import { GoogleConnectCard } from './GoogleConnectCard';
+import { CalendarFeedCard } from './CalendarFeedCard';
 
 export function SettingsScreen() {
   return (
@@ -28,6 +29,7 @@ export function SettingsScreen() {
       <div className="space-y-4">
         <h2 className="font-display text-xl font-bold text-brand">Integrations</h2>
         <GoogleConnectCard />
+        <CalendarFeedCard />
       </div>
     </section>
   );
