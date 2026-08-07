@@ -126,8 +126,10 @@ describe('calendar feed credentials', () => {
     await seedUser(USER.uid);
   });
 
-  it('create mints a URL whose hashed token is stored, shown once', async () => {
+  it('create mints a custom-domain URL whose hashed token is stored, shown once', async () => {
     const { url } = await testEnv.wrap(createCalendarFeed)(callableRequest({}, USER));
+    // The Hosting rewrite fronts the function on the app domain (firebase.json).
+    expect(url).toMatch(/^https:\/\/46advance\.com\/calendar-feed\?token=/);
     const token = tokenFromUrl(url);
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const tokenSnap = await db.doc(`calendarFeeds/${feedTokenHash(token)}`).get();

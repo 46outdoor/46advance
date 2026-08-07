@@ -29,9 +29,17 @@ export function feedTokenHash(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-/** The full subscription URL for a raw token (shown once at mint). */
+/** The public feed base: the custom domain, proxied to the function by the Hosting
+ * rewrite (`firebase.json` → `/calendar-feed`). The direct cloudfunctions.net URL keeps
+ * working for URLs minted before the switch — same function, same token check. */
+const FEED_PUBLIC_URL = 'https://46advance.com/calendar-feed';
+
+/** The full subscription URL for a raw token (shown once at mint). Emulator runs hit
+ * the function directly — there is no Hosting proxy locally. */
 export function calendarFeedUrl(token: string): string {
-  return `${httpsFunctionUrl('calendarFeed')}?token=${token}`;
+  const base =
+    process.env.FUNCTIONS_EMULATOR === 'true' ? httpsFunctionUrl('calendarFeed') : FEED_PUBLIC_URL;
+  return `${base}?token=${token}`;
 }
 
 /**
