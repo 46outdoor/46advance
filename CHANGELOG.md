@@ -13,6 +13,11 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Calendar subscription feed — branded URL:** newly created or rotated feed URLs now
+  live on the app's own domain (`https://46advance.com/calendar-feed?...`) instead of the
+  raw Cloud Functions address. Existing subscription URLs keep working unchanged; you pick
+  up the new form the next time you rotate.
+
 - **Calendar subscription feed — poll telemetry:** the Settings card now shows when your
   feed was last fetched (recorded at most once a day, so it can lag the newest poll) or
   that no fetch has been recorded yet — enough to confirm a subscription actually took

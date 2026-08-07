@@ -226,8 +226,10 @@ remove the legacy calendar linkage fields described in its cleanup inventory.
 
 ## The endpoint
 
-`GET https://us-central1-advancethat.cloudfunctions.net/calendarFeed?token=<token>` —
-an `onRequest` function, public because calendar clients cannot authenticate. Reject non-`GET`
+`GET https://46advance.com/calendar-feed?token=<token>` — a Firebase Hosting rewrite
+(shipped 2026-08-07) proxying to the `calendarFeed` `onRequest` function; the direct
+`https://us-central1-advancethat.cloudfunctions.net/calendarFeed` URL remains valid for
+URLs minted before the switch. Public because calendar clients cannot authenticate. Reject non-`GET`
 methods with `405` and an `Allow` header (`HEAD` joins the allowed set in Phase 1b).
 
 Steps marked **[1b]** are the conditional-request/telemetry layer and ship in Phase 1b; the

@@ -47,7 +47,10 @@ const plugins: PluginOption[] = [
         { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
-    workbox: { navigateFallbackDenylist: [/^\/__/] },
+    // /calendar-feed is a Hosting rewrite to the calendarFeed function — the SW must
+    // never answer it with the SPA shell (calendar clients don't run the SW, but a
+    // browser with the app installed opening the feed URL would otherwise get index.html).
+    workbox: { navigateFallbackDenylist: [/^\/__/, /^\/calendar-feed/] },
   }),
 ];
 if (sentryUpload) {
