@@ -4,8 +4,9 @@
  * URL-persisted filter bar (day / type / stage), the visible-type color key, an
  * MPA-style global Edit toggle with inline row editing (save on focus-leave), fully
  * manual days (add / edit / re-date / delete), and a bulk "shift all days ±N" action.
- * `{artist N}` placeholders resolve to the artist holding that lineup slot on the
- * item's stage. Calendar reconcile for pushToCalendar items lands with PR 4.
+ * `{artist_N}` / `{artist_b_N}` placeholders resolve to the artist holding that lineup
+ * slot on the stage the placeholder names by order (main / second stage) — never the
+ * row's own stage. Calendar reconcile for pushToCalendar items lands with PR 4.
  */
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -571,23 +572,21 @@ export function EventScheduleScreen() {
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
 
-  // Day-aware {artist N} lookup: an advance dated to the item's day wins its slot;
+  // Day-aware artist-slot lookup: an advance dated to the item's day wins its slot;
   // undated advances hold their slot event-wide (lib/advances/lineup.ts).
   const slotLookup = useMemo(
     () =>
       buildSlotArtistLookup(advancesQuery.data ?? [], eventQuery.data?.timeZone ?? APP_TIME_ZONE),
     [advancesQuery.data, eventQuery.data?.timeZone],
   );
-  // Stage-less rows resolve against the event's FIRST stage (the main stage — same
-  // convention as the lineup's default slots). Template-imported rows carry no stageId,
-  // which used to leave every {artist N} stuck on the generic slot label. A row meant
-  // for a side stage sets its Stage explicitly in the editor.
-  const defaultStageId = stages[0]?.id ?? null;
+  // A placeholder names its lineup stage by order — {artist_N} (or legacy {artist N})
+  // is the first/main stage, {artist_b_N} the second (side) stage. The row's own Stage
+  // never affects resolution, so template rows resolve the same wherever they land.
   const resolveTextForDay =
     (day: ScheduleDay): ResolveItemText =>
-    (item, text) =>
-      resolveArtistPlaceholders(text, (slot) => {
-        const stageId = item.stageId ?? defaultStageId;
+    (_item, text) =>
+      resolveArtistPlaceholders(text, (stageIndex, slot) => {
+        const stageId = stages[stageIndex]?.id;
         return stageId ? slotLookup.resolve(day.date, stageId, slot) : null;
       });
 

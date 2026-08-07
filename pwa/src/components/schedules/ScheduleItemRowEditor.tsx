@@ -106,7 +106,7 @@ export function ScheduleItemRowEditor({
           className={inputClass}
           value={draft.item}
           aria-label="Item"
-          placeholder="e.g. Load-In Call or {artist 1} set"
+          placeholder="e.g. Load-In Call or {artist_1} set"
           onChange={(e) => patch({ item: e.target.value })}
         />
         <input

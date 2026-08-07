@@ -6,7 +6,7 @@
  * undated) is re-slotted instead of duplicated. Removing a booked artist deletes a
  * data-less shell after an inline confirm, while an advance with entered data warns
  * and offers keep-without-slot vs delete-with-data. Advances stay the single source
- * of truth — the schedule's `{artist N}` placeholders and calendar sync read them.
+ * of truth — the schedule's `{artist_N}` placeholders and calendar sync read them.
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';

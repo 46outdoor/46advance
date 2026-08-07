@@ -3,8 +3,8 @@
  * the section registry of the pre-redesign model (sections.ts, retired with it). An item's
  * type renders as a color dot with a tooltip naming the type; each type declares whether
  * the Stage sub-type applies, its flat detail fields (shown as a muted sub-row when
- * populated), and its specials — Show resolves `{artist N}` placeholders, Labor carries
- * repeating crew lines.
+ * populated), and its specials — Show resolves `{artist_N}` / `{artist_b_N}`
+ * placeholders, Labor carries repeating crew lines.
  */
 export const SCHEDULE_ITEM_TYPE_KEYS = [
   'production',
@@ -34,7 +34,8 @@ export interface ScheduleItemTypeDef {
   hasStage: boolean;
   /** Flat per-type detail fields, stored in `item.fields`. */
   fields: readonly ScheduleFieldDef[];
-  /** `{artist N}` placeholders resolve against this item's stage (Show). */
+  /** `{artist_N}` / `{artist_b_N}` placeholders resolve on this type's rows (Show) —
+   * the placeholder names its lineup stage by order, not the row's stage. */
   resolvesPlaceholders?: boolean;
   /** Repeating crew lines apply (Labor). */
   hasCrew?: boolean;

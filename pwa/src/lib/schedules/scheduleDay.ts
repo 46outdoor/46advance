@@ -18,7 +18,7 @@ import { SCHEDULE_DAY_TYPE_KEYS, type ScheduleDayType } from './dayTypes';
 import { SCHEDULE_ITEM_TYPE_KEYS, scheduleItemTypeDef, type ScheduleItemType } from './itemTypes';
 
 const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const ARTIST_PLACEHOLDER_RE = /\{artist\s+(\d+)\}/gi;
+const ARTIST_PLACEHOLDER_RE = /\{artist(?:[\s_]+([a-z]))?[\s_]+(\d+)\}/gi;
 
 const dateKeySchema = z.string().refine(isValidDateKey, 'Use a real YYYY-MM-DD date.');
 const wallClockSchema = z.string().regex(WALL_CLOCK_RE, 'Use a HH:mm time.');
@@ -48,7 +48,8 @@ export interface ScheduleDayItem {
    * load out stays grouped with its work day). Sorts after the same-day rows; calendar
    * push shifts the instants one date forward. */
   nextDay: boolean;
-  /** The Item column (row name); may contain `{artist N}` placeholders (Show). */
+  /** The Item column (row name); may contain `{artist_N}` / `{artist_b_N}`
+   * placeholders (Show) — see resolveArtistPlaceholders. */
   item: string;
   description: string | null;
   /** Stage sub-type; null = event-wide. */
@@ -288,10 +289,19 @@ export function matchItemsBySignature(
   return { fresh, matched };
 }
 
-/** Replace `{artist N}` placeholders in item text. `resolve` maps a slot number to the
- * artist holding it on the item's stage; unresolved (or blank) slots render the lineup
- * slot label — "Headliner" / "Direct Support" / "Artist N" — until an act is booked,
- * matching how unassigned slots display everywhere else. */
-export function resolveArtistPlaceholders(text: string, resolve: (slot: number) => string | null): string {
-  return text.replace(ARTIST_PLACEHOLDER_RE, (_match, n: string) => resolve(Number(n)) || slotLabel(Number(n)));
+/** Replace artist placeholders in item text. A placeholder names its lineup stage by
+ * order: `{artist_N}` (or legacy `{artist N}`) is slot N on the FIRST stage — the main
+ * stage — `{artist_b_N}` slot N on the second (side) stage, `{artist_c_N}` the third,
+ * and so on. The row's own stage never affects resolution. `resolve` maps
+ * (stageIndex, slot) to the artist holding that slot; unresolved (or blank) slots
+ * render the lineup slot label — "Headliner" / "Direct Support" / "Artist N" — until
+ * an act is booked, matching how unassigned slots display everywhere else. */
+export function resolveArtistPlaceholders(
+  text: string,
+  resolve: (stageIndex: number, slot: number) => string | null,
+): string {
+  return text.replace(ARTIST_PLACEHOLDER_RE, (_match, letter: string | undefined, n: string) => {
+    const stageIndex = letter ? letter.toLowerCase().charCodeAt(0) - 97 : 0;
+    return resolve(stageIndex, Number(n)) || slotLabel(Number(n));
+  });
 }
