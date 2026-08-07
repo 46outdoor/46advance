@@ -136,8 +136,8 @@ export function CalendarFeedCard() {
                 : ''}
             . The URL is shown only when it’s created — rotate to get a new one.{' '}
             {status?.lastAccessedAt
-              ? `Last polled by a calendar app ${formatCentralDateTime(new Date(status.lastAccessedAt))}.`
-              : 'No calendar app has polled it yet — check your subscription if this persists.'}
+              ? `Feed last fetched ${formatCentralDateTime(new Date(status.lastAccessedAt))} (recorded at most once a day, so newer polls may not show yet).`
+              : 'No fetches recorded yet — check your subscription if this persists.'}
           </p>
         ) : (
           !statusQuery.isLoading && (
