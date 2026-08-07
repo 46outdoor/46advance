@@ -36,10 +36,12 @@ export function calendarFeedUrl(token: string): string {
 
 /**
  * Transactionally mint a fresh token for `uid`: revoke the previously active token doc
- * (if any), create the new one, and move the owner pointer. Returns the RAW token —
- * the only moment it exists outside the caller's hands.
+ * (if any), create the new one, and move the owner pointer. `failIfActive` makes the
+ * create path refuse inside the SAME transaction (a pre-transaction check would let two
+ * concurrent creates both mint, handing one caller a silently-dead URL). Returns the
+ * RAW token — the only moment it exists outside the caller's hands.
  */
-async function issueFeedToken(db: Firestore, uid: string): Promise<string> {
+async function issueFeedToken(db: Firestore, uid: string, failIfActive = false): Promise<string> {
   const token = randomBytes(32).toString('base64url');
   const tokenHash = feedTokenHash(token);
   await db.runTransaction(async (tx) => {
@@ -47,6 +49,10 @@ async function issueFeedToken(db: Firestore, uid: string): Promise<string> {
     const ownerSnap = await tx.get(ownerRef);
     const prevHash = ownerSnap.data()?.activeTokenHash;
     if (typeof prevHash === 'string' && prevHash) {
+      const prevSnap = await tx.get(db.doc(`calendarFeeds/${prevHash}`));
+      if (failIfActive && prevSnap.exists && prevSnap.data()?.revokedAt == null) {
+        throw new HttpsError('already-exists', 'You already have a feed URL — rotate it instead.');
+      }
       tx.set(
         db.doc(`calendarFeeds/${prevHash}`),
         { revokedAt: FieldValue.serverTimestamp() },
@@ -106,15 +112,7 @@ export const createCalendarFeed = onCall(async (request) => {
   const db = getFirestore();
   await enforceRateLimit(db, ['createCalendarFeed', request.auth.uid], 10);
 
-  const ownerSnap = await db.doc(`calendarFeedOwners/${request.auth.uid}`).get();
-  const activeHash = ownerSnap.data()?.activeTokenHash;
-  if (typeof activeHash === 'string' && activeHash) {
-    const tokenSnap = await db.doc(`calendarFeeds/${activeHash}`).get();
-    if (tokenSnap.exists && tokenSnap.data()?.revokedAt == null) {
-      throw new HttpsError('already-exists', 'You already have a feed URL — rotate it instead.');
-    }
-  }
-  const token = await issueFeedToken(db, request.auth.uid);
+  const token = await issueFeedToken(db, request.auth.uid, true);
   return { url: calendarFeedUrl(token) };
 });
 

@@ -40,12 +40,12 @@ function MintedUrl({ url }: { url: string }) {
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1.5 font-mono text-xs text-ink"
+          className="min-h-11 min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1.5 font-mono text-xs text-ink"
         />
         <button
           type="button"
           onClick={() => void copy()}
-          className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="min-h-11 rounded bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
@@ -157,14 +157,14 @@ export function CalendarFeedCard() {
                     type="button"
                     onClick={() => rotate.mutate()}
                     disabled={rotate.isPending}
-                    className="rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="min-h-11 rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {rotate.isPending ? 'Rotating…' : 'Rotate now'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmingRotate(false)}
-                    className="rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
+                    className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
                   >
                     Cancel
                   </button>
@@ -174,7 +174,7 @@ export function CalendarFeedCard() {
               <button
                 type="button"
                 onClick={() => setConfirmingRotate(true)}
-                className="rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
+                className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
               >
                 Rotate URL…
               </button>
@@ -184,7 +184,7 @@ export function CalendarFeedCard() {
               type="button"
               onClick={() => create.mutate()}
               disabled={create.isPending}
-              className="rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {create.isPending ? 'Creating…' : 'Create subscription URL'}
             </button>

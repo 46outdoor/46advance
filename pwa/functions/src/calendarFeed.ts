@@ -49,11 +49,15 @@ function tooMany(res: Response, resetAt: number): void {
     .send('');
 }
 
-/** Latest relevant source timestamp for a day's digest (deterministic stamps). */
+/** Latest relevant source timestamp for a day's digest (deterministic stamps). The MAX
+ * of day and event stamps — the event doc feeds SUMMARY (shortCode/name), so its update
+ * must refresh LAST-MODIFIED too. */
 function digestUpdatedAt(day: DocumentData, eventData: DocumentData): Date {
-  const candidates = [day.updatedAt, day.createdAt, eventData.updatedAt];
-  for (const c of candidates) if (c instanceof Timestamp) return c.toDate();
-  return new Date(0);
+  let latest = 0;
+  for (const c of [day.updatedAt, day.createdAt, eventData.updatedAt]) {
+    if (c instanceof Timestamp) latest = Math.max(latest, c.toMillis());
+  }
+  return new Date(latest);
 }
 
 /** Event ids the user is currently a member of (the confidentiality gate). */
