@@ -63,7 +63,10 @@ async function requestFeed(
     },
   };
   const req = { method, ip, query: { token } };
-  await calendarFeed(req as unknown as Request, res as unknown as Parameters<typeof calendarFeed>[1]);
+  await calendarFeed(
+    req as unknown as Request,
+    res as unknown as Parameters<typeof calendarFeed>[1],
+  );
   await done;
   return result;
 }
@@ -128,9 +131,9 @@ describe('calendar feed credentials', () => {
 
   it('create refuses a second active feed; rotate revokes the old token immediately', async () => {
     const { url: first } = await testEnv.wrap(createCalendarFeed)(callableRequest({}, USER));
-    await expect(
-      testEnv.wrap(createCalendarFeed)(callableRequest({}, USER)),
-    ).rejects.toMatchObject({ code: 'already-exists' });
+    await expect(testEnv.wrap(createCalendarFeed)(callableRequest({}, USER))).rejects.toMatchObject(
+      { code: 'already-exists' },
+    );
 
     const { url: second } = await testEnv.wrap(rotateCalendarFeed)(callableRequest({}, USER));
     expect(second).not.toBe(first);
@@ -150,17 +153,15 @@ describe('calendar feed credentials', () => {
     expect(after.active).toBe(true);
     expect(after.createdAt).toBeTypeOf('number');
     expect(JSON.stringify(after)).not.toContain('token');
-    await expect(
-      testEnv.wrap(getCalendarFeedStatus)(callableRequest({})),
-    ).rejects.toMatchObject({ code: 'unauthenticated' });
+    await expect(testEnv.wrap(getCalendarFeedStatus)(callableRequest({}))).rejects.toMatchObject({
+      code: 'unauthenticated',
+    });
   });
 
   it('setUserApproved(false) revokes the feed; deleteUser also removes the pointer', async () => {
     await getAuth().createUser({ uid: USER.uid });
     const { url } = await testEnv.wrap(createCalendarFeed)(callableRequest({}, USER));
-    await testEnv.wrap(setUserApproved)(
-      callableRequest({ uid: USER.uid, approved: false }, ADMIN),
-    );
+    await testEnv.wrap(setUserApproved)(callableRequest({ uid: USER.uid, approved: false }, ADMIN));
     const revoked = await db.doc(`calendarFeeds/${feedTokenHash(tokenFromUrl(url))}`).get();
     expect(revoked.data()?.revokedAt).not.toBeNull();
 

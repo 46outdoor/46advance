@@ -53,17 +53,16 @@ function MintedUrl({ url }: { url: string }) {
       <div className="space-y-1 text-sm text-ink-muted">
         <p>
           <span className="font-medium text-ink">Apple Calendar:</span> File → New Calendar
-          Subscription on a Mac, or Settings → Apps → Calendar → Accounts → Add Subscribed
-          Calendar on iPhone — then paste the URL.
+          Subscription on a Mac, or Settings → Apps → Calendar → Accounts → Add Subscribed Calendar
+          on iPhone — then paste the URL.
         </p>
         <p>
           <span className="font-medium text-ink">Google Calendar:</span> Other calendars → “+” →
           From URL, then paste the URL.
         </p>
         <p>
-          Google Calendar refreshes subscribed feeds on its own schedule — often many hours.
-          Don’t rely on it for show-day changes; Apple Calendar lets you choose the refresh
-          interval.
+          Google Calendar refreshes subscribed feeds on its own schedule — often many hours. Don’t
+          rely on it for show-day changes; Apple Calendar lets you choose the refresh interval.
         </p>
       </div>
     </div>
@@ -115,7 +114,9 @@ export function CalendarFeedCard() {
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            active ? 'bg-status-complete/15 text-status-complete' : 'bg-surface-muted text-ink-muted'
+            active
+              ? 'bg-status-complete/15 text-status-complete'
+              : 'bg-surface-muted text-ink-muted'
           }`}
         >
           {statusQuery.isLoading ? 'Checking…' : active ? 'Active' : 'Not set up'}
@@ -138,8 +139,8 @@ export function CalendarFeedCard() {
         ) : (
           !statusQuery.isLoading && (
             <p className="text-ink-muted">
-              Create your subscription URL, then add it to Apple or Google Calendar. Anyone with
-              the URL can read your schedule feed, so treat it like a password.
+              Create your subscription URL, then add it to Apple or Google Calendar. Anyone with the
+              URL can read your schedule feed, so treat it like a password.
             </p>
           )
         )}

@@ -1385,9 +1385,7 @@ describe('firestore.rules — Google connection (Phase 11b)', () => {
     await assertFails(setDoc(doc(dbFor(PM), 'calendarFeeds/some-token-hash'), { uid: PM }));
     await assertFails(getDoc(doc(dbFor(PM), 'calendarFeedOwners', PM)));
     await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'calendarFeedOwners', PM)));
-    await assertFails(
-      setDoc(doc(dbFor(PM), 'calendarFeedOwners', PM), { activeTokenHash: 'x' }),
-    );
+    await assertFails(setDoc(doc(dbFor(PM), 'calendarFeedOwners', PM), { activeTokenHash: 'x' }));
   });
 });
 
