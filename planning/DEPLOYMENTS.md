@@ -46,6 +46,17 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-07 — Calendar feed on the app domain (#249): Hosting checkpoint + functions
+deploy.** The owner's Hosting release carried the `/calendar-feed` rewrite (verified live:
+`https://46advance.com/calendar-feed?token=<dummy>` returns the function's plain 404, not the
+SPA shell) and the SW navigation-denylist for the path; the functions deploy then flipped
+minted URLs to `https://46advance.com/calendar-feed?...` — sequenced in that order so no mint
+could 404. Earlier `cloudfunctions.net` URLs remain valid (verified both hosts answer). The
+feed now rides Hosting's HSTS/security headers; `Cache-Control: private` keeps the CDN from
+caching bearer content; the request-log exclusion is unaffected (same `calendarfeed` Run
+service). **Rollback:** redeploy functions from the prior commit (mints revert to
+cloudfunctions.net); the rewrite can stay — it is inert for URLs that don't use it.
+
 **2026-08-07 — Calendar subscription feed Phase 1b (#246): functions deploy.** Conditional
 requests + access telemetry on the feed endpoint: strong ETag / `If-None-Match` → `304`,
 `HEAD` support (`Allow: GET, HEAD`), and best-effort `lastAccessedAt` stamping (≤1/24h per
