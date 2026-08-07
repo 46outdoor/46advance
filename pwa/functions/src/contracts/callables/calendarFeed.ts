@@ -34,7 +34,7 @@ export const getCalendarFeedStatusOutputSchema = z.object({
   /** Epoch millis; null when never created / not applicable. */
   createdAt: z.number().nullable(),
   rotatedAt: z.number().nullable(),
-  /** Phase 1b telemetry — always null until it ships. */
+  /** Last feed fetch by any client (best-effort, stamped at most once per 24h) [1b]. */
   lastAccessedAt: z.number().nullable(),
 });
 export type GetCalendarFeedStatusOutput = z.infer<typeof getCalendarFeedStatusOutputSchema>;

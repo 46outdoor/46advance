@@ -37,10 +37,14 @@ interface FeedResponse {
   headers: Record<string, string>;
 }
 
-/** Invoke the onRequest handler directly with a minimal GET request. */
+/** Invoke the onRequest handler directly with a minimal GET/HEAD request. */
 async function requestFeed(
   token: string,
-  { method = 'GET', ip = nextIp() }: { method?: string; ip?: string } = {},
+  {
+    method = 'GET',
+    ip = nextIp(),
+    requestHeaders = {},
+  }: { method?: string; ip?: string; requestHeaders?: Record<string, string> } = {},
 ): Promise<FeedResponse> {
   const result: FeedResponse = { statusCode: 0, body: '', headers: {} };
   let finish: () => void = () => undefined;
@@ -61,8 +65,12 @@ async function requestFeed(
       finish();
       return this;
     },
+    end() {
+      finish();
+      return this;
+    },
   };
-  const req = { method, ip, query: { token } };
+  const req = { method, ip, query: { token }, headers: requestHeaders };
   await calendarFeed(
     req as unknown as Request,
     res as unknown as Parameters<typeof calendarFeed>[1],
@@ -181,10 +189,10 @@ describe('calendarFeed endpoint', () => {
     return tokenFromUrl(url);
   }
 
-  it('rejects non-GET with 405 + Allow, and bad credentials with an identical 404', async () => {
+  it('rejects non-GET/HEAD with 405 + Allow, and bad credentials with an identical 404', async () => {
     const post = await requestFeed(await mintToken(), { method: 'POST' });
     expect(post.statusCode).toBe(405);
-    expect(post.headers.Allow).toBe('GET');
+    expect(post.headers.Allow).toBe('GET, HEAD');
 
     const malformed = await requestFeed('not-a-token');
     const unknown = await requestFeed('A'.repeat(43));
@@ -237,6 +245,59 @@ describe('calendarFeed endpoint', () => {
     const after = await requestFeed(token);
     expect(after.statusCode).toBe(200);
     expect(after.body).not.toContain('evt-1');
+  });
+
+  it('[1b] HEAD returns GET-identical status/headers with no body', async () => {
+    await seedEvent('evt-1', USER.uid);
+    const token = await mintToken();
+    const get = await requestFeed(token);
+    const head = await requestFeed(token, { method: 'HEAD' });
+    expect(head.statusCode).toBe(200);
+    expect(head.body).toBe('');
+    expect(head.headers).toEqual(get.headers);
+    expect(head.headers['Content-Type']).toBe('text/calendar; charset=utf-8');
+    expect(head.headers.ETag).toBeTruthy();
+  });
+
+  it('[1b] answers a matching If-None-Match with 304 and no body; stale ETags get a 200', async () => {
+    await seedEvent('evt-1', USER.uid);
+    const token = await mintToken();
+    const first = await requestFeed(token);
+    const etag = first.headers.ETag;
+    expect(etag).toMatch(/^"[0-9a-f]{64}"$/);
+
+    const conditional = await requestFeed(token, { requestHeaders: { 'if-none-match': etag } });
+    expect(conditional.statusCode).toBe(304);
+    expect(conditional.body).toBe('');
+    expect(conditional.headers.ETag).toBe(etag);
+    // Weak-prefixed and list forms match too.
+    const weak = await requestFeed(token, {
+      requestHeaders: { 'if-none-match': `"other", W/${etag}` },
+    });
+    expect(weak.statusCode).toBe(304);
+
+    // Content change → new ETag → full 200 again.
+    await db
+      .doc('events/evt-1/scheduleDays/2026-08-15')
+      .set({ title: 'Changed Day' }, { merge: true });
+    const changed = await requestFeed(token, { requestHeaders: { 'if-none-match': etag } });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.headers.ETag).not.toBe(etag);
+    expect(changed.body).toContain('BEGIN:VCALENDAR');
+  });
+
+  it('[1b] stamps lastAccessedAt once, then throttles for 24h', async () => {
+    const token = await mintToken();
+    const feedRef = db.doc(`calendarFeeds/${feedTokenHash(token)}`);
+    expect((await feedRef.get()).data()?.lastAccessedAt).toBeNull();
+
+    await requestFeed(token);
+    const stamped = (await feedRef.get()).data()?.lastAccessedAt;
+    expect(stamped).not.toBeNull();
+
+    await requestFeed(token);
+    const after = (await feedRef.get()).data()?.lastAccessedAt;
+    expect(after?.isEqual(stamped)).toBe(true);
   });
 
   it('enforces the per-token distributed limit with 429 + Retry-After', async () => {

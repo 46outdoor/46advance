@@ -1,6 +1,7 @@
 /**
- * The public calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1):
- * `GET /calendarFeed?token=<token>` returns a per-user iCalendar document generated
+ * The public calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phases 1 + 1b):
+ * `GET /calendarFeed?token=<token>` (HEAD: same status/headers, no body) returns a
+ * per-user iCalendar document generated
  * from Firestore at request time — every event the user is a member of, digest mode
  * (one transparent all-day VEVENT per schedule day). Public because calendar clients
  * cannot authenticate; the 256-bit bearer token in the URL is the credential.
@@ -16,10 +17,11 @@
  * NEVER log the raw token, the request URL, or the raw query object — only the hash
  * prefix. Platform request-log retention is handled operationally (deploy runbook).
  */
+import { createHash } from 'node:crypto';
 import { onRequest } from 'firebase-functions/v2/https';
 import type { Request } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import type { Response } from 'express';
 import { checkRateLimit, makeRateLimitKey } from './lib/security/rateLimit.js';
@@ -36,6 +38,15 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const IP_LIMIT = 60;
 /** Per-token distributed limit — far above any real calendar client's poll rate. */
 const TOKEN_LIMIT = 30;
+/** lastAccessedAt throttle [1b]: at most one telemetry write per token per 24h. */
+const ACCESS_STAMP_MS = 24 * 60 * 60 * 1000;
+
+/** RFC 9110 If-None-Match: '*' or any listed entity-tag (weak prefix ignored) matches. */
+function ifNoneMatchSatisfied(header: unknown, etag: string): boolean {
+  if (typeof header !== 'string' || !header) return false;
+  const values = header.split(',').map((v) => v.trim());
+  return values.includes('*') || values.some((v) => v.replace(/^W\//, '') === etag);
+}
 
 /** The identical 404 for missing, revoked, malformed, or inactive credentials. */
 function notFound(res: Response): void {
@@ -110,8 +121,8 @@ async function renderEventDigests(db: Firestore, eventId: string): Promise<strin
 export const calendarFeed = onRequest(
   { maxInstances: 2, timeoutSeconds: 60 },
   async (req: Request, res: Response) => {
-    if (req.method !== 'GET') {
-      res.set('Allow', 'GET').status(405).send('');
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.set('Allow', 'GET, HEAD').status(405).send('');
       return;
     }
     const ipGate = checkRateLimit(makeRateLimitKey(['calendarFeed', req.ip]), IP_LIMIT, 60_000);
@@ -159,14 +170,36 @@ export const calendarFeed = onRequest(
       const vevents = (
         await Promise.all(eventIds.map((eventId) => renderEventDigests(db, eventId)))
       ).flat();
+      const body = serializeIcs(feedCalendarLines(vevents));
+      // Strong ETag over the exact body [1b] — deterministic stamps make an unchanged
+      // feed byte-identical, so 304s save transfer/client churn (not Firestore reads).
+      const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
+
+      // Access telemetry [1b]: best-effort, throttled to one write per 24h per token.
+      // Evidence that a real client polled — not proof it retained or displayed the feed.
+      const lastMs = feed.lastAccessedAt instanceof Timestamp ? feed.lastAccessedAt.toMillis() : 0;
+      if (Date.now() - lastMs > ACCESS_STAMP_MS) {
+        await feedSnap.ref
+          .set({ lastAccessedAt: FieldValue.serverTimestamp() }, { merge: true })
+          .catch(() => undefined);
+      }
 
       res
         .set('Content-Type', 'text/calendar; charset=utf-8')
         .set('Cache-Control', 'private, max-age=300')
+        .set('ETag', etag)
         .set('X-Content-Type-Options', 'nosniff')
-        .set('X-Robots-Tag', 'noindex, nofollow')
-        .status(200)
-        .send(serializeIcs(feedCalendarLines(vevents)));
+        .set('X-Robots-Tag', 'noindex, nofollow');
+      if (ifNoneMatchSatisfied(req.headers['if-none-match'], etag)) {
+        res.status(304).end();
+        return;
+      }
+      if (req.method === 'HEAD') {
+        // Identical status/headers to GET, no body [1b].
+        res.status(200).end();
+        return;
+      }
+      res.status(200).send(body);
     } catch (e) {
       // Hash prefix only — never the token, URL, or query.
       logger.error('calendarFeed generation failed', {

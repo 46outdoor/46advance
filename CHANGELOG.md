@@ -13,6 +13,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Calendar subscription feed — poll telemetry:** the Settings card now shows when your
+  feed was last fetched (recorded at most once a day, so it can lag the newest poll) or
+  that no fetch has been recorded yet — enough to confirm a subscription actually took
+  before relying on it. The feed also answers conditional requests (`ETag`/`304`) and
+  `HEAD` probes, cutting transfer for clients that poll politely.
+
 - **Calendar subscription feed (Phase 1):** Settings now has a **Calendar subscription**
   card that creates your personal "46 Advance" calendar URL — subscribe once in Apple or
   Google Calendar and every event you're a member of appears automatically, each schedule
