@@ -139,6 +139,10 @@ export function feedCalendarLines(vevents: readonly string[][]): string[] {
     'VERSION:2.0',
     'PRODID:-//46 Entertainment//46 Advance Calendar Feed//EN',
     'CALSCALE:GREGORIAN',
+    // Both name forms: NAME is the RFC 7986 standard, X-WR-CALNAME the de-facto one
+    // clients actually honor (Apple uses it; Google's From-URL flow ignores both and
+    // names the calendar after the URL — users rename it once in settings).
+    'NAME:46 Advance',
     'X-WR-CALNAME:46 Advance',
     'REFRESH-INTERVAL;VALUE=DURATION:PT15M',
     'X-PUBLISHED-TTL:PT15M',

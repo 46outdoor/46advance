@@ -58,7 +58,8 @@ function MintedUrl({ url }: { url: string }) {
         </p>
         <p>
           <span className="font-medium text-ink">Google Calendar:</span> Other calendars → “+” →
-          From URL, then paste the URL.
+          From URL, then paste the URL. Google may name the calendar after the URL — rename it to
+          “46 Advance” in that calendar’s settings.
         </p>
         <p>
           Google Calendar refreshes subscribed feeds on its own schedule — often many hours. Don’t

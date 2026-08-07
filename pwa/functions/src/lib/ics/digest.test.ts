@@ -146,6 +146,7 @@ describe('feedCalendarLines', () => {
     expect(lines[0]).toBe('BEGIN:VCALENDAR');
     expect(lines[lines.length - 1]).toBe('END:VCALENDAR');
     expect(lines).toContain('PRODID:-//46 Entertainment//46 Advance Calendar Feed//EN');
+    expect(lines).toContain('NAME:46 Advance');
     expect(lines).toContain('X-WR-CALNAME:46 Advance');
     expect(lines).toContain('REFRESH-INTERVAL;VALUE=DURATION:PT15M');
     expect(lines).toContain('X-PUBLISHED-TTL:PT15M');
