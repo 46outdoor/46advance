@@ -46,6 +46,17 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-07 — Calendar subscription feed Phase 1b (#246): functions deploy.** Conditional
+requests + access telemetry on the feed endpoint: strong ETag / `If-None-Match` → `304`,
+`HEAD` support (`Allow: GET, HEAD`), and best-effort `lastAccessedAt` stamping (≤1/24h per
+token) surfaced on the Settings card — the poll evidence Phase 3's cutover gate 1 requires.
+Rules unchanged. Secrets health check passed; live smoke confirmed `405` now advertises
+`Allow: GET, HEAD` and `HEAD` reaches the credential gate. The ETag/304 path is
+emulator-tested; first real-token verification lands when a subscriber's client polls (visible
+as the card's last-fetched line). Operational alerting (5xx/latency policies on the
+`calendarfeed` service) is pending an alert-destination decision. **Rollback:** redeploy
+functions from `2be460a`.
+
 **2026-08-07 — Calendar subscription feed Phase 1 (#244, `2be460a`): functions + rules deploy
 and the token-logging runbook.** Secrets health check passed; `deploy --only functions` created
 `calendarFeed` (public ICS endpoint, `https://us-central1-advancethat.cloudfunctions.net/calendarFeed`),
