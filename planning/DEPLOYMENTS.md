@@ -53,9 +53,15 @@ token) surfaced on the Settings card — the poll evidence Phase 3's cutover gat
 Rules unchanged. Secrets health check passed; live smoke confirmed `405` now advertises
 `Allow: GET, HEAD` and `HEAD` reaches the credential gate. The ETag/304 path is
 emulator-tested; first real-token verification lands when a subscriber's client polls (visible
-as the card's last-fetched line). Operational alerting (5xx/latency policies on the
-`calendarfeed` service) is pending an alert-destination decision. **Rollback:** redeploy
-functions from `2be460a`.
+as the card's last-fetched line). **Operational alerting (completed same day):** email
+notification channel `Jared (email)` → `jared@46entertainment.com`
+(`notificationChannels/8336736023506429777`) + two enabled policies on the `calendarfeed`
+Cloud Run service — "calendarFeed — 5xx errors" (>5 server errors summed over 5 min;
+`alertPolicies/4245228198232861314`) and "calendarFeed — slow generation (p95)" (p95 request
+latency >10s sustained 15 min; `alertPolicies/12592066657550051159`). Built-in Run metrics
+only — no URLs/tokens involved, unaffected by the request-log exclusion. **Rollback:**
+redeploy functions from `2be460a`; delete the policies/channel with
+`gcloud alpha monitoring policies delete <name>` / `gcloud beta monitoring channels delete <name>`.
 
 **2026-08-07 — Calendar subscription feed Phase 1 (#244, `2be460a`): functions + rules deploy
 and the token-logging runbook.** Secrets health check passed; `deploy --only functions` created
