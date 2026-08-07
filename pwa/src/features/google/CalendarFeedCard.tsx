@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
-import { formatCentralDate } from '@/lib/dates/timezone';
+import { formatCentralDate, formatCentralDateTime } from '@/lib/dates/timezone';
 import {
   calendarFeedStatusKey,
   createCalendarFeed,
@@ -134,7 +134,10 @@ export function CalendarFeedCard() {
               : status?.createdAt
                 ? ` (created ${formatCentralDate(new Date(status.createdAt))})`
                 : ''}
-            . The URL is shown only when it’s created — rotate to get a new one.
+            . The URL is shown only when it’s created — rotate to get a new one.{' '}
+            {status?.lastAccessedAt
+              ? `Last polled by a calendar app ${formatCentralDateTime(new Date(status.lastAccessedAt))}.`
+              : 'No calendar app has polled it yet — check your subscription if this persists.'}
           </p>
         ) : (
           !statusQuery.isLoading && (
