@@ -46,6 +46,27 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-07 — Calendar subscription feed Phase 1 (#244, `2be460a`): functions + rules deploy
+and the token-logging runbook.** Secrets health check passed; `deploy --only functions` created
+`calendarFeed` (public ICS endpoint, `https://us-central1-advancethat.cloudfunctions.net/calendarFeed`),
+`createCalendarFeed`, `rotateCalendarFeed`, `getCalendarFeedStatus`, and updated the rest of the
+fleet; `deploy --only firestore:rules` released the server-only `calendarFeeds` /
+`calendarFeedOwners` rules. Endpoint smoke: well-formed dummy token → the designed 404. The owner
+ran the Hosting deploy carrying the Settings card the same day.
+
+**Token-logging runbook (CALENDAR_SUBSCRIPTIONS.md § Security — executed and verified).**
+Confirmed empirically that Cloud Run request logs record the FULL feed URL including the bearer
+token (`httpRequest.requestUrl` in `run.googleapis.com%2Frequests`). Mitigation (trade-off
+approved 2026-08-07): exclusion `calendarfeed-request-urls` added to the `_Default` sink, filter
+`resource.type="cloud_run_revision" AND resource.labels.service_name="calendarfeed" AND
+log_name="projects/advancethat/logs/run.googleapis.com%2Frequests"`. `_Required` carries only
+audit logs, so `_Default` was the sole route. Verified live after propagation: a post-exclusion
+dummy-token probe produced **no** request-log entry. App-level structured logs (token hash
+prefixes only, never the raw token/URL) are unaffected and remain the debugging surface. Two
+pre-exclusion entries containing dummy tokens (`AAA…`/`BBB…`, never real credentials) age out
+with the 30-day `_Default` retention. **Rollback:** `gcloud logging sinks update _Default
+--remove-exclusions=calendarfeed-request-urls` restores platform request logging.
+
 **Hosting live state (verified 2026-07-24, second deploy).** The owner ran a second Hosting deploy on
 2026-07-24 carrying the accumulated client work: the festivals/event restructure client (Festivals
 admin + event festival/location form, #192), the packet filename-token editor + version replace/bump
