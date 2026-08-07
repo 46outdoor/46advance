@@ -27,6 +27,7 @@ import {
   insertCalendarEventIdempotent,
 } from './lib/google/calendarEvents.js';
 import { shiftDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
+import { asWallClock } from './lib/dates/wallClock.js';
 import { resolveArtistPlaceholders, type SlotResolver } from './lib/schedules/placeholders.js';
 import { loadEventLineup } from './lib/schedules/lineup.js';
 import {
@@ -39,10 +40,6 @@ import {
 } from './google.js';
 
 const DEFAULT_DURATION_MIN = 30;
-const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-const asWallClock = (v: unknown): string | null =>
-  typeof v === 'string' && WALL_CLOCK_RE.test(v) ? v : null;
 
 /** An item belongs on the calendar when it's flagged to push and has a start time. */
 function shouldHaveEvent(item: DocumentData): boolean {
