@@ -15,7 +15,9 @@ import {
   createCalendarFeed,
   getCalendarFeedStatus,
   rotateCalendarFeed,
+  type CalendarFeedStatus,
 } from '@/lib/calendar/feed-service';
+import { CalendarFeedEventPicker } from './CalendarFeedEventPicker';
 
 const logger = createLogger('CalendarFeed');
 
@@ -70,6 +72,89 @@ function MintedUrl({ url }: { url: string }) {
   );
 }
 
+/** The "your feed is active / create one" line, incl. the 1b last-fetched telemetry. */
+function StatusLine({
+  status,
+  active,
+}: {
+  status: CalendarFeedStatus | undefined;
+  active: boolean;
+}) {
+  if (!active) {
+    return (
+      <p className="text-ink-muted">
+        Create your subscription URL, then add it to Apple or Google Calendar. Anyone with the URL
+        can read your schedule feed, so treat it like a password.
+      </p>
+    );
+  }
+  const when = status?.rotatedAt
+    ? ` (last rotated ${formatCentralDate(new Date(status.rotatedAt))})`
+    : status?.createdAt
+      ? ` (created ${formatCentralDate(new Date(status.createdAt))})`
+      : '';
+  return (
+    <p className="text-ink-muted">
+      Your feed is active{when}. The URL is shown only when it’s created — rotate to get a new one.{' '}
+      {status?.lastAccessedAt
+        ? `Feed last fetched ${formatCentralDateTime(new Date(status.lastAccessedAt))} (recorded at most once a day, so newer polls may not show yet).`
+        : 'No fetches recorded yet — check your subscription if this persists.'}
+    </p>
+  );
+}
+
+/** Rotate button → confirmation explaining that subscribers must re-subscribe. */
+function RotateAction({
+  confirming,
+  pending,
+  onAsk,
+  onCancel,
+  onRotate,
+}: {
+  confirming: boolean;
+  pending: boolean;
+  onAsk: () => void;
+  onCancel: () => void;
+  onRotate: () => void;
+}) {
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={onAsk}
+        className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
+      >
+        Rotate URL…
+      </button>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded border border-line bg-surface-muted p-3">
+      <p className="text-ink">
+        Rotating stops the current URL from updating immediately. Every calendar app subscribed to
+        it goes stale until you subscribe it to the new URL.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onRotate}
+          disabled={pending}
+          className="min-h-11 rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? 'Rotating…' : 'Rotate now'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CalendarFeedCard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -100,6 +185,8 @@ export function CalendarFeedCard() {
 
   const status = statusQuery.data;
   const active = status?.active === true;
+  /** A feed exists (active, or created and since revoked — rotation is the way back). */
+  const hasFeed = active || status?.createdAt != null;
   const mutationError = create.error ?? rotate.error;
 
   return (
@@ -127,63 +214,19 @@ export function CalendarFeedCard() {
       <div className="mt-3 space-y-3 text-sm">
         {mintedUrl ? (
           <MintedUrl url={mintedUrl} />
-        ) : active ? (
-          <p className="text-ink-muted">
-            Your feed is active
-            {status?.rotatedAt
-              ? ` (last rotated ${formatCentralDate(new Date(status.rotatedAt))})`
-              : status?.createdAt
-                ? ` (created ${formatCentralDate(new Date(status.createdAt))})`
-                : ''}
-            . The URL is shown only when it’s created — rotate to get a new one.{' '}
-            {status?.lastAccessedAt
-              ? `Feed last fetched ${formatCentralDateTime(new Date(status.lastAccessedAt))} (recorded at most once a day, so newer polls may not show yet).`
-              : 'No fetches recorded yet — check your subscription if this persists.'}
-          </p>
         ) : (
-          !statusQuery.isLoading && (
-            <p className="text-ink-muted">
-              Create your subscription URL, then add it to Apple or Google Calendar. Anyone with the
-              URL can read your schedule feed, so treat it like a password.
-            </p>
-          )
+          !statusQuery.isLoading && <StatusLine status={status} active={active} />
         )}
 
         {!statusQuery.isLoading &&
-          (active || status?.createdAt ? (
-            confirmingRotate ? (
-              <div className="space-y-2 rounded border border-line bg-surface-muted p-3">
-                <p className="text-ink">
-                  Rotating stops the current URL from updating immediately. Every calendar app
-                  subscribed to it goes stale until you subscribe it to the new URL.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => rotate.mutate()}
-                    disabled={rotate.isPending}
-                    className="min-h-11 rounded bg-accent px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {rotate.isPending ? 'Rotating…' : 'Rotate now'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingRotate(false)}
-                    className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmingRotate(true)}
-                className="min-h-11 rounded border border-line px-3 py-1.5 transition-colors hover:border-accent hover:text-accent"
-              >
-                Rotate URL…
-              </button>
-            )
+          (hasFeed ? (
+            <RotateAction
+              confirming={confirmingRotate}
+              pending={rotate.isPending}
+              onAsk={() => setConfirmingRotate(true)}
+              onCancel={() => setConfirmingRotate(false)}
+              onRotate={() => rotate.mutate()}
+            />
           ) : (
             <button
               type="button"
@@ -197,6 +240,14 @@ export function CalendarFeedCard() {
 
         {mutationError != null && (
           <p className="text-accent">{describeCallableError(mutationError)}</p>
+        )}
+
+        {/* Preferences apply to the feed itself, so they only mean something once a
+            feed exists (active, or created and since revoked). */}
+        {hasFeed && !statusQuery.isLoading && (
+          <div className="border-t border-line pt-3">
+            <CalendarFeedEventPicker />
+          </div>
         )}
       </div>
     </div>

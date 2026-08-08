@@ -38,3 +38,43 @@ export const getCalendarFeedStatusOutputSchema = z.object({
   lastAccessedAt: z.number().nullable(),
 });
 export type GetCalendarFeedStatusOutput = z.infer<typeof getCalendarFeedStatusOutputSchema>;
+
+// updateCalendarSubscription — the per-user feed preferences (Phase 2). Exact field
+// allowlist, bounded arrays of bounded ids, deduplicated; `updatedAt` is server-owned.
+// Membership stays the confidentiality gate — listing an event id you are not a member
+// of never grants access — while these bounds keep malformed/oversized preferences from
+// becoming an availability problem.
+const MAX_EVENT_IDS = 250;
+const eventIdList = z
+  .array(z.string().trim().min(1).max(128))
+  .max(MAX_EVENT_IDS)
+  .transform((ids) => [...new Set(ids)]);
+
+export const updateCalendarSubscriptionInputSchema = z
+  .object({
+    /** Events rendered as individual timed items instead of the default digest. */
+    itemModeEventIds: eventIdList.optional(),
+    /** Events opted out of entirely. Wins over itemMode if an id appears in both. */
+    excludedEventIds: eventIdList.optional(),
+    /** Drop events whose last schedule day is past. Default false — history persists. */
+    hidePastEvents: z.boolean().optional(),
+  })
+  .strict();
+export type UpdateCalendarSubscriptionInput = z.infer<typeof updateCalendarSubscriptionInputSchema>;
+
+export const calendarSubscriptionSchema = z.object({
+  itemModeEventIds: z.array(z.string()),
+  excludedEventIds: z.array(z.string()),
+  hidePastEvents: z.boolean(),
+});
+export type CalendarSubscription = z.infer<typeof calendarSubscriptionSchema>;
+
+export const getCalendarSubscriptionInputSchema = z.object({});
+export type GetCalendarSubscriptionInput = z.infer<typeof getCalendarSubscriptionInputSchema>;
+
+/** Defaults for a user with no preferences doc: all events, digest, keep history. */
+export const CALENDAR_SUBSCRIPTION_DEFAULTS: CalendarSubscription = {
+  itemModeEventIds: [],
+  excludedEventIds: [],
+  hidePastEvents: false,
+};

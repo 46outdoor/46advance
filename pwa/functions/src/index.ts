@@ -113,6 +113,7 @@ export {
   rotateCalendarFeed,
   getCalendarFeedStatus,
 } from './calendarFeedTokens.js';
+export { getCalendarSubscription, updateCalendarSubscription } from './calendarSubscriptions.js';
 
 const STORAGE_BUCKET = 'advancethat.firebasestorage.app';
 const PACKET_DATE_FMT = new Intl.DateTimeFormat('en-US', {

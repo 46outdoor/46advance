@@ -26,9 +26,8 @@ import {
   deterministicCalendarEventId,
   insertCalendarEventIdempotent,
 } from './lib/google/calendarEvents.js';
-import { shiftDayKey, zonedInputToDate } from './lib/dates/zonedTime.js';
-import { asWallClock } from './lib/dates/wallClock.js';
-import { resolveArtistPlaceholders, type SlotResolver } from './lib/schedules/placeholders.js';
+import { type SlotResolver } from './lib/schedules/placeholders.js';
+import { buildScheduleItemEvent, shouldHaveEvent } from './lib/schedules/itemEvent.js';
 import { loadEventLineup } from './lib/schedules/lineup.js';
 import {
   OAUTH_SECRETS,
@@ -39,63 +38,22 @@ import {
   ensureEventCalendar,
 } from './google.js';
 
-const DEFAULT_DURATION_MIN = 30;
-
-/** An item belongs on the calendar when it's flagged to push and has a start time. */
-function shouldHaveEvent(item: DocumentData): boolean {
-  return item.pushToCalendar !== false && asWallClock(item.startTime) !== null;
-}
-
-/** Description lines for an item's calendar event: resolved description text, populated
- * per-type fields (minus location — it gets the event's location slot), and crew lines. */
-function buildDescriptionLines(item: DocumentData, resolve: SlotResolver): string[] {
-  const lines: string[] = [];
-  if (typeof item.description === 'string' && item.description) {
-    lines.push(resolveArtistPlaceholders(item.description, resolve));
-  }
-  const fields =
-    item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
-  for (const [k, v] of Object.entries(fields)) if (v && k !== 'location') lines.push(`${k}: ${v}`);
-  for (const raw of Array.isArray(item.crew) ? item.crew : []) {
-    const line = raw as DocumentData;
-    if (typeof line?.type === 'string' && typeof line?.quantity === 'number') {
-      lines.push(
-        `(${line.quantity}) ${line.type}${typeof line.hours === 'number' ? ` · ${line.hours}h` : ''}`,
-      );
-    }
-  }
-  return lines;
-}
-
-/** Build the Calendar event body for one item of a day (start required). Instants derive
- * from the day's date + wall-clock times in the event's timezone; a "+1" (next-day AM)
- * item shifts one date forward, and an end at or before the start rolls overnight. */
+/** Adapt the shared item-event content (lib/schedules/itemEvent.ts — the feed's item
+ * mode renders the same content) to the Google Calendar API body shape. */
 function buildEventBody(
   item: DocumentData,
   dateKey: string,
   timeZone: string,
   resolve: SlotResolver,
 ): calendar_v3.Schema$Event | null {
-  const baseKey = item.nextDay === true ? shiftDayKey(dateKey, 1) : dateKey;
-  const startTime = asWallClock(item.startTime);
-  const start = startTime ? zonedInputToDate(`${baseKey}T${startTime}`, timeZone) : null;
-  if (!start) return null;
-  const endTime = asWallClock(item.endTime);
-  let end = endTime ? zonedInputToDate(`${baseKey}T${endTime}`, timeZone) : null;
-  if (end && end.getTime() <= start.getTime()) {
-    end = zonedInputToDate(`${shiftDayKey(baseKey, 1)}T${endTime}`, timeZone);
-  }
-  if (!end) end = new Date(start.getTime() + DEFAULT_DURATION_MIN * 60_000);
-
-  const fields =
-    item.fields && typeof item.fields === 'object' ? (item.fields as Record<string, string>) : {};
-  const lines = buildDescriptionLines(item, resolve);
+  const event = buildScheduleItemEvent(item, dateKey, timeZone, resolve);
+  if (!event) return null;
   return {
-    summary: resolveArtistPlaceholders(String(item.item ?? 'Schedule item'), resolve),
-    location: typeof fields.location === 'string' && fields.location ? fields.location : undefined,
-    description: lines.join('\n') || undefined,
-    start: { dateTime: start.toISOString(), timeZone },
-    end: { dateTime: end.toISOString(), timeZone },
+    summary: event.summary,
+    location: event.location ?? undefined,
+    description: event.descriptionLines.join('\n') || undefined,
+    start: { dateTime: event.start.toISOString(), timeZone },
+    end: { dateTime: event.end.toISOString(), timeZone },
   };
 }
 

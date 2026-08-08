@@ -2,9 +2,10 @@
  * The public calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phases 1 + 1b):
  * `GET /calendarFeed?token=<token>` (HEAD: same status/headers, no body) returns a
  * per-user iCalendar document generated
- * from Firestore at request time — every event the user is a member of, digest mode
- * (one transparent all-day VEVENT per schedule day). Public because calendar clients
- * cannot authenticate; the 256-bit bearer token in the URL is the credential.
+ * from Firestore at request time — every event the user is a member of, filtered and
+ * rendered per their `calendarSubscriptions` preferences (Phase 2: exclusions, per-event
+ * item mode, hide-past-events; defaults are all events, digest, keep history). Public
+ * because calendar clients cannot authenticate; the 256-bit bearer token is the credential.
  *
  * Defense order is cheapest-first (approved 2026-08-07): syntactic token check before
  * any I/O → per-IP in-memory gate (with maxInstances pinned, total flood cost is
@@ -27,9 +28,16 @@ import type { Response } from 'express';
 import { checkRateLimit, makeRateLimitKey } from './lib/security/rateLimit.js';
 import { checkFirestoreRateLimit } from './lib/security/firestoreRateLimit.js';
 import { loadEventLineup } from './lib/schedules/lineup.js';
-import { digestItemsFromDay, digestVEventLines, feedCalendarLines } from './lib/ics/digest.js';
+import {
+  digestItemsFromDay,
+  digestVEventLines,
+  feedCalendarLines,
+  itemVEventLines,
+} from './lib/ics/digest.js';
 import { serializeIcs } from './lib/ics/serialize.js';
+import { zonedDayKey } from './lib/dates/zonedTime.js';
 import { feedTokenHash } from './calendarFeedTokens.js';
+import { readSubscription } from './calendarSubscriptions.js';
 import { TIME_ZONE } from './google.js';
 
 /** Unpadded base64url of 32 random bytes — checked BEFORE any I/O. */
@@ -82,8 +90,16 @@ async function memberEventIds(db: Firestore, uid: string): Promise<string[]> {
   return [...ids].sort();
 }
 
-/** Render one event's digest VEVENTs (empty when the event vanished or has no days). */
-async function renderEventDigests(db: Firestore, eventId: string): Promise<string[][]> {
+/**
+ * Render one event's VEVENTs (empty when the event vanished or has no days). Digest by
+ * default; item mode when the subscriber opted this event in. `hidePastEvents` drops the
+ * whole event when its LAST schedule day is before today in the event's timezone.
+ */
+async function renderEvent(
+  db: Firestore,
+  eventId: string,
+  opts: { itemMode: boolean; hidePast: boolean },
+): Promise<string[][]> {
   const eventSnap = await db.doc(`events/${eventId}`).get();
   if (!eventSnap.exists) return [];
   const eventData = eventSnap.data() ?? {};
@@ -97,12 +113,28 @@ async function renderEventDigests(db: Firestore, eventId: string): Promise<strin
     db.collection(`events/${eventId}/scheduleDays`).get(),
     loadEventLineup(db, eventId, timeZone),
   ]);
+  const days = [...daysSnap.docs].sort((a, b) => a.id.localeCompare(b.id));
+  if (days.length === 0) return [];
+
+  if (opts.hidePast) {
+    const last = days[days.length - 1];
+    const lastKey =
+      typeof last.data().date === 'string' && last.data().date ? last.data().date : last.id;
+    // Day keys are 'YYYY-MM-DD' in the event's zone — lexicographic compare is date order.
+    if (lastKey < zonedDayKey(new Date(), timeZone)) return [];
+  }
 
   const vevents: string[][] = [];
-  for (const dayDoc of [...daysSnap.docs].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const dayDoc of days) {
     const day = dayDoc.data();
     const dayKey = typeof day.date === 'string' && day.date ? day.date : dayDoc.id;
     const items = (Array.isArray(day.items) ? day.items : []) as DocumentData[];
+    const resolve = lineup.resolverForDay(dayKey);
+    const updatedAt = digestUpdatedAt(day, eventData);
+    if (opts.itemMode) {
+      vevents.push(...itemVEventLines({ eventId, dayKey, timeZone, updatedAt, items, resolve }));
+      continue;
+    }
     vevents.push(
       digestVEventLines({
         eventId,
@@ -110,8 +142,8 @@ async function renderEventDigests(db: Firestore, eventId: string): Promise<strin
         eventLabel,
         dayTitle: typeof day.title === 'string' && day.title ? day.title : null,
         dayType: String(day.dayType ?? ''),
-        updatedAt: digestUpdatedAt(day, eventData),
-        items: digestItemsFromDay(items, lineup.resolverForDay(dayKey), lineup.stageNames),
+        updatedAt,
+        items: digestItemsFromDay(items, resolve, lineup.stageNames),
       }),
     );
   }
@@ -166,9 +198,24 @@ export const calendarFeed = onRequest(
         return;
       }
 
-      const eventIds = await memberEventIds(db, feed.uid);
+      const [eventIds, prefs] = await Promise.all([
+        memberEventIds(db, feed.uid),
+        readSubscription(db, feed.uid),
+      ]);
+      // Exclusions win over item mode when an id appears in both (spec § Data model).
+      const excluded = new Set(prefs.excludedEventIds);
+      const itemMode = new Set(prefs.itemModeEventIds);
       const vevents = (
-        await Promise.all(eventIds.map((eventId) => renderEventDigests(db, eventId)))
+        await Promise.all(
+          eventIds
+            .filter((eventId) => !excluded.has(eventId))
+            .map((eventId) =>
+              renderEvent(db, eventId, {
+                itemMode: itemMode.has(eventId),
+                hidePast: prefs.hidePastEvents,
+              }),
+            ),
+        )
       ).flat();
       const body = serializeIcs(feedCalendarLines(vevents));
       // Strong ETag over the exact body [1b] — deterministic stamps make an unchanged
