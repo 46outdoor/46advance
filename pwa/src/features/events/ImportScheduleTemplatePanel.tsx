@@ -199,7 +199,7 @@ export function ImportScheduleTemplatePanel({
           </div>
           <p className="text-xs text-ink-muted">
             Replacing updates the matching rows’ description, details, and crew to the template’s
-            version — their calendar events are kept and updated in place.
+            version. Subscribers pick the change up on their calendar app&rsquo;s next refresh.
           </p>
         </div>
       )}

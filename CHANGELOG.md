@@ -55,8 +55,7 @@ dependency bumps, and planning-doc updates) are omitted.
   created; you can rotate it at any time (the old URL stops updating immediately), and
   admin revocation or account deletion kills it server-side. Note: Google Calendar
   refreshes subscribed feeds on its own schedule — often many hours — so don't rely on
-  it for show-day changes. The existing per-event Google calendars keep working
-  unchanged; they're retired in a later phase.
+  it for show-day changes.
 
 - **Schedule import — duplicate detection:** importing a schedule template into a schedule
   that already has rows no longer silently doubles them. The import now checks first: if any

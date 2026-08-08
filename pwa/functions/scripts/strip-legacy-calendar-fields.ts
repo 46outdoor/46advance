@@ -46,6 +46,16 @@ if (!DRY_RUN && process.env.CONFIRM_PROJECT !== TARGET_PROJECT) {
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 
+const countStale = (items: readonly DocumentData[]): number =>
+  items.filter((i) => i?.googleCalendarEventId !== undefined).length;
+
+/** The items array without the retired key (Firestore can't delete a field inside an array). */
+const stripRetiredKey = (items: readonly DocumentData[]): DocumentData[] =>
+  items.map((item) => {
+    const { googleCalendarEventId: _retired, ...rest } = item;
+    return rest;
+  });
+
 async function main(): Promise<void> {
   console.log(`${DRY_RUN ? 'DRY RUN' : 'MIGRATION'} — project ${TARGET_PROJECT}\n`);
   const events = await db.collection('events').get();
@@ -76,21 +86,27 @@ async function main(): Promise<void> {
     for (const day of days.docs) {
       const items = day.get('items');
       if (!Array.isArray(items)) continue;
-      const stale = items.filter(
-        (i) => (i as DocumentData)?.googleCalendarEventId !== undefined,
-      ).length;
+      const stale = countStale(items as DocumentData[]);
       if (stale === 0) continue;
-      // Rewrite the whole array without the retired key — Firestore has no
-      // delete-field-inside-array operation.
-      const next = (items as DocumentData[]).map((item) => {
-        const { googleCalendarEventId: _retired, ...rest } = item;
-        return rest;
-      });
       console.log(
         `    events/${event.id}/scheduleDays/${day.id} — ${stale} item(s) carrying googleCalendarEventId`,
       );
       if (!DRY_RUN) {
-        await day.ref.update({ items: next, updatedAt: FieldValue.serverTimestamp() });
+        // Transactional: a day's items are a whole-document array, so a plain update would
+        // clobber an edit that landed since the scan. Bumping `revision` also invalidates
+        // any client holding the pre-migration day — its whole-day save would otherwise pass
+        // the optimistic-concurrency check and write the retired field straight back.
+        await db.runTransaction(async (tx) => {
+          const fresh = await tx.get(day.ref);
+          const freshItems = fresh.get('items');
+          if (!Array.isArray(freshItems)) return;
+          if (countStale(freshItems as DocumentData[]) === 0) return; // already clean
+          tx.update(day.ref, {
+            items: stripRetiredKey(freshItems as DocumentData[]),
+            revision: (fresh.get('revision') ?? 0) + 1,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        });
       }
       daysCleared++;
       itemsCleared += stale;
