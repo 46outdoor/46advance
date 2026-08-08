@@ -27,8 +27,8 @@ describe('hosting security headers (WS-I)', () => {
     expect(byKey.get('Strict-Transport-Security')).toContain('max-age=');
   });
 
-  it('ships a CSP (report-only to start) covering the key directives + required sources', () => {
-    const csp = byKey.get('Content-Security-Policy-Report-Only') ?? '';
+  it('ships an enforced CSP covering the key directives + required sources', () => {
+    const csp = byKey.get('Content-Security-Policy') ?? '';
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain("object-src 'none'");
@@ -36,5 +36,8 @@ describe('hosting security headers (WS-I)', () => {
     expect(csp).toContain('apis.google.com');
     expect(csp).toContain('ingest');
     expect(csp).toContain('googleapis.com');
+    // Enforce shipped after the 2026-07-24 → 2026-08-08 report-only observation window closed
+    // clean (#264). Reverting to report-only is a deliberate rollback, never silent drift.
+    expect(byKey.has('Content-Security-Policy-Report-Only')).toBe(false);
   });
 });
