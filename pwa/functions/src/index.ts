@@ -63,9 +63,6 @@ export {
 // Phase 11b (sync) — match Appointment Schedule bookings to advances. ./googleBookings.ts.
 export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBookings.js';
 
-// Schedule → Google calendar sync (redesign PR 4). ./googleSchedule.ts.
-export { reconcileScheduleDay, removeScheduleCalendarEvent } from './googleSchedule.js';
-
 // Phase 13 — Google Drive (per-user OAuth): link files to advances + save packets. ./googleDrive.ts.
 export {
   getDriveAccessToken,

@@ -18,15 +18,7 @@ import {
   setDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import type {
-  ReconcileScheduleDayInput,
-  ReconcileScheduleDayOutput,
-  RemoveScheduleCalendarEventInput,
-  RemoveScheduleCalendarEventOutput,
-} from '@contracts/callables/schedules';
-import { db, functions } from '@/services/firebase';
-import { createLogger } from '@/lib/logger';
+import { db } from '@/services/firebase';
 import { shiftDayKey, zonedDayKey } from '@/lib/dates/timezone';
 import type { ScheduleTemplateDay, ScheduleTemplateItem } from '@/lib/schedules/scheduleTemplate';
 import {
@@ -41,8 +33,6 @@ import {
   type ScheduleDayItemInput,
   type ScheduleDayMeta,
 } from '@/lib/schedules/scheduleDay';
-
-const logger = createLogger('Schedule');
 
 function daysCol(eventId: string) {
   return collection(db, 'events', eventId, 'scheduleDays');
@@ -218,72 +208,12 @@ export async function saveScheduleDay(
   await updateDayWithRevision(eventId, day, (fresh) => toDayDoc(parsed, fresh.items));
 }
 
-/** Delete a day. The doc goes first — deleting a day must never wait on calendar IO
- * (a show day's worth of blocked `removeScheduleCalendarEvent` calls once left show
- * days undeletable while the callable was timing out) — then the pushed items' events
- * are removed in the background, their ids captured from the in-memory day before the
- * doc vanished. Cleanup is best-effort, not durable — closing the tab mid-cleanup can
- * leave events on the calendar (the same exposure a failed callable always had); the
- * durable path is a server-side cascade on day delete (see ISSUES_LOG 2026-08-04). */
+/** Delete a day. Just the doc now — the per-event calendar push was retired in Phase 3
+ * of planning/CALENDAR_SUBSCRIPTIONS.md, so there is no calendar IO to wait on or clean
+ * up afterwards. (This deleted-day path is what produced the show-day 504 stampede in
+ * ISSUES_LOG 2026-08-04; the subscription feed has no write amplification at all.) */
 export async function deleteScheduleDay(eventId: string, day: ScheduleDay): Promise<void> {
-  const items = day.items;
   await deleteDoc(dayDoc(eventId, day.id));
-  void removeCalendarEvents(eventId, items);
-}
-
-/** How many calendar-event removals go out at once. A show day can hold dozens of
- * pushed items; firing them all concurrently stampedes the callable — every request
- * contends on the same rate-limit doc and the same Google calendar until the platform's
- * request timeout kills them. Small batches keep each request fast. */
-const REMOVE_EVENTS_BATCH = 4;
-
-/** Best-effort calendar-event removal for every pushed item in the list, in small
- * sequential batches. Never throws — a failure only means the Google event outlives
- * its schedule row. */
-export async function removeCalendarEvents(
-  eventId: string,
-  items: readonly ScheduleDayItem[],
-): Promise<void> {
-  const ids = items.map((i) => i.googleCalendarEventId).filter((id): id is string => id !== null);
-  let failed = 0;
-  for (let at = 0; at < ids.length; at += REMOVE_EVENTS_BATCH) {
-    const results = await Promise.allSettled(
-      ids.slice(at, at + REMOVE_EVENTS_BATCH).map((id) => removeScheduleCalendarEvent(eventId, id)),
-    );
-    failed += results.filter((r) => r.status === 'rejected').length;
-  }
-  if (failed > 0) {
-    logger.warn(
-      `Could not remove ${failed} calendar event(s); they may remain on the event calendar.`,
-    );
-  }
-}
-
-/** Reconcile one day with the event's Google calendar (fire after day saves; redesign
- * PR 4). Returns `{ synced:false, reason:'not_connected' }` as a no-op when the caller
- * hasn't linked Google — never block a save on it. */
-export async function reconcileScheduleDayCalendar(
-  eventId: string,
-  dayId: string,
-): Promise<ReconcileScheduleDayOutput> {
-  const callable = httpsCallable<ReconcileScheduleDayInput, ReconcileScheduleDayOutput>(
-    functions,
-    'reconcileScheduleDay',
-  );
-  return (await callable({ eventId, dayId })).data;
-}
-
-/** Remove one calendar event. Capture the stored id before deleting the item/day that
- * holds it — the callable only needs the id, not the doc. */
-export async function removeScheduleCalendarEvent(
-  eventId: string,
-  calendarEventId: string,
-): Promise<void> {
-  const callable = httpsCallable<
-    RemoveScheduleCalendarEventInput,
-    RemoveScheduleCalendarEventOutput
-  >(functions, 'removeScheduleCalendarEvent');
-  await callable({ eventId, calendarEventId });
 }
 
 /** Save a day's metadata (dayType/title/description/notes — the day form's slice).
