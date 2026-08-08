@@ -13,6 +13,15 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Calendar subscription feed — choose what's in it:** the Settings card now lists every
+  event you're on with two controls each — include it or drop it, and show its days as the
+  default **daily summary** or as **individual items** (every scheduled row as its own timed
+  calendar event, matching what the event calendar pushes). A **hide finished events** switch
+  keeps the calendar forward-looking; turning it back off restores them on the next refresh.
+  Defaults are unchanged — all your events, daily summary, history kept — so nothing changes
+  unless you touch it, and new events still appear automatically. Changes reach your calendar
+  app on its next refresh (hours, on Google).
+
 - **Calendar subscription feed — branded URL:** newly created or rotated feed URLs now
   live on the app's own domain (`https://46advance.com/calendar-feed?...`) instead of the
   raw Cloud Functions address. Existing subscription URLs keep working unchanged; you pick

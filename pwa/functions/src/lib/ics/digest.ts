@@ -1,6 +1,8 @@
 /**
- * Digest-mode rendering for the calendar subscription feed
- * (planning/CALENDAR_SUBSCRIPTIONS.md § Rendering): one transparent all-day VEVENT per
+ * VEVENT rendering for the calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md
+ * § Rendering) in both modes: DIGEST (the default) and ITEM (opt-in, Phase 2).
+ *
+ * Digest: one transparent all-day VEVENT per
  * schedule day, whose description is the day at a glance — time range + resolved item
  * name + stage per row, untimed rows in a final "Untimed" section. Deliberately
  * calendar-sized and bearer-URL-safe: crew lines, arbitrary item `fields`, and freeform
@@ -14,7 +16,8 @@ import { SCHEDULE_DAY_TYPE_LABELS } from '../../contracts/scheduleDayTypes.js';
 import { shiftDayKey } from '../dates/zonedTime.js';
 import { asWallClock, formatWallClockRange } from '../dates/wallClock.js';
 import { resolveArtistPlaceholders, type SlotResolver } from '../schedules/placeholders.js';
-import { escapeIcsText, icsDate, icsUtcStamp } from './serialize.js';
+import { buildScheduleItemEvent, shouldHaveEvent } from '../schedules/itemEvent.js';
+import { escapeIcsText, icsDate, icsUtcStamp, sanitizeIcsIdentifier } from './serialize.js';
 
 /** One digest row, resolved and ready to render. */
 export interface DigestItem {
@@ -114,7 +117,7 @@ export function digestVEventLines(input: DigestDayInput): string[] {
   const description = digestDescription(input.items);
   const lines = [
     'BEGIN:VEVENT',
-    `UID:day-${input.eventId}-${input.dayKey}@46advance.com`,
+    `UID:day-${sanitizeIcsIdentifier(input.eventId)}-${sanitizeIcsIdentifier(input.dayKey)}@46advance.com`,
     `DTSTAMP:${stamp}`,
     `LAST-MODIFIED:${stamp}`,
     `DTSTART;VALUE=DATE:${icsDate(input.dayKey)}`,
@@ -125,6 +128,49 @@ export function digestVEventLines(input: DigestDayInput): string[] {
   if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
   lines.push('END:VEVENT');
   return lines;
+}
+
+/**
+ * Item-mode VEVENTs for one schedule day (Phase 2): one timed VEVENT per pushable item,
+ * matching what the Google calendar push produces for the same item (shared content in
+ * `lib/schedules/itemEvent.ts`). Untimed items are omitted, as they are in the push, and
+ * timed items stay opaque (busy) — the digest's transparency is a digest-only choice.
+ *
+ * `UID:sched-<eventId>-<itemId>@…` includes the event id so malformed/legacy data
+ * repeating an item id can't collide across events. Flipping an event between modes
+ * changes every UID in it — the client swaps one all-day event for N timed ones.
+ */
+export function itemVEventLines(input: {
+  eventId: string;
+  dayKey: string;
+  timeZone: string;
+  updatedAt: Date;
+  items: readonly DocumentData[];
+  resolve: SlotResolver;
+}): string[][] {
+  const stamp = icsUtcStamp(input.updatedAt);
+  const vevents: string[][] = [];
+  for (const item of input.items) {
+    const itemId = typeof item.id === 'string' ? item.id : '';
+    if (!itemId || !shouldHaveEvent(item)) continue;
+    const event = buildScheduleItemEvent(item, input.dayKey, input.timeZone, input.resolve);
+    if (!event) continue;
+    const lines = [
+      'BEGIN:VEVENT',
+      `UID:sched-${sanitizeIcsIdentifier(input.eventId)}-${sanitizeIcsIdentifier(itemId)}@46advance.com`,
+      `DTSTAMP:${stamp}`,
+      `LAST-MODIFIED:${stamp}`,
+      `DTSTART:${icsUtcStamp(event.start)}`,
+      `DTEND:${icsUtcStamp(event.end)}`,
+      `SUMMARY:${escapeIcsText(event.summary)}`,
+    ];
+    if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
+    const description = event.descriptionLines.join('\n');
+    if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
+    lines.push('END:VEVENT');
+    vevents.push(lines);
+  }
+  return vevents;
 }
 
 /**

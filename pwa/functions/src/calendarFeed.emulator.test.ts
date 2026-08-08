@@ -15,6 +15,8 @@ import {
   createCalendarFeed,
   rotateCalendarFeed,
   getCalendarFeedStatus,
+  getCalendarSubscription,
+  updateCalendarSubscription,
   setUserApproved,
   deleteUser,
 } from './index';
@@ -180,6 +182,59 @@ describe('calendar feed credentials', () => {
   });
 });
 
+describe('calendar subscription preferences', () => {
+  beforeEach(async () => {
+    await clearEmulators();
+    await seedUser(USER.uid);
+  });
+
+  it('defaults to all events / digest / keep history with no doc, and needs auth', async () => {
+    const prefs = await testEnv.wrap(getCalendarSubscription)(callableRequest({}, USER));
+    expect(prefs).toEqual({
+      itemModeEventIds: [],
+      excludedEventIds: [],
+      hidePastEvents: false,
+    });
+    expect((await db.doc(`calendarSubscriptions/${USER.uid}`).get()).exists).toBe(false);
+    await expect(
+      testEnv.wrap(updateCalendarSubscription)(callableRequest({ hidePastEvents: true })),
+    ).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+
+  it('merges partial updates, dedupes ids, and stamps a server updatedAt', async () => {
+    await testEnv.wrap(updateCalendarSubscription)(
+      callableRequest({ itemModeEventIds: ['a', 'a', 'b'] }, USER),
+    );
+    const after = await testEnv.wrap(updateCalendarSubscription)(
+      callableRequest({ hidePastEvents: true }, USER),
+    );
+    // The omitted field kept its value; the duplicate id collapsed.
+    expect(after).toEqual({
+      itemModeEventIds: ['a', 'b'],
+      excludedEventIds: [],
+      hidePastEvents: true,
+    });
+    expect(
+      (await db.doc(`calendarSubscriptions/${USER.uid}`).get()).data()?.updatedAt,
+    ).toBeTruthy();
+  });
+
+  it('rejects unknown fields, oversized arrays, and wrong types', async () => {
+    for (const bad of [
+      { nope: true },
+      { itemModeEventIds: Array.from({ length: 251 }, (_, i) => `e${i}`) },
+      { excludedEventIds: ['ok', ''] },
+      { excludedEventIds: [123] },
+      { hidePastEvents: 'yes' },
+      { itemModeEventIds: ['x'.repeat(129)] },
+    ]) {
+      await expect(
+        testEnv.wrap(updateCalendarSubscription)(callableRequest(bad, USER)),
+      ).rejects.toMatchObject({ code: 'invalid-argument' });
+    }
+  });
+});
+
 describe('calendarFeed endpoint', () => {
   beforeEach(async () => {
     await clearEmulators();
@@ -300,6 +355,69 @@ describe('calendarFeed endpoint', () => {
     await requestFeed(token);
     const after = (await feedRef.get()).data()?.lastAccessedAt;
     expect(after?.isEqual(stamped)).toBe(true);
+  });
+
+  it('[P2] excludes opted-out events; exclusion beats item mode', async () => {
+    await seedEvent('evt-1', USER.uid);
+    await seedEvent('evt-2', USER.uid);
+    const token = await mintToken();
+    expect((await requestFeed(token)).body).toContain('evt-2');
+
+    await testEnv.wrap(updateCalendarSubscription)(
+      callableRequest({ excludedEventIds: ['evt-2'], itemModeEventIds: ['evt-2'] }, USER),
+    );
+    const body = (await requestFeed(token)).body;
+    expect(body).toContain('evt-1');
+    expect(body).not.toContain('evt-2');
+  });
+
+  it('[P2] renders an opted-in event as timed items instead of a digest', async () => {
+    await seedEvent('evt-1', USER.uid);
+    const token = await mintToken();
+    await testEnv.wrap(updateCalendarSubscription)(
+      callableRequest({ itemModeEventIds: ['evt-1'] }, USER),
+    );
+    const body = (await requestFeed(token)).body.replace(/\r\n /g, '');
+    // Digest UID gone; one timed VEVENT per pushable item (untimed + opted-out dropped).
+    expect(body).not.toContain('UID:day-evt-1-2026-08-15');
+    expect(body).toContain('UID:sched-evt-1-i1@46advance.com');
+    expect(body).toContain('UID:sched-evt-1-i2@46advance.com');
+    expect(body).not.toContain('sched-evt-1-i3'); // untimed Lunch
+    expect(body).not.toContain('sched-evt-1-i4'); // pushToCalendar: false
+    expect(body).not.toContain('TRANSP:TRANSPARENT');
+    expect(body).toContain('SUMMARY:Ashley McBryde — Set');
+  });
+
+  it('[P2] hidePastEvents drops events whose last day has passed, keeping current ones', async () => {
+    await seedEvent('evt-past', USER.uid);
+    await db.doc('events/evt-past/scheduleDays/2026-08-15').delete();
+    await db.doc('events/evt-past/scheduleDays/2020-01-01').set({
+      date: '2020-01-01',
+      dayType: 'show',
+      items: [{ id: 'p1', item: 'Old Show', startTime: '20:00' }],
+      createdBy: USER.uid,
+    });
+    await seedEvent('evt-future', USER.uid);
+    await db.doc('events/evt-future/scheduleDays/2026-08-15').delete();
+    await db.doc('events/evt-future/scheduleDays/2099-01-01').set({
+      date: '2099-01-01',
+      dayType: 'show',
+      items: [{ id: 'f1', item: 'Future Show', startTime: '20:00' }],
+      createdBy: USER.uid,
+    });
+    const token = await mintToken();
+    expect((await requestFeed(token)).body).toContain('evt-past');
+
+    await testEnv.wrap(updateCalendarSubscription)(callableRequest({ hidePastEvents: true }, USER));
+    const hidden = (await requestFeed(token)).body;
+    expect(hidden).not.toContain('evt-past');
+    expect(hidden).toContain('evt-future');
+
+    // Turning it back off restores them — the feed is the source of truth.
+    await testEnv.wrap(updateCalendarSubscription)(
+      callableRequest({ hidePastEvents: false }, USER),
+    );
+    expect((await requestFeed(token)).body).toContain('evt-past');
   });
 
   it('enforces the per-token distributed limit with 429 + Retry-After', async () => {

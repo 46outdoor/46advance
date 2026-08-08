@@ -1,8 +1,9 @@
 # Calendar Subscriptions — Feature Spec
 
-> **Status:** IN PROGRESS. Phase 1 shipped + deployed 2026-08-07 (#244; token-logging
-> runbook executed — see `DEPLOYMENTS.md`). Phase 1b (conditional requests + access
-> telemetry) in progress. Phases 2/3 not started. Supersedes the "org-owned, one
+> **Status:** IN PROGRESS. Phases 1, 1b, and 2 shipped + deployed 2026-08-07 (#244/#246;
+> token-logging runbook + alerting executed — see `DEPLOYMENTS.md`), plus the custom-domain
+> feed URL (#249). Phase 3 (decommission per-event calendars) not started and gated on the
+> cutover checklist below. Supersedes the "org-owned, one
 > calendar per event/festival" decision in [`ROADMAP.md`](ROADMAP.md) § Decisions (Q&A round 2)
 > and answers the open question at ROADMAP § Open questions — _"Calendar: which dates/events
 > flow to app-specific calendars; one calendar per event/festival or global?"_ → **global, one

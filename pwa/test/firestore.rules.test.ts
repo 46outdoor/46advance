@@ -1379,6 +1379,21 @@ describe('firestore.rules — Google connection (Phase 11b)', () => {
     await assertFails(setDoc(doc(dbFor(PM), 'googleOAuthStates/state-2'), { uid: PM }));
   });
 
+  it('calendar subscription prefs: owner reads their own; others cannot; no client writes', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'calendarSubscriptions', PM), { hidePastEvents: false });
+    });
+    await assertSucceeds(getDoc(doc(dbFor(PM), 'calendarSubscriptions', PM)));
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'calendarSubscriptions', PM)));
+    // Server-managed: the updateCalendarSubscription callable owns every write.
+    await assertFails(
+      setDoc(doc(dbFor(PM), 'calendarSubscriptions', PM), { hidePastEvents: true }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(PM), 'calendarSubscriptions', PM), { hidePastEvents: true }),
+    );
+  });
+
   it('calendar feed token + owner docs are server-only (even the owner / admin)', async () => {
     await assertFails(getDoc(doc(dbFor(PM), 'calendarFeeds/some-token-hash')));
     await assertFails(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'calendarFeeds/some-token-hash')));

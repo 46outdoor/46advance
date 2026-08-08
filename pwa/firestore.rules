@@ -234,6 +234,13 @@ service cloud.firestore {
     match /calendarFeedOwners/{uid} {
       allow read, write: if false;
     }
+    // Calendar feed preferences (Phase 2) — owner reads; every write goes through the
+    // validated updateCalendarSubscription callable (Admin SDK), which owns the field
+    // allowlist, array bounds, and `updatedAt`.
+    match /calendarSubscriptions/{uid} {
+      allow read: if isActiveUser() && request.auth.uid == uid;
+      allow write: if false;
+    }
 
     // Canonical event-slug reservations (WS-G): doc id = the slug, body `{ eventId }`. The
     // uniqueness lock behind event URLs — claimed/released ONLY by the Admin SDK (createBlankEvent,
