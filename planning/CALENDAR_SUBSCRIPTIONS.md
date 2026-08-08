@@ -427,6 +427,31 @@ Do not use "Phase 1 deployed" as the cleanup signal. All of these must be true:
    old calendars, and schedule pushing has been disabled by the Phase 3 code change.
 5. A human reviews the dry-run inventory and explicitly confirms the destructive cleanup.
 
+#### Gate evidence log (append as QA happens)
+
+**2026-08-08 — first real subscriber (owner), Google Calendar.**
+
+- **Gate 1 (partial).** The owner has an active feed and confirmed it populates correctly in
+  Google Calendar. `lastAccessedAt` recorded a real fetch 31s after the mint, and Cloud Run
+  `request_count` metrics (unaffected by the request-log exclusion) show further successful
+  fetches afterwards. **Still open:** every OTHER intended subscriber. Only one uid has ever
+  created a feed, so the rest of the team is not yet covered.
+- **Gate 2 (partial).** Covered so far: **initial add** (Google, populates correctly) and
+  **token rotation** (three mints, each revoking its predecessor, exactly one active; polls
+  against a revoked token return the standard 404). **Observed refresh behavior — NOT an
+  SLA:** successful polls at roughly 22:xx, 23:xx ×2, 00:xx, then **~09:xx — a ~9-hour gap**,
+  consistent with the "commonly many hours" warning above. Do not plan show-day changes
+  around Google refresh. **Still open:** Apple Calendar entirely; changed content, removed
+  content, mode changes, membership revocation, and an empty feed on both clients.
+- **Note on reading the telemetry.** `lastAccessedAt` is throttled to one write per 24h, so
+  the Settings card can legitimately show a stamp hours older than the newest poll. Cloud Run
+  `request_count` is the per-request signal when the actual cadence matters.
+- **Watch item.** Recurring 404s appeared at ~03/04/06/10:xx, well outside the manual probe
+  windows. Metrics carry no token label, so attribution is impossible; the likely cause is a
+  stale client subscription still polling a rotated-away URL (harmless but never updating).
+  Ordinary scanning of the public path is the alternative explanation. Re-check once the team
+  is subscribed — a persistent 404 poller usually means someone's calendar is silently dead.
+
 **Phase 3 cleanup — deleting the existing calendars.** Every calendar created to date is a test
 artifact or is about to be superseded, so all of them get deleted (confirmed 2026-08-06).
 
