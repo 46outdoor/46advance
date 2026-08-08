@@ -5,11 +5,13 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Run: `npm run test:e2e:emulator` — that wraps this in `firebase emulators:exec`
  * (demo-46advance) so the Auth/Firestore/Storage emulators are up and the globalSetup
- * seeder can target them. Kept on a distinct port from the plain smoke config so the
- * two never collide, and always starts its own dev server so VITE_USE_EMULATORS applies.
+ * seeder can target them. Pass a test-name filter after `--`, e.g.
+ * `npm run test:e2e:emulator -- schedule-per-day-edit`. Kept on a distinct port from the
+ * plain smoke config so the two never collide, and always starts its own dev server so
+ * VITE_USE_EMULATORS applies.
  *
- * Not yet wired into CI; the CI lane (Java + firebase-tools + seeded emulators) lands
- * with WS-J / S13.
+ * This lane IS a CI gate: the `e2e-emulator` job in `.github/workflows/ci.yml`, which
+ * `CI Summary` requires. A spec added here runs on every code PR.
  */
 const PORT = 4747;
 
