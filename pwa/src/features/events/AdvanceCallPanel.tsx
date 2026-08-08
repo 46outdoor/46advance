@@ -7,7 +7,7 @@
  * Meet link, and puts it on the invitees' calendars. The app's job is to TRACK them —
  * `syncAdvanceCallBookings` / `scheduledAdvanceCallSync` match bookings to advances and
  * write the time/link back. The app-created Meet path was retired in Phase 3 of
- * planning/CALENDAR_SUBSCRIPTIONS.md; an existing link can still be set by editing the
+ * planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md; an existing link can still be set by editing the
  * advance.
  */
 import { downloadIcs } from '@/lib/calendar/ics';

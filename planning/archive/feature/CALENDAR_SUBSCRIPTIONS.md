@@ -1,11 +1,13 @@
 # Calendar Subscriptions — Feature Spec
 
-> **Status:** Phases 1, 1b, and 2 shipped + deployed 2026-08-07 (#244/#246; token-logging
-> runbook + alerting executed — see `DEPLOYMENTS.md`), plus the custom-domain feed URL (#249).
-> All five cutover gates closed or deliberately deferred 2026-08-08 (see the gate evidence log
-> below); **Phase 3 — decommissioning the per-event calendars — is implemented**, with the
-> OAuth least-privilege reassessment split out as its own follow-up because it requires
-> re-consent. Supersedes the "org-owned, one
+> **Status: COMPLETE (2026-08-08).** Every phase shipped, deployed, and verified in
+> production — Phase 1 + 1b (#244/#246), the custom-domain feed URL (#249), Phase 2 (#252),
+> Phase 3 decommission (#257), and the OAuth least-privilege reduction that closed the last
+> Phase 3 inventory item. All five cutover gates closed or deliberately deferred (gate
+> evidence log below). Deploys, the token-logging runbook, alerting, and the data migration are
+> recorded in [`DEPLOYMENTS.md`](DEPLOYMENTS.md). What remains is the **hardening backlog** at
+> the end of this document — conditional, measure-first work, not outstanding delivery.
+> Supersedes the "org-owned, one
 > calendar per event/festival" decision in [`ROADMAP.md`](ROADMAP.md) § Decisions (Q&A round 2)
 > and answers the open question at ROADMAP § Open questions — _"Calendar: which dates/events
 > flow to app-specific calendars; one calendar per event/festival or global?"_ → **global, one
@@ -406,9 +408,16 @@ Phase 3's complete code/data inventory includes:
 - `AdvanceCallPanel`'s app-created Meet action while preserving the store-link/download-ICS path;
 - Settings, Event Form help text, landing-page copy, Privacy Policy, CHANGELOG, and architecture
   documentation that currently promise per-event calendar creation;
-- Google OAuth least-privilege reassessment. Once secondary-calendar creation and app-created
-  meetings are gone, verify whether the broad `calendar` / write scopes can be reduced to the
-  read access required by booking sync; document any re-consent/migration requirement;
+- ~~Google OAuth least-privilege reassessment.~~ **DONE 2026-08-08.** After the decommission the
+  entire backend makes exactly ONE Calendar call — `events.list` on `primary`
+  (`googleBookings.ts`) — so `calendar` + `calendar.events` were replaced by the single
+  read-only `calendar.events.readonly`. `include_granted_scopes: true` was removed at the same
+  time: incremental authorization would have re-granted every previously approved scope on
+  reconnect, silently restoring calendar WRITE access and defeating the reduction. **Migration:
+  an existing connection keeps its broader grant until the user disconnects and reconnects
+  (`disconnectGoogle` revokes at Google, so the cycle genuinely resets the grant). Booking sync
+  works under either grant, so no one is forced to act — reconnecting is what actually drops the
+  privilege.**;
 - shared backend callable exports/contracts. The native app has no code yet, but its future
   contract surface must not inherit retired callables.
 

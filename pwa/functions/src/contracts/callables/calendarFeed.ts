@@ -1,6 +1,6 @@
 /**
  * Callable contract schemas — calendar subscription feed credentials
- * (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1). Pure Zod — see ./auth.ts header.
+ * (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 1). Pure Zod — see ./auth.ts header.
  *
  * The feed URL embeds a bearer token and is returned ONLY by create/rotate — status
  * never re-exposes it (the server stores just the SHA-256 digest).

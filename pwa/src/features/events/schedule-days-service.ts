@@ -202,7 +202,7 @@ export async function saveScheduleDay(
 }
 
 /** Delete a day. Just the doc now — the per-event calendar push was retired in Phase 3
- * of planning/CALENDAR_SUBSCRIPTIONS.md, so there is no calendar IO to wait on or clean
+ * of planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md, so there is no calendar IO to wait on or clean
  * up afterwards. (This deleted-day path is what produced the show-day 504 stampede in
  * ISSUES_LOG 2026-08-04; the subscription feed has no write amplification at all.) */
 export async function deleteScheduleDay(eventId: string, day: ScheduleDay): Promise<void> {

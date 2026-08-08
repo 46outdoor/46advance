@@ -13,6 +13,12 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Google access is now read-only for your calendar.** With per-event calendars and
+  app-created meetings gone, the app no longer needs permission to change your calendar — the
+  connection asks only to *read* events (to spot booked advance calls) and for the Drive files
+  you pick. Existing connections keep their old permissions until you disconnect and reconnect
+  in Settings; nothing breaks either way, and reconnecting is what actually narrows the access.
+
 - **Calendar: one subscription replaces the per-event calendars.** The app no longer creates
   a Google calendar for each event or pushes schedule rows onto it. Everything now flows
   through your personal **calendar subscription** in Settings, which already carries every

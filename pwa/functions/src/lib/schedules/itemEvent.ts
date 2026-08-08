@@ -1,7 +1,7 @@
 /**
  * Schedule-item → calendar-event content, shared by the Google calendar push
  * (`googleSchedule.ts`) and the subscription feed's item mode
- * (planning/CALENDAR_SUBSCRIPTIONS.md Phase 2). Both surfaces must render IDENTICAL
+ * (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 2). Both surfaces must render IDENTICAL
  * events for one item — summary/location/description text and the derived instants —
  * so the computation lives here and each caller only adapts the shape.
  *

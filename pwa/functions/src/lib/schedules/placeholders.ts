@@ -1,6 +1,6 @@
 /**
  * Artist-placeholder resolution shared by the calendar push (`googleSchedule.ts`) and the
- * calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md). Pure — the server mirror
+ * calendar subscription feed (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md). Pure — the server mirror
  * of the client's `resolveArtistPlaceholders` in `pwa/src/lib/schedules/scheduleDay.ts`
  * (separate toolchains, no shared package yet — keep the two in lockstep).
  *

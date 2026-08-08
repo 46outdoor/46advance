@@ -1,5 +1,5 @@
 /**
- * Per-event feed preferences (planning/CALENDAR_SUBSCRIPTIONS.md Phase 2): which of the
+ * Per-event feed preferences (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 2): which of the
  * subscriber's events appear in their calendar feed, and per event whether the day shows
  * as one all-day digest (the default) or as individual timed items.
  *

@@ -503,20 +503,25 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 - **Flex:** not needed (MPA integrates Flex — exclude).
 - **Lasso:** company uses Lasso fully (all features, not just staffing), but **no
   integration now** — future goal, **low priority**.
-- **Google Calendar (planned):**
-  - Read-only sync *from* existing calendars.
-  - Write *to* **application-specific calendars** — **org-owned, one per event/festival** (decided; created as needed). **Schedule items push to these calendars** (decided).
-
-  > **Change proposed 2026-08-06 (not yet approved).** The per-event calendars would be retired
-  > in favor of one **per-user ICS subscription feed** carrying all of a user's events, with a
-  > per-event digest/items choice. Driven by two findings: the app has **no calendar-sharing
-  > code at all** (no `acl.insert` anywhere — sharing is done by hand in Google's web UI), and
-  > Google Calendar **cannot filter a shared calendar per recipient**, so "one calendar, each
-  > user picks their events" is only achievable with a generated per-user feed. Full spec and
-  > phasing in [`CALENDAR_SUBSCRIPTIONS.md`](CALENDAR_SUBSCRIPTIONS.md).
-- **Google Meet (desired):** most advance calls happen on Meet — explore generating/attaching
-  Meet links for advance calls. Meet links are created via Google Calendar events with
-  conferencing, so this **builds on the Calendar integration**. Per-user creds (see auth model).
+- **Google Calendar — SHIPPED 2026-08-08 as a per-user subscription feed.** The
+  "org-owned, one calendar per event/festival" design above was **superseded and removed**:
+  the app had **no calendar-sharing code at all** (no `acl.insert` anywhere — sharing was done
+  by hand in Google's web UI), and Google Calendar **cannot filter a shared calendar per
+  recipient**, so "one calendar, each user picks their events" was only achievable with a
+  generated per-user feed. Each person now subscribes once to
+  `https://46advance.com/calendar-feed?token=…` and receives every event they're a member of,
+  choosing per event between an all-day digest and individual timed items. The per-event
+  calendars, the schedule push, and the app-created Meet path are **retired** — do not
+  reintroduce a push. Full spec, cutover-gate evidence, and the remaining (conditional)
+  hardening backlog: [`archive/feature/CALENDAR_SUBSCRIPTIONS.md`](archive/feature/CALENDAR_SUBSCRIPTIONS.md).
+  Accepted trade-off: subscribed calendars are polled, and **Google's interval is commonly many
+  hours** (~9h observed) — don't rely on it for show-day changes.
+- **Google Meet — resolved: the app tracks meetings, it does not create them.** Advance calls
+  are booked through a Google Appointment Schedule page; Google creates the meeting, mints the
+  Meet link, and invites the artist. `syncAdvanceCallBookings` / `attachCallBooking` match
+  bookings to advances and store the link. The app-created Meet fallback was retired in Phase 3,
+  and the OAuth grant is now read-only on calendar events (`calendar.events.readonly`), so
+  creating or cancelling meetings is not just unused but impossible.
 
 - **Built — Phases 11 + 12 (2026-06-24):**
   - **11a** — the **"store an existing link"** path: an **Advance Call** (`advanceCallAt` +
@@ -667,10 +672,10 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 - What does an "advance" contain for a multi-day festival (sections/fields)? **Resolved** —
   built in §5 (configurable per-department sections, Phases 2–4; see Decisions § Q&A round 6).
 - Calendar: which dates/events flow to app-specific calendars; one calendar per
-  event/festival or global? **Proposed answer 2026-08-06 — global**, as a per-user ICS
-  subscription feed rather than shared Google calendars (per-recipient filtering is impossible
-  in Google's sharing model). See [`CALENDAR_SUBSCRIPTIONS.md`](CALENDAR_SUBSCRIPTIONS.md);
-  proposed, not yet approved or built.
+  event/festival or global? **Resolved — global**, and **built + deployed 2026-08-08** as a
+  per-user ICS subscription feed rather than shared Google calendars (per-recipient filtering is
+  impossible in Google's sharing model). See §12 Integrations and
+  [`archive/feature/CALENDAR_SUBSCRIPTIONS.md`](archive/feature/CALENDAR_SUBSCRIPTIONS.md).
 - Templates: what exactly is in the standard "stage and production package" (the template content)?
 - PDF packets: which sections compose a packet? Branding/letterhead requirements?
   (Scope + server-side generation decided.)

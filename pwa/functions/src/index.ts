@@ -94,7 +94,7 @@ export { pushTemplateProduction } from './templatePush.js';
 // PM-facing per-event membership (Team & access panel + the Crew panel's tech auto-enroll).
 export { assignEventMember, removeEventMember } from './members.js';
 
-// Calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1): the public
+// Calendar subscription feed (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 1): the public
 // per-user ICS endpoint + the credential mint/rotate/status callables.
 export { calendarFeed } from './calendarFeed.js';
 export {
@@ -438,7 +438,7 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
 
   // Clear event memberships (members docs mirror the uid field) + unlink their contact(s).
   // No per-event calendar cleanup: those calendars were retired in Phase 3 of
-  // planning/CALENDAR_SUBSCRIPTIONS.md, and the user's calendar feed is revoked above.
+  // planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md, and the user's calendar feed is revoked above.
   const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
   const contacts = await db.collection('contacts').where('userId', '==', uid).get();
 

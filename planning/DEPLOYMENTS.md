@@ -121,7 +121,7 @@ fleet; `deploy --only firestore:rules` released the server-only `calendarFeeds` 
 `calendarFeedOwners` rules. Endpoint smoke: well-formed dummy token → the designed 404. The owner
 ran the Hosting deploy carrying the Settings card the same day.
 
-**Token-logging runbook (CALENDAR_SUBSCRIPTIONS.md § Security — executed and verified).**
+**Token-logging runbook (archive/feature/CALENDAR_SUBSCRIPTIONS.md § Security — executed and verified).**
 Confirmed empirically that Cloud Run request logs record the FULL feed URL including the bearer
 token (`httpRequest.requestUrl` in `run.googleapis.com%2Frequests`). Mitigation (trade-off
 approved 2026-08-07): exclusion `calendarfeed-request-urls` added to the `_Default` sink, filter

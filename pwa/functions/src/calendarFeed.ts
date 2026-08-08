@@ -1,5 +1,5 @@
 /**
- * The public calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md Phases 1 + 1b):
+ * The public calendar subscription feed (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phases 1 + 1b):
  * `GET /calendarFeed?token=<token>` (HEAD: same status/headers, no body) returns a
  * per-user iCalendar document generated
  * from Firestore at request time — every event the user is a member of, filtered and

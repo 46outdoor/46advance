@@ -70,8 +70,9 @@ export function GoogleConnectCard() {
           <h3 className="font-display text-lg font-bold text-brand">Google account</h3>
           <p className="max-w-prose text-sm text-ink-muted">
             Connect your Google account so advance calls booked through your Appointment Schedule
-            page attach themselves to the matching advance, and so you can link Drive files. Your
-            Google access stays private to you.
+            page attach themselves to the matching advance, and so you can link Drive files. The app
+            gets read-only access to your calendar events and to the Drive files you pick — it
+            can&rsquo;t change your calendar. Your Google access stays private to you.
           </p>
         </div>
         <span

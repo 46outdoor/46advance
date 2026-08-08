@@ -1,5 +1,5 @@
 /**
- * Calendar feed preferences — client access (planning/CALENDAR_SUBSCRIPTIONS.md Phase 2).
+ * Calendar feed preferences — client access (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 2).
  * Reads go through the callable rather than Firestore so the defaults for a missing doc
  * live in exactly one place (the server); writes must, since rules deny client writes.
  */

@@ -7,7 +7,7 @@
  * (owner/admin read). The connection now serves the Appointment Schedule booking sync
  * (which reads the connecting user's `primary` calendar) and Drive file access; the
  * per-event calendars and app-created Meet links were retired in Phase 3 of
- * planning/CALENDAR_SUBSCRIPTIONS.md.
+ * planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md.
  *
  * Secrets (Firebase Functions Secret Manager): GOOGLE_OAUTH_CLIENT_ID,
  * GOOGLE_OAUTH_CLIENT_SECRET. The OAuth client's authorized redirect URI must match
@@ -44,13 +44,14 @@ export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // enumerates via the docs-broker service account instead — exactly as the twice-daily sync
 // already did — so the user grant needs no Drive-wide read at all. Do not re-add it.
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/calendar.events',
-  DRIVE_FILE_SCOPE,
-  'openid',
-  'email',
-];
+// Least privilege (2026-08-08, after Phase 3 of planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md).
+// The app makes exactly ONE Google Calendar call now — `events.list` on the connecting
+// user's `primary` calendar, in googleBookings.ts, to spot Appointment Schedule bookings.
+// It no longer creates calendars or meetings, so read-only on events is the whole need.
+// Do NOT widen this back to `calendar` / `calendar.events` without a matching write.
+const CALENDAR_READ_SCOPE = 'https://www.googleapis.com/auth/calendar.events.readonly';
+
+const SCOPES = [CALENDAR_READ_SCOPE, DRIVE_FILE_SCOPE, 'openid', 'email'];
 
 /**
  * The OAuth redirect URI — the `googleAuthCallback` HTTP function. MUST be registered
@@ -172,7 +173,9 @@ export const googleAuthUrl = onCall({ secrets: OAUTH_SECRETS }, async (request) 
     prompt: 'consent', // force a refresh_token on every (re)connect
     scope: SCOPES,
     state: stateRef.id,
-    include_granted_scopes: true,
+    // NOT incremental: `include_granted_scopes` would re-grant every scope the account
+    // ever approved, silently restoring the retired calendar WRITE scopes on reconnect.
+    // SCOPES enumerates everything the app needs, so each consent grants exactly that.
   });
   return { url };
 });

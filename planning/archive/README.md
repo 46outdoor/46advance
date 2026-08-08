@@ -22,6 +22,7 @@ for active plans (see [`../README.md`](../README.md)).
 | 13 | [Google Drive — link files to advances + save packets (13c deferred)](feature/PHASE_13_PLAN.md) |
 | — | [Schedule Redesign — day-container grid, templates, calendar push](feature/SCHEDULE_REDESIGN.md) |
 | — | [Artist & Event Documents — Drive library, advance inclusion, packet embedding, twice-daily sync](feature/DOCUMENTS_FEATURE.md) |
+| — | [Calendar Subscriptions — per-user ICS feed; retired the per-event Google calendars](feature/CALENDAR_SUBSCRIPTIONS.md) (completed 2026-08-08; hardening backlog inside is conditional/measure-first) |
 
 ## reference/ — source material
 - [AUDIO_ADVANCE_REFERENCE.md](reference/AUDIO_ADVANCE_REFERENCE.md) — the audio lead's working advance spec.

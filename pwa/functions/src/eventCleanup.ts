@@ -75,7 +75,7 @@ export const deleteAdvance = onCall({ secrets: OAUTH_SECRETS }, async (request) 
   // Google Appointment Schedule booking, which lives on the BOOKER's primary calendar and is
   // owned by Google — the app tracks those meetings, it does not cancel them. Deleting an
   // advance must never delete the artist's real meeting, so this must NOT be "fixed" to
-  // target `primary`. See planning/CALENDAR_SUBSCRIPTIONS.md § Advance calls.
+  // target `primary`. See planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md § Advance calls.
   return { ok: true };
 });
 

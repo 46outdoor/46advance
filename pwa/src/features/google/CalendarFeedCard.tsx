@@ -1,6 +1,6 @@
 /**
  * Settings card for the personal calendar subscription feed
- * (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1). Creates/rotates the per-user feed URL
+ * (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 1). Creates/rotates the per-user feed URL
  * (a bearer credential — displayed exactly once per mint), links Apple/Google
  * subscription instructions, and states the Google refresh-latency caveat plainly.
  */

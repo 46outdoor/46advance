@@ -1,5 +1,5 @@
 /**
- * Calendar subscription feed — client access (planning/CALENDAR_SUBSCRIPTIONS.md
+ * Calendar subscription feed — client access (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md
  * Phase 1). The credential collections deny client reads, so everything flows through
  * callables. The feed URL embeds a bearer token and is returned ONLY by create/rotate —
  * the Settings card shows it once and it is not recoverable afterwards (rotation is
