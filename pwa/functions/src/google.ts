@@ -18,11 +18,10 @@ import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
-import { logger } from 'firebase-functions';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
-import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
+import { withGoogleRetry } from './lib/google/retry.js';
 import { httpsFunctionUrl } from './lib/http/functionUrl.js';
 import { eventCalendarSummary } from './lib/events/calendarSummary.js';
 import { createEventCalendarInputSchema } from './contracts/callables/google.js';
@@ -339,47 +338,6 @@ export async function disconnectGoogle(db: Firestore, uid: string): Promise<void
     db.collection('googleConnections').doc(uid).delete(),
     db.collection('googleTokens').doc(uid).delete(),
   ]);
-}
-
-/**
- * Best-effort delete of `calendarEventIds` on `eventId`'s Google calendar, using `uid`'s token.
- * NEVER throws — a Firestore delete callable must not fail because the caller isn't Google-connected
- * or an event is already gone. No-op when the event has no calendar or the caller has no token. Used
- * by the server-side cascade deletes (eventCleanup) so deleting an advance/stage doesn't leave
- * orphaned Google Calendar events (WS-H).
- */
-export async function bestEffortDeleteCalendarEvents(
-  db: Firestore,
-  uid: string,
-  eventId: string,
-  calendarEventIds: readonly (string | null | undefined)[],
-): Promise<void> {
-  const ids = calendarEventIds.filter((x): x is string => typeof x === 'string' && x.length > 0);
-  if (ids.length === 0) return;
-  const calendarId = (await db.doc(`events/${eventId}`).get()).data()?.googleCalendarId;
-  if (typeof calendarId !== 'string' || !calendarId) return;
-  let client: AuthClient;
-  try {
-    client = await authedClientForUser(db, uid);
-  } catch {
-    return; // caller isn't Google-connected — nothing to clean up with, and that's acceptable
-  }
-  const calendar = google.calendar({ version: 'v3', auth: client });
-  for (const id of ids) {
-    try {
-      await withGoogleRetry(() => calendar.events.delete({ calendarId, eventId: id }), {
-        label: 'events.delete',
-      });
-    } catch (e) {
-      const status = googleErrorStatus(e);
-      if (status !== 404 && status !== 410) {
-        logger.warn('Best-effort calendar event delete failed', {
-          calendarEventId: id,
-          error: String(e),
-        });
-      }
-    }
-  }
 }
 
 export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
