@@ -57,9 +57,8 @@ export function PrivacyScreen() {
             <li>
               <strong>Google Calendar</strong> (scopes{' '}
               <code className="rounded bg-surface-muted px-1">calendar</code> and{' '}
-              <code className="rounded bg-surface-muted px-1">calendar.events</code>) to create and
-              manage event calendars and advance-call meetings on your behalf, and to read your
-              calendar to detect advance-call bookings.
+              <code className="rounded bg-surface-muted px-1">calendar.events</code>) to read your
+              calendar and detect advance-call bookings.
             </li>
           </ul>
         </Section>
@@ -67,12 +66,10 @@ export function PrivacyScreen() {
         <Section title="How we use it">
           <ul className="list-disc space-y-1 pl-5">
             <li>
-              Create a dedicated Google Calendar per event and create calendar events with Google
-              Meet links for advance calls, on your behalf.
-            </li>
-            <li>
               Read your calendar to detect advance-call bookings made through a Google Appointment
               Schedule link and attach the meeting link and time to the matching advance in the app.
+              The app does not create, change, or cancel those meetings — Google does, when the
+              artist books a slot.
             </li>
             <li>
               Perform these actions during scheduled background syncs using offline access, so

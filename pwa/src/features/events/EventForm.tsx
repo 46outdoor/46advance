@@ -512,7 +512,7 @@ export function EventForm({
           placeholder="BOTB"
         />
         <span className="mt-1 block text-xs text-ink-muted">
-          Optional. Names the event&rsquo;s calendar and prefixes advance-call titles, e.g. BOTB.
+          Optional. Labels the event in calendar feeds and packet filenames, e.g. BOTB.
         </span>
       </label>
       <DriveFolderField folder={driveFolder} onChange={setDriveFolder} onError={setLocalError} />

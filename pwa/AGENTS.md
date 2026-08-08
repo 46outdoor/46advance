@@ -56,7 +56,7 @@ src/
 functions/              # Firebase Cloud Functions — SHARED BACKEND (serves both apps)
 └── src/
     ├── index.ts       # Entry: initializeApp + admin/event/PDF callables + re-exports
-    ├── google*.ts     # Domain handler modules (google, googleBookings, googleDrive, googleSchedule)
+    ├── google*.ts     # Domain handler modules (google, googleBookings, googleDrive)
     ├── contracts/     # Shared callable Zod schemas (contracts/callables/*) — client via `@contracts`
     └── lib/           # Backend utilities: auth/ (authorize, allowlist), security/ (rate limits),
                        #   db/ (chunkedBatch), dates/ (zonedTime), events/, pdf/
@@ -248,9 +248,9 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Advance document inclusion | `src/lib/documents/advanceDocument.ts` (model) + `src/features/events/advance-documents-service.ts` (include/exclude IO) + `AdvanceDocumentsPanel` on the advance screen |
 | Contact links (tap-to-call/email) | `src/components/contacts/ContactLinks.tsx` |
 | iCalendar (.ics) builder | `src/lib/calendar/ics.ts` (pure VEVENT + download) |
-| Google Calendar/Meet (client) | `src/lib/google/` (`google-service.ts` callables + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
-| Google Calendar/Meet (backend) | `functions/src/google.ts` (per-user OAuth + Meet creation), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron; `attachCallBooking` atomic manual attach, WS-G) |
-| Google API resilience (backend, WS-H) | `functions/src/lib/google/retry.ts` (`withGoogleRetry` — backoff on 429/5xx/network) + `calendarEvents.ts` (`deterministicCalendarEventId` + `insertCalendarEventIdempotent` — retry-safe event.insert). `bestEffortDeleteCalendarEvents` in `google.ts` cleans calendar events on server-side cascade delete |
+| Google connection (client) | `src/lib/google/` (`google-service.ts` connect/disconnect + status, `useGoogleConnection.ts`, `bookings-service.ts`, `callBooking.ts`) |
+| Google connection (backend) | `functions/src/google.ts` (per-user OAuth; connect/disconnect only), `functions/src/googleBookings.ts` (Appointment-Schedule booking sync + cron; `attachCallBooking` atomic manual attach, WS-G). The app never creates or cancels meetings — Google does, when an artist books a slot |
+| Google API resilience (backend, WS-H) | `functions/src/lib/google/retry.ts` (`withGoogleRetry` — backoff on 429/5xx/network) |
 | Data retention sweep (backend, WS-H) | `functions/src/retention.ts` (`scheduledDataRetention` daily cron + `runRetentionSweep` — prune abandoned OAuth states, expired rate limits, stale/dismissed bookings) |
 | Timezone (Central, DST-aware) | `src/lib/dates/timezone.ts` (`APP_TIME_ZONE`, wall-clock ⇄ UTC, `formatCentralDateTime`/`Date`/`Time`, `centralDayKey`) |
 | Schedule days (model + registries) | `src/lib/schedules/scheduleDay.ts` (day + embedded item + crew-line model, duration/sort/placeholder helpers) + `dayTypes.ts`/`itemTypes.ts` registries + `crewTypes.ts` (`config/crewTypes` model) — spec in `planning/archive/feature/SCHEDULE_REDESIGN.md` |
@@ -260,7 +260,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Event checklist (model + templates) | `src/lib/checklists/checklist.ts` (item + template models, fixed `main`/`post-show` sections, `completedAt` doubles as the done flag, stamp formatter) + `checklist-templates-service.ts` (admin CRUD, PMs read to import) |
 | Event checklist IO (per-event, PM-only) | `src/features/events/event-checklist-service.ts` + `EventChecklistPanel.tsx` (dnd-kit drag reorder, editable completion stamp; rules deny non-PM reads); admin editor `src/features/admin/ChecklistTemplatesAdmin.tsx` |
 | Schedule templates (redesign) | `src/lib/schedules/scheduleTemplate.ts` (day-first model, master composition `resolveTemplateDays`, editor bridges) + `src/lib/schedules/schedule-templates-service.ts` (CRUD, default-master); editor `src/features/scheduleTemplates/`; apply/import `src/features/events/` (`applyTemplateDaysToEvent`, `ImportScheduleTemplatePanel`) |
-| Schedules calendar push (backend) | `functions/src/googleSchedule.ts` (`reconcileScheduleDay` day-level reconcile with transactional id write-back + `removeScheduleCalendarEvent`; reuses 11b). Client wrappers in `src/features/events/schedule-days-service.ts` |
+| Schedules → calendar | The per-event Google calendar push was RETIRED in Phase 3 (`planning/CALENDAR_SUBSCRIPTIONS.md`). Schedule days reach people through the per-user subscription feed instead; the per-item `pushToCalendar` flag now governs feed inclusion. Do not reintroduce a push |
 | Lineup + placeholder resolution (backend, shared) | `functions/src/lib/schedules/` (`placeholders.ts` `resolveArtistPlaceholders`/`slotLabel` server mirror of the client resolvers; `lineup.ts` `loadEventLineup` — stages + advances loaded once per event, day-aware `{artist_N}` lookup). Used by the calendar push and the calendar subscription feed |
 | iCalendar feed rendering (backend) | `functions/src/lib/ics/` (`serialize.ts` RFC 5545 escape/UTC-date format/UTF-8 75-octet fold/CRLF assembly; `digest.ts` digest VEVENT + VCALENDAR builders — pure, deterministic stamps). Wall-clock 'HH:mm' gate + 12-hour formatting: `functions/src/lib/dates/wallClock.ts`. Client single-event `.ics` download stays `src/lib/calendar/ics.ts` |
 | Schedule day-type keys + labels (shared contract) | `functions/src/contracts/scheduleDayTypes.ts` (pure constants; client via `@contracts/scheduleDayTypes` — `src/lib/schedules/dayTypes.ts` adds the UI colors/def lookup) |

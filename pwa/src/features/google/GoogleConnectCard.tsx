@@ -2,7 +2,8 @@
  * Connect / disconnect the caller's Google account (Phase 11b). Connecting opens the
  * OAuth consent in a popup; the callback page posts `46advance:google-connected`, which
  * (plus refetch-on-focus) refreshes the status. Once connected, advance calls can create
- * a Calendar event + Meet link (see the advance detail screen).
+ * the Appointment Schedule booking sync can match booked advance calls to advances, and
+ * Drive files can be linked to advances.
  */
 import { useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -66,11 +67,11 @@ export function GoogleConnectCard() {
     <div className="rounded-lg border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h3 className="font-display text-lg font-bold text-brand">Google Calendar</h3>
+          <h3 className="font-display text-lg font-bold text-brand">Google account</h3>
           <p className="max-w-prose text-sm text-ink-muted">
-            Connect your Google account to create an advance call with a Google Meet link, on a
-            calendar created for the event. Your Google access stays private to you; only the Meet
-            link is shared on the advance.
+            Connect your Google account so advance calls booked through your Appointment Schedule
+            page attach themselves to the matching advance, and so you can link Drive files. Your
+            Google access stays private to you.
           </p>
         </div>
         <span

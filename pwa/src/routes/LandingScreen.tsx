@@ -11,7 +11,7 @@ const FEATURES = [
   'Quotes, approvals, and signed PDFs',
   'Contacts directory and per-event attachments',
   'Advance tracker across events and departments',
-  'Google Calendar + Meet advance calls (create or auto-match bookings)',
+  'Advance calls auto-matched from Google Appointment Schedule bookings',
 ];
 
 export function LandingScreen() {
@@ -34,8 +34,8 @@ export function LandingScreen() {
           <p className="max-w-2xl text-lg text-brand-fg/80">
             Event-production advance management for 46 Entertainment. 46 Advance is the internal
             tool our production team uses to organize artist advances, production details, quotes,
-            contacts, and scheduling — including Google Calendar and Google Meet "advance calls" —
-            for live events and festivals.
+            contacts, and scheduling — including a personal calendar subscription and auto-matched
+            "advance calls" — for live events and festivals.
           </p>
         </div>
 
