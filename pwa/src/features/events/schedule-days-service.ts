@@ -2,10 +2,8 @@
  * Schedule-day data access (`events/{e}/scheduleDays/{YYYY-MM-DD}`, redesign PR 2).
  * The doc id IS the date key — one card per date, enforced by rules and the parser —
  * so date changes re-key the doc (redate/shift are atomic delete+create batches).
- * Writes are whole-day (the day owns its embedded items); per-item
- * `googleCalendarEventId` is server-owned, so saves carry existing ids across by item
- * id. The calendar reconcile itself is the push callable's job (redesign PR 4).
- * Reads/writes gated by firestore.rules (member read; PM/admin write).
+ * Writes are whole-day (the day owns its embedded items). Reads/writes gated by
+ * firestore.rules (member read; PM/admin write).
  */
 import {
   deleteDoc,
@@ -59,12 +57,8 @@ function toCrewDocs(
   }));
 }
 
-/** Input items → stored shape, carrying server-owned calendar ids from `existing` by item id. */
-function toItemDocs(
-  items: readonly ScheduleDayItemInput[] | undefined,
-  existing: readonly ScheduleDayItem[],
-): ScheduleDayItem[] {
-  const calendarId = new Map(existing.map((i) => [i.id, i.googleCalendarEventId]));
+/** Input items → stored shape. */
+function toItemDocs(items: readonly ScheduleDayItemInput[] | undefined): ScheduleDayItem[] {
   return (items ?? []).map((i) => ({
     id: i.id,
     type: i.type,
@@ -79,18 +73,17 @@ function toItemDocs(
     fields: i.fields ?? {},
     crew: toCrewDocs(i.crew),
     pushToCalendar: i.pushToCalendar ?? true,
-    googleCalendarEventId: calendarId.get(i.id) ?? null,
   }));
 }
 
-function toDayDoc(input: ScheduleDayInput, existingItems: readonly ScheduleDayItem[]) {
+function toDayDoc(input: ScheduleDayInput) {
   return {
     date: input.date,
     dayType: input.dayType,
     title: input.title?.trim() || null,
     description: input.description?.trim() || null,
     notes: input.notes?.trim() || null,
-    items: toItemDocs(input.items, existingItems),
+    items: toItemDocs(input.items),
   };
 }
 
@@ -183,7 +176,7 @@ export async function createScheduleDay(
   const existing = await getDoc(ref);
   if (existing.exists()) throw new Error('That date already has a schedule day.');
   await setDoc(ref, {
-    ...toDayDoc(parsed, []),
+    ...toDayDoc(parsed),
     revision: 0,
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
@@ -205,7 +198,7 @@ export async function saveScheduleDay(
 ): Promise<void> {
   const parsed = scheduleDayInputSchema.parse(input);
   if (parsed.date !== day.id) throw new Error('Use saveScheduleDayMeta to change a day’s date.');
-  await updateDayWithRevision(eventId, day, (fresh) => toDayDoc(parsed, fresh.items));
+  await updateDayWithRevision(eventId, day, () => toDayDoc(parsed));
 }
 
 /** Delete a day. Just the doc now — the per-event calendar push was retired in Phase 3
@@ -271,7 +264,6 @@ function templateItemToDayItem(
     ...rest,
     id: crypto.randomUUID(),
     stageId: stageName ? (stageByName.get(stageName.trim().toLowerCase()) ?? null) : null,
-    googleCalendarEventId: null,
   };
 }
 
@@ -376,10 +368,7 @@ export async function applyTemplateDaysToEvent(
     let dayItems = current.items;
     if (mode === 'replace' && matched.length > 0) {
       const replacement = new Map(
-        matched.map(({ existing: row, incoming }) => [
-          row.id,
-          { ...incoming, id: row.id, googleCalendarEventId: row.googleCalendarEventId },
-        ]),
+        matched.map(({ existing: row, incoming }) => [row.id, { ...incoming, id: row.id }]),
       );
       dayItems = dayItems.map((i) => replacement.get(i.id) ?? i);
       replaced += matched.length;

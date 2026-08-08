@@ -92,7 +92,6 @@ const EVENT: EventRecord = {
   location: null,
   shortCode: null,
   bookingLabel: null,
-  googleCalendarId: null,
   eventLogo: null,
   templateId: null,
   createdBy: 'admin-1',

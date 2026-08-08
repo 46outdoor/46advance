@@ -52,7 +52,6 @@ describe('parseScheduleDay', () => {
     expect(item.startTime).toBeNull();
     expect(item.endEstimated).toBe(false);
     expect(item.stageId).toBeNull();
-    expect(item.googleCalendarEventId).toBeNull();
   });
 
   it('parses a full labor item with crew lines (missing hours coalesce to null)', () => {
@@ -293,7 +292,6 @@ describe('dayItemSignature + matchItemsBySignature (template-import dedupe)', ()
     fields: {},
     crew: [],
     pushToCalendar: true,
-    googleCalendarEventId: null,
     ...over,
   });
 

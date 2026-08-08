@@ -56,10 +56,8 @@ export interface ScheduleDayItem {
   stageId: string | null;
   fields: Record<string, string>;
   crew: CrewLine[];
-  /** Sync this item to the event's Google calendar (defaults on). */
+  /** Include this item in subscribers' calendar feeds (defaults on). */
   pushToCalendar: boolean;
-  /** Calendar event created by the push reconcile (server-written); null otherwise. */
-  googleCalendarEventId: string | null;
 }
 
 export interface ScheduleDay {
@@ -91,7 +89,7 @@ const crewLineDocSchema = z.object({
 });
 
 /** Exported for the template model, which derives its item shape from this one
- * (stage by name instead of id; no server-owned calendar field). */
+ * (stage by name instead of id). */
 export const scheduleDayItemDocSchema = z.object({
   id: z.string().min(1),
   type: z.enum(SCHEDULE_ITEM_TYPE_KEYS),
@@ -106,7 +104,6 @@ export const scheduleDayItemDocSchema = z.object({
   fields: z.record(z.string(), z.string()).optional(),
   crew: z.array(crewLineDocSchema).optional(),
   pushToCalendar: z.boolean().optional(),
-  googleCalendarEventId: z.string().nullable().optional(),
 });
 
 const dayDocSchema = z.object({
@@ -137,7 +134,6 @@ function parseItem(raw: z.infer<typeof scheduleDayItemDocSchema>): ScheduleDayIt
     fields: raw.fields ?? {},
     crew: (raw.crew ?? []).map((c) => ({ type: c.type, quantity: c.quantity, hours: c.hours ?? null })),
     pushToCalendar: raw.pushToCalendar ?? true,
-    googleCalendarEventId: raw.googleCalendarEventId ?? null,
   };
 }
 

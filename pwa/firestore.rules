@@ -270,9 +270,9 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy // owner immutable
         && nonEmptyStr(request.resource.data, 'name')
         && fieldIn(request.resource.data, 'status', ['draft', 'active', 'archived'])
-        // Both fields are server-owned: createEventCalendar manages the calendar id, while
-        // renameEventSlug transactionally moves the canonical slugs/{slug} reservation.
-        && keysUnchanged(['googleCalendarId', 'slug']);
+        // Server-owned: renameEventSlug transactionally moves the canonical
+        // slugs/{slug} reservation.
+        && keysUnchanged(['slug']);
       allow delete: if isAdmin();
 
       // Membership: admin-managed, OR the event's creator bootstrapping as PM.
@@ -419,9 +419,8 @@ service cloud.firestore {
 
       // Schedule days (redesign — planning/archive/feature/SCHEDULE_REDESIGN.md): one doc per calendar day,
       // doc id = the 'YYYY-MM-DD' date key (one-card-per-date is structural), items embedded
-      // in the day. Member read; PM/admin write. Per-item googleCalendarEventId is reconciled
-      // server-side — rules can't practically gate fields inside an embedded array, so the
-      // push callable is authoritative for calendar state.
+      // in the day. Member read; PM/admin write. (Rules can't practically gate fields inside
+      // an embedded array; the client Zod parser owns per-item shape.)
       match /scheduleDays/{dayKey} {
         // Shared shape gate for create + update: the stored date always equals the doc
         // id, the day type is a known key, and items is a (possibly empty) list.

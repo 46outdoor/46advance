@@ -65,7 +65,6 @@ function toDayItem(raw: DocumentData, stageIdByName: Map<string, string>): Docum
     fields: raw.fields && typeof raw.fields === 'object' ? raw.fields : {},
     crew: toCrewLines(raw.crew),
     pushToCalendar: raw.pushToCalendar !== false,
-    googleCalendarEventId: null,
   };
 }
 

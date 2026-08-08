@@ -21,7 +21,6 @@ function makeEvent(overrides: Partial<EventRecord> & { id: string }): EventRecor
     packetDrive: overrides.packetDrive ?? null,
     status: overrides.status ?? 'active',
     departmentIds: overrides.departmentIds ?? [],
-    googleCalendarId: overrides.googleCalendarId ?? null,
     bookingLabel: overrides.bookingLabel ?? null,
     slug: overrides.slug ?? null,
     eventLogo: overrides.eventLogo ?? null,

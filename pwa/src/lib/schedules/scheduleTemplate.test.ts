@@ -194,7 +194,6 @@ describe('editor bridges + helpers', () => {
     const original = item('i1');
     const asDay = templateItemToDayItem(original);
     expect(asDay.stageId).toBe('Main');
-    expect(asDay.googleCalendarEventId).toBeNull();
     expect(dayItemToTemplateItem(asDay)).toEqual(original);
   });
 

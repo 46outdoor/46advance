@@ -56,7 +56,6 @@ function blankItem(): ScheduleDayItem {
     fields: {},
     crew: [],
     pushToCalendar: true,
-    googleCalendarEventId: null,
   };
 }
 
