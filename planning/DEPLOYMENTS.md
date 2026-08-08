@@ -53,10 +53,15 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **CSP enforce — residual watch through ~2026-08-12.** The flip is live (see the 21:08Z
+- **CSP enforce — residual log watch through ~2026-08-12.** The flip is live (see the 21:08Z
   checkpoint entry); headers verified on both domains and the first hour logged no violations.
-  Left to do: exercise sign-in plus one Google flow (Drive picker or packet generate) in a
-  browser, and glance at the cspReport query over the next few days. Rollback = rename the
+  The browser pass completed 2026-08-08 ~22:45Z (MCP-driven crawl of production, signed in as
+  the owner): password sign-in, Firestore listeners, calendar-feed status/subscription calls,
+  a per-day schedule edit round-trip, and the full Generate-packet Google flow
+  (`generatePacket` → Storage-hosted PDF) all returned 200, with zero `cspviolationreport`
+  requests across the session and no console "Refused to …" errors on any page (Events, event
+  detail, Production, Schedule, Contacts, Documents, Admin, Settings, Tracker, advance detail).
+  Left to do: glance at the cspReport query over the next few days. Rollback = rename the
   header key back + owner Hosting redeploy (the guard test must be reverted with it).
 - *(nothing else pending — the Phase-3 field-migration re-run gate closed 2026-08-08 with a
   clean dry run; see the ledger entry)*
