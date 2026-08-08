@@ -4,9 +4,10 @@
  * Per-user offline OAuth: each user connects their own Google account; the refresh
  * token is stored server-side in `googleTokens/{uid}` (Admin SDK only — never
  * client-readable). A non-secret status mirror lives in `googleConnections/{uid}`
- * (owner/admin read). One Google calendar is created per event on demand (owned by
- * the connecting user; id stored on the event), and an advance call becomes a
- * Calendar event with a Meet link whose URL is written back to the advance.
+ * (owner/admin read). The connection now serves the Appointment Schedule booking sync
+ * (which reads the connecting user's `primary` calendar) and Drive file access; the
+ * per-event calendars and app-created Meet links were retired in Phase 3 of
+ * planning/CALENDAR_SUBSCRIPTIONS.md.
  *
  * Secrets (Firebase Functions Secret Manager): GOOGLE_OAUTH_CLIENT_ID,
  * GOOGLE_OAUTH_CLIENT_SECRET. The OAuth client's authorized redirect URI must match
@@ -20,11 +21,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { google } from 'googleapis';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { assertActiveUser } from './lib/auth/authorize.js';
-import { parseCallableData } from './lib/parseCallable.js';
-import { withGoogleRetry } from './lib/google/retry.js';
 import { httpsFunctionUrl } from './lib/http/functionUrl.js';
-import { eventCalendarSummary } from './lib/events/calendarSummary.js';
-import { createEventCalendarInputSchema } from './contracts/callables/google.js';
 
 /** OAuth2 client type, taken from googleapis' own auth bundle (avoids a duplicate-copy type clash). */
 export type AuthClient = InstanceType<typeof google.auth.OAuth2>;
@@ -149,57 +146,6 @@ export async function authedClientForUser(db: Firestore, uid: string): Promise<A
     void db.collection('googleTokens').doc(uid).set(update, { merge: true });
   });
   return client;
-}
-
-/** Return the event's Google calendar id, creating one (owned by `uid`) if absent. */
-export async function ensureEventCalendar(
-  db: Firestore,
-  client: AuthClient,
-  uid: string,
-  eventId: string,
-  eventName: string,
-): Promise<string> {
-  const eventRef = db.doc(`events/${eventId}`);
-  const snap = await eventRef.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Event not found.');
-  const existing = snap.data()?.googleCalendarId;
-  if (typeof existing === 'string' && existing.length > 0) return existing;
-
-  // A per-event short code (e.g. "BOTB") names the calendar when set; otherwise the app default.
-  // A later short-code/name change re-names this calendar via the renameEventCalendarOnChange
-  // trigger. (Follow-up: mirror the short code into Drive folder / packet filenames.)
-  const summary = eventCalendarSummary(snap.data()?.shortCode, eventName);
-
-  const calendar = google.calendar({ version: 'v3', auth: client });
-  const created = await withGoogleRetry(
-    () => calendar.calendars.insert({ requestBody: { summary, timeZone: TIME_ZONE } }),
-    { label: 'calendars.insert' },
-  );
-  const calendarId = created.data.id;
-  if (!calendarId) throw new HttpsError('internal', 'Could not create the event calendar.');
-
-  // Idempotent adopt: two concurrent calls both create a calendar, but only one is stored. In a
-  // transaction, claim ours only if the event still has no calendar; if another call won, delete
-  // our orphan so the event never ends up with a duplicate (or an unreferenced) Google calendar.
-  const adopted = await db.runTransaction(async (tx) => {
-    const fresh = await tx.get(eventRef);
-    const current = fresh.data()?.googleCalendarId;
-    if (typeof current === 'string' && current.length > 0) return current;
-    tx.set(
-      eventRef,
-      {
-        googleCalendarId: calendarId,
-        googleCalendarOwnerUid: uid,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-    return calendarId;
-  });
-  if (adopted !== calendarId) {
-    await calendar.calendars.delete({ calendarId }).catch(() => undefined);
-  }
-  return adopted;
 }
 
 /**
@@ -348,30 +294,4 @@ export const googleDisconnect = onCall({ secrets: OAUTH_SECRETS }, async (reques
   await enforceRateLimit(db, ['googleDisconnect', uid], 10);
   await disconnectGoogle(db, uid);
   return { ok: true };
-});
-
-/**
- * Create (or return) the event's Google calendar. Admin or the event's production
- * manager only. Input: { eventId }. Returns { calendarId }.
- */
-export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const { eventId } = parseCallableData(createEventCalendarInputSchema, request.data);
-  const db = getFirestore();
-  await enforceRateLimit(db, ['createEventCalendar', uid], 20);
-  await assertCanEditEvent(db, token, uid, eventId);
-
-  const eventSnap = await db.doc(`events/${eventId}`).get();
-  if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-
-  const client = await authedClientForUser(db, uid);
-  const calendarId = await ensureEventCalendar(
-    db,
-    client,
-    uid,
-    eventId,
-    String(eventSnap.data()?.name ?? 'Event'),
-  );
-  return { calendarId };
 });

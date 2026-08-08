@@ -52,13 +52,9 @@ import { revokeCalendarFeedForUser } from './calendarFeedTokens.js';
 initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 
-// Phase 11b — Google Calendar + Meet (per-user OAuth). Defined in ./google.ts.
-export {
-  googleAuthUrl,
-  googleAuthCallback,
-  googleDisconnect,
-  createEventCalendar,
-} from './google.js';
+// Phase 11b — Google connection (per-user OAuth). Defined in ./google.ts. The connection
+// serves the Appointment Schedule booking sync + Drive; per-event calendars are retired.
+export { googleAuthUrl, googleAuthCallback, googleDisconnect } from './google.js';
 
 // Phase 11b (sync) — match Appointment Schedule bookings to advances. ./googleBookings.ts.
 export { syncAdvanceCallBookings, scheduledAdvanceCallSync } from './googleBookings.js';
@@ -91,9 +87,6 @@ export { scheduledDataRetention } from './retention.js';
 
 // Email a fixed admin address when a new account registers + needs approval (needs SMTP_PASSWORD secret).
 export { notifyOnRegistration } from './registrationNotify.js';
-
-// Re-name an event's Google calendar when its short code / name changes (post-creation).
-export { renameEventCalendarOnChange } from './eventCalendarRename.js';
 
 // Push a master template's production content onto events that already exist. ./templatePush.ts.
 export { pushTemplateProduction } from './templatePush.js';
@@ -443,32 +436,16 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
     }
   }
 
-  // Clear event memberships (members docs mirror the uid field) + unlink their contact(s), and
-  // forget any event calendars this now-gone user created in their personal Google account — the
-  // token is revoked, so the app can never write to them again. Clearing the reference lets a later
-  // reconcile recreate a calendar under a still-connected PM (WS-H).
+  // Clear event memberships (members docs mirror the uid field) + unlink their contact(s).
+  // No per-event calendar cleanup: those calendars were retired in Phase 3 of
+  // planning/CALENDAR_SUBSCRIPTIONS.md, and the user's calendar feed is revoked above.
   const memberships = await db.collectionGroup('members').where('uid', '==', uid).get();
   const contacts = await db.collection('contacts').where('userId', '==', uid).get();
-  const ownedCalendars = await db
-    .collection('events')
-    .where('googleCalendarOwnerUid', '==', uid)
-    .get();
 
   const batch = new ChunkedBatch(db);
   memberships.forEach((m) => batch.delete(m.ref));
   contacts.forEach((c) =>
     batch.set(c.ref, { userId: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true }),
-  );
-  ownedCalendars.forEach((e) =>
-    batch.set(
-      e.ref,
-      {
-        googleCalendarId: FieldValue.delete(),
-        googleCalendarOwnerUid: FieldValue.delete(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    ),
   );
   batch.delete(db.collection('users').doc(uid));
   await batch.commit();
