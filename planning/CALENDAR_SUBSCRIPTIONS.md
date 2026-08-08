@@ -431,11 +431,18 @@ Do not use "Phase 1 deployed" as the cleanup signal. All of these must be true:
 
 **2026-08-08 — first real subscriber (owner), Google Calendar.**
 
-- **Gate 1 (partial).** The owner has an active feed and confirmed it populates correctly in
-  Google Calendar. `lastAccessedAt` recorded a real fetch 31s after the mint, and Cloud Run
-  `request_count` metrics (unaffected by the request-log exclusion) show further successful
-  fetches afterwards. **Still open:** every OTHER intended subscriber. Only one uid has ever
-  created a feed, so the rest of the team is not yet covered.
+- **Gate 1 — CLOSED (2026-08-08).** The owner has an active feed and confirmed it populates
+  correctly in Google Calendar. `lastAccessedAt` recorded a real fetch 31s after the mint, and
+  Cloud Run `request_count` metrics (unaffected by the request-log exclusion) show further
+  successful fetches afterwards. **The intended-subscriber population is one:** production
+  holds exactly one account (`users` collection, verified 2026-08-08 —
+  `jared@46entertainment.com`, the same uid that owns the feed), so "every intended subscriber"
+  is satisfied rather than deferred. **Re-open this gate if accounts are added before Phase 3**
+  — each new member must have their own feed and confirmed subscription before the per-event
+  calendars go away.
+- **Gates 4 and 5 collapse at this population.** "The team has stopped relying on the old
+  calendars" and "a human reviews the dry-run inventory and confirms" are both the owner alone;
+  no coordination is required. They still gate the destructive run — they are just cheap.
 - **Gate 2 (partial).** Covered so far: **initial add** (Google, populates correctly) and
   **token rotation** (three mints, each revoking its predecessor, exactly one active; polls
   against a revoked token return the standard 404). **Observed refresh behavior — NOT an
@@ -443,6 +450,11 @@ Do not use "Phase 1 deployed" as the cleanup signal. All of these must be true:
   consistent with the "commonly many hours" warning above. Do not plan show-day changes
   around Google refresh. **Still open:** Apple Calendar entirely; changed content, removed
   content, mode changes, membership revocation, and an empty feed on both clients.
+  **Deferred by owner decision 2026-08-08:** with a single user who can rotate and
+  re-subscribe at will, these are feature-correctness checks rather than migration risk, and
+  they get exercised through ordinary use. **Gate 3 is explicitly NOT deferred** — it is the
+  only gate guarding irreversible data loss (a future app-created Meet event can exist solely
+  inside an event calendar), and it is unaffected by user count.
 - **Note on reading the telemetry.** `lastAccessedAt` is throttled to one write per 24h, so
   the Settings card can legitimately show a stamp hours older than the newest poll. Cloud Run
   `request_count` is the per-request signal when the actual cadence matters.
