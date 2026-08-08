@@ -78,13 +78,14 @@ function makeItemFilter(type: string, stage: string) {
     (!type || item.type === type) && (!stage || item.stageId === stage);
 }
 
-/** All schedule-day mutations, invalidating the day list on success. Saves also fire a
- * fire-and-forget calendar reconcile for the affected day (PR 4) — a graceful no-op
- * when the caller hasn't connected Google. */
+/** All schedule-day mutations, invalidating the day list on success. No calendar IO: days
+ * reach people through the per-user subscription feed, which reads Firestore at poll time. */
 function useScheduleDayMutations(
   eventId: string | null,
   uid: string | undefined,
-  onDaySettled: () => void,
+  // Scoped per mutation, deliberately: a shared "close the forms" callback let saving one
+  // day's metadata close an in-progress "+ Add day" form and discard what was typed into it.
+  forms: { onDayCreated: () => void; onDayMetaSaved: () => void },
 ) {
   const queryClient = useQueryClient();
   const invalidate = () =>
@@ -104,7 +105,7 @@ function useScheduleDayMutations(
     mutationFn: (meta: ScheduleDayMeta) => createScheduleDay(eventId!, meta, uid!),
     onSuccess: () => {
       invalidate();
-      onDaySettled();
+      forms.onDayCreated();
     },
     onError: onError('add the day'),
   });
@@ -114,7 +115,7 @@ function useScheduleDayMutations(
       saveScheduleDayMeta(eventId!, day, meta, uid!),
     onSuccess: () => {
       invalidate();
-      onDaySettled();
+      forms.onDayMetaSaved();
     },
     onError: onError('save the day'),
   });
@@ -517,16 +518,17 @@ export function EventScheduleScreen() {
   const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
 
   const days = useMemo(() => daysQuery.data ?? [], [daysQuery.data]);
-  // After a day mutation settles, close the add/metadata forms. The day stays in edit
-  // mode so a rename doesn't kick you out of the rows you were working on.
-  const closeDayForms = () => {
-    setAddingDay(false);
-    setDayFormId(null);
+  // Each form closes only on its OWN mutation — the two can be open at once, and closing
+  // the wrong one throws away unsubmitted input. A day stays in edit mode after its
+  // metadata saves, so a rename doesn't kick you out of the rows you were working on.
+  const forms = {
+    onDayCreated: () => setAddingDay(false),
+    onDayMetaSaved: () => setDayFormId(null),
   };
   const { createDay, editDay, saveItems, removeDay, shiftDays } = useScheduleDayMutations(
     eventId,
     user?.uid,
-    closeDayForms,
+    forms,
   );
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
