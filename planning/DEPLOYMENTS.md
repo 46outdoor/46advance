@@ -59,8 +59,15 @@ previously approved until the user hits Settings → Disconnect → Connect (`di
 calls `revokeToken`, so the cycle resets the grant at Google and re-consents to the new set).
 Booking sync behaves identically under either grant, so no one is forced to act. Note this is
 separate from rotating a calendar-feed token, which changes the feed URL and nothing about
-OAuth. **Rollback:** redeploy functions from `b79e7c2`; users who already re-consented would
-need to reconnect again to regain the wider scopes.
+OAuth.
+
+**Owner re-consented 2026-08-08 15:52Z — reduction VERIFIED end to end.** Stored grant is now
+exactly `calendar.events.readonly` + `drive.file` + `openid` + `userinfo.email`, with no
+calendar write scope. Probed with the refreshed token: `events.list` on `primary` (the booking
+sync's only call) returns **200**, and `events.insert` returns **403 refused**. This also
+confirms dropping `include_granted_scopes` was load-bearing — with it, the previously approved
+`calendar` / `calendar.events` would have been re-granted here. **Rollback:** redeploy functions
+from `b79e7c2`; anyone who already re-consented must reconnect again to regain the wider scopes.
 
 **2026-08-08 — Phase 3: per-event Google calendars decommissioned (#257, `b79e7c2`):
 rules + functions deploy + data migration.** Rules deployed first (permissive — the events
