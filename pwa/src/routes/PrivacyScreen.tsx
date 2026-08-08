@@ -55,10 +55,10 @@ export function PrivacyScreen() {
               account and connection status.
             </li>
             <li>
-              <strong>Google Calendar</strong> (scopes{' '}
-              <code className="rounded bg-surface-muted px-1">calendar</code> and{' '}
-              <code className="rounded bg-surface-muted px-1">calendar.events</code>) to read your
-              calendar and detect advance-call bookings.
+              <strong>Google Calendar</strong> (scope{' '}
+              <code className="rounded bg-surface-muted px-1">calendar.events.readonly</code>) to
+              read your calendar events and detect advance-call bookings. This is read-only — the
+              app cannot create, change, or delete anything on your calendar.
             </li>
           </ul>
         </Section>

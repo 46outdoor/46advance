@@ -1,5 +1,5 @@
 /**
- * Per-event Google calendar inventory + decommission (planning/CALENDAR_SUBSCRIPTIONS.md
+ * Per-event Google calendar inventory + decommission (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md
  * Phase 3 cleanup / cutover gate 3).
  *
  * The per-event calendars are secondary calendars living inside the PERSONAL Google
@@ -13,6 +13,12 @@
  * represented by a known stored calendar id. Read it before deleting anything — the spec
  * warns that a future app-created Meet event can exist ONLY inside an event calendar, and
  * deleting blind destroys it.
+ *
+ * HISTORICAL (2026-08-08): the Phase 3 inventory found both calendars already deleted from
+ * Google, so the destructive path never had to run. This script also predates the OAuth
+ * least-privilege reduction — it calls `calendars.get/delete` and `calendarList.list`, which
+ * the app's current `calendar.events.readonly` grant does NOT permit. Re-running it would
+ * need a token with the old `calendar` scope. Retained as the gate-3 audit artifact.
  *
  * Run (from functions/ — firebase-admin + googleapis resolve here):
  *

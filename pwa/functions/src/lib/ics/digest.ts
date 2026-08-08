@@ -1,5 +1,5 @@
 /**
- * VEVENT rendering for the calendar subscription feed (planning/CALENDAR_SUBSCRIPTIONS.md
+ * VEVENT rendering for the calendar subscription feed (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md
  * § Rendering) in both modes: DIGEST (the default) and ITEM (opt-in, Phase 2).
  *
  * Digest: one transparent all-day VEVENT per

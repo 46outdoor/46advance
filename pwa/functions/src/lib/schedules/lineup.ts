@@ -1,7 +1,7 @@
 /**
  * Event lineup loading + day-aware `{artist_N}` slot lookup, shared by the calendar push
  * (`googleSchedule.ts`, one day per call) and the calendar subscription feed (every day of
- * every event — planning/CALENDAR_SUBSCRIPTIONS.md). Loads an event's ordered stages and
+ * every event — planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md). Loads an event's ordered stages and
  * ALL their advances ONCE, then answers per-day resolver queries from in-memory maps —
  * the feed must not repeat the old per-day/per-stage reads across a whole history.
  *

@@ -1,5 +1,5 @@
 /**
- * Calendar subscription feed credentials (planning/CALENDAR_SUBSCRIPTIONS.md Phase 1).
+ * Calendar subscription feed credentials (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 1).
  *
  * One active 256-bit bearer token per user: `calendarFeeds/{sha256(token)}` is the
  * endpoint's O(1) lookup (only the digest is stored — a leaked database never yields a

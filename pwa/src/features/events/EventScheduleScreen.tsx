@@ -255,7 +255,7 @@ function ShiftControl({
 
 /** What the per-item "Push to calendar" flag means now: inclusion in each subscriber's
  * personal calendar feed (the per-event Google calendars were retired in Phase 3 of
- * planning/CALENDAR_SUBSCRIPTIONS.md). */
+ * planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md). */
 function CalendarFeedHint({ canEdit }: { canEdit: boolean }) {
   if (!canEdit) return null;
   return (

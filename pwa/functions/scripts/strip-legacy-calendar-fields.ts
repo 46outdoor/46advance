@@ -1,5 +1,5 @@
 /**
- * One-time migration (Phase 3, planning/CALENDAR_SUBSCRIPTIONS.md): remove the retired
+ * One-time migration (Phase 3, planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md): remove the retired
  * per-event calendar linkage from Firestore.
  *
  *   events/{id}.googleCalendarId, .googleCalendarOwnerUid

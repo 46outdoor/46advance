@@ -1,5 +1,5 @@
 /**
- * Per-user calendar-feed preferences (planning/CALENDAR_SUBSCRIPTIONS.md Phase 2):
+ * Per-user calendar-feed preferences (planning/archive/feature/CALENDAR_SUBSCRIPTIONS.md Phase 2):
  * `calendarSubscriptions/{uid}` holds which events the subscriber excludes, which render
  * as individual timed items instead of the default digest, and whether past events drop
  * off. Every field defaults to empty/false and the DOC ITSELF IS OPTIONAL — a missing doc
