@@ -4,6 +4,12 @@ Lightweight release traceability for 46 Advance (WS-M / forensic-remediation Pha
 records **what shipped, from which commit, and how to roll it back**. It is not automation —
 it is the human-readable record that complements the machine release identifier.
 
+**Division of labor vs. the changelog:** this ledger records *deploy events* — target, commit,
+verification evidence, rollback — on the deploy clock. What a change *does* for its users lives
+in [`../CHANGELOG.md`](../CHANGELOG.md), on the merge clock. Entries here **cite** PRs and let
+the changelog carry the description; don't re-narrate features in both places. (The two clocks
+differ because Hosting is owner-deployed on its own cadence — merged ≠ live.)
+
 ## Release identifier (every build)
 
 Every production build exposes a source commit/release id:
@@ -41,10 +47,81 @@ Hosting release → restrictive rules.
 - **Rules:** rules are versioned in git; redeploy the previous `firestore.rules` / `storage.rules`.
   Prefer widening (permissive) rollbacks — never leave data more exposed than intended.
 
+## Open deploy actions
+
+The standing queue — everything decided-but-not-yet-live or gated on a future release. Keep
+this section current: it is the *only* forward-looking part of this file. When an item
+completes, record it as a ledger entry below and delete it here.
+
+- **CSP enforce flip (#264, `feat/csp-enforce`) awaits the next owner Hosting release.**
+  Merged after the 2026-08-08 19:23Z checkpoint, so production still serves report-only. When
+  the carrying release lands: verify both domains serve `Content-Security-Policy` (not
+  `…-Report-Only`), exercise sign-in plus one Google flow, and watch the cspReport logs for a
+  few days (query in the 2026-08-08 CSP ledger entry). Rollback = rename the header key back +
+  redeploy Hosting.
+- **Re-run `functions/scripts/strip-legacy-calendar-fields.ts` once (owner credentials).** The
+  gate — "after the next Hosting release", because the pre-Phase-3 client could write
+  `googleCalendarEventId: null` back on a whole-day save — was satisfied by the 2026-08-08
+  19:23Z release (it carries the #257 client, so the pre-Phase-3 client is gone). The script is
+  idempotent; expect ~0 fields cleared.
+
 ## Ledger
 
-Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
-next Hosting release; note the Hosting checkpoint that carried them once known.
+Newest first — prose entries, **one per deploy event**, following this template:
+
+> **YYYY-MM-DD — Title (#PR, `sha`): TARGET(S).** What deployed — cite the CHANGELOG entry for
+> user-facing behavior rather than describing it. Verification evidence. **Rollback:** steps.
+
+A dated **decision record** may also be entered when it closes an observation thread whose
+evidence must outlive the Open-actions queue (which is deleted as items complete) — the deploy
+it gates still gets its own entry when it happens.
+
+Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next Hosting
+release; note the checkpoint that carried them once known. (The table at the bottom is the
+**closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
+don't extend it; new entries are prose.)
+
+**2026-08-08 — Hosting checkpoint (19:23Z, `b660b40` #263): HOSTING (owner).** Third owner
+release of the day (16:00Z `5f9079a`, 16:22Z `13cc50e`, 19:23Z `b660b40` — all successful
+`production-deploy.yml` runs). The 19:23Z release is current `main` exactly, so the accumulated
+client queue is **clear**: the calendar-feed Phase 2 picker (#252), the Phase-3
+calendar-decommission client (#257), per-day schedule editing (#262), and the older client
+halves (#229 #233 #234 #236 #238–#240 #243) are all live. Verified:
+`Last-Modified: 2026-08-08 19:25:26 GMT` on `46advance.com`, after the 17:45Z merge of #263.
+Consequences: the Phase-3 field-migration re-run gate is satisfied, and the CSP enforce flip
+missed this release — both tracked in Open deploy actions.
+
+**2026-08-08 — CSP report-only → enforce: decision record (#264, `feat/csp-enforce`) — no
+deploy yet.** The flip is merged but **not live** (production still serves report-only; the
+pending release is tracked in Open deploy actions, and the carrying Hosting checkpoint will be
+the deploy entry). Closes the observation thread open since reporting went live 2026-07-24. Two
+legitimate-origin gaps were found across the whole period, each fixed before enforcing:
+`connect-src` missing `…cloudfunctions.net` (#185, live 2026-07-24) and `frame-src` missing the
+Firebase Auth handler domain `advancethat.firebaseapp.com` (#208, live 2026-07-31) — the Auth
+SDK mounts a hidden iframe at `https://<authDomain>/__/auth/iframe`, so enforcing without it
+would have broken sign-in silently. The final window (2026-07-31 → 2026-08-08, queried at 9-day
+freshness to cover it fully) returned **one** violation: the already-recorded pre-fix frame-src
+event at `2026-07-31T03:10:25Z` — zero since the fix went live. Per this ledger's own warning
+that a silent window only counts if the flows ran, Cloud Run request logs confirm the window was
+exercised: sign-in (`syncuserclaims` ×22), packet generate/save (`generatepacket` /
+`savepackettodrive`, 200s across 07-31 → 08-03), Drive picker token grants
+(`getdriveaccesstoken` ×5), the OAuth disconnect/reconnect cycle (08-08 re-consent), and the
+calendar-feed callables. Template push and quote PDF were not invoked but introduce no origin
+not already proven by other callables. Nothing merged since 08-03 adds an origin (checklist =
+Firestore; feed card = callables; fonts self-hosted). The flip renames the header key — value
+unchanged — and repoints the WS-I guard test (`pwa/test/security-headers.config.test.ts`) at
+the enforced key, asserting the report-only key is absent so a revert can't land silently. Note `script-src` still carries `'unsafe-inline'`, so enforcement is not full
+XSS protection; nonce/hash tightening remains a separate effort. **Rollback:** rename the key
+back to `Content-Security-Policy-Report-Only` + owner Hosting redeploy. Ongoing-monitoring
+query (the window verification above ran it with `--freshness=9d` to reach back to 07-31;
+widen `--freshness` to span whatever period is under review):
+
+```bash
+pwa/scripts/cli/gcloud-safe.sh logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="cspreport" AND jsonPayload.message="CSP violation"' \
+  --limit=100 --freshness=7d \
+  --format="value(timestamp,jsonPayload.violatedDirective,jsonPayload.blockedUri,jsonPayload.documentUri)"
+```
 
 **2026-08-08 — OAuth least privilege (#259, `1991c1e`): functions deploy.** Closes the last
 Phase 3 inventory item. The backend's only remaining Calendar call is `events.list` on
@@ -157,7 +234,8 @@ pre-exclusion entries containing dummy tokens (`AAA…`/`BBB…`, never real cre
 with the 30-day `_Default` retention. **Rollback:** `gcloud logging sinks update _Default
 --remove-exclusions=calendarfeed-request-urls` restores platform request logging.
 
-**Hosting live state (verified 2026-07-24, second deploy).** The owner ran a second Hosting deploy on
+**2026-07-24 — Hosting checkpoint (second deploy; superseded — see the 2026-08-08 checkpoint
+for current live state).** The owner ran a second Hosting deploy on
 2026-07-24 carrying the accumulated client work: the festivals/event restructure client (Festivals
 admin + event festival/location form, #192), the packet filename-token editor + version replace/bump
 prompt (#194), the Sync-from-Drive/import error surfacing (#186 client), the packet buttons/PM-gating
@@ -170,63 +248,7 @@ Both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` are provisioned. Owner-provided S
 confirmed the safe Admin → Observability diagnostic reached production Issues with a release tag and
 a readable source-mapped frame (`ObservabilityDiagnostics.tsx:17:18`).
 
-### CSP: report-only → enforce (open thread)
-
-Reporting went live with the 2026-07-24 Hosting release; violations now POST to the `cspReport`
-function and land in Cloud Logging.
-
-**PREREQUISITE — #185 (cloudfunctions.net allowlist) ✅ NOW LIVE (2026-07-24).** The Tier 1/2
-observation found exactly one gap: the app's Cloud Functions callables (`…cloudfunctions.net/*`) were
-missing from `connect-src`. The fix (PR #185) rode the 2026-07-24 owner Hosting deploy — verified live:
-`connect-src` now lists `…cloudfunctions.net` on both domains. The known `cloudfunctions.net` violation
-should now STOP appearing in the logs. **Next:** observe a clean window (~1 week, target ~2026-07-31) —
-confirm no *other* legitimate-resource violations — then flip to enforce.
-
-**PREREQUISITE 2 — `frame-src` missing the Auth handler domain ✅ NOW LIVE (2026-07-31).**
-The observation window closed **not clean**. The `logging read` above returned exactly one violation
-over the 7 days:
-
-```
-2026-07-31T03:10:25Z   frame-src   https://advancethat.firebaseapp.com   https://advancethat.web.app/
-```
-
-That origin is the **Firebase Auth handler domain** (`VITE_FIREBASE_AUTH_DOMAIN`); the Auth Web SDK
-mounts a hidden iframe at `https://<authDomain>/__/auth/iframe` for popup/redirect sign-in. It matched
-nothing in the old `frame-src` (`*.google.com` does **not** cover `firebaseapp.com`), so **flipping to
-enforce before this fix would have broken Google/Apple sign-in in production** — and silently, since a
-blocked auth iframe fails without a clear error. `frame-src` now lists the domain explicitly.
-
-**The enforce clock restarts — window opened 2026-07-31.** The fix rode the 2026-07-31 owner Hosting
-release; verified live on **both** domains (`frame-src` now lists `https://advancethat.firebaseapp.com`
-on `advancethat.web.app` and `46advance.com`, still report-only, smoke check passed on both).
-
-**Next:** observe a fresh window (~1 week, target ~2026-08-07), then flip only if clean. The fix and
-the enforce flip must be **separate releases** — verifying no violations *after* the fix is live is
-the whole point of the report-only phase.
-
-> **The window only records what someone actually triggers.** The last one surfaced a single
-> violation across 7 days, which says these paths see little production traffic — a silent window is
-> not evidence of a clean one. During this window deliberately exercise: sign-in, Drive picker +
-> sync, Meet/Calendar, packet generate + save to Drive, uploads, and the template push.
-
-**Observe before enforcing** — review collected reports with:
-
-```bash
-pwa/scripts/cli/gcloud-safe.sh logging read \
-  'resource.type="cloud_run_revision" AND resource.labels.service_name="cspreport" AND jsonPayload.message="CSP violation"' \
-  --limit=100 --freshness=7d \
-  --format="value(timestamp,jsonPayload.violatedDirective,jsonPayload.blockedUri,jsonPayload.documentUri)"
-```
-
-Exercise every Google/Firebase flow (Drive picker + import, Meet/Calendar, packet generate + save
-to Drive, uploads, sign-in) during the window. Any violation from a *legitimate* resource means the
-allowlist needs that origin added **before** enforcing — otherwise enforcing will break that feature.
-
-When the window is clean: in `pwa/firebase.json` rename the header key
-`Content-Security-Policy-Report-Only` → `Content-Security-Policy` (value unchanged), then run the
-owner Hosting deploy. Rollback is the reverse rename + redeploy. Note `script-src` still carries
-`'unsafe-inline'`, so enforcing blocks unexpected external scripts/objects/base-uri/framing but is
-not full XSS protection; tightening to nonce/hash-based inline scripts is a separate effort.
+### Closed record — 2026-07-22 → 2026-08-03 (remediation-era format; don't extend)
 
 | Date | Change | Commit / PR | Target | Result |
 | --- | --- | --- | --- | --- |

@@ -58,7 +58,9 @@ package is justified.
 
 ### Documentation that spans apps
 
-- `CHANGELOG.md` (workspace root) — user-facing changes from any app
+- `CHANGELOG.md` (workspace root) — user-facing changes from any app, on the **merge** clock
+- `planning/DEPLOYMENTS.md` — deploy events per target (commit, verification, rollback), on the
+  **deploy** clock — merged ≠ live, since Hosting ships on owner-run releases
 - `docs/` (workspace root) — shared architecture, reports, ADRs <!-- TBD: create when needed -->
 - `planning/` (workspace root) — active multi-phase plans
 
@@ -253,6 +255,12 @@ backend (`functions/`, `firestore.rules`, `storage.rules`), the agent pulls
 before deploying** the changed targets. Frontend-only changes get **no agent
 deploy** (hosting is external/forbidden). Never deploy hosting; if the health
 check fails, stop and report rather than deploying.
+
+Every deploy gets recorded in `planning/DEPLOYMENTS.md` in the same session — a
+prose entry per the ledger's template (target, commit, verification, rollback),
+shipped as a `docs(deploy)` PR. Client-only work instead adds to the ledger's
+**Open deploy actions** anything gated on the next owner Hosting release; when a
+Hosting release is observed, record its checkpoint (commit + evidence).
 
 Agents must not push, open the PR, or enable auto-merge until the user explicitly
 says to ship — that gap is the user's review window.
