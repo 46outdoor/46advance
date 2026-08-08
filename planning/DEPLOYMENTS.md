@@ -53,12 +53,11 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **CSP enforce flip (#264, `feat/csp-enforce`) awaits the next owner Hosting release.**
-  Merged after the 2026-08-08 19:23Z checkpoint, so production still serves report-only. When
-  the carrying release lands: verify both domains serve `Content-Security-Policy` (not
-  `…-Report-Only`), exercise sign-in plus one Google flow, and watch the cspReport logs for a
-  few days (query in the 2026-08-08 CSP ledger entry). Rollback = rename the header key back +
-  redeploy Hosting.
+- **CSP enforce — residual watch through ~2026-08-12.** The flip is live (see the 21:08Z
+  checkpoint entry); headers verified on both domains and the first hour logged no violations.
+  Left to do: exercise sign-in plus one Google flow (Drive picker or packet generate) in a
+  browser, and glance at the cspReport query over the next few days. Rollback = rename the
+  header key back + owner Hosting redeploy (the guard test must be reverted with it).
 - *(nothing else pending — the Phase-3 field-migration re-run gate closed 2026-08-08 with a
   clean dry run; see the ledger entry)*
 
@@ -77,6 +76,15 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-08 — Hosting checkpoint (21:08Z, `ecc5c9c` #266): HOSTING (owner) — CSP enforce is
+LIVE.** Fourth owner release of the day, from the then-current `main` tip, carrying #264
+(the CSP flip + guard test), #265 (this ledger's restructure), and #266. Verified: both
+`46advance.com` and `advancethat.web.app` now serve `Content-Security-Policy` (enforced) with
+no `…-Report-Only` header, and the first hour of cspReport logs shows zero violations. The
+report-only phase that began 2026-07-24 is over; the residual few-day log watch is tracked in
+Open deploy actions. **Rollback:** rename the header key back in `pwa/firebase.json` (and
+revert the guard test, which forbids the report-only key) + owner Hosting redeploy.
 
 **2026-08-08 — Phase-3 field-migration re-run gate: closed with a clean dry run (no
 writes).** The Phase-3 entry below required one more `strip-legacy-calendar-fields.ts` pass
