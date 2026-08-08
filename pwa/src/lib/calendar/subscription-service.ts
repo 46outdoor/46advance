@@ -5,6 +5,7 @@
  */
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/services/firebase';
+import { calendarSubscriptionSchema } from '@contracts/callables/calendarFeed';
 import type {
   CalendarSubscription,
   UpdateCalendarSubscriptionInput,
@@ -22,7 +23,7 @@ export async function getCalendarSubscription(): Promise<CalendarSubscription> {
     functions,
     'getCalendarSubscription',
   );
-  return (await callable({})).data;
+  return calendarSubscriptionSchema.parse((await callable({})).data);
 }
 
 /** Partial update — omitted fields keep their stored value. Returns the merged result. */
@@ -33,7 +34,7 @@ export async function updateCalendarSubscription(
     functions,
     'updateCalendarSubscription',
   );
-  return (await callable(input)).data;
+  return calendarSubscriptionSchema.parse((await callable(input)).data);
 }
 
 /** Toggle membership of `id` in `list` (pure helper for the picker's toggles). */

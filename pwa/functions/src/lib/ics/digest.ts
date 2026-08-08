@@ -17,7 +17,7 @@ import { shiftDayKey } from '../dates/zonedTime.js';
 import { asWallClock, formatWallClockRange } from '../dates/wallClock.js';
 import { resolveArtistPlaceholders, type SlotResolver } from '../schedules/placeholders.js';
 import { buildScheduleItemEvent, shouldHaveEvent } from '../schedules/itemEvent.js';
-import { escapeIcsText, icsDate, icsUtcStamp } from './serialize.js';
+import { escapeIcsText, icsDate, icsUtcStamp, sanitizeIcsIdentifier } from './serialize.js';
 
 /** One digest row, resolved and ready to render. */
 export interface DigestItem {
@@ -117,7 +117,7 @@ export function digestVEventLines(input: DigestDayInput): string[] {
   const description = digestDescription(input.items);
   const lines = [
     'BEGIN:VEVENT',
-    `UID:day-${input.eventId}-${input.dayKey}@46advance.com`,
+    `UID:day-${sanitizeIcsIdentifier(input.eventId)}-${sanitizeIcsIdentifier(input.dayKey)}@46advance.com`,
     `DTSTAMP:${stamp}`,
     `LAST-MODIFIED:${stamp}`,
     `DTSTART;VALUE=DATE:${icsDate(input.dayKey)}`,
@@ -157,7 +157,7 @@ export function itemVEventLines(input: {
     if (!event) continue;
     const lines = [
       'BEGIN:VEVENT',
-      `UID:sched-${input.eventId}-${itemId}@46advance.com`,
+      `UID:sched-${sanitizeIcsIdentifier(input.eventId)}-${sanitizeIcsIdentifier(itemId)}@46advance.com`,
       `DTSTAMP:${stamp}`,
       `LAST-MODIFIED:${stamp}`,
       `DTSTART:${icsUtcStamp(event.start)}`,

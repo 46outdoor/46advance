@@ -168,6 +168,22 @@ describe('itemVEventLines', () => {
     expect(vevent.some((l) => l.startsWith('TRANSP'))).toBe(false);
   });
 
+  it('sanitizes a crafted item id so it cannot break out of the UID line', () => {
+    // Item ids live in the scheduleDays items ARRAY, which rules cannot validate — an
+    // event editor could store CR/LF and inject into every other member's feed.
+    const [vevent] = itemVEventLines({
+      ...base,
+      items: [
+        { id: 'i1\r\nBEGIN:VEVENT\r\nSUMMARY:Injected', item: 'Doors', startTime: '18:00' },
+      ],
+    });
+    const uidLines = vevent.filter((l) => l.startsWith('UID:'));
+    expect(uidLines).toHaveLength(1);
+    expect(uidLines[0]).toBe('UID:sched-evt1-i1BEGIN:VEVENTSUMMARY:Injected@46advance.com');
+    expect(vevent.filter((l) => l === 'BEGIN:VEVENT')).toHaveLength(1);
+    expect(vevent.join('\r\n')).not.toContain('\r\nSUMMARY:Injected');
+  });
+
   it('omits untimed items, pushToCalendar:false items, and rows without an id', () => {
     const vevents = itemVEventLines({
       ...base,
