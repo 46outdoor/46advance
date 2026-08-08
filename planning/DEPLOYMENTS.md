@@ -59,11 +59,8 @@ completes, record it as a ledger entry below and delete it here.
   `…-Report-Only`), exercise sign-in plus one Google flow, and watch the cspReport logs for a
   few days (query in the 2026-08-08 CSP ledger entry). Rollback = rename the header key back +
   redeploy Hosting.
-- **Re-run `functions/scripts/strip-legacy-calendar-fields.ts` once (owner credentials).** The
-  gate — "after the next Hosting release", because the pre-Phase-3 client could write
-  `googleCalendarEventId: null` back on a whole-day save — was satisfied by the 2026-08-08
-  19:23Z release (it carries the #257 client, so the pre-Phase-3 client is gone). The script is
-  idempotent; expect ~0 fields cleared.
+- *(nothing else pending — the Phase-3 field-migration re-run gate closed 2026-08-08 with a
+  clean dry run; see the ledger entry)*
 
 ## Ledger
 
@@ -80,6 +77,13 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-08 — Phase-3 field-migration re-run gate: closed with a clean dry run (no
+writes).** The Phase-3 entry below required one more `strip-legacy-calendar-fields.ts` pass
+after the next Hosting release, in case the pre-Phase-3 client wrote
+`googleCalendarEventId: null` back on a whole-day save. The 19:23Z checkpoint satisfied the
+gate; the dry run (`DRY_RUN=1`, ADC) then reported **0 event docs and 0 schedule items** to
+clear — the field never came back, so no destructive pass was needed. Nothing to roll back.
 
 **2026-08-08 — Hosting checkpoint (19:23Z, `b660b40` #263): HOSTING (owner).** Third owner
 release of the day (16:00Z `5f9079a`, 16:22Z `13cc50e`, 19:23Z `b660b40` — all successful
