@@ -211,7 +211,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Global test setup     | `src/testing/setup.ts` (jsdom `matchMedia` shim; wired via `vite.config.ts` → `setupFiles`) |
 | Firestore mocking (client tests) | Per-file idiom, not a shared factory: `vi.mock('@/services/firebase', () => ({ db: {} }))` + a spread-`importActual` mock of `firebase/firestore` stubbing only the IO entry points, so `Timestamp` stays real for the Zod schemas. Reference: `src/lib/rbac/membership.test.ts`, `src/lib/templates/templates-service.test.ts` |
 | Functions handler test harness | `functions/src/testing/emulatorHarness.ts` (wrap callables vs live Auth/Firestore emulators; run via `test:emulator`) |
-| Authenticated E2E (emulator) | `tests/emulator/` (deterministic personas + REST seeder + Playwright sign-in/isolated-context fixtures; run via `test:e2e:emulator`, demo-46advance only) |
+| Authenticated E2E (emulator) | `tests/emulator/` (deterministic personas + REST seeder + Playwright sign-in/isolated-context fixtures; run via `test:e2e:emulator`, or `test:e2e:emulator -- <filter>` for one spec; demo-46advance only). A CI gate — see `tests/emulator/README.md` for the browser-install caveat |
 | Shared callable schemas | `functions/src/contracts/callables/` (pure Zod; server `.parse` via `functions/src/lib/parseCallable.ts`, client via the `@contracts` alias) |
 | RBAC roles + schemas  | `src/lib/rbac/roles.ts` (cross-feature → shared lib; member docs carry `departments` + denormalized `email`/`displayName`) |
 | Permission checks     | `src/lib/rbac/permissions.ts` (pure predicates, incl. `canEditDepartment`/`canManageMembers`) |

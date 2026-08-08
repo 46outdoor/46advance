@@ -9,11 +9,18 @@ the real UI. See `planning/archive/fix/FORENSIC_REMEDIATION_PLAN.md` → Phase 0
 ```bash
 # from pwa/ — boots the demo emulators (Auth/Firestore/Storage), seeds, runs the suite
 npm run test:e2e:emulator
+
+# one spec, by test-name filter
+npm run test:e2e:emulator -- schedule-per-day-edit
 ```
 
 Requirements: Java (for the emulators) and a Chromium browser
-(`npx playwright install chromium` once). The plain smoke suite (`npm run test:e2e`)
-is unaffected — it ignores `*.emulator.spec.ts` and starts no emulators.
+(`npx playwright install chromium`). **Re-run that install after any `@playwright/test`
+bump** — Playwright pins an exact browser build, and a stale one fails at launch with
+`Executable doesn't exist at .../chromium_headless_shell-<n>`, which reads like a broken
+test rather than a missing download. CI installs fresh every run, so this only bites
+locally. The plain smoke suite (`npm run test:e2e`) is unaffected — it ignores
+`*.emulator.spec.ts` and starts no emulators.
 
 This suite runs in CI (the `e2e-emulator` job in `.github/workflows/ci.yml`, gated by
 `CI Summary`), so an authenticated critical path is exercised on every code PR.
