@@ -46,6 +46,31 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-08 — Phase 3: per-event Google calendars decommissioned (#257, `b79e7c2`):
+rules + functions deploy + data migration.** Rules deployed first (permissive — the events
+update lock drops `googleCalendarId`). The functions deploy then ABORTED: Firebase refuses to
+delete functions non-interactively. Five retired functions were deleted explicitly
+(`createAdvanceCall`, `createEventCalendar`, `reconcileScheduleDay`,
+`removeScheduleCalendarEvent`, `renameEventCalendarOnChange`) with owner approval, then the
+deploy re-ran clean. Verified: the retired callables now return 404 while retained ones still
+return 401.
+
+**Sequencing note for next time:** the live frontend predated this merge and still called three
+of the five. Impact was assessed as nil before deleting — `reconcileScheduleDay` and
+`removeScheduleCalendarEvent` are fire-and-forget with client-side `.catch`, and
+`createAdvanceCall` was already broken because both event calendars were gone from Google. The
+tidier order is Hosting release first, backend removal second.
+
+**Data migration** (`functions/scripts/strip-legacy-calendar-fields.ts`, run after the deploy —
+running it earlier would have let the still-live `ensureEventCalendar` recreate the calendars):
+cleared `googleCalendarId`/`googleCalendarOwnerUid` from 2 event docs and
+`googleCalendarEventId` from 233 schedule items across 16 days. Each day rewrite is
+transactional and bumps `revision`. Re-run confirmed idempotent (0 remaining). **Re-run once
+more after the next Hosting release** — the pre-Phase-3 client carries item calendar ids across
+a whole-day save and can write the key back as `null` (harmless; nothing reads it).
+**Rollback:** redeploy functions from `e687249`; the cleared fields are not recoverable, and
+are not needed — they referenced calendars deleted from Google before this work began.
+
 **2026-08-08 — Calendar subscription feed Phase 2 (#252, `e687249`): rules + functions
 deploy.** Per-user event selection and item mode. `deploy --only firestore:rules` released
 the `calendarSubscriptions/{uid}` owner-read rule (all writes go through the callable);
