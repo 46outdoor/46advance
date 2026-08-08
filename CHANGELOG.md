@@ -9,7 +9,22 @@ This project is pre-release (`0.0.0`) and unreleased; entries are grouped by the
 they landed on `main`, newest first. Internal-only changes (CI, tests, tooling,
 dependency bumps, and planning-doc updates) are omitted.
 
+Landing on `main` is not deployment — the web client ships on owner-run Hosting
+releases. [`planning/DEPLOYMENTS.md`](planning/DEPLOYMENTS.md) records what is
+actually live per target (Hosting / Functions / rules), with rollback steps.
+
 ## [Unreleased]
+
+### Changed
+
+- **Browser security policy — enforcement ships with the next release:** the app's
+  Content-Security-Policy, served in report-only mode since 2026-07-24, now ships enforced —
+  from the next Hosting release, the browser blocks scripts, frames, and connections to
+  origins the app doesn't expect instead of only reporting them. The observation window since
+  the last allowlist fix (2026-07-31) came back clean with the Google sign-in, Drive, and
+  packet flows all exercised, so nothing legitimate is affected.
+
+## 2026-08-08
 
 ### Added
 
@@ -19,6 +34,8 @@ dependency bumps, and planning-doc updates) are omitted.
   you're actually working on are editable. Adding a day, shifting all days, and importing a
   template act on the whole schedule, so they're simply available to editors now instead of
   hiding behind the old mode.
+
+### Changed
 
 - **Google access is now read-only for your calendar.** With per-event calendars and
   app-created meetings gone, the app no longer needs permission to change your calendar — the
@@ -39,6 +56,10 @@ dependency bumps, and planning-doc updates) are omitted.
   advance automatically, as it already did. Deleting an advance no longer touches the artist's
   real meeting. You can still set a time and link by editing the advance, and "Add to
   calendar" still downloads an .ics.
+
+## 2026-08-07
+
+### Added
 
 - **Calendar subscription feed — choose what's in it:** the Settings card now lists every
   event you're on with two controls each — include it or drop it, and show its days as the
@@ -70,6 +91,22 @@ dependency bumps, and planning-doc updates) are omitted.
   refreshes subscribed feeds on its own schedule — often many hours — so don't rely on
   it for show-day changes.
 
+### Fixed
+
+- **Schedule artist names now fill in — and placeholders name their stage:** artist
+  placeholders on schedule rows stayed stuck on the generic slot labels ("Headliner",
+  "Artist 3") instead of showing the booked artist. Placeholders now designate their
+  lineup stage directly: **`{artist_1}`** is slot 1 on the **main stage**, **`{artist_b_1}`**
+  slot 1 on the **side stage** (the letter walks the event's stage order, so a third stage
+  would be `{artist_c_…}`). Resolution no longer depends on which stage the row itself is
+  on, so template rows fill in correctly wherever they land — on screen and on the Google
+  Calendar push. The old `{artist 1}` spelling still works and means the main stage; slots
+  without a booked act keep showing the slot label until you book them.
+
+## 2026-08-04
+
+### Added
+
 - **Schedule import — duplicate detection:** importing a schedule template into a schedule
   that already has rows no longer silently doubles them. The import now checks first: if any
   of the template's items are already there (same day, type, time, name, and stage — details
@@ -85,6 +122,19 @@ dependency bumps, and planning-doc updates) are omitted.
   longer means re-entering each row; duplicate, then tweak what differs. The button hides
   in the rare case there's no open day left after that one.
 
+### Fixed
+
+- **Show days can be deleted again:** deleting a schedule day used to wait for every one of
+  its calendar-pushed items to be removed from Google Calendar before the day itself went —
+  so a show day with a full grid could hang for minutes (and look undeletable) whenever those
+  calendar calls piled up and timed out. The day now deletes immediately and the calendar
+  cleanup runs in the background, a few events at a time; if any event can't be removed it
+  stays on the Google calendar and a warning is logged, but the schedule is already correct.
+
+## 2026-08-03
+
+### Added
+
 - **Event Checklist:** every event now has a private checklist for its Production Managers —
   invisible to Department Leads and Techs (enforced by the security rules, not just hidden).
   Two fixed sections (the main list plus **Post-Show**); drag items into any order or between
@@ -94,38 +144,6 @@ dependency bumps, and planning-doc updates) are omitted.
   append, so you can combine templates). Deliberately not part of the advance tracker.
 - **Checklist templates (admin):** a new panel on the admin **Event setup** tab manages the
   reusable checklist templates PMs import — name plus one line per item, per section.
-
-### Changed
-
-- **Browser security policy — enforcement ships with the next release:** the app's
-  Content-Security-Policy, served in report-only mode since 2026-07-24, now ships enforced —
-  from the next Hosting release, the browser blocks scripts, frames, and connections to
-  origins the app doesn't expect instead of only reporting them. The observation window since
-  the last allowlist fix (2026-07-31) came back clean with the Google sign-in, Drive, and
-  packet flows all exercised, so nothing legitimate is affected.
-
-### Fixed
-
-- **Show days can be deleted again:** deleting a schedule day used to wait for every one of
-  its calendar-pushed items to be removed from Google Calendar before the day itself went —
-  so a show day with a full grid could hang for minutes (and look undeletable) whenever those
-  calendar calls piled up and timed out. The day now deletes immediately and the calendar
-  cleanup runs in the background, a few events at a time; if any event can't be removed it
-  stays on the Google calendar and a warning is logged, but the schedule is already correct.
-- **Schedule artist names now fill in — and placeholders name their stage:** artist
-  placeholders on schedule rows stayed stuck on the generic slot labels ("Headliner",
-  "Artist 3") instead of showing the booked artist. Placeholders now designate their
-  lineup stage directly: **`{artist_1}`** is slot 1 on the **main stage**, **`{artist_b_1}`**
-  slot 1 on the **side stage** (the letter walks the event's stage order, so a third stage
-  would be `{artist_c_…}`). Resolution no longer depends on which stage the row itself is
-  on, so template rows fill in correctly wherever they land — on screen and on the Google
-  Calendar push. The old `{artist 1}` spelling still works and means the main stage; slots
-  without a booked act keep showing the slot label until you book them.
-- **Lineup slot count now sticks:** adding or removing open lineup slots only changed the
-  screen you were looking at — after a refresh the list snapped back to the default 5 (main
-  stage) / 4 (side stage) rows, resurrecting removed slots and dropping added ones. The
-  chosen slot count is now saved per stage and show day, so the lineup looks the same when
-  you come back.
 
 - **Team & access — manage who's on your event:** a new panel on the event screen (visible to
   admins and the event's production managers) lists everyone with access and their role. Add
@@ -141,6 +159,14 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Crew → access:** attaching a crew member (Crew panel) whose contact is linked to an app
   account now automatically gives that account read-only **Tech** access to the event, so the
   people on your crew list can actually open the show. Existing members are never downgraded.
+
+### Fixed
+
+- **Lineup slot count now sticks:** adding or removing open lineup slots only changed the
+  screen you were looking at — after a refresh the list snapped back to the default 5 (main
+  stage) / 4 (side stage) rows, resurrecting removed slots and dropping added ones. The
+  chosen slot count is now saved per stage and show day, so the lineup looks the same when
+  you come back.
 
 ## 2026-08-01
 
