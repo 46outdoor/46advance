@@ -95,6 +95,15 @@ dependency bumps, and planning-doc updates) are omitted.
 - **Checklist templates (admin):** a new panel on the admin **Event setup** tab manages the
   reusable checklist templates PMs import — name plus one line per item, per section.
 
+### Changed
+
+- **Browser security policy — enforcement ships with the next release:** the app's
+  Content-Security-Policy, served in report-only mode since 2026-07-24, now ships enforced —
+  from the next Hosting release, the browser blocks scripts, frames, and connections to
+  origins the app doesn't expect instead of only reporting them. The observation window since
+  the last allowlist fix (2026-07-31) came back clean with the Google sign-in, Drive, and
+  packet flows all exercised, so nothing legitimate is affected.
+
 ### Fixed
 
 - **Show days can be deleted again:** deleting a schedule day used to wait for every one of
