@@ -1,6 +1,6 @@
 /**
  * Callable contract schemas — Google Calendar/Meet domain (googleAuthUrl,
- * googleDisconnect, createEventCalendar, createAdvanceCall, syncAdvanceCallBookings).
+ * googleDisconnect, createEventCalendar, syncAdvanceCallBookings).
  * Pure Zod — see ./auth.ts header. (The googleAuthCallback OAuth redirect is an
  * onRequest HTTP endpoint, not a callable, so it has no contract here.)
  */
@@ -19,22 +19,6 @@ export const createEventCalendarInputSchema = z.object({ eventId: z.string().min
 export type CreateEventCalendarInput = z.infer<typeof createEventCalendarInputSchema>;
 export const createEventCalendarOutputSchema = z.object({ calendarId: z.string().min(1) });
 export type CreateEventCalendarOutput = z.infer<typeof createEventCalendarOutputSchema>;
-
-// createAdvanceCall — startMillis is an epoch-ms instant; duration defaults server-side.
-export const createAdvanceCallInputSchema = z.object({
-  eventId: z.string().min(1),
-  stageId: z.string().min(1),
-  advanceId: z.string().min(1),
-  startMillis: z.number(),
-  durationMinutes: z.number().optional(),
-});
-export type CreateAdvanceCallInput = z.infer<typeof createAdvanceCallInputSchema>;
-export const createAdvanceCallOutputSchema = z.object({
-  link: z.string().nullable(),
-  calendarId: z.string(),
-  calendarEventId: z.string().nullable(),
-});
-export type CreateAdvanceCallOutput = z.infer<typeof createAdvanceCallOutputSchema>;
 
 // syncAdvanceCallBookings — manual "sync now" for one event.
 export const syncAdvanceCallBookingsInputSchema = z.object({ eventId: z.string().min(1) });

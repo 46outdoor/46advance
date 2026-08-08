@@ -24,15 +24,8 @@ import { assertActiveUser } from './lib/auth/authorize.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { googleErrorStatus, withGoogleRetry } from './lib/google/retry.js';
 import { httpsFunctionUrl } from './lib/http/functionUrl.js';
-import {
-  deterministicCalendarEventId,
-  insertCalendarEventIdempotent,
-} from './lib/google/calendarEvents.js';
 import { eventCalendarSummary } from './lib/events/calendarSummary.js';
-import {
-  createEventCalendarInputSchema,
-  createAdvanceCallInputSchema,
-} from './contracts/callables/google.js';
+import { createEventCalendarInputSchema } from './contracts/callables/google.js';
 
 /** OAuth2 client type, taken from googleapis' own auth bundle (avoids a duplicate-copy type clash). */
 export type AuthClient = InstanceType<typeof google.auth.OAuth2>;
@@ -423,86 +416,4 @@ export const createEventCalendar = onCall({ secrets: OAUTH_SECRETS }, async (req
     String(eventSnap.data()?.name ?? 'Event'),
   );
   return { calendarId };
-});
-
-/**
- * Create a Google Calendar event with a Meet link for an advance call, on the event's
- * (auto-created) calendar, and write the Meet URL + time back to the advance. Admin or
- * the event's production manager only. Input: { eventId, stageId, advanceId, startMillis,
- * durationMinutes? }. Returns { link, calendarId, calendarEventId }.
- */
-export const createAdvanceCall = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
-  const { uid, token } = request.auth;
-  const input = parseCallableData(createAdvanceCallInputSchema, request.data);
-  const { eventId, stageId, advanceId, startMillis } = input;
-  const durationMinutes =
-    input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : 30;
-  const db = getFirestore();
-  await enforceRateLimit(db, ['createAdvanceCall', uid], 20);
-  await assertCanEditEvent(db, token, uid, eventId);
-
-  const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
-  const [eventSnap, advanceSnap] = await Promise.all([
-    db.doc(`events/${eventId}`).get(),
-    advanceRef.get(),
-  ]);
-  if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');
-  if (!advanceSnap.exists) throw new HttpsError('not-found', 'Advance not found.');
-
-  const client = await authedClientForUser(db, uid);
-  const calendarId = await ensureEventCalendar(
-    db,
-    client,
-    uid,
-    eventId,
-    String(eventSnap.data()?.name ?? 'Event'),
-  );
-
-  const artistName = String(advanceSnap.data()?.artistName ?? 'Artist');
-  const eventTz = String(eventSnap.data()?.timeZone ?? TIME_ZONE);
-  // Prefix the call title with the event's short code (e.g. "BOTB: Advance call — …") when set.
-  const rawShortCode = eventSnap.data()?.shortCode;
-  const shortCode =
-    typeof rawShortCode === 'string' && rawShortCode.trim() ? rawShortCode.trim() : null;
-  const summary = shortCode
-    ? `${shortCode}: Advance call — ${artistName}`
-    : `Advance call — ${artistName}`;
-  const start = new Date(startMillis);
-  const end = new Date(startMillis + durationMinutes * 60 * 1000);
-  const calendar = google.calendar({ version: 'v3', auth: client });
-  // Deterministic event id (advance + start time) so a retried/lost-response insert reuses the
-  // same event instead of creating a duplicate call on the shared calendar (WS-H).
-  const inserted = await insertCalendarEventIdempotent(calendar, {
-    calendarId,
-    conferenceDataVersion: 1,
-    requestBody: {
-      id: deterministicCalendarEventId(`advance-${advanceId}-${startMillis}`),
-      summary,
-      start: { dateTime: start.toISOString(), timeZone: eventTz },
-      end: { dateTime: end.toISOString(), timeZone: eventTz },
-      conferenceData: {
-        createRequest: {
-          requestId: `advance-${advanceId}-${startMillis}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      },
-    },
-  });
-
-  const link =
-    inserted.hangoutLink ??
-    inserted.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ??
-    null;
-
-  await advanceRef.set(
-    {
-      advanceCallAt: Timestamp.fromMillis(startMillis),
-      advanceCallLink: link,
-      googleCalendarEventId: inserted.id ?? null,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-  return { link, calendarId, calendarEventId: inserted.id ?? null };
 });

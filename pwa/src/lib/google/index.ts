@@ -2,10 +2,8 @@ export {
   getGoogleConnection,
   getGoogleAuthUrl,
   disconnectGoogle,
-  createAdvanceCall,
   DRIVE_FILE_SCOPE,
   type GoogleConnection,
-  type AdvanceCallResult,
 } from './google-service';
 export { useGoogleConnection, googleConnectionKey } from './useGoogleConnection';
 export {

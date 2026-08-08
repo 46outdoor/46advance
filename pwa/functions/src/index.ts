@@ -58,7 +58,6 @@ export {
   googleAuthCallback,
   googleDisconnect,
   createEventCalendar,
-  createAdvanceCall,
 } from './google.js';
 
 // Phase 11b (sync) — match Appointment Schedule bookings to advances. ./googleBookings.ts.
