@@ -13,6 +13,13 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Schedules — edit one day at a time.** The schedule screen no longer has a single
+  screen-wide **Edit** switch that put every day into edit mode at once. Each day card now has
+  its own **Edit** / **Done** button, and opening one day closes the other — so only the rows
+  you're actually working on are editable. Adding a day, shifting all days, and importing a
+  template act on the whole schedule, so they're simply available to editors now instead of
+  hiding behind the old mode.
+
 - **Google access is now read-only for your calendar.** With per-event calendars and
   app-created meetings gone, the app no longer needs permission to change your calendar — the
   connection asks only to *read* events (to spot booked advance calls) and for the Drive files

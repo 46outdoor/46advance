@@ -6,6 +6,10 @@
  * View rows resolve `{artist_N}` placeholders and show per-type fields / crew lines as
  * muted sub-rows; edit mode swaps rows for inline editors and adds day-level controls.
  * Shared by the event schedule (and the template editor, redesign PR 3).
+ *
+ * Edit mode is PER CARD. The event schedule passes `onToggleEditing`, so each day carries its
+ * own Edit/Done control and only one day is editable at a time; the template editor omits it
+ * and holds every card open by passing a constant `editing`.
  */
 import { formatWallClockTime } from '@/lib/dates/formatting';
 import { scheduleDayTypeDef } from '@/lib/schedules/dayTypes';
@@ -92,6 +96,7 @@ export function ScheduleDayCard({
   onAddItem,
   onCommitItem,
   onDeleteItem,
+  onToggleEditing,
 }: {
   day: ScheduleDayView;
   /** Formatted header date (event: "Tue, Jul 14, 2026"; templates: "Load-in 2"). */
@@ -109,6 +114,10 @@ export function ScheduleDayCard({
   onAddItem: () => void;
   onCommitItem: (item: ScheduleDayItem) => void;
   onDeleteItem: (itemId: string) => void;
+  /** Present when the caller scopes editing to one day at a time — renders this card's own
+   * Edit/Done control. Omit to leave the card's mode entirely caller-driven (the template
+   * editor holds every card open). */
+  onToggleEditing?: () => void;
 }) {
   const dayType = scheduleDayTypeDef(day.dayType);
   const sorted = sortDayItems(items);
@@ -127,6 +136,16 @@ export function ScheduleDayCard({
         </span>
         <span className="flex items-baseline gap-3 text-sm">
           <span className="opacity-90">{dateLabel}</span>
+          {onToggleEditing && (
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center rounded border border-white/40 px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-white/15 sm:min-h-0"
+              onClick={onToggleEditing}
+              aria-pressed={editing}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
+          )}
           {editing && (
             <>
               <button
