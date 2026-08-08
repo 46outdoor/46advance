@@ -1,12 +1,19 @@
 /**
  * Event schedule (redesign PR 2, planning/archive/feature/SCHEDULE_REDESIGN.md): day-container cards on
  * a shared grid — Start | End | Duration | Type | Item | Description — with a
- * URL-persisted filter bar (day / type / stage), the visible-type color key, an
- * MPA-style global Edit toggle with inline row editing (save on focus-leave), fully
- * manual days (add / edit / re-date / delete), and a bulk "shift all days ±N" action.
+ * URL-persisted filter bar (day / type / stage), the visible-type color key, PER-DAY edit
+ * mode with inline row editing (save on focus-leave), fully manual days (add / edit /
+ * re-date / delete), and a bulk "shift all days ±N" action.
+ *
+ * Editing is scoped to ONE day at a time: each card carries its own Edit/Done control and
+ * opening a second day closes the first, so only the rows you're working on are editable.
+ * Schedule-level tools (add day, shift, import a template) act on the whole schedule and
+ * are therefore always available to editors rather than hiding behind a mode.
+ *
  * `{artist_N}` / `{artist_b_N}` placeholders resolve to the artist holding that lineup
  * slot on the stage the placeholder names by order (main / second stage) — never the
- * row's own stage. Calendar reconcile for pushToCalendar items lands with PR 4.
+ * row's own stage. Schedule days reach people through the per-user calendar subscription
+ * feed; `pushToCalendar` governs inclusion (the per-event calendar push was retired).
  */
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -71,13 +78,14 @@ function makeItemFilter(type: string, stage: string) {
     (!type || item.type === type) && (!stage || item.stageId === stage);
 }
 
-/** All schedule-day mutations, invalidating the day list on success. Saves also fire a
- * fire-and-forget calendar reconcile for the affected day (PR 4) — a graceful no-op
- * when the caller hasn't connected Google. */
+/** All schedule-day mutations, invalidating the day list on success. No calendar IO: days
+ * reach people through the per-user subscription feed, which reads Firestore at poll time. */
 function useScheduleDayMutations(
   eventId: string | null,
   uid: string | undefined,
-  onDaySettled: () => void,
+  // Scoped per mutation, deliberately: a shared "close the forms" callback let saving one
+  // day's metadata close an in-progress "+ Add day" form and discard what was typed into it.
+  forms: { onDayCreated: () => void; onDayMetaSaved: () => void },
 ) {
   const queryClient = useQueryClient();
   const invalidate = () =>
@@ -97,7 +105,7 @@ function useScheduleDayMutations(
     mutationFn: (meta: ScheduleDayMeta) => createScheduleDay(eventId!, meta, uid!),
     onSuccess: () => {
       invalidate();
-      onDaySettled();
+      forms.onDayCreated();
     },
     onError: onError('add the day'),
   });
@@ -107,7 +115,7 @@ function useScheduleDayMutations(
       saveScheduleDayMeta(eventId!, day, meta, uid!),
     onSuccess: () => {
       invalidate();
-      onDaySettled();
+      forms.onDayMetaSaved();
     },
     onError: onError('save the day'),
   });
@@ -301,8 +309,11 @@ function ScheduleNotices({
 interface DayListProps {
   visibleDays: readonly ScheduleDay[];
   matchesFilters: (item: ScheduleDayItem) => boolean;
-  editing: boolean;
+  canEdit: boolean;
+  /** The one day whose rows are editable — editing is day-scoped, not screen-wide. */
   editingDayId: string | null;
+  /** The day whose metadata form is open (replaces that day's card). */
+  dayFormId: string | null;
   editPending: boolean;
   stages: readonly StageOption[];
   crewTypes: readonly string[];
@@ -311,6 +322,7 @@ interface DayListProps {
   onSubmitDayMeta: (day: ScheduleDay, meta: ScheduleDayMeta) => void;
   onCloseDayForm: () => void;
   onOpenDayForm: (dayId: string) => void;
+  onToggleDayEditing: (dayId: string) => void;
   onDeleteDay: (day: ScheduleDay) => void;
   onAddItem: (day: ScheduleDay) => void;
   onCommitItem: (day: ScheduleDay, item: ScheduleDayItem) => void;
@@ -321,7 +333,7 @@ function DayList(props: DayListProps) {
   return (
     <>
       {props.visibleDays.map((day) =>
-        props.editing && props.editingDayId === day.id ? (
+        props.dayFormId === day.id ? (
           <ScheduleDayForm
             key={day.id}
             initial={day}
@@ -336,10 +348,11 @@ function DayList(props: DayListProps) {
             day={day}
             dateLabel={formatDateKey(day.date)}
             items={day.items.filter(props.matchesFilters)}
-            editing={props.editing}
+            editing={props.editingDayId === day.id}
             stages={props.stages}
             crewTypes={props.crewTypes}
             resolveText={props.resolveTextForDay(day)}
+            onToggleEditing={props.canEdit ? () => props.onToggleDayEditing(day.id) : undefined}
             onEditDay={() => props.onOpenDayForm(day.id)}
             onDeleteDay={() => props.onDeleteDay(day)}
             onAddItem={() => props.onAddItem(day)}
@@ -387,39 +400,23 @@ function useScheduleFilters() {
   return { filters, setFilter, clearFilters };
 }
 
-/** Title row: back link is the screen's; this is the h1 + the global Edit toggle. */
-function ScreenHeader({
-  name,
-  canEdit,
-  editing,
-  onToggleEditing,
-}: {
-  name: string | undefined;
-  canEdit: boolean;
-  editing: boolean;
-  onToggleEditing: () => void;
-}) {
+/** Title row: back link is the screen's; this is the h1. Editing is per day — each day
+ * card carries its own Edit/Done control, so there is no screen-wide mode. */
+function ScreenHeader({ name }: { name: string | undefined }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h1 className="font-display text-3xl font-black tracking-tight text-brand">
         Schedule{name ? ` — ${name}` : ''}
       </h1>
-      {canEdit && (
-        <button
-          type="button"
-          onClick={onToggleEditing}
-          className={`inline-flex min-h-11 items-center rounded px-3 py-1 text-sm font-semibold transition-colors sm:min-h-0 ${editing ? 'bg-ink text-surface' : 'border border-line text-ink-muted hover:text-ink'}`}
-        >
-          {editing ? 'Done editing' : 'Edit'}
-        </button>
-      )}
     </header>
   );
 }
 
-/** Edit-mode toolbar: add-day (button + form) and the bulk shift control. */
+/** Schedule-level tools for editors: add-day (button + form) and the bulk shift control.
+ * These act on the schedule as a whole rather than one day, so they are always available
+ * to editors instead of hiding behind a mode. */
 function EditToolbar({
-  editing,
+  canEdit,
   addingDay,
   setAddingDay,
   dayCount,
@@ -429,7 +426,7 @@ function EditToolbar({
   createPending,
   onCreateDay,
 }: {
-  editing: boolean;
+  canEdit: boolean;
   addingDay: boolean;
   setAddingDay: (v: boolean) => void;
   dayCount: number;
@@ -439,7 +436,7 @@ function EditToolbar({
   createPending: boolean;
   onCreateDay: (meta: ScheduleDayMeta) => void;
 }) {
-  if (!editing) return null;
+  if (!canEdit) return null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line p-3">
@@ -473,18 +470,16 @@ function EmptyState({
   dayCount,
   addingDay,
   canEdit,
-  editing,
 }: {
   loaded: boolean;
   dayCount: number;
   addingDay: boolean;
   canEdit: boolean;
-  editing: boolean;
 }) {
   if (!loaded || dayCount > 0 || addingDay) return null;
   return (
     <p className="text-sm text-ink-muted">
-      No schedule days yet.{canEdit && !editing ? ' Switch to Edit to add the first day.' : ''}
+      No schedule days yet.{canEdit ? ' Use “+ Add day” above to add the first one.' : ''}
     </p>
   );
 }
@@ -493,9 +488,11 @@ export function EventScheduleScreen() {
   const { eventId: eventParam } = useParams();
   const { user, isAdmin, isOrganizer } = useAuth();
   const { filters, setFilter, clearFilters } = useScheduleFilters();
-  const [editing, setEditing] = useState(false);
   const [addingDay, setAddingDay] = useState(false);
+  // Editing is day-scoped: `editingDayId` is the one day whose rows are editable, and
+  // `dayFormId` the one whose metadata form is open. Opening either closes the other day.
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
+  const [dayFormId, setDayFormId] = useState<string | null>(null);
 
   const { query: eventQuery, eventId } = useResolvedEvent(eventParam);
   const roleQuery = useQuery({
@@ -521,14 +518,17 @@ export function EventScheduleScreen() {
   const crewTypesQuery = useQuery({ queryKey: crewTypesKey(), queryFn: getCrewTypes });
 
   const days = useMemo(() => daysQuery.data ?? [], [daysQuery.data]);
-  const closeDayForms = () => {
-    setAddingDay(false);
-    setEditingDayId(null);
+  // Each form closes only on its OWN mutation — the two can be open at once, and closing
+  // the wrong one throws away unsubmitted input. A day stays in edit mode after its
+  // metadata saves, so a rename doesn't kick you out of the rows you were working on.
+  const forms = {
+    onDayCreated: () => setAddingDay(false),
+    onDayMetaSaved: () => setDayFormId(null),
   };
   const { createDay, editDay, saveItems, removeDay, shiftDays } = useScheduleDayMutations(
     eventId,
     user?.uid,
-    closeDayForms,
+    forms,
   );
 
   const stages: StageOption[] = (stagesQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }));
@@ -564,15 +564,7 @@ export function EventScheduleScreen() {
         ← Event
       </Link>
 
-      <ScreenHeader
-        name={eventQuery.data?.name}
-        canEdit={canEdit}
-        editing={editing}
-        onToggleEditing={() => {
-          if (editing) closeDayForms();
-          setEditing((e) => !e);
-        }}
-      />
+      <ScreenHeader name={eventQuery.data?.name} />
 
       <CalendarFeedHint canEdit={canEdit} />
 
@@ -596,7 +588,7 @@ export function EventScheduleScreen() {
       )}
 
       <EditToolbar
-        editing={editing}
+        canEdit={canEdit}
         addingDay={addingDay}
         setAddingDay={setAddingDay}
         dayCount={days.length}
@@ -610,7 +602,7 @@ export function EventScheduleScreen() {
         onCreateDay={(meta) => createDay.mutate(meta)}
       />
 
-      {editing && (
+      {canEdit && (
         <ImportScheduleTemplatePanel
           eventId={eventId!}
           eventStart={eventQuery.data?.startDate ?? null}
@@ -625,21 +617,26 @@ export function EventScheduleScreen() {
         dayCount={days.length}
         addingDay={addingDay}
         canEdit={canEdit}
-        editing={editing}
       />
 
       <DayList
         visibleDays={visibleDays}
         matchesFilters={matchesFilters}
-        editing={editing}
+        canEdit={canEdit}
         editingDayId={editingDayId}
+        dayFormId={dayFormId}
         editPending={editDay.isPending}
         stages={stages}
         crewTypes={crewTypesQuery.data ?? []}
         resolveTextForDay={resolveTextForDay}
         onSubmitDayMeta={(day, meta) => editDay.mutate({ day, meta })}
-        onCloseDayForm={() => setEditingDayId(null)}
-        onOpenDayForm={setEditingDayId}
+        onCloseDayForm={() => setDayFormId(null)}
+        onOpenDayForm={setDayFormId}
+        onToggleDayEditing={(dayId) => {
+          // One day at a time: opening another day closes the current one and any form.
+          setDayFormId(null);
+          setEditingDayId((current) => (current === dayId ? null : dayId));
+        }}
         onDeleteDay={(day) => removeDay.mutate(day)}
         onAddItem={(day) => saveItems.mutate({ day, items: [...day.items, blankItem()] })}
         onCommitItem={(day, item) =>
