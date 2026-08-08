@@ -458,6 +458,23 @@ Do not use "Phase 1 deployed" as the cleanup signal. All of these must be true:
 - **Note on reading the telemetry.** `lastAccessedAt` is throttled to one write per 24h, so
   the Settings card can legitimately show a stamp hours older than the newest poll. Cloud Run
   `request_count` is the per-request signal when the actual cadence matters.
+- **Gate 3 — CLOSED (2026-08-08). The destructive cleanup has nothing to do.** Dry-run
+  inventory (`functions/scripts/delete-event-calendars.ts`; run ADC-free via Firestore REST +
+  the owner's stored refresh token) found **2** event docs carrying a `googleCalendarId`, both
+  owned by the same uid — and **both calendars are already gone from Google**, confirmed by
+  `calendars.get` returning **404** for each. Therefore: **0 events, 0 future events, and 0
+  Meet/conference-bearing entries are at risk.** The owner's `calendarList` contains no
+  app-created calendars at all — only Google's "Holidays in United States" and the
+  **"46 Advance" `@import.calendar.google.com` entry, which is the ICS subscription itself**
+  (independent confirmation of gates 1–2). The spec's "three identical BOTB calendars"
+  observation is resolved: none remain.
+- **Consequence for Phase 3 — do NOT simply clear the stale references.** Two event docs still
+  carry `googleCalendarId` / `googleCalendarOwnerUid` pointing at deleted calendars. Clearing
+  those fields WITHOUT first removing the push would make `ensureEventCalendar` **recreate** the
+  calendars on the next `reconcileScheduleDay` — the opposite of the goal. Correct order: retire
+  the push code first, then drop the fields. Phase 3 is now a pure code-removal exercise with no
+  data destruction, which removes most of its risk. (Log check: no recent reconcile errors — the
+  only `ERROR` in 30 days is the 2026-08-04 rate-limit stampede already in `ISSUES_LOG.md`.)
 - **Watch item.** Recurring 404s appeared at ~03/04/06/10:xx, well outside the manual probe
   windows. Metrics carry no token label, so attribution is impossible; the likely cause is a
   stale client subscription still polling a rotated-away URL (harmless but never updating).
