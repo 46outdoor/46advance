@@ -579,6 +579,13 @@ syncs the library from Drive and flags files missing from Drive (never auto-dele
 - **Google / Apple sign-in — excluded** (2026-07-31). Email/password is the only sign-in method, on
   web and native. Per-user Google **OAuth** for Calendar/Meet/Drive (§12) is unaffected — that
   authorizes API access for a user who has already signed in.
+- **Form-field `id`/`name` attributes — deferred indefinitely** (2026-08-08, from the production
+  crawl). Every input/select/textarea (~155 across the PWA) lacks both attributes, so Chrome
+  DevTools flags an autofill nit on most pages. Cosmetic: accessibility is unaffected (fields carry
+  wrapping labels or `aria-label`), and sign-in already sets `autocomplete`, so password managers
+  work. If ever picked up: `useId()` in the ~5 shared field components
+  (`SectionFieldInput`, `ScheduleItemRowEditor`, auth `Field`, production editors) covers most of
+  it; add real `autocomplete` values only on sign-in + ContactForm, `autoComplete="off"` elsewhere.
 
 ## 14. MPA import/adapt candidates (preliminary — to confirm later)
 
