@@ -14,7 +14,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { OAUTH_SECRETS, assertCanEditEvent, bestEffortDeleteCalendarEvents } from './google.js';
+import { OAUTH_SECRETS, assertCanEditEvent } from './google.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
@@ -58,8 +58,7 @@ export const deleteQuote = onCall(async (request) => {
   return { ok: true };
 });
 
-/** Delete an advance and its whole subtree (driveFiles, documents, quotes) + each quote's Storage,
- *  and best-effort remove its advance-call Google Calendar event. */
+/** Delete an advance and its whole subtree (driveFiles, documents, quotes) + each quote's Storage. */
 export const deleteAdvance = onCall({ secrets: OAUTH_SECRETS }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   const { uid, token } = request.auth;
@@ -69,15 +68,14 @@ export const deleteAdvance = onCall({ secrets: OAUTH_SECRETS }, async (request) 
   await assertCanEditEvent(db, token, uid, eventId);
 
   const advanceRef = db.doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}`);
-  const advanceSnap = await advanceRef.get(); // capture the calendar-event id BEFORE the subtree is gone
   const quotes = await advanceRef.collection('quotes').get();
   for (const q of quotes.docs) await deleteStoragePrefix(quoteStoragePrefix(eventId, q.id));
   await db.recursiveDelete(advanceRef);
-  // A server-side delete bypasses the client's removeScheduleCalendarEvent, so clean up the
-  // advance-call event here or it's orphaned in Google (WS-H). Best-effort — never blocks the delete.
-  await bestEffortDeleteCalendarEvents(db, uid, eventId, [
-    advanceSnap.get('googleCalendarEventId'),
-  ]);
+  // NO calendar cascade (Phase 3). `advance.googleCalendarEventId` now only ever refers to a
+  // Google Appointment Schedule booking, which lives on the BOOKER's primary calendar and is
+  // owned by Google — the app tracks those meetings, it does not cancel them. Deleting an
+  // advance must never delete the artist's real meeting, so this must NOT be "fixed" to
+  // target `primary`. See planning/CALENDAR_SUBSCRIPTIONS.md § Advance calls.
   return { ok: true };
 });
 
@@ -93,14 +91,12 @@ export const deleteStage = onCall({ secrets: OAUTH_SECRETS }, async (request) =>
 
   const stageRef = db.doc(`events/${eventId}/stages/${stageId}`);
   const advances = await stageRef.collection('advances').get();
-  const advanceCalendarEventIds = advances.docs.map((a) => a.get('googleCalendarEventId')); // before delete
   for (const adv of advances.docs) {
     const quotes = await adv.ref.collection('quotes').get();
     for (const q of quotes.docs) await deleteStoragePrefix(quoteStoragePrefix(eventId, q.id));
   }
   await deleteStoragePrefix(`events/${eventId}/production/stages/${stageId}/`);
   await db.recursiveDelete(stageRef);
-  // Best-effort: remove each advance's advance-call Google Calendar event (WS-H).
-  await bestEffortDeleteCalendarEvents(db, uid, eventId, advanceCalendarEventIds);
+  // NO calendar cascade — see the note in deleteAdvance above.
   return { ok: true };
 });

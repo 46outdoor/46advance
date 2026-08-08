@@ -166,9 +166,6 @@ export function AdvanceDetailScreen() {
         <AdvanceHeader
           advance={advance}
           timeZone={timeZone}
-          eventId={eventId}
-          stageId={stageId}
-          advanceId={advanceId}
           canEdit={canEdit}
           eventLogo={parentEventLogo}
           defaultLogos={defaultLogos}
@@ -176,7 +173,6 @@ export function AdvanceDetailScreen() {
           confirmDelete={confirmDelete}
           onEdit={() => setEditing(true)}
           onDelete={() => (confirmDelete ? remove.mutate() : setConfirmDelete(true))}
-          onCreated={invalidate}
         />
       )}
 
@@ -256,9 +252,6 @@ function AdvanceLoadStatus({
 
 function AdvanceHeader({
   advance,
-  eventId,
-  stageId,
-  advanceId,
   canEdit,
   eventLogo,
   defaultLogos,
@@ -266,14 +259,10 @@ function AdvanceHeader({
   confirmDelete,
   onEdit,
   onDelete,
-  onCreated,
   timeZone,
 }: {
   advance: Advance;
   timeZone: string;
-  eventId: string;
-  stageId: string;
-  advanceId: string;
   canEdit: boolean;
   eventLogo: Logo | null;
   defaultLogos: Logo[];
@@ -281,7 +270,6 @@ function AdvanceHeader({
   confirmDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onCreated: () => void;
 }) {
   return (
     <header className="space-y-2">
@@ -323,16 +311,12 @@ function AdvanceHeader({
         <SummaryField label="Pending" value={advance.pending} />
       </div>
       <AdvanceCallPanel
-        eventId={eventId}
-        stageId={stageId}
-        advanceId={advanceId}
         artistName={advance.artistName}
         at={advance.advanceCallAt}
         link={advance.advanceCallLink}
         viaGoogle={advance.googleCalendarEventId !== null}
         timeZone={timeZone}
         canEdit={canEdit}
-        onCreated={onCreated}
       />
     </header>
   );

@@ -66,7 +66,7 @@ export function templateDayChipLabel(
 
 /** A template item is a schedule-day item with the stage referenced by name and no
  * server-owned calendar field. */
-export type ScheduleTemplateItem = Omit<ScheduleDayItem, 'stageId' | 'googleCalendarEventId'> & {
+export type ScheduleTemplateItem = Omit<ScheduleDayItem, 'stageId'> & {
   stageName: string | null;
 };
 
@@ -97,7 +97,7 @@ export interface ScheduleTemplate {
 }
 
 const templateItemDocSchema = scheduleDayItemDocSchema
-  .omit({ stageId: true, googleCalendarEventId: true })
+  .omit({ stageId: true })
   .extend({ stageName: z.string().nullable().optional() });
 
 const templateDayDocSchema = z.object({
@@ -287,12 +287,12 @@ export function templateItemCount(template: ScheduleTemplate): number {
  * the stage "id", so the shared grid's stage select lists names). */
 export function templateItemToDayItem(item: ScheduleTemplateItem): ScheduleDayItem {
   const { stageName, ...rest } = item;
-  return { ...rest, stageId: stageName, googleCalendarEventId: null };
+  return { ...rest, stageId: stageName };
 }
 
 /** Editor view bridge back: the grid's stage "id" is the stage name. */
 export function dayItemToTemplateItem(item: ScheduleDayItem): ScheduleTemplateItem {
-  const { stageId, googleCalendarEventId: _cal, ...rest } = item;
+  const { stageId, ...rest } = item;
   return { ...rest, stageName: stageId };
 }
 

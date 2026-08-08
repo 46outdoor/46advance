@@ -590,18 +590,6 @@ describe('firestore.rules — document shape validation', () => {
     await assertSucceeds(updateDoc(doc(dbFor(PM), 'events/event-a'), { status: 'archived' }));
   });
 
-  it('blocks client writes to the server-owned googleCalendarId (create + update)', async () => {
-    await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a'), { googleCalendarId: 'cal-x' }));
-    await assertFails(
-      setDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'events/evt-cal'), {
-        name: 'X',
-        status: 'draft',
-        createdBy: ORGANIZER.uid,
-        googleCalendarId: 'cal-x',
-      }),
-    );
-  });
-
   it('blocks direct event slug updates so reservations can only move through the callable', async () => {
     await assertFails(updateDoc(doc(dbFor(PM), 'events/event-a'), { slug: 'duplicate-slug' }));
     await assertFails(

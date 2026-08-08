@@ -13,6 +13,20 @@ dependency bumps, and planning-doc updates) are omitted.
 
 ### Added
 
+- **Calendar: one subscription replaces the per-event calendars.** The app no longer creates
+  a Google calendar for each event or pushes schedule rows onto it. Everything now flows
+  through your personal **calendar subscription** in Settings, which already carries every
+  event you're on. Nothing to set up per event, and no more waiting on calendar sync when you
+  save or delete a schedule day. **“Push to calendar” still works the same way** — it now
+  decides whether a row appears in people's subscription feeds.
+
+- **Advance calls are tracked, not created.** The "Create Google Meet" button is gone. Calls
+  are booked through your Google Appointment Schedule page — Google makes the meeting, mints
+  the Meet link, and invites the artist — and the app attaches the booking to the matching
+  advance automatically, as it already did. Deleting an advance no longer touches the artist's
+  real meeting. You can still set a time and link by editing the advance, and "Add to
+  calendar" still downloads an .ics.
+
 - **Calendar subscription feed — choose what's in it:** the Settings card now lists every
   event you're on with two controls each — include it or drop it, and show its days as the
   default **daily summary** or as **individual items** (every scheduled row as its own timed
@@ -41,8 +55,7 @@ dependency bumps, and planning-doc updates) are omitted.
   created; you can rotate it at any time (the old URL stops updating immediately), and
   admin revocation or account deletion kills it server-side. Note: Google Calendar
   refreshes subscribed feeds on its own schedule — often many hours — so don't rely on
-  it for show-day changes. The existing per-event Google calendars keep working
-  unchanged; they're retired in a later phase.
+  it for show-day changes.
 
 - **Schedule import — duplicate detection:** importing a schedule template into a schedule
   that already has rows no longer silently doubles them. The import now checks first: if any

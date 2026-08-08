@@ -34,14 +34,11 @@ import { useResolvedEvent } from './useResolvedEvent';
 import { ImportScheduleTemplatePanel } from './ImportScheduleTemplatePanel';
 import { ScheduleDayForm } from './ScheduleDayForm';
 import type { ScheduleDayMeta } from '@/lib/schedules/scheduleDay';
-import { useGoogleConnection } from '@/lib/google';
 import {
   createScheduleDay,
   dayToInput,
   deleteScheduleDay,
   listScheduleDays,
-  reconcileScheduleDayCalendar,
-  removeScheduleCalendarEvent,
   saveScheduleDay,
   saveScheduleDayMeta,
   ScheduleDayConflictError,
@@ -65,7 +62,6 @@ function blankItem(): ScheduleDayItem {
     fields: {},
     crew: [],
     pushToCalendar: true,
-    googleCalendarEventId: null,
   };
 }
 
@@ -97,14 +93,6 @@ function useScheduleDayMutations(
       logger.error(`Failed to ${what}`, e);
     }
   };
-  const syncDay = (dayId: string) => {
-    void reconcileScheduleDayCalendar(eventId!, dayId)
-      .then((r) => {
-        if (r.synced) invalidate(); // calendar ids were written back
-      })
-      .catch((e) => logger.error('Calendar sync failed', e));
-  };
-
   const createDay = useMutation({
     mutationFn: (meta: ScheduleDayMeta) => createScheduleDay(eventId!, meta, uid!),
     onSuccess: () => {
@@ -117,11 +105,9 @@ function useScheduleDayMutations(
     // Atomic in the service: a date change re-keys and applies the metadata in one batch.
     mutationFn: ({ day, meta }: { day: ScheduleDay; meta: ScheduleDayMeta }) =>
       saveScheduleDayMeta(eventId!, day, meta, uid!),
-    onSuccess: (dayId) => {
+    onSuccess: () => {
       invalidate();
       onDaySettled();
-      // A date change moved every item's instant — re-reconcile the (possibly re-keyed) day.
-      syncDay(dayId);
     },
     onError: onError('save the day'),
   });
@@ -129,30 +115,15 @@ function useScheduleDayMutations(
     // Serialized (shared scope) + optimistic cache write: rapid row commits each build
     // on the previous one instead of racing whole-day snapshots out of order.
     scope: { id: `saveScheduleDay-${eventId}` },
-    mutationFn: ({
-      day,
-      items,
-    }: {
-      day: ScheduleDay;
-      items: ScheduleDayItem[];
-      /** Calendar ids of items this save removes — their events are deleted only
-       * AFTER the save commits (a failed save must not strand a live id pointing at
-       * a deleted Google event). */
-      removedCalendarIds?: string[];
-    }) => saveScheduleDay(eventId!, day, dayToInput({ ...day, items })),
+    mutationFn: ({ day, items }: { day: ScheduleDay; items: ScheduleDayItem[] }) =>
+      saveScheduleDay(eventId!, day, dayToInput({ ...day, items })),
     onMutate: ({ day, items }) => {
       queryClient.setQueryData<ScheduleDay[]>(['scheduleDays', eventId], (prev) =>
         prev?.map((d) => (d.id === day.id ? { ...d, items } : d)),
       );
     },
-    onSuccess: (_data, { day, removedCalendarIds }) => {
-      for (const calId of removedCalendarIds ?? []) {
-        void removeScheduleCalendarEvent(eventId!, calId).catch((e) =>
-          logger.error('Calendar event removal failed', e),
-        );
-      }
+    onSuccess: () => {
       invalidate();
-      syncDay(day.id);
     },
     onError: (e) => {
       invalidate();
@@ -166,13 +137,7 @@ function useScheduleDayMutations(
   });
   const shiftDays = useMutation({
     mutationFn: (deltaDays: number) => shiftScheduleDays(eventId!, deltaDays, uid!),
-    onSuccess: () => {
-      invalidate();
-      // Every day re-keyed — re-time all pushed items at their new dates.
-      void listScheduleDays(eventId!)
-        .then((days) => days.forEach((d) => syncDay(d.id)))
-        .catch((e) => logger.error('Calendar sync failed', e));
-    },
+    onSuccess: invalidate,
     onError: onError('shift the days'),
   });
   return { createDay, editDay, saveItems, removeDay, shiftDays };
@@ -288,22 +253,18 @@ function ShiftControl({
   );
 }
 
-/** Auto-sync hint for editors: what "Push to calendar" does, or the connect link. */
-function GoogleSyncHint({ canEdit }: { canEdit: boolean }) {
-  const connection = useGoogleConnection();
+/** What the per-item "Push to calendar" flag means now: inclusion in each subscriber's
+ * personal calendar feed (the per-event Google calendars were retired in Phase 3 of
+ * planning/CALENDAR_SUBSCRIPTIONS.md). */
+function CalendarFeedHint({ canEdit }: { canEdit: boolean }) {
   if (!canEdit) return null;
   return (
     <p className="text-xs text-ink-muted">
-      {connection.data?.connected === true ? (
-        '“Push to calendar” items auto-sync to the event’s Google calendar on save.'
-      ) : (
-        <>
-          <Link to="/settings" className="text-accent hover:underline">
-            Connect Google
-          </Link>{' '}
-          to auto-sync “Push to calendar” items to the event’s calendar.
-        </>
-      )}
+      “Push to calendar” items appear in each person’s{' '}
+      <Link to="/settings" className="text-accent hover:underline">
+        calendar subscription
+      </Link>
+      . Their calendar app picks up changes on its next refresh.
     </p>
   );
 }
@@ -613,7 +574,7 @@ export function EventScheduleScreen() {
         }}
       />
 
-      <GoogleSyncHint canEdit={canEdit} />
+      <CalendarFeedHint canEdit={canEdit} />
 
       <ScheduleNotices
         loading={daysQuery.isLoading}
@@ -684,16 +645,9 @@ export function EventScheduleScreen() {
         onCommitItem={(day, item) =>
           saveItems.mutate({ day, items: day.items.map((i) => (i.id === item.id ? item : i)) })
         }
-        onDeleteItem={(day, itemId) => {
-          const removed = day.items.find((i) => i.id === itemId);
-          saveItems.mutate({
-            day,
-            items: day.items.filter((i) => i.id !== itemId),
-            removedCalendarIds: removed?.googleCalendarEventId
-              ? [removed.googleCalendarEventId]
-              : undefined,
-          });
-        }}
+        onDeleteItem={(day, itemId) =>
+          saveItems.mutate({ day, items: day.items.filter((i) => i.id !== itemId) })
+        }
       />
 
       <ScheduleTypeLegend items={visibleItems} />

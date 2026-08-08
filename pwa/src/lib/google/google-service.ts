@@ -9,12 +9,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/services/firebase';
-import type {
-  GoogleAuthUrlOutput,
-  GoogleDisconnectOutput,
-  CreateAdvanceCallInput,
-  CreateAdvanceCallOutput,
-} from '@contracts/callables/google';
+import type { GoogleAuthUrlOutput, GoogleDisconnectOutput } from '@contracts/callables/google';
 
 /** The least-privilege Drive scope (Phase 13) — must match functions/src/google.ts. */
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -55,25 +50,4 @@ export async function disconnectGoogle(): Promise<void> {
   await callable({});
 }
 
-export interface AdvanceCallResult {
-  link: string | null;
-  calendarId: string;
-  calendarEventId: string | null;
-}
 
-/**
- * Create a Google Calendar event with a Meet link for an advance call (auto-creates the
- * event's calendar if needed) and write the link + time back to the advance. Returns the
- * Meet link.
- */
-export async function createAdvanceCall(input: {
-  eventId: string;
-  stageId: string;
-  advanceId: string;
-  startMillis: number;
-  durationMinutes?: number;
-}): Promise<AdvanceCallResult> {
-  const callable = httpsCallable<CreateAdvanceCallInput, CreateAdvanceCallOutput>(functions, 'createAdvanceCall');
-  const res = await callable(input);
-  return res.data;
-}
