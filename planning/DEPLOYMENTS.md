@@ -46,6 +46,20 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-08 — Calendar subscription feed Phase 2 (#252, `e687249`): rules + functions
+deploy.** Per-user event selection and item mode. `deploy --only firestore:rules` released
+the `calendarSubscriptions/{uid}` owner-read rule (all writes go through the callable);
+`deploy --only functions` created `getCalendarSubscription` / `updateCalendarSubscription`
+and updated `calendarFeed` to apply preferences (exclusions beat item mode;
+`hidePastEvents` compares the event's last schedule day in the event's own timezone).
+Secrets health check passed. Verified live: both new callables return `401` unauthenticated
+against a `404` control, confirming deployment. Preferences default to all-events/digest/
+keep-history with NO stored doc, so behavior is unchanged for everyone until they opt in.
+**The Settings picker UI ships with the next owner Hosting release** — the backend is live
+ahead of it, which is the additive-function → Hosting order this ledger prescribes.
+**Rollback:** redeploy functions from the prior commit; the rules change is additive
+(a new collection) and can stay.
+
 **2026-08-07 — Calendar feed on the app domain (#249): Hosting checkpoint + functions
 deploy.** The owner's Hosting release carried the `/calendar-feed` rewrite (verified live:
 `https://46advance.com/calendar-feed?token=<dummy>` returns the function's plain 404, not the
