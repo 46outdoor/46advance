@@ -46,6 +46,22 @@ Hosting release → restrictive rules.
 Newest first. Record backend deploys and Hosting checkpoints here. Client-only PRs ship on the
 next Hosting release; note the Hosting checkpoint that carried them once known.
 
+**2026-08-08 — OAuth least privilege (#259, `1991c1e`): functions deploy.** Closes the last
+Phase 3 inventory item. The backend's only remaining Calendar call is `events.list` on
+`primary` (booking sync), so the grant narrowed from `calendar` + `calendar.events` to the
+single read-only `calendar.events.readonly`. `include_granted_scopes: true` was removed at the
+same time — incremental authorization re-grants every previously approved scope, which would
+have silently restored calendar WRITE access on the next reconnect and defeated the reduction.
+Secrets health check passed; deploy clean (no function deletions this round).
+
+**Existing grants are NOT narrowed by this deploy.** A connected account keeps whatever it
+previously approved until the user hits Settings → Disconnect → Connect (`disconnectGoogle`
+calls `revokeToken`, so the cycle resets the grant at Google and re-consents to the new set).
+Booking sync behaves identically under either grant, so no one is forced to act. Note this is
+separate from rotating a calendar-feed token, which changes the feed URL and nothing about
+OAuth. **Rollback:** redeploy functions from `b79e7c2`; users who already re-consented would
+need to reconnect again to regain the wider scopes.
+
 **2026-08-08 — Phase 3: per-event Google calendars decommissioned (#257, `b79e7c2`):
 rules + functions deploy + data migration.** Rules deployed first (permissive — the events
 update lock drops `googleCalendarId`). The functions deploy then ABORTED: Firebase refuses to
