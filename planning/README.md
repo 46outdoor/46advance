@@ -5,6 +5,9 @@ filed by category.
 
 ## Active
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
+- **[IDEAS.md](IDEAS.md)** — capture space for future features, fixes, and improvements that
+  aren't scoped or decided yet. Ideas graduate from here to a `PHASE_*_PLAN.md` (or a small PR)
+  when we commit to them; ROADMAP holds what's actually been decided.
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
 - **[DEPLOYMENTS.md](DEPLOYMENTS.md)** — deployment & rollback ledger: the build release
