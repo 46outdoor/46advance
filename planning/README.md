@@ -5,7 +5,7 @@ filed by category.
 
 ## Active
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
-- **[MOBILE_NAV_PLAN.md](MOBILE_NAV_PLAN.md)** — agreed design for collapsing the app header
+- **[PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md)** — agreed design for collapsing the PWA header
   into a role-aware dropdown on narrow screens. Graduated from IDEAS §1; not yet built.
 - **[IDEAS.md](IDEAS.md)** — capture space for future features, fixes, and improvements that
   aren't scoped or decided yet. Ideas graduate from here to a `PHASE_*_PLAN.md` (or a small PR)
