@@ -22,7 +22,9 @@ goes stale; re-check before building.
 
 ## 1. Mobile: collapse the top nav into a dropdown
 
-**Status:** idea — pattern decided (dropdown), layout and contents open
+**Status:** ✅ **graduated — design agreed, not yet built.** See
+[MOBILE_NAV_PLAN.md](MOBILE_NAV_PLAN.md) for the resolved design; this entry is kept as the
+origin record.
 **Raised:** 2026-08-08
 
 ### The problem
@@ -32,10 +34,15 @@ The top nav is too crowded on phones. Measured on production while signed in as 
 | Piece | Width |
 | --- | --- |
 | Brand lockup (mark + "ADVANCE") | 120px |
-| 7 nav items + gaps | 526px |
+| Nav items + 16px column gaps (incl. email) | 598px |
 | Header padding | 32px |
-| **Total needed** | **~678px** |
+| **Total needed** | **750px** (573px below `sm:`, where the email is hidden) |
 | Available on a typical phone | 360–430px |
+
+> Corrected 2026-08-08: an earlier revision of this entry said ~678px. That measurement
+> read the flex **row** gap (4px) instead of the **column** gap (16px). The real figure is
+> 750px with the email shown — which also means the header wraps at *every* width below
+> 750px, not just on phones.
 
 The nav is `flex flex-wrap`, so it doesn't overflow — it **wraps onto a second line**.
 That's the crowding: two rows of chrome eating vertical space on the smallest screens,
@@ -385,6 +392,76 @@ That suggests two very different versions of this idea:
 - **ROADMAP §5b already anticipates this ground** — it lists "credentials" and
   "hospitality/catering" as intended content for the festival production record, so this
   is filling in a known gap rather than opening a new area.
+
+---
+
+## 5. Scope non-PM access to what a crew member actually needs
+
+**Status:** idea — needs a decision before it can be scoped
+**Raised:** 2026-08-08
+**Related:** [MOBILE_NAV_PLAN.md](MOBILE_NAV_PLAN.md) hides these from the nav for non-organizers,
+but hiding a link is cosmetic — this entry is the real access question.
+
+### The problem
+
+Most people on a show are crew: they're attached to one event, given read-only access, and
+need that event and nothing else. They don't need the Tracker, the document library, the
+contacts directory, or any other event.
+
+Today the app only half-reflects that.
+
+**Already correct — events.** Non-admins list events through a
+`collectionGroup('members')` query, so they genuinely only see events they're assigned to.
+No change needed.
+
+**Not correct — everything else.** At the security-rules level:
+
+- `contacts/{contactId}` — `allow read: if isActiveUser()`. **Any approved user can read the
+  entire company contacts directory**: every name, phone number, email, and note, across all
+  five vendor companies.
+- `artistDocuments/{docId}` — `allow read: if isActiveUser()`. The whole artist document
+  library, every artist, regardless of which show the reader is on.
+- Per-event surfaces are member-gated, but *any* member counts — a read-only tech reads the
+  full crew roster, everyone's contact details, and the complete production record for that
+  event.
+
+So a tech attached to one festival can currently read the directory and document library
+for **every** festival. Nothing in the UI invites that, but nothing prevents it either.
+
+### Open questions
+
+- **What's the intended line?** "Organizers and admins get the cross-event surfaces;
+  everyone else gets their events and nothing more" is the obvious first cut, and it maps
+  onto the existing global `organizer` claim. Worth confirming that's the actual intent
+  before anything is enforced.
+- **Do department leads sit with PMs or with techs?** They already have real edit authority
+  within their departments, so they may need contacts even if techs don't.
+- **Contacts is the hard one.** Crew arguably *do* need the contacts for their own show —
+  which is the per-event crew roster, not the global directory. Splitting "directory" from
+  "people on this event" may be the actual fix, and the crew roster already exists as a
+  per-event surface.
+- **Documents:** is the library genuinely organizer-only, or should crew see documents for
+  artists on the events they're assigned to? The second is much more useful and much harder
+  to express in rules (it needs a membership join per artist).
+- **What breaks?** Tightening a rule that's been permissive is exactly the kind of change
+  that surfaces a screen quietly depending on the wide read. The rules test suite is good
+  here and should be extended first.
+
+### Grounding
+
+- Rules: `firestore.rules:181-182` (contacts read), `:135-136` (artistDocuments read),
+  `:386-390` (per-event crew attachments, any member), `:374-384` (production record, any
+  member).
+- `isOrganizer()` already exists as a rules helper and is used for artistDocuments
+  update/delete, so the gate is available today — the reads simply don't use it.
+- Client mirror: `canCreateEvents(viewer)` = admin || organizer
+  (`src/lib/rbac/permissions.ts:32`). Per-event roles are separate:
+  `production-manager | department-lead | tech` (`src/lib/rbac/roles.ts:23`).
+- **No global "is a PM" state exists** — PM is per-event, so a user can be a PM on one show
+  and a tech on another. Any global gate has to key on `organizer`/`admin`.
+- Attaching someone as crew auto-enrolls their account as a Tech on that event
+  (`EventContactsPanel.tsx:150-162`), so crew accounts arrive with member-level read
+  automatically.
 
 ---
 
