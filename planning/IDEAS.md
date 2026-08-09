@@ -196,6 +196,198 @@ grouping interacts with search/filter are all open.
 
 ---
 
+## 3. Crew travel & lodging (hotels, bunks, flights, rental cars)
+
+**Status:** idea — shape open
+**Raised:** 2026-08-08
+**Related:** shares a root with §4 — both need to know *who is on site, and when*.
+
+### The problem
+
+PMs need to track **lodging for assigned crew** — hotels or bunks — and that naturally
+groups with the rest of a person's travel: flights, rental cars, and the miscellaneous
+logistics that surround them.
+
+Today the app can describe *a group movement on a timeline* but not *a person's
+itinerary*. Those are different shapes, and the gap between them is the whole idea.
+
+### What's actually missing (and what isn't)
+
+**Flights and rental cars already exist — as schedule rows.** The schedule has a `travel`
+item type carrying Mode (Flight/Drive/Train/Other), Carrier, Flight/Conf #, From, and To,
+and a `transportation` type carrying Vehicle, Driver, Pickup, and Drop-off. But the "who"
+on those rows is a **free-text `party` field** — "Production team", "Stagehands" — with no
+link to a crew member. So the system can say *"Production team travels in, Wednesday"*.
+It cannot say *"Joe King, AA1234, DFW→CVG, conf ABC123, lands 4:15pm."*
+
+**Lodging has zero prior art.** No hotel, room, rooming, bunk, accommodation, or per-diem
+concept exists anywhere — not in the schema, the rules, the planning docs, or the
+changelog. The only trace is an unanswered question in an archived plan.
+
+**The crew roster is thin.** An attached crew member stores exactly `{contactId,
+roleLabel, notes}` — a role and a freeform note, nothing more. The contact record behind
+it has no address, emergency contact, dietary, or sizing fields either.
+
+### The shape question (the crux)
+
+The app has two established shapes for information, and travel/lodging fits neither:
+
+1. **Fields on a record** (production info, advance content) — flat scalars only, one
+   value per key. A rooming list can't live here; only a prose blob like "Crew lodging".
+2. **Time-anchored schedule rows** — good for "the bus leaves at 6", wrong for "Joe is at
+   the Hampton Inn Thu–Sun in room 412".
+
+Per-person travel and lodging is a **third shape**: a record attached to a *person*,
+spanning *dates*, that may or may not surface on a timeline. Deciding that shape is the
+real design work here — not the field list.
+
+A likely sub-shape worth thinking about: lodging is usually booked as a **resource with
+slots** (a room block at one hotel; bunks on one bus) and then **people are assigned to
+slots**. That's two linked things, not one flat list — and it's the same pattern whether
+the resource is a hotel or a bus.
+
+### Open questions
+
+- **Named crew only, or blocks too?** The roster holds ~24 named people, but a festival
+  also calls anonymous labor by headcount (28 stagehands). Do we lodge only named people,
+  or also reserve unnamed blocks that get names later?
+- **Whose crew?** Crew spans five companies (46 Entertainment plus Stageline, Backstage,
+  Deep South, Stage for Rent). Does 46 track lodging for vendor crews, or only its own?
+- **Do travel records replace or complement the schedule rows?** If Joe's flight becomes a
+  person record, should it still appear on the travel-day schedule, and who owns the
+  duplicate? Deriving one from the other is possible in either direction.
+- **⚠ Privacy — this needs an explicit decision.** Every event member, **including
+  read-only Techs, can already read the entire crew roster, the whole global contacts
+  directory, and the full production record.** Attaching a crew member automatically
+  grants them Tech access. So anything stored on those records — confirmation numbers,
+  room assignments, personal travel — is visible to *everyone on the show* by default, and
+  the rules offer no field-level gating (they can't scope keys inside a map). If crew
+  should see only their own itinerary, that's a **new access pattern**, not a tweak.
+- **Does it reach the packet?** Rooming lists and travel manifests are classic packet
+  content, but the packet **never reads the crew roster today** — it's event → stage →
+  advance only. This would be a new top-level section, not a field addition.
+- **Does it reach personal calendars?** "Flight departs 6am", "checkout 11am" would be
+  genuinely useful in the per-user feed — but the feed is **event-scoped, not
+  person-scoped**. `pushToCalendar` is global to everyone subscribed to that event. Making
+  one person's lodging appear only on *their* calendar is a new addressing dimension.
+- **Where does it live in the UI?** Its own panel on the event, an extension of the Crew
+  panel, or a "Logistics" area that also finally fills the empty Logistics department?
+
+### Grounding
+
+- **Crew attachment:** `events/{eventId}/contacts/{attachId}` = `{contactId, roleLabel,
+  notes, addedBy, addedAt}` (`src/features/events/event-contacts-service.ts:68-92`); UI is
+  `EventContactsPanel.tsx`. Attaching auto-enrolls the contact's app account as a Tech
+  (`:150-162`).
+- **Contact model** (`src/lib/contacts/contact.ts:31-46`): name, role, company, phone,
+  email, notes, photo, userId + audit fields. Nothing travel- or lodging-adjacent.
+- **Travel/transportation item types:** `src/lib/schedules/itemTypes.ts:58-82`. Note the
+  schedule item `fields` map is typed `Record<string, string>` — **strings only**, no
+  numbers or nesting (`scheduleDay.ts:57`), and the editor prunes any key the type doesn't
+  declare.
+- **Production record `info`** holds flat scalars (`string|number|boolean|null`) in
+  `events/{id}/production/record`; a per-person table cannot live there.
+- **Lodging sweep:** a repo-wide search for lodging/hotel/rooming/bunk/accommodation/
+  per-diem/rental-car returned exactly one real hit — an unanswered open question in
+  `planning/archive/feature/PHASE_12_PLAN.md:94` ("crew counts, travel flight #/hotel)?
+  Start generic, specialize later?"), resolved at the time in the generic direction.
+- **The Logistics department is an empty shell.** `logistics` exists as a seeded
+  department (order 4) but has **zero fields** in both registries, so its advance section
+  renders an empty form. ROADMAP §5's "Artist Transportation / Logistics" list (trucks,
+  buses, car services — no lodging) was never turned into code, and ROADMAP already flags
+  filling the empty department field sets as a current priority. Worth deciding whether
+  crew logistics and that artist-side list are one effort or two — they're different
+  subjects (crew vs artist) that would land in the same named place.
+- **Duplicate people surface:** `EventProduction.contacts[]` is a second, hand-typed
+  `{role,name,phone,email}` array that does **not** reference the contacts directory or
+  the crew roster. Any "people on this event" work should reconcile the two rather than
+  add a third.
+
+---
+
+## 4. Catering headcounts & credential counts
+
+**Status:** idea — shape open
+**Raised:** 2026-08-08
+**Related:** §3 — both are views over the same "who's on site, when" question.
+
+### The problem
+
+PMs need **headcounts for catering** and **counts for credentials** (wristbands, passes,
+and the rest). Today both exist only as prose: `crew_catering` and `crew_credentials` are
+free-text fields on the event production record. You can write "lunch for the crew" but
+you cannot answer "how many for lunch on Friday" or "how many wristbands do I print".
+
+### The interesting part
+
+**Much of the raw data is already in the system, just not summed.** Labor schedule items
+carry structured crew lines — `{type, quantity, hours}` — so a real show day already
+records things like *(28) Stagehands · (4) Riggers/Climbers · (2) Fork-Lull Operators*
+from 5am, a different *(12) Stagehands* call from 1pm, *(2) Cam Op*, *(4) Spot Op* from
+7pm, and so on. The catering rows (Breakfast/Lunch/Dinner) sit on the same day with their
+own time windows.
+
+So "how many people are on the clock during the lunch window" is **computable from data
+that already exists** — it's a question of summing overlapping calls, not of collecting
+new information. A derived count also stays correct when the schedule changes, which a
+hand-typed number never does.
+
+That suggests two very different versions of this idea:
+
+- **The cheap version:** add numeric fields to the production record. The field registry
+  already supports `type: 'number'` and already uses it (`system_techs`, `audio_techs`),
+  and adding a field is a one-line append that every consumer picks up for free. This
+  gets you a number on a page today. It won't break down by day or meal, and it goes
+  stale the moment the schedule moves.
+- **The real version:** derive counts from who's actually called, per day and per meal,
+  with manual adjustments layered on top. Much more useful, and it depends on the same
+  roster/attendance question §3 raises.
+
+### Open questions
+
+- **Which population counts?** Named crew (~24 contacts), anonymous labor headcounts (the
+  28 stagehands), artists and their parties, vendors, guests — catering and credentials
+  almost certainly draw different lines, and artist parties aren't modelled at all today.
+- **What granularity?** One number per event, per day, or per meal? Per credential *type*
+  (crew laminate vs. day wristband vs. vendor pass vs. guest)? Credential types are
+  probably an admin-managed list, the way crew types already are.
+- **Derived, entered, or both?** A derived count with a manual override is the honest
+  answer for most production paperwork, but it's meaningfully more work than a number
+  field.
+- **Where does it live?** The production record is the natural home by precedent, but its
+  flat-scalar storage can't hold a per-day or per-type breakdown — that needs a different
+  structure, which is the same constraint §3 hits.
+- **Does it print?** Catering counts and credential pulls are things a PM hands to a
+  vendor. If so, that's packet or export work, not just a screen.
+
+### Grounding
+
+- **Today's fields:** `{key:'crew_catering', type:'text'}` and `{key:'crew_credentials',
+  type:'text'}` in `EVENT_PRODUCTION_FIELDS` (`src/lib/advances/fields.ts:118-121`), group
+  `Crew`, stored in the flat `info` map on `events/{id}/production/record`.
+- **Numeric fields are already proven** in the same registry: `system_techs` and
+  `audio_techs` are `type: 'number'` (`fields.ts:86-87`). Adding a field is appending one
+  `{key,label,type,group}` object — `SectionContentForm` builds the form from the array
+  and emits group headers in insertion order, and the template editor, template-push
+  diff, and PDF all pick it up automatically.
+- **Structured counts already exist** on labor items: `CrewLine {type, quantity, hours}`
+  (`src/lib/schedules/scheduleDay.ts:28-32`), with crew types admin-managed via
+  `config/crewTypes` (seeded Stagehands / Riggers / Fork-Lull Operators). This is the
+  precedent for an admin-managed credential-type list, too.
+- **There is no catering item type.** Catering rows on the real schedule are
+  **Custom**-typed items the user named "Catering" — the six built-in types are
+  production, show, travel, transportation, labor, custom.
+- **Counts don't exist as a concept anywhere:** repo-wide searches for headcount, party
+  size, guest count, attendee, wristband, and laminate return nothing. `hospitality-rider`
+  exists only as a document *category*; "Guest Passes / Tickets" appears in an archived
+  reference doc that was explicitly scoped **out** as artist-policy rather than
+  tech-operational.
+- **ROADMAP §5b already anticipates this ground** — it lists "credentials" and
+  "hospitality/catering" as intended content for the festival production record, so this
+  is filling in a known gap rather than opening a new area.
+
+---
+
 ## Findings worth acting on separately
 
 Small documentation-accuracy issues surfaced while grounding the above. Independent of
@@ -214,3 +406,18 @@ whether either idea gets built:
   `festivalId` (degrades gracefully: name falls back to the stored value, logo to the
   override) and the festival's logo objects are orphaned in Storage. Worth a look if
   festivals become more prominent in the UI.
+- **Calendar events show raw field keys.** The ICS builder dumps schedule-item detail
+  fields as `` `${key}: ${value}` `` (`functions/src/lib/schedules/itemEvent.ts:44`), so a
+  travel item lands in someone's calendar as `carrier: Delta` / `confirmation: ABC123`,
+  while the same item in the app reads `Carrier: Delta`. User-visible, and any new field
+  inherits it. The PDF has the same class of issue from the other direction — it
+  title-cases the raw key (`humanize`, `packet.tsx:87`) instead of using the registry's
+  label.
+- **Two unlinked "people on this event" surfaces.** The crew roster
+  (`events/{id}/contacts`, joined to the contacts directory) and
+  `EventProduction.contacts[]` (a hand-typed `{role,name,phone,email}` array on the
+  production record) coexist and never reference each other. Worth reconciling before a
+  third one gets added.
+- **The schedule item-type list is duplicated server-side.** `functions/src/scheduleTemplateSeed.ts:25`
+  hardcodes the same six item types as the client registry, so adding a type means editing
+  both.
