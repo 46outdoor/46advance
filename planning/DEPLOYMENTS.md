@@ -63,8 +63,22 @@ completes, record it as a ledger entry below and delete it here.
   detail, Production, Schedule, Contacts, Documents, Admin, Settings, Tracker, advance detail).
   Left to do: glance at the cspReport query over the next few days. Rollback = rename the
   header key back + owner Hosting redeploy (the guard test must be reverted with it).
-- *(nothing else pending — the Phase-3 field-migration re-run gate closed 2026-08-08 with a
-  clean dry run; see the ledger entry)*
+- **Awaiting a Hosting release — nav disclosure + contacts curation UI (#279, `75ee240`).** The
+  Firestore rules half is live (see the ledger entry); the client half is not. Until the owner
+  releases, the narrow-screen nav is unchanged for everyone and no director sees an Edit or
+  Delete control on a contact they didn't create. On release, verify at a phone width that the
+  ☰ menu opens and that a non-organizer no longer sees Contacts/Documents, and have the
+  director confirm they can correct someone else's directory entry. Note the inline breakpoint
+  is **880px**, not 800 — re-measured after the 44px touch targets widened the row.
+- **Unconfirmed pre-existing bug — non-admins may not be able to open an event by slug.** Found
+  while building #279, **not** caused by it, and **not** fixed. Full write-up in
+  `IDEAS.md` § Findings. Confirmed at the rules layer in the emulator; a second symptom (the
+  detail screen failing for a member even by doc id, while the schedule route with the same id
+  works) is **not root-caused**. Left to do: reproduce against a real non-admin production
+  account. If it reproduces, PMs cannot open event detail pages at all — which would outrank
+  everything currently queued here.
+- *(the Phase-3 field-migration re-run gate closed 2026-08-08 with a clean dry run; see the
+  ledger entry)*
 
 ## Ledger
 
@@ -81,6 +95,38 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Production director gains contacts-directory curation (#279, `75ee240`):
+FIRESTORE RULES.** Widens the `contacts/{contactId}` **update** and **delete** gates to include
+`isProductionDirector()`, so a director may edit and delete any entry in the global directory
+rather than only ones they created. See the CHANGELOG entry for the user-facing description.
+
+**This is the first write the production-director capability has ever carried**, ending the
+read-only property that was its central safety argument. The blast radius is the global
+contacts directory only: every event write gate still ignores the claim, and the director
+does **not** gain admin's relink power — `keysUnchanged(['createdBy','userId'])` still applies
+to them, so the F-3 ownership-seizure guard holds and linking a contact to a user account
+remains admin-only. `ROADMAP.md` §4 and the archived
+`archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md` both carry the amendment rather than their
+original "no writes" wording.
+
+Verified against the **live released ruleset**, not just the deploy output: ruleset
+`3b76b363-1283-4691-96ea-f47db7c6868e` fetched back from the Firebase Rules API confirms
+`isProductionDirector()` present in the contacts update gate with the `keysUnchanged` guard
+intact. (Note the Rules API answered this time; a 403 blocked the same check during the #274
+deploy, which is why that entry fell back to behavioural verification.) Pre-deploy: 195 rules
+tests including four new director cases — edit and delete another user's contact succeed,
+relinking `createdBy`/`userId` fails, and a plain approved non-creator is still refused.
+
+**Not yet observable to anyone.** The UI that exposes this (`canManageContact` driving the
+Edit/Delete affordances) is client-side and ships on the next owner Hosting release; until
+then the rules permit the write but nothing offers it. The same release carries the
+narrow-screen nav disclosure from the same PR.
+
+**Rollback:** revert the `contacts/{contactId}` update/delete gates to the pre-#279 form
+(`isAdmin() || (isActiveUser() && (createdBy == uid || userId == uid) && keysUnchanged(...))`)
+and redeploy `--only firestore:rules`. Independent of Hosting — the client tolerates the
+narrower rule, it just surfaces controls that would be rejected.
 
 **2026-08-10 — Production director ACTIVATED: first claim granted and verified in
 production.** Granted at 02:15:19Z by `q2zpZHxJWpgfsrl3ZXK6oaTr5H83` (the app admin) to
