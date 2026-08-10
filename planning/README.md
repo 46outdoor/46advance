@@ -6,10 +6,8 @@ filed by category.
 ## Active
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
 - **[PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md)** — agreed design for collapsing the PWA header
-  into a role-aware dropdown on narrow screens. Graduated from IDEAS §1; not yet built.
-- **[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md)** — the production-director
-  capability: read-only oversight of every event, granted by widening the Firestore read rules.
-  Amends the per-event RBAC model in ROADMAP §4; decided 2026-08-09, not yet built.
+  into a role-aware dropdown on narrow screens. Graduated from IDEAS §1; not yet built. Its
+  production-director prerequisite is now shipped, so it is ready to implement.
 - **[IDEAS.md](IDEAS.md)** — capture space for future features, fixes, and improvements that
   aren't scoped or decided yet. Ideas graduate from here to a `PHASE_*_PLAN.md` (or a small PR)
   when we commit to them; ROADMAP holds what's actually been decided.
@@ -20,8 +18,9 @@ filed by category.
   record of backend deploys + Hosting checkpoints (deploy clock; the CHANGELOG is the
   merge clock).
 Phases 0–13 are built and archived; the calendar-subscriptions feature (per-user ICS feed,
-retiring the per-event Google calendars) completed 2026-08-08 and is archived under
-`archive/feature/`; the forensic remediation plan (all phases 0–3) is complete and archived
+retiring the per-event Google calendars) completed 2026-08-08 and the production-director
+oversight capability completed 2026-08-10, both archived under `archive/feature/`; the
+forensic remediation plan (all phases 0–3) is complete and archived
 under `archive/fix/`. When the next feature phase starts, add its
 `PHASE_*_PLAN.md` here, then move it to `archive/feature/` on completion.
 

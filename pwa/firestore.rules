@@ -43,7 +43,7 @@ service cloud.firestore {
       return isAdmin() || isApproved();
     }
 
-    // ---- Cross-event oversight (planning/EVENT_OVERSIGHT_ROLE_PLAN.md) ----
+    // ---- Cross-event oversight (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) ----
     // A production director oversees the PMs' work across the whole application, and may or
     // may not be a member of any given event — so this capability cannot be derived from
     // membership. The claim is READ-ONLY and event-scoped: it widens event-subtree reads and

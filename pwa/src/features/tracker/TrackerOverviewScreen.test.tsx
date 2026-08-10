@@ -1,5 +1,5 @@
 /**
- * The `/tracker` route guard (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
+ * The `/tracker` route guard (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
  *
  * Hiding the navigation isn't the boundary — the route is. Admins, production directors, and
  * PMs get the overview; leads and techs are redirected to Events. The unresolved-membership

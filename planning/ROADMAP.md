@@ -133,7 +133,7 @@ person oversee work across all of them?" These are user-level claims, not event 
 | ---------- | ------- | ------ |
 | **admin** | Top-level; see above. | Built |
 | **organizer** | May create events; may curate the artist document library. Set by an admin via `setUserOrganizer`, mirrored to `users/{uid}.organizer`. | Built (previously undocumented here) |
-| **production director** | Read-only oversight of **every event in the application**, whether or not assigned to it. No writes, no admin functions. | **Decided 2026-08-09 — not built** |
+| **production director** | Read-only oversight of **every event in the application**, whether or not assigned to it. No writes, no admin functions. Set by an admin via `setUserProductionDirector`, mirrored to `users/{uid}.productionDirector`. | Built (shipped + activated 2026-08-10) |
 
 > **Decided (2026-08-09): the production-director exception.** A production director oversees
 > the PMs' work and may or may not be assigned as a PM on any given event — so the capability
@@ -142,7 +142,9 @@ person oversee work across all of them?" These are user-level claims, not event 
 > the event subtree; writes stay per-event. This is the first deliberate exception to the
 > per-event rule, and is intentionally read-only so it can be widened later rather than
 > narrowed. Full design, rules diff, and alternatives (auto-enrolment; server-side
-> aggregation) in [`EVENT_OVERSIGHT_ROLE_PLAN.md`](EVENT_OVERSIGHT_ROLE_PLAN.md).
+> aggregation) in
+> [`archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md`](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md)
+> (shipped and activated 2026-08-10).
 >
 > Note the naming discipline that came with it: capabilities get predicates named for the
 > capability (`canOverseeAllEvents`, `canCreateEvents`), never for the claim — so the

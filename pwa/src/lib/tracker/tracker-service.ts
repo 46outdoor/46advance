@@ -8,7 +8,7 @@
  * see every event, and a single unpaged pass would fan one screen out into hundreds of stage
  * queries and thousands of advance reads. `listEventTrackerSummaries` therefore serves one
  * bounded page at a time and rolls up only that page, with a ceiling on how many roll-ups run
- * at once. See `planning/EVENT_OVERSIGHT_ROLE_PLAN.md` § Tracker performance guard.
+ * at once. See `planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md` § Tracker performance guard.
  */
 import {
   collection,

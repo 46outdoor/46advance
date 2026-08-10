@@ -371,7 +371,7 @@ export const setUserOrganizer = onCall(async (request) => {
 
 /**
  * Admin-only. Grants/revokes the global `productionDirector` capability — READ-ONLY oversight
- * of every event, whether or not the user is a member (planning/EVENT_OVERSIGHT_ROLE_PLAN.md).
+ * of every event, whether or not the user is a member (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md).
  * Deliberately separate from `organizer` ("may create events"): silently widening that toggle
  * to "may read every event" would make the Admin label lie at the moment someone grants it.
  * Sets the custom claim, mirrors `users/{uid}.productionDirector`, and stamps who changed it

@@ -1,5 +1,5 @@
 /**
- * Production-director oversight (planning/EVENT_OVERSIGHT_ROLE_PLAN.md).
+ * Production-director oversight (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md).
  *
  * The capability's whole point is access WITHOUT assignment, so the `director` persona
  * deliberately holds no membership rows at all (see personas.ts). These tests prove the
