@@ -149,11 +149,12 @@ button; **Event Checklist** renders with no Import or add-item controls; **Track
 rolls up both events (0/105 and 0/126 sections). Every request 200, zero console messages, no
 permission-denied. Nav correctly omits **Admin**.
 
-**Known, not a regression:** the director's nav still shows **Contacts** and **Documents**.
-Role-gating those to organizer/admin belongs to `PWA_MOBILE_NAV_PLAN.md`, which is not built —
-they were visible to every approved user before this change and still are. No new exposure:
-`contacts` and `artistDocuments` are already `allow read: if isActiveUser()` for everyone
-(tracked in IDEAS §5).
+**Known at the time, since resolved:** the director's nav still showed **Contacts** and
+**Documents** because the nav work was not yet built. It shipped later the same day
+(`planning/archive/feature/PWA_MOBILE_NAV_PLAN.md`, released in `e0a5d542`) — and the decision
+went the other way: the director is now *in* the `cross-event` set, so those destinations are
+theirs deliberately rather than by omission. No exposure changed either way: `contacts` and
+`artistDocuments` remain `allow read: if isActiveUser()` for everyone (tracked in IDEAS §5).
 
 **2026-08-10 — Hosting checkpoint (02:02Z, `3c232bd` #275): HOSTING (owner) — the
 production-director client is LIVE.** Carries the PWA half of #274 from the current `main`

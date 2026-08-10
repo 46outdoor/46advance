@@ -3,7 +3,7 @@
  *
  * The header has TWO navigation presentations and renders **exactly one at a time**, chosen in
  * JavaScript by `useMediaQuery(INLINE_NAV_MEDIA_QUERY)` rather than by Tailwind `hidden`
- * variants (a deliberate refinement of planning/PWA_MOBILE_NAV_PLAN.md, which assumed
+ * variants (a deliberate refinement of planning/archive/feature/PWA_MOBILE_NAV_PLAN.md, which assumed
  * a Tailwind variant). Two `<nav>` landmarks both named "Main navigation" is an accessibility
  * defect even when one is visually hidden, and jsdom applies no Tailwind, so a CSS-hidden
  * duplicate would make every component-test query in this file's tests ambiguous.

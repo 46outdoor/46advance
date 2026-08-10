@@ -23,7 +23,7 @@ goes stale; re-check before building.
 ## 1. PWA: collapse the narrow-screen top nav into a dropdown
 
 **Status:** ✅ **graduated — design agreed, not yet built.** See
-[PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md) for the resolved design; this entry is kept as the
+[PWA_MOBILE_NAV_PLAN.md](archive/feature/PWA_MOBILE_NAV_PLAN.md) for the resolved design; this entry is kept as the
 origin record.
 **Raised:** 2026-08-08
 
@@ -411,7 +411,7 @@ approved user can still read every entry**. The read rule is untouched, and the 
 what this entry is about. Practical consequence when this is finally scoped: the director's
 place in the permitted set is settled, not open — the remaining question is only who *else*
 is in it.
-**Related:** [PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md) hides the cross-event Contacts
+**Related:** [PWA_MOBILE_NAV_PLAN.md](archive/feature/PWA_MOBILE_NAV_PLAN.md) hides the cross-event Contacts
 and Documents destinations from everyone outside admin / organizer / production director, but
 hiding a link is cosmetic — this entry is the real access question.
 

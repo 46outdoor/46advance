@@ -1,5 +1,5 @@
 /**
- * Narrow-screen navigation disclosure (planning/PWA_MOBILE_NAV_PLAN.md).
+ * Narrow-screen navigation disclosure (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md).
  *
  * Two things are proven here, both of which need real seeded claims rather than a mocked
  * viewer:

@@ -1,7 +1,7 @@
 /**
  * WS-L: the authenticated app chrome at real viewport sizes.
  *
- * The nav rework (planning/PWA_MOBILE_NAV_PLAN.md) INVERTED what this file used to assert.
+ * The nav rework (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md) INVERTED what this file used to assert.
  * It previously signed in as `pm` at 390×844 and required Contacts and Documents to be
  * visible; those are now `cross-event` destinations (admin, organizer or production director),
  * so a plain production manager must not be offered them at any width. What survives unchanged
