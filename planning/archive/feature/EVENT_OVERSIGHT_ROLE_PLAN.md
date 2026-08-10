@@ -10,7 +10,7 @@
 >
 > Two things this plan deliberately did **not** do, still open and tracked elsewhere:
 > gating the cross-event **Contacts/Documents** nav entries
-> ([`PWA_MOBILE_NAV_PLAN.md`](../../PWA_MOBILE_NAV_PLAN.md)), and tightening the underlying
+> ([`PWA_MOBILE_NAV_PLAN.md`](PWA_MOBILE_NAV_PLAN.md)), and tightening the underlying
 > `contacts`/`artistDocuments` **rules**, which remain `allow read: if isActiveUser()`
 > ([IDEAS §5](../../IDEAS.md)). Neither is a regression from this work — both predate it.
 >
@@ -23,7 +23,7 @@
 > **every event write gate still ignores the claim**, and relinking a contact to a user
 > account (`createdBy`/`userId`) remains admin-only. The decision of record is
 > [`ROADMAP.md`](../../ROADMAP.md) §4; the nav consequence is in
-> [`PWA_MOBILE_NAV_PLAN.md`](../../PWA_MOBILE_NAV_PLAN.md). This plan is **not** reopened —
+> [`PWA_MOBILE_NAV_PLAN.md`](PWA_MOBILE_NAV_PLAN.md). This plan is **not** reopened —
 > the widening was decided and shipped separately.
 
 A production director oversees the PMs' work across the whole application. They **may or may
@@ -83,7 +83,7 @@ It explicitly does **not** grant:
   with the account link (`createdBy`/`userId`) still admin-only. The same decision makes
   `cross-event` navigation mean admin / organizer / production director, so director
   navigation is now Events + Tracker + Contacts + Documents + account
-  ([PWA_MOBILE_NAV_PLAN.md](../../PWA_MOBILE_NAV_PLAN.md)). The artist-document **library**
+  ([PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md)). The artist-document **library**
   gained no authority — Documents only rides along on the shared nav rule, and its writes
   remain organizer/admin. IDEAS §5 is still open: both global collections are still
   `allow read: if isActiveUser()`, so nav visibility changes what is offered, not what is

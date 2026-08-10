@@ -162,7 +162,7 @@ person oversee work across all of them?" These are user-level claims, not event 
 > F-3 ownership-seizure guard holds and linking a contact to an account remains an
 > admin-only identity action. The same decision adds the director to the navigation's
 > `cross-event` rule, so Contacts and Documents appear in their nav
-> ([`PWA_MOBILE_NAV_PLAN.md`](PWA_MOBILE_NAV_PLAN.md)); that is presentation only —
+> ([`PWA_MOBILE_NAV_PLAN.md`](archive/feature/PWA_MOBILE_NAV_PLAN.md)); that is presentation only —
 > `contacts/{id}` and `artistDocuments/{id}` remain readable by every approved user, which
 > is still open as [`IDEAS.md`](IDEAS.md) §5.
 
