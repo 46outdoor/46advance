@@ -53,16 +53,14 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Production director — Hosting release pending, then grant the first claim.** Functions
-  and rules are LIVE as of 2026-08-10 01:5xZ (see the entry below); the PWA half is not. Until
-  the owner ships a Hosting release from `6d7d55b` or later, production runs the **old client**
-  against the new backend — verified working, and no one's access has changed because no
-  `productionDirector` claim exists yet. After the release: grant the claim in **Admin → Users
-  → Production director**, then confirm the director lists every event, opens an unassigned one
-  read-only, and sees the Tracker. Two user-visible changes ship with that release and belong in
-  the handoff — **department leads and techs lose the Tracker**, and the all-event Tracker
-  becomes paged. Rollback = redeploy the previous rules (the fast kill switch — see the plan's
-  Emergency containment) and revoke the claim.
+- **Production director — grant the first claim.** All three targets are live (Functions +
+  rules 01:5xZ, Hosting 02:02Z — both entries below). The capability is **fully deployed but
+  dormant**: no `productionDirector` claim exists, so the rules branch grants nobody anything.
+  To activate: **Admin → Users → Production director → Grant** (the confirmation spells out the
+  scope). Then verify as that user — lists every event, opens an unassigned one with no edit
+  controls, sees Team and Checklist read-only, and reaches the Tracker. Rollback = redeploy the
+  previous rules first (the fast kill switch — see the plan's Emergency containment), then patch
+  the Functions director branch, then revoke the claim.
 - **CSP enforce — residual log watch through ~2026-08-12.** The flip is live (see the 21:08Z
   checkpoint entry); headers verified on both domains and the first hour logged no violations.
   The browser pass completed 2026-08-08 ~22:45Z (MCP-driven crawl of production, signed in as
@@ -91,6 +89,24 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Hosting checkpoint (02:02Z, `3c232bd` #275): HOSTING (owner) — the
+production-director client is LIVE.** Carries the PWA half of #274 from the current `main`
+tip, completing the three-target rollout begun with the Functions/rules deploy below. Verified
+in production: **Admin → Users** shows the Production director column with its
+scope-stating confirmation; the **Tracker** nav link renders for the admin; `/tracker` lists
+both events with completion roll-ups and no "Load more" (2 events, under the 25-event page);
+`syncUserClaims` and every Firestore channel returned 200; zero console messages.
+
+**Operational note — the new UI does not appear until the service worker updates.** The PWA
+ships `skipWaiting: false` with a `prompt` registration, so an already-open tab keeps serving
+the previous bundle: immediately after this release the admin screen still showed the old
+column set until the registration was cleared and the page hard-reloaded. Anyone who reports
+"I don't see the Tracker link" should reload rather than be told the deploy failed.
+
+Still dormant by design — no claim has been granted, so the lead/tech Tracker removal and the
+oversight capability are both inert until the first grant. **Rollback:** redeploy the previous
+Hosting release; the backend entry below rolls back independently.
 
 **2026-08-10 — Production director: FUNCTIONS + RULES live (#274, `6d7d55b`): FUNCTIONS,
 FIRESTORE RULES, STORAGE RULES.** The backend half of the cross-event oversight capability
