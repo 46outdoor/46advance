@@ -133,7 +133,7 @@ person oversee work across all of them?" These are user-level claims, not event 
 | ---------- | ------- | ------ |
 | **admin** | Top-level; see above. | Built |
 | **organizer** | May create events; may curate the artist document library. Set by an admin via `setUserOrganizer`, mirrored to `users/{uid}.organizer`. | Built (previously undocumented here) |
-| **production director** | Read-only oversight of **every event in the application**, whether or not assigned to it. No writes, no admin functions. Set by an admin via `setUserProductionDirector`, mirrored to `users/{uid}.productionDirector`. | Built (shipped + activated 2026-08-10) |
+| **production director** | Oversight of **every event in the application**, whether or not assigned to it. Over event data it is **read-only** — no event writes, no admin functions. Plus one global write, added 2026-08-10: **curation of the global contacts directory** (edit/delete any entry, not only their own; relinking a contact to an account stays admin-only). Set by an admin via `setUserProductionDirector`, mirrored to `users/{uid}.productionDirector`. | Built (shipped + activated 2026-08-10; directory curation decided the same day) |
 
 > **Decided (2026-08-09): the production-director exception.** A production director oversees
 > the PMs' work and may or may not be assigned as a PM on any given event — so the capability
@@ -149,6 +149,22 @@ person oversee work across all of them?" These are user-level claims, not event 
 > Note the naming discipline that came with it: capabilities get predicates named for the
 > capability (`canOverseeAllEvents`, `canCreateEvents`), never for the claim — so the
 > populations can diverge later without a call-site sweep.
+>
+> **Amended (2026-08-10): the first widening — and it is not an event write.** The
+> read-only framing was chosen so the capability could be widened later rather than narrowed;
+> that has now happened once. A production director **curates the global contacts directory**
+> (§11) and may edit or delete **any** entry, not only the ones they created —
+> `canManageContact` in `src/lib/rbac/permissions.ts`, mirrored by the
+> `contacts/{contactId}` update/delete gates in `firestore.rules`. The rationale above is
+> unchanged and still governs event data: the directory is company reference data, not event
+> authority, and **every event write gate still ignores the claim**. The director also does
+> **not** get the admin relink power — `createdBy`/`userId` stay immutable to them, so the
+> F-3 ownership-seizure guard holds and linking a contact to an account remains an
+> admin-only identity action. The same decision adds the director to the navigation's
+> `cross-event` rule, so Contacts and Documents appear in their nav
+> ([`PWA_MOBILE_NAV_PLAN.md`](PWA_MOBILE_NAV_PLAN.md)); that is presentation only —
+> `contacts/{id}` and `artistDocuments/{id}` remain readable by every approved user, which
+> is still open as [`IDEAS.md`](IDEAS.md) §5.
 
 - **Departments (decided):** a configurable, admin-managed list (app-wide), used by department-lead roles, schedules, and packets.
 - **Default role/permission template (decided):** creating an event auto-populates a default
@@ -521,7 +537,8 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 
 - **Built — execution Phase 10 (2026-06-24):** global directory `contacts/{id}` (name, role,
   company, phone, email, notes) — read by any signed-in user, **create by anyone (createdBy
-  self), edit/delete by creator or admin**; **per-event attachment** `events/{id}/contacts/{attachId}`
+  self), edit/delete by creator or admin** (and, since 2026-08-10, by a **production
+  director** over any entry — see §4); **per-event attachment** `events/{id}/contacts/{attachId}`
   (join + role-on-event label, PM/admin write, member read) resolved against the directory.
   Tap-to-call/email shared component. **User-account link deferred.** Model in `src/lib/contacts/`.
 

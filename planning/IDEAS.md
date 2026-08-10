@@ -399,14 +399,21 @@ That suggests two very different versions of this idea:
 
 **Status:** idea — needs a decision before it can be scoped
 **Raised:** 2026-08-08
-**Note (2026-08-09):** whenever this is scoped, the new **production director** tier
-([EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md), shipped
-2026-08-10) belongs in the permitted set
-alongside organizer/admin — otherwise oversight can read every event but not the contacts
-directory.
+**Note (2026-08-09, updated 2026-08-10):** whenever this is scoped, the **production
+director** tier ([EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md),
+shipped 2026-08-10) belongs in the permitted set alongside organizer/admin — otherwise
+oversight can read every event but not the contacts directory. **That prediction has half
+come true, and from the other end: the write side moved first.** The 2026-08-10
+directory-curation decision ([ROADMAP §4](ROADMAP.md)) lets a director **edit and delete any
+entry** in `contacts/{id}` — the account link (`createdBy`/`userId`) stays admin-only. So the
+director is now the only non-admin who can change an entry they didn't create, while **every
+approved user can still read every entry**. The read rule is untouched, and the read rule is
+what this entry is about. Practical consequence when this is finally scoped: the director's
+place in the permitted set is settled, not open — the remaining question is only who *else*
+is in it.
 **Related:** [PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md) hides the cross-event Contacts
-and Documents destinations from non-organizers, but hiding a link is cosmetic — this entry
-is the real access question.
+and Documents destinations from everyone outside admin / organizer / production director, but
+hiding a link is cosmetic — this entry is the real access question.
 
 ### The problem
 
@@ -439,7 +446,9 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 - **What's the intended line?** "Organizers and admins get the cross-event surfaces;
   everyone else gets their events and nothing more" is the obvious first cut, and it maps
   onto the existing global `organizer` claim. Worth confirming that's the actual intent
-  before anything is enforced.
+  before anything is enforced. **Add the production director to that first cut (2026-08-10):**
+  they already hold edit/delete on every directory entry, so a read gate that shut them out
+  would be incoherent.
 - **Do department leads sit with PMs or with techs?** They already have real edit authority
   within their departments, so they may need contacts even if techs don't.
 - **Contacts is the hard one.** Crew arguably *do* need the contacts for their own show —
@@ -463,8 +472,13 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 - Client mirror: `canCreateEvents(viewer)` = admin || organizer
   (`src/lib/rbac/permissions.ts:32`). Per-event roles are separate:
   `production-manager | department-lead | tech` (`src/lib/rbac/roles.ts:23`).
+- **The directory's write gate is already scoped** (2026-08-10) — `canManageContact(viewer,
+  contact)` = admin || production director || creator, mirroring the `contacts/{contactId}`
+  update/delete rules. Only the **read** gate is still wide open, so this entry is narrower
+  than it was: it is now about reads.
 - **No global "is a PM" state exists** — PM is per-event, so a user can be a PM on one show
-  and a tech on another. Any global gate has to key on `organizer`/`admin`.
+  and a tech on another. Any global gate has to key on `organizer`/`admin`/
+  `productionDirector`.
 - Attaching someone as crew auto-enrolls their account as a Tech on that event
   (`EventContactsPanel.tsx:150-162`), so crew accounts arrive with member-level read
   automatically.
@@ -472,6 +486,76 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 ---
 
 ## Findings worth acting on separately
+
+> ### ⚠ Non-admins may not be able to open an event by slug (found 2026-08-10)
+>
+> **Severity: potentially user-blocking. Not yet confirmed against production data.** Found
+> by a new emulator test while building the nav; unrelated to that work, and **not** caused by
+> the production-director change (see below).
+>
+> `EventsListScreen.tsx:307` links to `` /events/${e.slug ?? e.id} ``, so any event carrying a
+> `slug` is navigated to by slug. `getEventBySlugOrId` (`events-service.ts:77`) resolves that
+> in two steps, and for a plain member **both steps are denied**:
+>
+> 1. `query(events, where('slug','==',param), limit(1))` — Firestore refuses the list query,
+>    because the read rule is `canReadEvent(eventId)` and satisfying it for a member requires a
+>    per-document `exists()` membership lookup.
+> 2. the fallback `getEvent(param)` — a getDoc on the **slug string** as if it were a doc id.
+>    That document does not exist, and for a non-member the rule denies rather than returning
+>    empty, so it throws instead of yielding `null`.
+>
+> The screen then renders "Failed to load this event." Admins and production directors escape
+> both branches because `canOverseeAllEvents()` is unconditionally true, which is why every
+> existing test missed it — **`event-routing.emulator.spec.ts` only ever signs in as `admin`,
+> and no emulator test had opened an event detail screen as a plain member.**
+>
+> Measured directly against the rules (temporary diagnostic, since removed):
+>
+> | Actor | Operation | Result |
+> | --- | --- | --- |
+> | PM (member) | slug query on their own event | **denied** |
+> | PM (member) | getDoc by the slug string | **denied** |
+> | PM (member) | getDoc by real doc id | allowed |
+> | Production director | same slug query | allowed |
+>
+> **Not a regression from the director work.** Before `6d7d55b` the gate was
+> `isAdmin() || isMember(eventId)`; after, `canReadEvent(eventId)` =
+> `isAdmin() || isProductionDirector() || isMember(eventId)`. For a member both reduce to
+> `isMember(eventId)`. The director branch only ever adds access.
+>
+> **A second, sharper symptom — NOT root-caused.** With the slug removed from the picture
+> entirely, a PM opening `/events/e2e-event-alpha` (raw doc id) still lands on "Failed to load
+> this event.", while the same persona opening `/events/e2e-event-alpha/schedule` — same id,
+> same `getEventBySlugOrId` fetcher, same React Query key — renders correctly. Confirmed with
+> an instrumented browser run. The only console noise is the Functions emulator being absent
+> (`syncUserClaims` → `ERR_CONNECTION_REFUSED`, AuthProvider falls back to the token's claims),
+> which affects both routes equally and so does not explain the split.
+>
+> Two leads, neither verified: `EventDetailScreen.tsx:160` does **not** use `useResolvedEvent`
+> — it re-declares an inline `useQuery` with the same `['events','detail',param]` key and
+> fetcher, which is exactly the duplication `useResolvedEvent`'s own doc comment warns against;
+> and the detail screen fans out many more sub-queries at mount than the schedule screen does.
+> Whether this reproduces outside the emulator is unknown. **Reproduce it against a real
+> non-admin account before drawing conclusions** — if it does reproduce, PMs cannot open an
+> event detail page at all, which is far more serious than the slug half.
+>
+> **There is a latency cost even when the slug is not involved.** Step 1 runs *unconditionally*
+> — the resolver always tries the slug query before falling back — so **every event page load
+> for every non-admin, non-director user** pays a denied Firestore round trip, plus the SDK's
+> retries on `PERMISSION_DENIED`, before the getDoc that actually works. Measured in the
+> emulator this pushed a by-ID event load past 5 seconds from cold. Even if the slug bug turns
+> out to be unreachable in production, this half is real for the majority of users, on every
+> event they open.
+>
+> **Before treating this as live, check whether production events actually carry `slug`.** If
+> most predate slug reservation and the field is null, the link falls back to `e.id` and real
+> users never hit it — which would explain the silence. That check is the first step.
+>
+> Likely fixes, in order of preference: have the events list link by `e.id` (one line, no rules
+> change); or make `getEventBySlugOrId` resolve the slug from the memberships the viewer can
+> already read instead of a collection query; or catch `permission-denied` in `getEvent` and
+> return `null` so the fallback degrades to "not found" rather than an error. A rules change is
+> **not** obviously right — the list query is genuinely unsafe to allow.
 
 Small documentation-accuracy issues surfaced while grounding the above. Independent of
 whether either idea gets built:

@@ -18,10 +18,11 @@ export interface Viewer {
   /** Global organizer claim — may create events. Optional; defaults to false. */
   isOrganizer?: boolean;
   /**
-   * Global production-director claim — read-only oversight of EVERY event, whether or not
-   * the user is a member. Grants no writes: a director who must edit a show is assigned that
-   * event's production-manager role, and the write predicates below stay membership-based.
-   * Optional; defaults to false.
+   * Global production-director claim — oversight of EVERY event, whether or not the user is a
+   * member. Over event data it is READ-ONLY: a director who must edit a show is assigned that
+   * event's production-manager role, and the event write predicates below stay
+   * membership-based. The one write it carries is global contacts-directory curation
+   * (`canManageContact`), which is not event authority. Optional; defaults to false.
    */
   isProductionDirector?: boolean;
 }
@@ -109,6 +110,31 @@ export function canEditDepartment(
 ): boolean {
   if (canEditEvent(viewer, member?.role ?? null)) return true;
   return member?.role === 'department-lead' && (member.departments ?? []).includes(deptId);
+}
+
+/** The contact fields this predicate needs (subset of `Contact`). */
+export interface ContactOwnership {
+  /** uid of whoever created the directory entry. */
+  createdBy: string;
+}
+
+/**
+ * May edit or delete an entry in the GLOBAL contacts directory. Admin and production director
+ * curate the whole directory; everyone else manages only what they created.
+ *
+ * Mirrors the `contacts/{contactId}` update/delete gates in `firestore.rules`, with one
+ * deliberate narrowing: the rules also let a user update the entry LINKED to their own account
+ * (`userId`), because that is how a profile photo is saved from Settings. The directory screen
+ * does not offer that as an edit affordance, so this predicate leaves it out — keeping the UI
+ * stricter than the rules is safe; the reverse would not be.
+ *
+ * Note this is the director claim's only write. It is directory curation, not event authority:
+ * `canEditEvent` and every other event write predicate still ignore the claim.
+ */
+export function canManageContact(viewer: Viewer, contact: ContactOwnership): boolean {
+  return (
+    viewer.isAdmin || viewer.isProductionDirector === true || contact.createdBy === viewer.uid
+  );
 }
 
 /**

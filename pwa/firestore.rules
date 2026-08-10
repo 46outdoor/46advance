@@ -46,9 +46,16 @@ service cloud.firestore {
     // ---- Cross-event oversight (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) ----
     // A production director oversees the PMs' work across the whole application, and may or
     // may not be a member of any given event — so this capability cannot be derived from
-    // membership. The claim is READ-ONLY and event-scoped: it widens event-subtree reads and
-    // grants no writes, no admin functions, and no event creation. A director who needs to
-    // edit a show is assigned a per-event production-manager role (capabilities are additive).
+    // membership.
+    //
+    // Over the EVENT SUBTREE the claim is strictly READ-ONLY: it widens reads and grants no
+    // writes, no admin functions, and no event creation. A director who needs to edit a show
+    // is assigned a per-event production-manager role (capabilities are additive).
+    //
+    // ONE deliberate exception, added 2026-08-10: the GLOBAL contacts directory, where a
+    // director may edit and delete any entry (see `match /contacts/{contactId}`). That is a
+    // directory-curation power, not event authority — every event write gate below still
+    // ignores this claim.
     function isProductionDirector() {
       return isActiveUser() && request.auth.token.get('productionDirector', false) == true;
     }
@@ -221,12 +228,19 @@ service cloud.firestore {
       // `userId` are immutable to them (F-3). Otherwise a linked user could seize `createdBy`
       // and then satisfy the creator-only delete. Legitimate relinking is admin-only (or the
       // Admin-SDK server path, which bypasses these rules).
+      // A production director curates the whole directory (decision 2026-08-10) — they may
+      // edit and delete ANY entry, not only their own. They do NOT get the admin relink
+      // power: `createdBy`/`userId` stay immutable to them, so the F-3 ownership-seizure
+      // guard above still holds and account linking remains an admin-only identity action.
       allow update: if isAdmin()
         || (isActiveUser()
-            && (resource.data.createdBy == request.auth.uid || resource.data.userId == request.auth.uid)
+            && (isProductionDirector()
+                || resource.data.createdBy == request.auth.uid
+                || resource.data.userId == request.auth.uid)
             && keysUnchanged(['createdBy', 'userId']));
       allow delete: if isAdmin()
-        || (isActiveUser() && resource.data.createdBy == request.auth.uid);
+        || (isActiveUser()
+            && (isProductionDirector() || resource.data.createdBy == request.auth.uid));
     }
 
     // User profiles are server-managed (Admin SDK). Self/admin read; no client write.

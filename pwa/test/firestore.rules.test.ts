@@ -1171,6 +1171,39 @@ describe('firestore.rules — global contacts directory', () => {
       updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { createdBy: OUTSIDER }),
     );
   });
+
+  // Directory curation (decision 2026-08-10): the production director edits/deletes ANY entry.
+  // This is the claim's ONE write — it stays read-only over event data.
+  it('a production director can edit a contact someone else created', async () => {
+    await assertSucceeds(
+      updateDoc(doc(dbFor(DIRECTOR.uid, DIRECTOR.token), 'contacts/c-pm'), {
+        name: 'Director edit',
+      }),
+    );
+  });
+
+  it('a production director can delete a contact someone else created', async () => {
+    await assertSucceeds(deleteDoc(doc(dbFor(DIRECTOR.uid, DIRECTOR.token), 'contacts/c-pm')));
+  });
+
+  it('a production director cannot relink createdBy or userId (F-3 still applies)', async () => {
+    // Curation is not an identity power: relinking stays admin-only, so the ownership-seizure
+    // guard holds for the director exactly as it does for the creator.
+    const db = dbFor(DIRECTOR.uid, DIRECTOR.token);
+    await assertFails(updateDoc(doc(db, 'contacts/c-pm'), { createdBy: DIRECTOR.uid }));
+    await assertFails(updateDoc(doc(db, 'contacts/c-pm'), { userId: DIRECTOR.uid }));
+    await assertFails(updateDoc(doc(db, 'contacts/c-linked'), { createdBy: DIRECTOR.uid }));
+    await assertFails(updateDoc(doc(db, 'contacts/c-linked'), { userId: OUTSIDER }));
+  });
+
+  it('the director branch does not widen anything for ordinary approved users', async () => {
+    // Same writes as above from plain approved users (no productionDirector claim) — all denied.
+    await assertFails(updateDoc(doc(dbFor(TECH), 'contacts/c-pm'), { name: 'Nope' }));
+    await assertFails(updateDoc(doc(dbFor(OUTSIDER), 'contacts/c-pm'), { name: 'Nope' }));
+    await assertFails(deleteDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+    await assertFails(deleteDoc(doc(dbFor(OUTSIDER), 'contacts/c-pm')));
+    await assertFails(deleteDoc(doc(dbFor(OUTSIDER), 'contacts/c-linked')));
+  });
 });
 
 describe('firestore.rules — per-event contact attachments', () => {

@@ -4,6 +4,7 @@ import {
   canEditDepartment,
   canEditEvent,
   canFlag,
+  canManageContact,
   canManageMembers,
   canOverseeAllEvents,
   canViewChecklist,
@@ -11,7 +12,7 @@ import {
   canViewTrackerForEvent,
   isAdmin,
 } from './permissions';
-import type { Viewer } from './permissions';
+import type { ContactOwnership, Viewer } from './permissions';
 
 const admin: Viewer = { uid: 'admin-1', isAdmin: true };
 const member: Viewer = { uid: 'user-1', isAdmin: false };
@@ -188,6 +189,43 @@ describe('permissions — department-scoped editing', () => {
       false,
     );
     expect(canEditDepartment(member, { role: 'production-manager' }, 'anything')).toBe(true);
+  });
+});
+
+describe('permissions — contacts directory curation', () => {
+  const ownContact: ContactOwnership = { createdBy: member.uid };
+  const someoneElsesContact: ContactOwnership = { createdBy: 'author-9' };
+
+  it('admin curates the whole directory', () => {
+    expect(canManageContact(admin, ownContact)).toBe(true);
+    expect(canManageContact(admin, someoneElsesContact)).toBe(true);
+  });
+
+  it('a production director curates the whole directory too', () => {
+    // The claim's ONE write. Directory curation is not event authority — the event write
+    // predicates above still refuse a director with no membership.
+    expect(canManageContact(director, ownContact)).toBe(true);
+    expect(canManageContact(director, someoneElsesContact)).toBe(true);
+  });
+
+  it('an approved user manages the entries they created', () => {
+    expect(canManageContact(member, ownContact)).toBe(true);
+  });
+
+  it("an approved user may not touch someone else's entry", () => {
+    expect(canManageContact(member, someoneElsesContact)).toBe(false);
+  });
+
+  it('an organizer is not a curator — creating events is not directory stewardship', () => {
+    expect(canManageContact(organizer, someoneElsesContact)).toBe(false);
+    expect(canManageContact(organizer, { createdBy: organizer.uid })).toBe(true);
+  });
+
+  it('an absent or explicitly false director claim grants nothing (fails closed)', () => {
+    const absent: Viewer = { uid: 'u', isAdmin: false };
+    const explicitlyFalse: Viewer = { uid: 'u', isAdmin: false, isProductionDirector: false };
+    expect(canManageContact(absent, someoneElsesContact)).toBe(false);
+    expect(canManageContact(explicitlyFalse, someoneElsesContact)).toBe(false);
   });
 });
 

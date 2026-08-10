@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
+import { canManageContact } from '@/lib/rbac/permissions';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import {
@@ -111,9 +112,9 @@ function ContactRow({
   );
 }
 
-/** Global personnel directory: anyone adds; creator/admin edits/deletes. */
+/** Global personnel directory: anyone adds; creator/admin/production-director edits/deletes. */
 export function ContactsDirectoryScreen() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -175,7 +176,8 @@ export function ContactsDirectoryScreen() {
   });
 
   if (!user) return null;
-  const canManage = (c: Contact) => isAdmin || c.createdBy === user.uid;
+  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
+  const canManage = (c: Contact) => canManageContact(viewer, c);
 
   return (
     <section className="space-y-6">
