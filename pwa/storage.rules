@@ -21,7 +21,7 @@ service firebase.storage {
     function isActiveUser() {
       return isAdmin() || isApproved();
     }
-    // Cross-event oversight — mirrors firestore.rules / planning/EVENT_OVERSIGHT_ROLE_PLAN.md.
+    // Cross-event oversight — mirrors firestore.rules / planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md.
     // Read-only and event-scoped: it widens the event-path READ gate only. Uploads and deletes
     // still require admin or the per-event production-manager role.
     function isProductionDirector() {

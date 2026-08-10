@@ -1,5 +1,5 @@
 /**
- * The event header's Tracker link (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy) —
+ * The event header's Tracker link (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy) —
  * the second entry point that shipped ungated, and the one that is per-event rather than
  * global: a PM sees it on the shows they run, not on every show they're a member of.
  */

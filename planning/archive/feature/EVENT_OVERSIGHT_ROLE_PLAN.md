@@ -1,6 +1,18 @@
 # Production director — cross-event oversight
 
-**Decided 2026-08-09. Not yet built.**
+> **Status: COMPLETE (2026-08-10).** Decided 2026-08-09, built and merged as `6d7d55b` (#274),
+> deployed to Functions + Firestore rules + Storage rules the same day, released to Hosting,
+> and **activated** — the first `productionDirector` grant was made and verified in production
+> against a holder with zero membership rows (reach, read-only containment, and the Tracker
+> gate all confirmed at the claim, mirror, rules, and UI layers). Deploy records, verification
+> evidence, and rollback steps are in [`DEPLOYMENTS.md`](../../DEPLOYMENTS.md); the capability
+> summary lives in [`ROADMAP.md`](../../ROADMAP.md) §4.
+>
+> Two things this plan deliberately did **not** do, still open and tracked elsewhere:
+> gating the cross-event **Contacts/Documents** nav entries
+> ([`PWA_MOBILE_NAV_PLAN.md`](../../PWA_MOBILE_NAV_PLAN.md)), and tightening the underlying
+> `contacts`/`artistDocuments` **rules**, which remain `allow read: if isActiveUser()`
+> ([IDEAS §5](../../IDEAS.md)). Neither is a regression from this work — both predate it.
 
 A production director oversees the PMs' work across the whole application. They **may or may
 not** be assigned as a PM on any given event, so their access cannot be derived from event
@@ -47,9 +59,9 @@ It explicitly does **not** grant:
 - **Global Contacts or artist-document-library navigation/authority.** This capability is
   event-scoped even though it spans every event. Directors can read event-attached contacts
   and documents. Today the global collections remain broadly readable to any approved user;
-  if [IDEAS §5](IDEAS.md) later tightens them, do not automatically add the director claim.
+  if [IDEAS §5](../../IDEAS.md) later tightens them, do not automatically add the director claim.
   Revisit that expansion explicitly. This preserves the current decision in
-  [PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md) that `cross-event` navigation means
+  [PWA_MOBILE_NAV_PLAN.md](../../PWA_MOBILE_NAV_PLAN.md) that `cross-event` navigation means
   organizer/admin, while director navigation is Events + Tracker + account.
 
 ### External file boundary

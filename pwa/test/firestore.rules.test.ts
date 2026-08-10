@@ -36,7 +36,7 @@ const TECH = 'user-tech'; // tech on event A
 const OUTSIDER = 'user-out'; // approved, but member of nothing
 const PENDING = 'user-pending'; // approved:false — a member awaiting approval / revoked
 
-// Cross-event oversight (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global and
+// Cross-event oversight (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global and
 // read-only; DIRECTOR holds NO membership anywhere. The combined identities prove that
 // capabilities are additive (director + PM writes only where the PM row is) and that a
 // lower per-event role never downgrades the global read (director + tech).
@@ -1555,7 +1555,7 @@ describe('firestore.rules — advance documents (inclusion)', () => {
 
 // ---------------------------------------------------------------------------
 // Production director — cross-event read oversight
-// (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global, read-only and
+// (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global, read-only and
 // event-scoped: it widens every event-subtree READ (plus the PM checklist) and
 // must never grant a write, nor widen the unscoped collection-group membership
 // surface. DIRECTOR holds no membership anywhere.

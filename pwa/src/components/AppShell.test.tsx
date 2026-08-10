@@ -1,5 +1,5 @@
 /**
- * The Tracker nav gate (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
+ * The Tracker nav gate (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
  *
  * Tracker is a production-management surface: admins, production directors, and anyone who is
  * the PM of at least one event. Department leads and techs get no navigation to it.

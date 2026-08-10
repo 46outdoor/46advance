@@ -1,5 +1,5 @@
 /**
- * The Events-list header's Tracker button (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker
+ * The Events-list header's Tracker button (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker
  * policy) — one of the two in-screen entry points that shipped ungated.
  *
  * Also pins the events query onto the canonical `eventsListKey` factory. The key's scope

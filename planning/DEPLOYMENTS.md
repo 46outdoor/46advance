@@ -129,7 +129,7 @@ Hosting release; the backend entry below rolls back independently.
 
 **2026-08-10 — Production director: FUNCTIONS + RULES live (#274, `6d7d55b`): FUNCTIONS,
 FIRESTORE RULES, STORAGE RULES.** The backend half of the cross-event oversight capability
-(`planning/EVENT_OVERSIGHT_ROLE_PLAN.md`; ROADMAP §4 records it as the first deliberate
+(`planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md`; ROADMAP §4 records it as the first deliberate
 exception to the per-event RBAC model). Deployed in the plan's compatibility order —
 Functions first, then rules. Functions: `syncUserClaims` now returns/mirrors
 `isProductionDirector`, the new admin-only `setUserProductionDirector` callable (audit stamp +

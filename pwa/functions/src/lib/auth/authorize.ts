@@ -69,7 +69,7 @@ export function assertAdmin(auth: CallerAuth | undefined): asserts auth is Calle
 
 /**
  * Event READ gate — the callable mirror of the rules' `canReadEvent(eventId)`
- * (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). An admin, or a holder of the global
+ * (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md). An admin, or a holder of the global
  * `productionDirector` claim, reads EVERY event whether or not they are on it; everyone else
  * still needs a membership row on that event.
  *

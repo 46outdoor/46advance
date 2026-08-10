@@ -2,6 +2,12 @@
 
 Graduated from [IDEAS.md §1](IDEAS.md) on 2026-08-08. Design agreed; **not yet built**.
 
+> **Ready to implement (2026-08-10).** The one prerequisite — the production-director tier —
+> shipped and was activated on 2026-08-10
+> ([archived plan](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md)), and it landed several
+> pieces this plan assumed it would have to build. See
+> [Already in place](#already-in-place-2026-08-10) for what is done and what actually remains.
+
 Scope: the authenticated **PWA** header on narrow screens. This is unrelated to the planned
 native Expo app under `mobile/`. The desktop presentation stays inline, but the same
 role-aware visibility policy applies at every width; constraining the desktop email is also
@@ -20,6 +26,45 @@ in scope (see [Breakpoint](#breakpoint)).
 | Inline breakpoint | **800px** (`min-[800px]:`) — see rationale below |
 | Role policy | Cross-event Contacts/Documents for **organizer or admin**; Tracker for **admin, production director, or a PM on ≥1 event** |
 | Menu semantics | **Disclosure**, not `role="menu"` — see [Accessibility](#interaction--accessibility) |
+
+## Already in place (2026-08-10)
+
+The production-director work built the whole Tracker half of this plan, including the async
+gate that was its riskiest piece. Do **not** rebuild these:
+
+| This plan calls for | Status |
+| --- | --- |
+| An `isProductionDirector` signal in auth state | **Done** — `useAuth()` returns it |
+| A `pm-or-oversight` rule (`isAdmin ∨ isProductionDirector ∨ isPmSomewhere`) | **Done** — `canViewTracker(viewer, isPmSomewhere)` in `src/lib/rbac/permissions.ts`, tri-state, unknown → hidden |
+| Deriving "PM on ≥1 event" without a second `collectionGroup` read | **Done** — `useMyEventMemberships()` + `isProductionManagerSomewhere()` (`src/lib/rbac/my-memberships.ts`), one shared query |
+| Tracker hidden from leads/techs in the header | **Done** — `AppShell.tsx:66` |
+| Gating the Events-header Tracker link (`EventsListScreen.tsx`) | **Done** — `EventsListScreen.tsx:180,217`, covered by `EventsListScreen.trackerGate.test.tsx` |
+| Route guards behind the hidden links | **Done** — `/tracker` and `/tracker/:eventId` refuse and redirect; see their `*.test.tsx` |
+| A `director` E2E persona | **Done** — plus `directorTech`, in `tests/emulator/personas.ts` |
+
+**Consequence for the visibility matrix:** `pm-or-oversight` should resolve through the
+existing `canViewTracker` rather than a second nav-local predicate. That contradicts the
+[registry section's](#enabling-refactor-a-nav-registry) instruction to resolve *every*
+`visibility` value in one nav-local function — the note there is amended. Only `cross-event`
+is genuinely presentational and nav-local; `pm-or-oversight` is already a canonical predicate
+with tests, and duplicating it would create exactly the drift this plan exists to prevent.
+
+### What actually remains
+
+1. `src/lib/nav/items.ts` — the registry. Does not exist.
+2. The narrow-screen disclosure: trigger, panel, open/close/Escape/outside-click/route-change,
+   and the 800px state clear.
+3. The `cross-event` rule and its two consumers — Contacts/Documents in **both** nav
+   presentations, and the `Manage directory →` link at `EventContactsPanel.tsx:193`, which is
+   still ungated.
+4. Surfacing **Templates** and **Schedule templates** in the narrow menu (still absent from
+   the nav entirely).
+5. The 44px touch targets, the brand-link `min-h-11`, and the `max-w-40 truncate` desktop
+   email cap.
+6. Tests per [Test impact](#test-impact) — note that
+   `responsive-accessibility.emulator.spec.ts` currently asserts `pm` **can** see Contacts
+   and Documents at 390px, which this plan inverts. That assertion must be rewritten, not
+   merely extended.
 
 ## Why
 
@@ -131,13 +176,13 @@ authorization capability and not a reason to reuse the semantically unrelated
 like a Firestore permission.
 
 **Tracker is the one asynchronous gate.** Admin and production director resolve synchronously
-from auth state, but "is a PM on at least one event" has to be derived from the
-`collectionGroup('members')` query the app already runs (and already discards the role from)
-in `events-read.ts:47` and `tracker-service.ts:85`. Treat the unresolved state as
-**not visible**, so the link never flashes in and then disappears. The production-director
-tier itself is specified in
-[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md) and is a prerequisite for the
-admin/director half of this row.
+from auth state, but "is a PM on at least one event" has to be derived from a
+`collectionGroup('members')` read. Treat the unresolved state as **not visible**, so the link
+never flashes in and then disappears. **This is already built** — the shared query is
+`useMyEventMemberships()` and the tri-state rule is `canViewTracker()`; consume them rather
+than re-deriving. The production-director tier is specified in
+[EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and shipped
+2026-08-10.
 
 > **⚠ Hiding a link is not access control.** At the rules level, `contacts/{id}` and
 > `artistDocuments/{id}` are both `allow read: if isActiveUser()` — *any* approved user can
@@ -257,12 +302,17 @@ runtime account content rendered after that group's links; the Admin badge remai
 decoration keyed by the stable Admin item id.
 
 - `visibility` resolves once through a pure nav-specific function: `all`;
-  `pm-or-oversight` (`isAdmin || isProductionDirector || isPmSomewhere`); `cross-event`
-  (`isAdmin || isOrganizer`); or `admin`. Unit-test this matrix directly. It is a
-  presentation rule, not access control. Only `pm-or-oversight` depends on an async input,
-  so the resolver takes `isPmSomewhere` as an explicit tri-state (`true | false | unknown`)
-  rather than reading a query itself — that keeps it pure and makes the loading policy
-  testable.
+  `pm-or-oversight`; `cross-event` (`isAdmin || isOrganizer`); or `admin`. Unit-test this
+  matrix directly. It is a presentation rule, not access control. Only `pm-or-oversight`
+  depends on an async input, so the resolver takes `isPmSomewhere` as an explicit tri-state
+  (`true | false | unknown`) rather than reading a query itself — that keeps it pure and
+  makes the loading policy testable.
+- **Amended 2026-08-10:** `pm-or-oversight` must **delegate to the existing
+  `canViewTracker(viewer, isPmSomewhere)`** in `src/lib/rbac/permissions.ts`, not restate
+  `isAdmin || isProductionDirector || isPmSomewhere`. That predicate now backs three call
+  sites and two route guards; a fourth nav-local copy is precisely the drift this registry
+  exists to prevent. `cross-event` stays nav-local — it is genuinely presentational and has
+  no rules counterpart (see the warning above).
 - `placements` is always explicit. Events, Contacts, Documents, Admin, and Settings render
   in both presentations; Tracker, Templates, and Schedule templates render only in
   `narrow`.
@@ -279,8 +329,9 @@ Contacts, Documents, or admin-only links. Keep its `scrollWidth <= clientWidth` 
 
 The seeded personas already cover the whole matrix with no new fixtures — `pm` is PM on
 alpha, `lead` is department-lead on alpha, `tech` is tech on alpha, `crossEvent` is PM on
-beta, plus `organizer` and `admin`. A `director` persona is added by
-[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md).
+beta, plus `organizer` and `admin`. The `director` persona (and `directorTech`) were added by
+[EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and are already
+seeded.
 
 Required coverage:
 
@@ -317,19 +368,22 @@ state; keep emulator E2E for the real persona claims, rendered dimensions, and a
 - Tightening Firestore rules or adding route guards for Contacts/Documents; tracked in
   [IDEAS §5](IDEAS.md).
 - Building the production-director tier itself (claim, rules, `listEvents`/`listVisibleEvents`
-  scoping); specified in [EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md). This
-  plan consumes `isProductionDirector` and does not create it.
+  scoping); specified in
+  [EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and **shipped
+  2026-08-10**. This plan consumes `isProductionDirector` and does not create it.
 - No change to routing, auth, or any other screen body.
 
 ## In-app links must honour the same policy
 
 **In scope, and easy to forget.** Hiding a destination from the navigation accomplishes
-nothing while another screen still links to it. Two links currently defeat the policy above:
+nothing while another screen still links to it. Two links defeated the policy above; **one
+has since been fixed**:
 
-- **`src/features/events/EventsListScreen.tsx:208`** — the Tracker link in the Events header
-  is ungated, so a tech keeps a one-click route to a tracker this plan hides. Must follow the
-  same `pm-or-oversight` rule. (An earlier revision of this plan waived this on the grounds
-  that Tracker was visible to everyone; that reasoning no longer applies.)
+- ~~**`src/features/events/EventsListScreen.tsx:208`** — the Tracker link in the Events
+  header is ungated.~~ **Fixed 2026-08-10** by the production-director work: the link now
+  resolves through `canViewTracker` at `EventsListScreen.tsx:180`, with coverage in
+  `EventsListScreen.trackerGate.test.tsx`. The event-detail header's Tracker link was gated
+  in the same pass.
 - **`src/features/events/EventContactsPanel.tsx:193`** — the Crew panel's "Manage directory →"
   link renders for every event member, above the `canEdit` block, pointing at `/contacts`,
   which this plan hides from non-organizers. Must follow the same `cross-event` rule. (The

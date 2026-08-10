@@ -10,7 +10,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
-// Cross-event oversight in Storage (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Firebase Storage).
+// Cross-event oversight in Storage (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Firebase Storage).
 // The `productionDirector` claim widens ONLY the read gate under events/{eventId}/**; uploads
 // and deletes stay admin / per-event production-manager. Kept in its own file so the existing
 // storage.rules matrix stays untouched.

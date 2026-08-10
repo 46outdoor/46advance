@@ -1,6 +1,6 @@
 /**
  * Emulator-backed tests for the event READ gate (`assertCanReadEvent`,
- * planning/EVENT_OVERSIGHT_ROLE_PLAN.md). Both halves of the check need live Firestore —
+ * planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md). Both halves of the check need live Firestore —
  * the authoritative `users/{uid}` active-user record and the `events/{id}/members/{uid}`
  * row — so this can't live beside the pure token guards in `authorize.test.ts`.
  */

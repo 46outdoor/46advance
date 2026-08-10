@@ -1,5 +1,5 @@
 /**
- * The `/tracker/:eventId` route guard (planning/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
+ * The `/tracker/:eventId` route guard (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md § Tracker policy).
  *
  * Being a PM somewhere isn't enough to open any event's tracker — a PM may open only the events
  * they production-manage, while oversight (admin / production director) may open any of them.
