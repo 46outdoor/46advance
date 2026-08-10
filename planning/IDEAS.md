@@ -22,9 +22,13 @@ goes stale; re-check before building.
 
 ## 1. PWA: collapse the narrow-screen top nav into a dropdown
 
-**Status:** ✅ **graduated — design agreed, not yet built.** See
-[PWA_MOBILE_NAV_PLAN.md](archive/feature/PWA_MOBILE_NAV_PLAN.md) for the resolved design; this entry is kept as the
-origin record.
+**Status:** ✅ **DONE — built, released 2026-08-10 (`e0a5d542`), verified in production.** See the
+archived [PWA_MOBILE_NAV_PLAN.md](archive/feature/PWA_MOBILE_NAV_PLAN.md); this entry is kept as
+the origin record. Every open question below was answered by the build: **hamburger** trigger;
+**nothing** stays inline; breakpoint **880px** — deliberately not a `sm:`-family value, because
+the row was measured, and re-measured when the 44px targets widened it; **yes**, the menu fixed
+the nav/route drift, which is why Tracker and both template screens are reachable at all now; and
+**no**, it did not reach the signed-out screens — the duplicated brand lockup is still open.
 **Raised:** 2026-08-08
 
 ### The problem
@@ -604,15 +608,16 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 Small documentation-accuracy issues surfaced while grounding the above. Independent of
 whether either idea gets built:
 
-- **`AGENTS.md` canonical-sources table lists `effectiveLogos`**, which was deliberately
-  deleted. `src/lib/branding/logo.ts:65-68` is a tombstone comment explaining why it was a
-  trap and warning against reintroducing it. The table entry points at a ghost.
-- **`AGENTS.md` lists `src/lib/hooks/useModalState.ts`** as the canonical modal-state
-  module. It does not exist — `src/lib/hooks/` contains only `useBeforeUnload.ts`. (The
-  table is documented as "create on first use", so this is aspirational rather than wrong,
-  but it reads as existing.)
-- **`.claude/rules/code-organization.md:61` reports `EventsListScreen` at complexity 23**;
-  the measured value is **20**. The audit note it came from predates a refactor.
+- ~~**`AGENTS.md` canonical-sources table lists `effectiveLogos`**, which was deliberately
+  deleted.~~ **Fixed 2026-08-10.** The row now names only `logoForBackground` and carries the
+  warning from the tombstone comment, so the table itself says not to reintroduce it.
+- ~~**`AGENTS.md` lists `src/lib/hooks/useModalState.ts`** as the canonical modal-state
+  module. It does not exist.~~ **Fixed 2026-08-10** — the row and the project-structure comment
+  both now say it is not created yet, so it can't be cited as existing.
+- ~~**`.claude/rules/code-organization.md:61` reports `EventsListScreen` at complexity 23**;
+  the measured value is **20**.~~ **Fixed 2026-08-10 — and this finding was itself wrong.**
+  Re-measured with ESLint: **21**, not 23 and not 20. The rule doc now carries the corrected
+  figure plus a caveat that the rest of that 2026-07-23 audit may have drifted the same way.
 - **Deleting a festival has no referential-integrity check** — events keep a dangling
   `festivalId` (degrades gracefully: name falls back to the stored value, logo to the
   override) and the festival's logo objects are orphaned in Storage. Worth a look if

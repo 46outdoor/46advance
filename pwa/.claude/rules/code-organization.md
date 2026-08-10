@@ -57,8 +57,10 @@ and the agent count the same way).
 > `ScheduleItemForm` / `AdvanceDetailScreen` / `EventDetailScreen` screens). An audit
 > (2026-07-23) puts the current repo max at **25** (`syncUserClaims`), with **12**
 > functions still over 20: `syncUserClaims` (25); `DocumentRow`, `AdvanceForm`,
-> `StageDetailScreen` (24); `createAdvanceCall`, `EventDetailScreen`, `EventForm`,
-> `EventsListScreen` (23); `parseBooking`, `EventScheduleScreen` (22); `syncEventBookings`,
+> `StageDetailScreen` (24); `createAdvanceCall`, `EventDetailScreen`, `EventForm` (23);
+> `EventsListScreen`, `parseBooking`, `EventScheduleScreen` (22 — `EventsListScreen`
+> re-measured at **21** on 2026-08-10; the rest of this audit is from 2026-07-23 and individual
+> numbers may have drifted with it); `syncEventBookings`,
 > `DriveFilesPanel` (21). Ratcheting the gate toward **20** therefore means decomposing all
 > twelve — several are core screens and one is the auth-critical `syncUserClaims` — so it's a
 > dedicated, reviewed pass, not a one-line gate change.

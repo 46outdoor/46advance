@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { getDoc, getDocs } from 'firebase/firestore';
+import { getDoc, getDocs, Timestamp } from 'firebase/firestore';
 import {
   EVENTS_READ_CAP,
   eventsListKey,
@@ -32,13 +32,23 @@ vi.mock('firebase/firestore', async () => {
 const mockGetDoc = getDoc as unknown as Mock;
 const mockGetDocs = getDocs as unknown as Mock;
 
-/** Minimal stored event: the fields `eventDocSchema` actually requires. */
-const eventDoc = (name: string) => ({ name, status: 'active', createdBy: 'uid-1' });
+/** Minimal stored event: the fields `eventDocSchema` actually requires, plus an optional
+ *  start date — the list is ordered chronologically, so most sort tests need one. */
+const eventDoc = (name: string, startDate?: string) => ({
+  name,
+  status: 'active',
+  createdBy: 'uid-1',
+  ...(startDate ? { startDate: Timestamp.fromDate(new Date(`${startDate}T12:00:00Z`)) } : {}),
+});
 
-function eventsSnapshot(names: string[], size = names.length) {
+/** `names` entries may be `'Name'` or `['Name', '2026-08-15']` to give the event a start date. */
+function eventsSnapshot(names: (string | [string, string])[], size = names.length) {
   return {
     size,
-    docs: names.map((name, i) => ({ id: `evt-${i}`, data: () => eventDoc(name) })),
+    docs: names.map((entry, i) => {
+      const [name, date] = Array.isArray(entry) ? entry : [entry, undefined];
+      return { id: `evt-${i}`, data: () => eventDoc(name, date) };
+    }),
   };
 }
 
@@ -94,10 +104,34 @@ describe('listEvents', () => {
     expect(mockGetDoc).not.toHaveBeenCalled();
   });
 
-  it('sorts by name regardless of the order returned', async () => {
-    mockGetDocs.mockResolvedValue(eventsSnapshot(['Zulu', 'Alpha', 'Mike']));
+  // Chronological, not alphabetical (decided 2026-08-10). Event names embed the city, so an
+  // alphabetical sort ordered a touring festival by city — see `compareEventsByDate`.
+  it('sorts soonest-first regardless of the order returned', async () => {
+    mockGetDocs.mockResolvedValue(
+      eventsSnapshot([
+        ['Zulu', '2026-06-01'],
+        ['Alpha', '2026-09-01'],
+        ['Mike', '2026-07-01'],
+      ]),
+    );
 
-    expect((await listEvents(ADMIN)).map((e) => e.name)).toEqual(['Alpha', 'Mike', 'Zulu']);
+    // Deliberately the exact inverse of alphabetical, so a regression to `localeCompare`
+    // fails rather than coincidentally passing.
+    expect((await listEvents(ADMIN)).map((e) => e.name)).toEqual(['Zulu', 'Mike', 'Alpha']);
+  });
+
+  it('puts undated events last, not first', async () => {
+    mockGetDocs.mockResolvedValue(
+      eventsSnapshot(['Aardvark', ['Scheduled', '2026-09-01'], 'Zebra']),
+    );
+
+    // An undated event is normally an unfinished stub; leading with it would bury the show
+    // that is actually next. Undated events fall back to name order among themselves.
+    expect((await listEvents(ADMIN)).map((e) => e.name)).toEqual([
+      'Scheduled',
+      'Aardvark',
+      'Zebra',
+    ]);
   });
 
   // The oversight branch is the capability, not the admin flag: a production director holds
