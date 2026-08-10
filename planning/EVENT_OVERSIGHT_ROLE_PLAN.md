@@ -99,7 +99,9 @@ not a synonym for director, and director is not a synonym for production manager
 The change is larger than copying `setUserOrganizer`. Update the complete shared contract:
 
 1. **Callable schemas** — `functions/src/contracts/callables/auth.ts`
-   - Add required `isProductionDirector: boolean` to `syncUserClaimsOutputSchema`.
+   - Add `isProductionDirector: z.boolean().default(false)` to
+     `syncUserClaimsOutputSchema`. The parsed output remains a required boolean to clients,
+     but a new client can still consume an older Functions response during rollback.
    - Add `setUserProductionDirector` input/output schemas and inferred types.
 2. **`syncUserClaims` handler** — `functions/src/index.ts`
    - Resolve `existing.productionDirector === true` from Auth custom claims.
@@ -129,10 +131,19 @@ The change is larger than copying `setUserOrganizer`. Update the complete shared
    - Reset it on sign-out and include it in the memo dependencies/value.
 7. **Viewer model and call sites**
    - Add `isProductionDirector` to `Viewer` and audit every constructed viewer object.
-   - Update `canViewEvent` to accept oversight without membership; keep edit, flag,
-     department-edit, and member-management predicates unchanged.
-   - Update auth/test mocks so the new required claim result never becomes accidental
-     `undefined`.
+   - Delete the unused `canViewEvent` export and its definition-only unit tests. It has no
+     production call sites, so widening it would create a misleading, non-enforcing
+     checklist item. Observable event access comes from the Firestore rule plus
+     `getEventBySlugOrId`; `EventDetailScreen` already renders the denial state when
+     `eventQuery.data === null`.
+   - Keep edit, flag, department-edit, and member-management predicates unchanged.
+   - Update auth/test mocks for the new response field. The shared schema must normalize a
+     missing field to `false`, never leave it as `undefined`.
+
+The default is a deliberate two-way compatibility guard. Functions still return the field
+explicitly after the forward deploy, but if Functions are rolled back while the new PWA is
+live, the new client parses the older response as `false` instead of failing sign-in
+app-wide.
 
 The callable schemas are shared with future mobile clients. The native app is not built, so
 there is no sibling implementation to coordinate today, but the shared contract and
@@ -274,6 +285,12 @@ Every query key whose result changes with this capability must include
 this includes the Events list and Tracker overview; otherwise a claim refresh can retain a
 membership-scoped result under the same cache key.
 
+Export one canonical Events-list query-key factory beside `listEvents` and use it everywhere
+that calls that reader. Replace both current literal keys in `EventsListScreen.tsx` and
+`PushToEventsPanel.tsx`; the latter is admin-only today, but leaving its duplicate literal
+would make cache sharing drift as soon as the main key gains an oversight scope. Test the
+factory for member, admin, and director viewers.
+
 The Calendar Feed picker is an intentional exception: feeds contain events the subscriber
 is actually a member of, not every event an admin/director can oversee. Preserve its
 membership-only query and comment when refactoring `listEvents` so a director does not
@@ -287,11 +304,15 @@ React Query keys and discard membership roles.
 
 Add a canonical cross-event membership read under `src/lib/rbac/`:
 
-- `listMyEventMemberships(uid)` performs the self-only collection-group query and returns
-  `{ eventId, role }[]`.
-- `myEventMembershipsKey(uid)` is the shared React Query key.
-- A small shared hook exposes the query so `AppShell`, Events, Tracker, and the Calendar
-  Feed picker deduplicate the same request.
+- `src/lib/rbac/my-memberships.ts` owns `listMyEventMemberships(uid)`, which performs the
+  self-only collection-group query and returns `{ eventId, role }[]`, plus
+  `myEventMembershipsKey(uid)`.
+- `src/lib/rbac/useMyEventMemberships.ts` owns the small shared React Query hook so
+  `AppShell`, Events, Tracker, and the Calendar Feed picker deduplicate the same request.
+- In the same implementation change, add this cross-event membership source and its exports
+  to the canonical-sources table in `pwa/AGENTS.md`. The existing “Per-event membership IO”
+  row continues to describe `membership.ts`; do not overload it or leave the new module
+  undiscoverable.
 
 Refactor event-list/tracker read functions to consume the resolved membership summary rather
 than issuing their own role-discarding collection-group reads. Admin/director all-event
@@ -309,7 +330,12 @@ The final matrix is:
 | Admin | visible | every event, paged |
 | Production director | visible | every event, paged |
 | PM on ≥1 event | visible | only events where their role is PM |
+| Organizer only | hidden | none; organizer permits creation, not oversight |
 | Department lead / tech | hidden | route redirects to Events |
+
+An organizer who creates an event is automatically its PM and therefore qualifies through
+that membership. An organizer who has never created or joined an event does not see Tracker.
+Organizer remains independent of both admin and production-director capabilities.
 
 Add pure predicates for global and per-event decisions:
 
@@ -369,6 +395,23 @@ is only a lead/tech from entering their overview.
 If real usage makes even paged client roll-ups too expensive, revisit precomputed summary
 documents or the server-side aggregation alternative. Do not silently increase concurrency.
 
+## Documentation and release communication
+
+This is user-facing work, including intentional removals. Before merging the implementation,
+update the workspace-root `CHANGELOG.md` under `[Unreleased]`:
+
+- **Added:** production directors can oversee every event and its Tracker in read-only mode.
+- **Changed:** Tracker is now limited to admins, production directors, and users who are PMs
+  on at least one event. State plainly that department leads and techs no longer receive its
+  navigation or routes unless they hold one of those capabilities.
+- **Changed:** the all-event Tracker used by admins and production directors is paginated
+  rather than loading every event at once.
+
+Treat the Tracker removal as release communication, not an internal RBAC detail. Include it
+in the owner Hosting-release handoff as well as the changelog. The `pwa/AGENTS.md`
+canonical-source update for the new membership module is part of this implementation, not a
+follow-up documentation chore.
+
 ## Tests
 
 Rules tests are load-bearing, but this change also crosses Storage, callables, shared
@@ -383,6 +426,9 @@ contracts, client permissions, queries, and UI.
 - Assert checklist read allowed but every checklist mutation denied.
 - Assert a director+PM can perform PM writes only on the assigned event, proving combined
   capabilities are additive rather than director writes leaking globally.
+- Assert a director+tech retains global event reads, including an event where they are not a
+  member, while still receiving no writes. A lower per-event role must never downgrade the
+  global read capability.
 - Assert absent, false, and unapproved director claims do not grant oversight.
 - Assert the director cannot collection-group query other users' membership rows, while a
   direct roster read for a known event succeeds.
@@ -392,6 +438,8 @@ contracts, client permissions, queries, and UI.
 
 - Storage: director reads an event file without membership; writes/deletes fail.
 - Storage: missing/false/unapproved claim fails; director+PM writes only on the PM event.
+- Storage: director+tech still reads both the assigned event and an unassigned event, with no
+  writes from the combined identity.
 - `assertCanReadEvent`: admin/director/member pass; outsider and revoked user fail.
 - `getArtistDocumentContent`: director opens an event document without membership; cannot
   invoke event-document write callables.
@@ -399,20 +447,27 @@ contracts, client permissions, queries, and UI.
   stamps the user document, and rejects non-admin/unauthenticated callers.
 - `syncUserClaims`: returns/mirrors true and false director states without dropping other
   claims.
+- Shared-contract compatibility: parsing an older `syncUserClaims` response with no
+  `isProductionDirector` field succeeds and produces `false`.
 
 ### Client and E2E
 
 - Add a `director` emulator persona holding the claim and no memberships.
 - AuthProvider handles callable result, cached-token fallback, sign-out reset, and account
   switch without leaking the prior identity's director state.
-- `Viewer` predicates cover admin/director/PM/lead/tech and combined roles.
+- `Viewer` predicates cover admin/director/organizer/PM/lead/tech and combined roles; there
+  is no `canViewEvent` test because the dead predicate is removed.
 - `listEvents` returns every event for a director; membership-only consumers stay scoped.
+- The canonical Events-list key factory is used by both Events and template push, and changes
+  scope correctly for member/admin/director viewers.
 - Shared membership summary preserves roles and powers the PM-only Tracker list.
 - Navigation matrix: admin / director / PM / organizer / lead / tech, including unknown PM
   state resolving hidden.
 - Gate both Tracker links and both Tracker routes from the same predicates.
 - Director opens an unassigned event and its production, schedule, documents, advance, and
   Tracker screens with no edit controls.
+- Director+tech opens both the assigned event and an unassigned event, retains global
+  Tracker visibility, and receives no additional edit controls.
 - Director sees Team and Checklist read-only.
 - Tracker page size and concurrency limits are unit-tested; “Load more” preserves ordering
   without duplicates.
@@ -428,8 +483,10 @@ the externally deployed PWA. Ship in compatibility order:
    `isProductionDirector` response field; the new setter and read assertion now exist.
 2. Deploy Firestore and Storage rules. With no claims granted yet, the broader branches are
    inert.
-3. Release the PWA through the owner-managed Hosting process. New clients can safely depend
-   on the already-deployed callable response and rules.
+3. Release the PWA and its `[Unreleased]` changelog entry through the owner-managed Hosting
+   process. The handoff must call out the lead/tech Tracker removal and all-event Tracker
+   pagination. New clients can safely depend on the already-deployed callable response and
+   rules.
 4. Only after the PWA release is verified, grant the first production-director claim and
    verify all-event listing, read-only controls, file reads, and Tracker pagination.
 
@@ -437,12 +494,31 @@ Functions/rules deploys require the workspace's explicit confirmation and health
 Hosting remains owner-managed. Record each backend deploy and Hosting checkpoint in
 `planning/DEPLOYMENTS.md`.
 
-Rollback order:
+### Planned withdrawal
+
+Use this availability-preserving order when retiring the capability without an active data
+exposure:
 
 1. Revoke every production-director claim and allow for token propagation.
 2. Roll back the PWA presentation if needed.
 3. Roll back Storage/Firestore read branches.
-4. The additive callable fields/setter may remain safely, or roll back Functions last.
+4. The additive callable fields/setter may remain safely, or roll back Functions last. The
+   output-schema default means an older Function response remains compatible with the newer
+   PWA, so this ordering is conservative rather than required for sign-in safety.
+
+### Emergency containment
+
+If the wrong person received the claim or event data may be exposed, optimize for containment
+instead of UI availability:
+
+1. Immediately deploy the prior restrictive Firestore and Storage read rules. Once active,
+   stale tokens carrying `productionDirector` no longer authorize direct event or file reads.
+2. Roll back or patch the Functions `assertCanReadEvent` director branch immediately as a
+   separate required target. Admin-SDK callables bypass client rules, so the Drive broker is
+   not contained by the rules rollback alone.
+3. Revoke the claim and the target user's refresh tokens; do not wait for propagation before
+   completing steps 1–2.
+4. Roll back the PWA presentation after the server-side access paths are closed.
 
 ## Consequences accepted deliberately
 
@@ -454,6 +530,9 @@ Rollback order:
   is subject to the same documented token window.
 - **Read cost.** Global oversight is inherently broader. Paging and bounded concurrency are
   mandatory so “read every event” does not mean “read every event at once.”
+- **Tracker UX change.** Leads and techs lose Tracker navigation/routes, and admins move from
+  an unpaged overview to explicit pages. These are intentional user-visible changes and must
+  be communicated in the changelog and Hosting-release handoff.
 - **External Drive ACLs.** Linked Drive files may remain unavailable even when app metadata
   is readable.
 - **Shared contract.** The new claim is a backend/mobile contract even though only the PWA
