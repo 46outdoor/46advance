@@ -63,20 +63,24 @@ completes, record it as a ledger entry below and delete it here.
   detail, Production, Schedule, Contacts, Documents, Admin, Settings, Tracker, advance detail).
   Left to do: glance at the cspReport query over the next few days. Rollback = rename the
   header key back + owner Hosting redeploy (the guard test must be reverted with it).
-- **Awaiting a Hosting release — nav disclosure + contacts curation UI (#279, `75ee240`).** The
-  Firestore rules half is live (see the ledger entry); the client half is not. Until the owner
-  releases, the narrow-screen nav is unchanged for everyone and no director sees an Edit or
-  Delete control on a contact they didn't create. On release, verify at a phone width that the
-  ☰ menu opens and that a non-organizer no longer sees Contacts/Documents, and have the
-  director confirm they can correct someone else's directory entry. Note the inline breakpoint
-  is **880px**, not 800 — re-measured after the 44px touch targets widened the row.
-- **Unconfirmed pre-existing bug — non-admins may not be able to open an event by slug.** Found
-  while building #279, **not** caused by it, and **not** fixed. Full write-up in
-  `IDEAS.md` § Findings. Confirmed at the rules layer in the emulator; a second symptom (the
-  detail screen failing for a member even by doc id, while the schedule route with the same id
-  works) is **not root-caused**. Left to do: reproduce against a real non-admin production
-  account. If it reproduces, PMs cannot open event detail pages at all — which would outrank
-  everything currently queued here.
+- **Two production checks the 2026-08-10 release could not cover.** The release is verified
+  (see its ledger entry) but the hand-verification used a `tech` account, which cannot exercise
+  either of these. Neither is suspected broken — both are covered by CI — this is about closing
+  the gap between "CI says so" and "someone looked".
+  1. **The director's contacts curation.** The rules went live earlier and were verified against
+     the released ruleset, but the Edit/Delete controls on a contact someone else created only
+     appeared with this release. Needs the `jared@yourstagemanager.com` director session:
+     confirm they can correct another person's directory entry, and that **relinking is still
+     refused** (`createdBy`/`userId` stay admin-only — that is the F-3 guard).
+  2. **The admin inline nav row at exactly 880px.** This is the case that *wrapped* on Linux CI
+     at the old 800px breakpoint — most items, pending badge, longest email. A tech account has
+     four items and cannot reproduce it. Open the owner's admin session at an 880px-wide window
+     and confirm the header stays on one line.
+- **Weak credential on the test account.** `jared@jaredfoh.com` (tech on Boots on the Bend) was
+  created 2026-08-10 as the app's first non-oversight account and its password was shared in
+  chat. Worth keeping — it is the only way to exercise the non-oversight path by hand, and the
+  class of bug it caught (see the slug fix) is invisible to every other account. **Change the
+  password.**
 - *(the Phase-3 field-migration re-run gate closed 2026-08-08 with a clean dry run; see the
   ledger entry)*
 
@@ -95,6 +99,45 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Hosting release (`e0a5d542`): HOSTING (owner).** Carries three client changes
+merged today, all previously unreleased: the **narrow-screen nav disclosure** (#279), the
+**contacts-curation UI** that activates the already-live director rules (#279), and the
+**slug-resolution fix** (#282) — see the CHANGELOG for each. Also the Admin pill's
+`--color-accent-deep` contrast fix.
+
+**The slug fix is the one that mattered.** Until this release, any approved user who was not an
+admin or a production director got "Failed to load this event." on every event they opened,
+including shows they were assigned to — the events list links by slug, and slug resolution was
+denied for anyone whose access comes from membership rather than a global claim. It had gone
+unnoticed because until 2026-08-10 every production account was admin or director; the app had
+never had an ordinary crew member. Onboarding any crew was blocked. Full root cause in the PR
+and in `IDEAS.md` § Findings (the entry is kept, including three refuted theories).
+
+Verified in production immediately after the release, signed in as a **tech** on Boots on the
+Bend (`jared@jaredfoh.com`, the first non-oversight account the app has had):
+
+- `/events/botb-2026` — the slug the list actually links to, and the exact URL that failed
+  before — **renders**, and is still rendered 15s later. The old failure was load-then-error,
+  so a single check would have missed it.
+- `/events/dyiAwDgUV8GL24t52Y9A` — canonicalizes to the slug URL **and stays rendered**. That
+  redirect is what turned a working id URL into a broken one.
+- `/events/rtc-ashland-26` — an event they are not on — reads "Event not found, or you don't
+  have access.", held stable for 5s. Not a load failure.
+- Narrow nav at 390px: trigger opens a single `Main navigation` landmark containing exactly
+  Events / Settings / Sign out — no Contacts, Documents, Tracker or Admin. Rows 44px, brand
+  link 48px, no horizontal overflow.
+- 879px → disclosure; 880px → inline row, open panel cleared, four items at **0px vertical
+  spread** (one line), no overflow.
+
+**Not verified by hand** — carried into the Open-actions queue above: the director's contacts
+curation, and the admin inline row at 880px (the case that wrapped on CI). Both are covered by
+the emulator suite on Linux; neither was exercised in a real browser.
+
+**Rollback:** re-run the owner Hosting workflow from `75ee240` to drop the slug fix only, or
+from `47482ff` to drop all three client changes. The contacts **rules** are independent and
+stay live either way — a rolled-back client simply stops offering the director's Edit/Delete
+controls. No Functions changed.
 
 **2026-08-10 — Production director gains contacts-directory curation (#279, `75ee240`):
 FIRESTORE RULES.** Widens the `contacts/{contactId}` **update** and **delete** gates to include
