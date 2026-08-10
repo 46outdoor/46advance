@@ -123,6 +123,31 @@ Initial roles (extensible — more may be added later):
 | **department lead** | Read + **flag/comment** on assigned events. With **assigned departments** (`members.departments`, set in Team & access), can additionally edit + finalize/unlock those departments' sections on advances and stage production records; read-only elsewhere and read-only everywhere when none are assigned (the default). |
 | **tech** | Read-only access to advance information. Attaching a crew contact that's linked to an app account auto-enrolls that account as tech (never downgrades an existing role). |
 
+### Global capabilities (the exception to the per-event model)
+
+The per-event model above is the rule. A small number of capabilities are **global** because
+they answer questions no single event can — "may this person create an event?", "may this
+person oversee work across all of them?" These are user-level claims, not event roles:
+
+| Capability | Meaning | Status |
+| ---------- | ------- | ------ |
+| **admin** | Top-level; see above. | Built |
+| **organizer** | May create events; may curate the artist document library. Set by an admin via `setUserOrganizer`, mirrored to `users/{uid}.organizer`. | Built (previously undocumented here) |
+| **production director** | Read-only oversight of **every event in the application**, whether or not assigned to it. No writes, no admin functions. | **Decided 2026-08-09 — not built** |
+
+> **Decided (2026-08-09): the production-director exception.** A production director oversees
+> the PMs' work and may or may not be assigned as a PM on any given event — so the capability
+> **cannot** be derived from event membership, and the core "roles are per-event" model cannot
+> express it. Granted instead as a global claim that widens the Firestore **read** rules across
+> the event subtree; writes stay per-event. This is the first deliberate exception to the
+> per-event rule, and is intentionally read-only so it can be widened later rather than
+> narrowed. Full design, rules diff, and alternatives (auto-enrolment; server-side
+> aggregation) in [`EVENT_OVERSIGHT_ROLE_PLAN.md`](EVENT_OVERSIGHT_ROLE_PLAN.md).
+>
+> Note the naming discipline that came with it: capabilities get predicates named for the
+> capability (`canOverseeAllEvents`, `canCreateEvents`), never for the claim — so the
+> populations can diverge later without a call-site sweep.
+
 - **Departments (decided):** a configurable, admin-managed list (app-wide), used by department-lead roles, schedules, and packets.
 - **Default role/permission template (decided):** creating an event auto-populates a default
   user+role list from the selected named template (§6); manual additions/changes are always
