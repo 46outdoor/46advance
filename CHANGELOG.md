@@ -21,8 +21,8 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   someone who supervises the production managers' work without necessarily being assigned to
   their shows. A production director can open **every event in the application** — its crew,
   schedules, advances, production details, checklist, and files — and see the advance Tracker
-  for all of them. It is **read-only**: nothing on an event can be changed from the capability
-  itself. A director who also needs to edit a specific show is assigned that event's
+  for all of them. It is **read-only over event data**: nothing on an event can be changed from
+  the capability itself. A director who also needs to edit a specific show is assigned that event's
   production-manager role as usual, and the two combine. Granted per user in
   **Admin → Users**, separately from the existing Organizer toggle.
 
@@ -35,7 +35,20 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ### Changed
 
-- **The advance Tracker is now for the people running the advance.** It is available to
+- **The menu bar collapses into a dropdown on phones.** Below 800px the header is just the 46
+  Advance mark and a **☰** button; tapping it opens the navigation, which previously wrapped
+  onto a second row on any screen narrower than about 750px — permanently, since an installed
+  PWA has no browser chrome to fall back on. The dropdown also reaches two places the old bar
+  never showed: the **Tracker**, and (for admins) **Templates** and **Schedule templates**.
+  Wider screens keep the familiar single row. Every button and link in the menu is now a full
+  44px touch target, including **Sign out** and the **Admin** badge, which were too small to
+  hit reliably.
+- **The menu shows you only what your role uses.** **Contacts** and **Documents** are
+  cross-event directories, so they now appear for admins, organizers, and production directors
+  rather than for everyone; the same rule governs the **Manage directory →** link on an event's
+  Crew panel. Everyone keeps **Events**, **Settings**, and their account actions, and nobody
+  loses access to an event they're assigned to. Note this changes what the menu *offers*, not
+  what the directories permit — both remain readable to any approved user by URL.
   admins, production directors, and anyone who is a production manager on at least one event —
   a PM sees the events they run. **Department leads and techs no longer see the Tracker**, in
   the navigation or by URL; nothing else about their access changes, and they keep full access

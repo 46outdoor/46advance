@@ -523,6 +523,30 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 > `isAdmin() || isProductionDirector() || isMember(eventId)`. For a member both reduce to
 > `isMember(eventId)`. The director branch only ever adds access.
 >
+> **A second, sharper symptom — NOT root-caused.** With the slug removed from the picture
+> entirely, a PM opening `/events/e2e-event-alpha` (raw doc id) still lands on "Failed to load
+> this event.", while the same persona opening `/events/e2e-event-alpha/schedule` — same id,
+> same `getEventBySlugOrId` fetcher, same React Query key — renders correctly. Confirmed with
+> an instrumented browser run. The only console noise is the Functions emulator being absent
+> (`syncUserClaims` → `ERR_CONNECTION_REFUSED`, AuthProvider falls back to the token's claims),
+> which affects both routes equally and so does not explain the split.
+>
+> Two leads, neither verified: `EventDetailScreen.tsx:160` does **not** use `useResolvedEvent`
+> — it re-declares an inline `useQuery` with the same `['events','detail',param]` key and
+> fetcher, which is exactly the duplication `useResolvedEvent`'s own doc comment warns against;
+> and the detail screen fans out many more sub-queries at mount than the schedule screen does.
+> Whether this reproduces outside the emulator is unknown. **Reproduce it against a real
+> non-admin account before drawing conclusions** — if it does reproduce, PMs cannot open an
+> event detail page at all, which is far more serious than the slug half.
+>
+> **There is a latency cost even when the slug is not involved.** Step 1 runs *unconditionally*
+> — the resolver always tries the slug query before falling back — so **every event page load
+> for every non-admin, non-director user** pays a denied Firestore round trip, plus the SDK's
+> retries on `PERMISSION_DENIED`, before the getDoc that actually works. Measured in the
+> emulator this pushed a by-ID event load past 5 seconds from cold. Even if the slug bug turns
+> out to be unreachable in production, this half is real for the majority of users, on every
+> event they open.
+>
 > **Before treating this as live, check whether production events actually carry `slug`.** If
 > most predate slug reservation and the field is null, the link falls back to `e.id` and real
 > users never hit it — which would explain the silence. That check is the first step.

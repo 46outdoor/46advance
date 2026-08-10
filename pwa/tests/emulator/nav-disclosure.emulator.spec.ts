@@ -339,16 +339,15 @@ test.describe('narrow nav disclosure — current destination', () => {
     await page.setViewportSize(NARROW);
     await signIn(page, PERSONAS.pm);
 
-    // Addressed by doc ID, not by the `alpha-festival` slug, and NOT for tidiness: a plain
-    // member cannot resolve an event by slug at all. `getEventBySlugOrId` first runs
-    // `where('slug','==',…)` over `events`, which Firestore refuses for a viewer whose read
-    // rule needs a per-document `exists()` membership lookup; it then falls back to a getDoc on
-    // the slug string, which is denied rather than empty. Admins and production directors
-    // escape both because `canOverseeAllEvents()` is unconditionally true. That is a real
-    // pre-existing bug (EventsListScreen links to `/events/${slug ?? id}`), unrelated to this
-    // nav work and tracked separately — using the slug here would test that bug, not the nav.
-    await page.goto('/events/e2e-event-alpha');
-    await expect(page.getByRole('heading', { name: 'Alpha Festival', level: 1 })).toBeVisible();
+    // The schedule route, deliberately — it is as much a descendant of `/events` as the detail
+    // screen, so it exercises exactly the same `aria-current` behaviour, and it is the one that
+    // reliably LOADS for a plain member. `/events/:eventId` renders "Failed to load this event."
+    // for this same persona and the same doc id, while `/events/:eventId/schedule` renders
+    // fine — a pre-existing defect, unrelated to navigation and not root-caused here (see
+    // planning/IDEAS.md § Findings). Pointing this test at the broken screen would mean a nav
+    // assertion that fails for reasons that have nothing to do with the nav.
+    await page.goto('/events/e2e-event-alpha/schedule');
+    await expect(page.getByRole('heading', { level: 1, name: /Schedule/ })).toBeVisible();
 
     // The point of the test: `/events` stays current on its descendant, which is NavLink's
     // `end={false}` behaviour and the reason the registry must not set `end`.
