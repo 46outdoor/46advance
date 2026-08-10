@@ -1,4 +1,5 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/auth-context';
 import { getEventBySlugOrId } from './events-service';
 import type { EventRecord } from '@/lib/events/event';
 
@@ -14,16 +15,22 @@ import type { EventRecord } from '@/lib/events/event';
  * `['events','detail', param]` cache entry is always produced the same way (no stale/duplicate
  * fetcher writing the same key with a raw-id lookup that 404s on a slug). Returns the resolved
  * `eventId` (doc id) — null until the lookup resolves; gate sub-queries on it.
+ *
+ * The uid is part of the key as well as the fetcher: resolution is membership-scoped for
+ * anyone without oversight (see `getEventBySlugOrId`), so two accounts can legitimately get
+ * different answers for the same param, and they must not share a cache entry.
  */
 export function useResolvedEvent(param: string | undefined): {
   query: UseQueryResult<EventRecord | null>;
   event: EventRecord | null;
   eventId: string | null;
 } {
+  const { user } = useAuth();
+  const uid = user?.uid;
   const query = useQuery({
-    queryKey: ['events', 'detail', param],
-    queryFn: () => getEventBySlugOrId(param!),
-    enabled: !!param,
+    queryKey: ['events', 'detail', param, uid ?? null],
+    queryFn: () => getEventBySlugOrId(param!, uid!),
+    enabled: !!param && !!uid,
   });
   return { query, event: query.data ?? null, eventId: query.data?.id ?? null };
 }

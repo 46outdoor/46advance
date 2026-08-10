@@ -64,6 +64,18 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   the last allowlist fix (2026-07-31) came back clean with the Google sign-in, Drive, and
   packet flows all exercised, so nothing legitimate is affected.
 
+### Fixed
+
+- **Crew can open the events they're assigned to.** Anyone who was not an admin or a production
+  director — a production manager, department lead, or tech — got **"Failed to load this
+  event."** when they opened a show from their events list, including shows they were assigned
+  to. The list links to an event's readable web address (`/events/botb-2026`), and looking an
+  event up that way was rejected for anyone whose access comes from being on the event rather
+  than from an app-wide role. Opening one by its internal id worked, but the page immediately
+  rewrote the address to the readable form and then failed anyway. Events now resolve from the
+  shows you're on, so every role reaches them by either address. A show you genuinely can't see
+  now says so, instead of reporting a load failure.
+
 ## 2026-08-08
 
 ### Added

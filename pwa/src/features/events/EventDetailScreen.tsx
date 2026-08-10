@@ -19,13 +19,8 @@ import type { DepartmentRecord } from '@/lib/departments/department';
 import { pickDriveFolder, savePacketToDrive, useGoogleConnection } from '@/lib/google';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { slugify } from '@/lib/events/slug';
-import {
-  generatePacket,
-  getEventBySlugOrId,
-  renameEventSlug,
-  setEventLogo,
-  updateEvent,
-} from './events-service';
+import { generatePacket, renameEventSlug, setEventLogo, updateEvent } from './events-service';
+import { useResolvedEvent } from './useResolvedEvent';
 import { EventForm } from './EventForm';
 import { EventStatusBadge } from './EventStatusBadge';
 import { PacketWarnings } from '@/components/packets/PacketWarnings';
@@ -65,7 +60,9 @@ interface PacketActions {
  * the replace/bump choice once a packet already exists.
  */
 function usePacketActions(
-  id: string | undefined,
+  // `null` while the slug/id lookup is still resolving — the packet actions are only reachable
+  // from a rendered event, so the non-null assertions below stay sound.
+  id: string | null | undefined,
   eventId: string | undefined,
   event: EventRecord | null | undefined,
 ): PacketActions {
@@ -157,14 +154,12 @@ export function EventDetailScreen() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
 
-  const eventQuery = useQuery({
-    queryKey: ['events', 'detail', eventId],
-    queryFn: () => getEventBySlugOrId(eventId!),
-    enabled: !!eventId,
-  });
-  const event = eventQuery.data;
-  // The route param may be a slug; resolve to the canonical doc id for writes + sub-links.
-  const id = event?.id;
+  // Resolve through the shared hook rather than a second inline `useQuery`. This screen used
+  // to re-declare the same key and fetcher itself — precisely the duplication
+  // `useResolvedEvent` exists to prevent — which meant the uid-scoped key added for
+  // membership-scoped slug resolution had to be remembered in two places.
+  // The route param may be a slug; `id` is the canonical doc id for writes + sub-links.
+  const { query: eventQuery, event, eventId: id } = useResolvedEvent(eventId);
 
   const memberQuery = useQuery({
     queryKey: ['events', 'member', id, user?.uid],

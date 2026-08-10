@@ -19,6 +19,7 @@ import { db, functions, storage } from '@/services/firebase';
 import { dateToTimestamp } from '@/lib/firestore/timestamps';
 import { parseEvent, type EventInput, type EventRecord } from '@/lib/events/event';
 import { getEvent } from '@/lib/events/events-read';
+import { listMyEventMemberships } from '@/lib/rbac/my-memberships';
 import { defaultEventSlug } from '@/lib/events/slug';
 import type { Logo } from '@/lib/branding/logo';
 import type {
@@ -70,23 +71,86 @@ export async function createEvent(input: EventInput): Promise<string> {
   return result.data.eventId;
 }
 
+/** Outcome of one read attempt: a rules denial is information, not an error to propagate. */
+type Attempt<T> = { denied: true } | { denied: false; value: T };
+
 /**
- * Resolve an event by its URL slug, falling back to a doc-id lookup (so old
- * `/events/{id}` links and not-yet-slugged events keep working).
+ * Run a read, converting a rules denial into `{ denied: true }` and letting everything else
+ * through. Narrow on purpose: a network failure, an offline client, or a malformed document
+ * must NOT be laundered into "no such event" — that is how a real outage comes to look like a
+ * 404. Only `permission-denied` is expected here.
  */
-export async function getEventBySlugOrId(slugOrId: string): Promise<EventRecord | null> {
+async function attempt<T>(read: () => Promise<T>): Promise<Attempt<T>> {
   try {
+    return { denied: false, value: await read() };
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code === 'permission-denied') return { denied: true };
+    throw err;
+  }
+}
+
+/** The events the caller belongs to, read one by one (each is permitted by membership). */
+async function myEvents(uid: string): Promise<EventRecord[]> {
+  const memberships = await listMyEventMemberships(uid);
+  const fetched = await Promise.all(memberships.map((m) => attempt(() => getEvent(m.eventId))));
+  return fetched.flatMap((r) => (!r.denied && r.value ? [r.value] : []));
+}
+
+/**
+ * Resolve an event from a URL param that may be a slug OR a raw doc id.
+ *
+ * ## Why this is more than a slug lookup
+ *
+ * The obvious implementation — `where('slug','==',param)` over `events` — is **denied for any
+ * viewer who is not an admin or a production director**. The events read rule is
+ * `canReadEvent(eventId)`, which for everyone else resolves through a per-document `exists()`
+ * membership lookup, and Firestore will not authorize a collection query on that basis. The
+ * denial has nothing to do with whether the viewer may read the matching event: a production
+ * manager is refused the query for the very show they run.
+ *
+ * The old fallback then made it worse. It called `getEvent(param)` — a getDoc treating the
+ * SLUG as a doc id. No such document exists, and for a non-member the rule *denies* rather
+ * than returning empty, so the call threw instead of yielding `null`. Both branches failing
+ * surfaced as "Failed to load this event." on a show the viewer is assigned to. Because
+ * `EventDetailScreen` canonicalizes `/events/{id}` → `/events/{slug}`, even the id-based route
+ * that worked was rewritten into the broken one; only `/events/{id}/schedule`, which does not
+ * canonicalize, escaped. It went unnoticed because every production account was admin or
+ * director until the first ordinary crew member was added (2026-08-10).
+ *
+ * ## The three steps
+ *
+ * 1. **Slug query** — one read, and authoritative for oversight viewers.
+ * 2. **Doc id** — the param may already be an id the viewer can read.
+ * 3. **Membership-scoped slug match** — reached only when step 1 was *denied*, which is
+ *    precisely the signal that this viewer sees events through membership. It reuses the same
+ *    self-only collection-group read the events list and nav already share.
+ *
+ * A viewer whose slug query SUCCEEDED but matched nothing skips step 3: their query already
+ * covered every event, so the slug genuinely does not exist and fanning out over memberships
+ * would only add reads to a 404.
+ *
+ * `uid` is required rather than optional so a call site cannot silently opt out of step 3 and
+ * quietly reintroduce the bug.
+ */
+export async function getEventBySlugOrId(
+  slugOrId: string,
+  uid: string,
+): Promise<EventRecord | null> {
+  const bySlug = await attempt(async () => {
     const snap = await getDocs(
       query(collection(db, 'events'), where('slug', '==', slugOrId), limit(1)),
     );
-    if (!snap.empty) {
-      const d = snap.docs[0];
-      return parseEvent(d.id, d.data());
-    }
-  } catch {
-    // Slug query denied (viewer isn't a member of the matching event) → try the id.
-  }
-  return getEvent(slugOrId);
+    return snap.empty ? null : parseEvent(snap.docs[0].id, snap.docs[0].data());
+  });
+  if (!bySlug.denied && bySlug.value) return bySlug.value;
+
+  const byId = await attempt(() => getEvent(slugOrId));
+  if (!byId.denied && byId.value) return byId.value;
+
+  // The slug query answered for the whole collection, so there is nothing left to find.
+  if (!bySlug.denied) return null;
+
+  return (await myEvents(uid)).find((e) => e.slug === slugOrId) ?? null;
 }
 
 /**
