@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [isProductionDirector, setIsProductionDirector] = useState(false);
   const [approved, setApproved] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,10 +34,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // then refresh the token so it carries them. Falls back to cached claims on failure.
   const applyClaims = useCallback(async (nextUser: User) => {
     try {
-      const { isAdmin: admin, isOrganizer: organizer, approved: ok } = await syncUserClaims();
+      // ⚠ `isProductionDirector: director = false` is load-bearing — do NOT "simplify" it away.
+      // `syncUserClaimsOutputSchema` declares `.default(false)`, but output schemas here are
+      // COMPILE-TIME contracts only: `syncUserClaims()` passes the type as a generic to
+      // `httpsCallable<…>` and returns `result.data` raw — nothing calls `.parse()` on the
+      // client, so the schema default never runs in the browser. Against an older Functions
+      // response (pre-rollout, or after a Functions rollback) the field arrives `undefined`,
+      // which would put a non-boolean into boolean state and flow on into
+      // `Viewer.isProductionDirector: boolean` as a type lie. Normalizing here matches the
+      // `=== true` idiom the cached-token fallback below already uses.
+      const {
+        isAdmin: admin,
+        isOrganizer: organizer,
+        isProductionDirector: director = false,
+        approved: ok,
+      } = await syncUserClaims();
       await nextUser.getIdToken(true); // refresh so the token carries the new claim
       setIsAdmin(admin);
       setIsOrganizer(organizer);
+      setIsProductionDirector(director);
       setApproved(ok);
     } catch (err) {
       logger.error('Failed to sync user claims; falling back to cached claims', err);
@@ -44,10 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = await nextUser.getIdTokenResult();
         setIsAdmin(token.claims.admin === true);
         setIsOrganizer(token.claims.organizer === true);
+        setIsProductionDirector(token.claims.productionDirector === true);
         setApproved(token.claims.approved === true);
       } catch {
         setIsAdmin(false);
         setIsOrganizer(false);
+        setIsProductionDirector(false);
         setApproved(false);
       }
     }
@@ -70,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         syncedUid.current = null;
         setIsAdmin(false);
         setIsOrganizer(false);
+        setIsProductionDirector(false);
         setApproved(false);
         setLoading(false);
         return;
@@ -106,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin,
       isOrganizer,
+      isProductionDirector,
       approved,
       emailVerified,
       signIn: async (email, password) => {
@@ -130,7 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resendVerification: () => resendVerificationEmail(),
       refreshUser,
     }),
-    [user, loading, isAdmin, isOrganizer, approved, emailVerified, refreshUser, queryClient],
+    [
+      user,
+      loading,
+      isAdmin,
+      isOrganizer,
+      isProductionDirector,
+      approved,
+      emailVerified,
+      refreshUser,
+      queryClient,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -16,7 +16,7 @@ const logger = createLogger('Stages');
 
 export function StageDetailScreen() {
   const { eventId: eventParam, stageId } = useParams();
-  const { user, isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -57,7 +57,7 @@ export function StageDetailScreen() {
 
   if (!user || !eventParam || !stageId) return null;
 
-  const viewer = { uid: user.uid, isAdmin, isOrganizer };
+  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
   const canEdit = canEditEvent(viewer, memberQuery.data?.role ?? null);
   const stage = stageQuery.data;
 

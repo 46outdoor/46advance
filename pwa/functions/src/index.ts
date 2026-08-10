@@ -32,6 +32,7 @@ import {
   setUserApprovedInputSchema,
   setUserDisplayNameInputSchema,
   setUserOrganizerInputSchema,
+  setUserProductionDirectorInputSchema,
   syncUserClaimsInputSchema,
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
@@ -219,8 +220,10 @@ async function approvedByAdminContact(db: Firestore, email: string): Promise<boo
 /**
  * Called by the client after sign-in. Upserts the caller's `users/{uid}` profile,
  * sets/clears the global `admin` claim from the allowlist, and surfaces the global
- * `organizer` claim (set by an admin via setUserOrganizer). Returns
- * `{ isAdmin, isOrganizer }`. Idempotent; works for existing and new accounts.
+ * `organizer` claim (set by an admin via setUserOrganizer) plus the global
+ * `productionDirector` claim (setUserProductionDirector — read-only oversight of every
+ * event). Returns `{ isAdmin, isOrganizer, isProductionDirector, approved, emailVerified }`.
+ * Idempotent; works for existing and new accounts.
  */
 export const syncUserClaims = onCall(async (request) => {
   if (!request.auth) {
@@ -244,6 +247,9 @@ export const syncUserClaims = onCall(async (request) => {
   const adminAuth = getAuth();
   const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
   const isOrganizer = existing.organizer === true;
+  // Read-only cross-event oversight. Granted only by setUserProductionDirector — never
+  // derived from the allowlist or from membership — so this is a pure surface + mirror.
+  const isProductionDirector = existing.productionDirector === true;
   const wasAdmin = existing.admin === true;
   const wasApproved = existing.approved === true;
 
@@ -301,6 +307,7 @@ export const syncUserClaims = onCall(async (request) => {
       contactId,
       isAdmin,
       organizer: isOrganizer,
+      productionDirector: isProductionDirector,
       approved,
       lastSeenAt: FieldValue.serverTimestamp(),
       ...(snap.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
@@ -308,7 +315,7 @@ export const syncUserClaims = onCall(async (request) => {
     { merge: true },
   );
 
-  return { isAdmin, isOrganizer, approved, emailVerified };
+  return { isAdmin, isOrganizer, isProductionDirector, approved, emailVerified };
 });
 
 /**
@@ -360,6 +367,62 @@ export const setUserOrganizer = onCall(async (request) => {
   await getFirestore().collection('users').doc(uid).set({ organizer }, { merge: true });
 
   return { uid, organizer };
+});
+
+/**
+ * Admin-only. Grants/revokes the global `productionDirector` capability — READ-ONLY oversight
+ * of every event, whether or not the user is a member (planning/EVENT_OVERSIGHT_ROLE_PLAN.md).
+ * Deliberately separate from `organizer` ("may create events"): silently widening that toggle
+ * to "may read every event" would make the Admin label lie at the moment someone grants it.
+ * Sets the custom claim, mirrors `users/{uid}.productionDirector`, and stamps who changed it
+ * when — the audit trail this broad grant needs without a new audit-log subsystem.
+ *
+ * Propagation bound: the target picks the change up on their next token refresh / sign-in
+ * (`syncUserClaims` refreshes at app startup), so a revoke can take up to ~1 hour to reach an
+ * ID token already issued — the same documented direct-SDK window as approval changes.
+ * Emergency containment is the Approved revocation path, not this toggle.
+ */
+export const setUserProductionDirector = onCall(async (request) => {
+  assertAdmin(request.auth);
+  const { uid, productionDirector } = parseCallableData(
+    setUserProductionDirectorInputSchema,
+    request.data,
+  );
+  const db = getFirestore();
+  await enforceRateLimit(db, ['setUserProductionDirector', request.auth.uid], 30);
+
+  const adminAuth = getAuth();
+  const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
+  await adminAuth.setCustomUserClaims(uid, { ...existing, productionDirector });
+  await db.collection('users').doc(uid).set(
+    {
+      productionDirector,
+      productionDirectorUpdatedAt: FieldValue.serverTimestamp(),
+      productionDirectorUpdatedBy: request.auth.uid,
+    },
+    { merge: true },
+  );
+
+  // On REVOKE, force the target to re-authenticate so the next token they obtain no longer
+  // carries the claim. Without this they keep oversight until their current ID token expires
+  // (~1h), because a claim change never rewrites an already-issued token. Deliberately
+  // one-directional: granting needs no sign-out, and revoking a read-everything capability is
+  // worth the interruption. Note this still does not invalidate the token already in their
+  // browser — for an active exposure, roll the rules back first (see the plan's
+  // "Emergency containment").
+  if (!productionDirector) {
+    await adminAuth.revokeRefreshTokens(uid);
+  }
+
+  // Structured audit line — this claim reads EVERY event, so who granted it to whom must be
+  // traceable in the Functions log even though the mirror only keeps the latest change.
+  logger.info('production-director claim changed', {
+    actorUid: request.auth.uid,
+    targetUid: uid,
+    productionDirector,
+  });
+
+  return { uid, productionDirector };
 });
 
 /**

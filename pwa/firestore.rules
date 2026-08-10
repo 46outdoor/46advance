@@ -6,6 +6,9 @@ rules_version = '2';
 //   approved gate      (token.approved == true)   -> required for all app access (admins exempt)
 //   global admin       (token.admin == true)     -> everything
 //   global organizer   (token.organizer == true) -> may create events (must also be approved)
+//   production director (token.productionDirector == true)
+//                                                 -> READ every event subtree (+ the PM
+//                        checklist) without membership; grants NO writes and no admin powers
 //   production-manager (per-event role)           -> read + write stages/advances + flag
 //   department-lead    (per-event role)           -> read + flag; writes the advance/stage-
 //                        production sections of its ASSIGNED departments (members.departments)
@@ -40,6 +43,20 @@ service cloud.firestore {
       return isAdmin() || isApproved();
     }
 
+    // ---- Cross-event oversight (planning/EVENT_OVERSIGHT_ROLE_PLAN.md) ----
+    // A production director oversees the PMs' work across the whole application, and may or
+    // may not be a member of any given event — so this capability cannot be derived from
+    // membership. The claim is READ-ONLY and event-scoped: it widens event-subtree reads and
+    // grants no writes, no admin functions, and no event creation. A director who needs to
+    // edit a show is assigned a per-event production-manager role (capabilities are additive).
+    function isProductionDirector() {
+      return isActiveUser() && request.auth.token.get('productionDirector', false) == true;
+    }
+
+    function canOverseeAllEvents() {
+      return isAdmin() || isProductionDirector();
+    }
+
     function memberPath(eventId) {
       return /databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid);
     }
@@ -48,12 +65,25 @@ service cloud.firestore {
       return isActiveUser() && exists(memberPath(eventId));
     }
 
+    // Canonical READ gate for everything under an event: oversight capability OR membership.
+    // Every event-subtree read rule below uses this — do not inline `isAdmin() || isMember()`.
+    function canReadEvent(eventId) {
+      return canOverseeAllEvents() || isMember(eventId);
+    }
+
     function hasEventRole(eventId, role) {
       return isMember(eventId) && get(memberPath(eventId)).data.role == role;
     }
 
     function canEditEvent(eventId) {
       return isAdmin() || hasEventRole(eventId, 'production-manager');
+    }
+
+    // The checklist is a PM working surface, NOT a general member surface: leads/techs never
+    // see it. A director reads it (it is the clearest signal of whether a PM is on top of a
+    // show) but writes stay on canEditEvent.
+    function canReadChecklist(eventId) {
+      return canOverseeAllEvents() || canEditEvent(eventId);
     }
 
     function canFlagEvent(eventId) {
@@ -256,12 +286,18 @@ service cloud.firestore {
     // else's. collectionGroup() queries only match a `/{path=**}/` rule, so this must live
     // at the top level; direct member-doc access + all writes stay on the nested
     // events/{eventId}/members rule below. Read-only — writes are unaffected.
+    //
+    // DELIBERATELY NOT WIDENED for cross-event oversight (canOverseeAllEvents). This rule is
+    // the ONE unscoped, application-wide collection-group surface, and keeping it self-only is
+    // what makes "which events am I on?" safe: it cannot be turned into "dump every user's
+    // membership row across every event". A director reads a KNOWN event's roster through the
+    // nested events/{eventId}/members rule instead, which is scoped to one event at a time.
     match /{path=**}/members/{memberUid} {
       allow read: if isActiveUser() && request.auth.uid == resource.data.uid;
     }
 
     match /events/{eventId} {
-      allow read: if isAdmin() || isMember(eventId);
+      allow read: if canReadEvent(eventId);
       // Server-only (S8): events are created atomically with the creator's PM membership by the
       // createBlankEvent / createEventFromTemplate callables (Admin SDK), so an event can never
       // exist without its membership (WS-G). No client create.
@@ -281,9 +317,10 @@ service cloud.firestore {
       // the `/{path=**}/members` rule at the top of this service — nested rules do not
       // apply to collectionGroup() queries.
       match /members/{memberUid} {
-        allow read: if isAdmin()
-          || (isActiveUser() && request.auth.uid == memberUid)
-          || isMember(eventId);
+        // Not the uniform event-read shape: it also lets any active user read their OWN row
+        // (that self-clause is what the events-list collection-group query below relies on).
+        allow read: if canReadEvent(eventId)
+          || (isActiveUser() && request.auth.uid == memberUid);
         // Admin adds members; the creator's own PM membership is created server-side by the
         // createBlankEvent callable (Admin SDK) — NOT client self-bootstrap — so a removed creator
         // can't recreate a PM membership (WS-B, S8).
@@ -293,7 +330,7 @@ service cloud.firestore {
 
       // Stages: members read; PM/admin write.
       match /stages/{stageId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow create, update, delete: if canEditEvent(eventId);
 
         // Advances live under a stage. Member read; PM/admin write (section
@@ -301,7 +338,7 @@ service cloud.firestore {
         match /advances/{advanceId} {
           // Calendar linkage is server-owned: attachCallBooking atomically updates it, and
           // createAdvanceCall writes it through the Admin SDK. Ordinary creates start unlinked.
-          allow read: if isAdmin() || isMember(eventId);
+          allow read: if canReadEvent(eventId);
           allow create: if canEditEvent(eventId)
             && request.resource.data.createdBy == request.auth.uid
             && nonEmptyStr(request.resource.data, 'artistName')
@@ -317,7 +354,7 @@ service cloud.firestore {
           // Linked Google Drive files — server-written only (link/removeDriveFile
           // callables; the Admin SDK bypasses rules). Members read; no client write.
           match /driveFiles/{fileId} {
-            allow read: if isAdmin() || isMember(eventId);
+            allow read: if canReadEvent(eventId);
             allow write: if false;
           }
 
@@ -326,7 +363,7 @@ service cloud.firestore {
           // (admin / event PM) curate. `includePacket` rides the update gate for the
           // packet-embedding PR; the audit fields stay immutable.
           match /documents/{docId} {
-            allow read: if isAdmin() || isMember(eventId);
+            allow read: if canReadEvent(eventId);
             // Server-only (S8): included via the includeArtistDocumentOnAdvance callable (Admin
             // SDK), which copies the canonical artistDocuments metadata (F-1). No client create.
             allow create: if false;
@@ -341,7 +378,7 @@ service cloud.firestore {
           // Quotes/estimates (artist-covered expenses): member read; PM/admin author + decide.
           // Status changes (approve/reject) ride the update gate, so tech/dept-lead can't decide.
           match /quotes/{quoteId} {
-            allow read: if isAdmin() || isMember(eventId);
+            allow read: if canReadEvent(eventId);
             allow create: if canEditEvent(eventId)
               && request.resource.data.createdBy == request.auth.uid
               && nonEmptyStr(request.resource.data, 'title')
@@ -358,14 +395,14 @@ service cloud.firestore {
         // write; a department-lead writes their assigned departments' sections (the
         // create branch covers the merge-write that first materializes the record).
         match /production/{recordId} {
-          allow read: if isAdmin() || isMember(eventId);
+          allow read: if canReadEvent(eventId);
           allow create: if canEditEvent(eventId) || isDeptSectionCreate(eventId);
           allow update: if canEditEvent(eventId) || isDeptSectionUpdate(eventId);
           allow delete: if canEditEvent(eventId);
 
           // Attachments (stage plots / CAD / maps) — one doc per file; member read, PM/admin write.
           match /attachments/{attachId} {
-            allow read: if isAdmin() || isMember(eventId);
+            allow read: if canReadEvent(eventId);
             allow write: if canEditEvent(eventId);
           }
         }
@@ -373,28 +410,29 @@ service cloud.firestore {
 
       // Event-level production record (general/tech-operational): member read; PM/admin write.
       match /production/{recordId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow write: if canEditEvent(eventId);
 
         // Attachments (plots / CAD / maps) — one doc per file; member read, PM/admin write.
         match /attachments/{attachId} {
-          allow read: if isAdmin() || isMember(eventId);
+          allow read: if canReadEvent(eventId);
           allow write: if canEditEvent(eventId);
         }
       }
 
       // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin write.
       match /contacts/{attachId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow create, update, delete: if canEditEvent(eventId);
       }
 
-      // Event checklist: a PM-only working surface — READ requires canEditEvent too, so
-      // department leads / techs never see it (decision 2026-08-03). `completedAt` doubles
-      // as the done flag (null = not done) and is client-set: the completion time is
-      // deliberately user-editable. Not part of the advance tracker.
+      // Event checklist: a PM-only working surface — READ requires canEditEvent (or the
+      // cross-event oversight capability), so department leads / techs never see it
+      // (decision 2026-08-03). Writes stay PM/admin: a director reads but never edits.
+      // `completedAt` doubles as the done flag (null = not done) and is client-set: the
+      // completion time is deliberately user-editable. Not part of the advance tracker.
       match /checklist/{itemId} {
-        allow read: if canEditEvent(eventId);
+        allow read: if canReadChecklist(eventId);
         allow create, update: if canEditEvent(eventId)
           && nonEmptyStr(request.resource.data, 'text')
           && fieldIn(request.resource.data, 'section', ['main', 'post-show']);
@@ -405,7 +443,7 @@ service cloud.firestore {
       // recorded per event and grouped by schedule day key. Doc id = the Drive file id.
       // Members read; PM/admin manage. Audit fields pinned + immutable.
       match /documents/{docId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         // Server-only (S8): registered by the registerEventDocument callable (Admin SDK), which
         // verifies the file lives in the event's linked Drive folder (F-1). No client create.
         allow create: if false;
@@ -429,7 +467,7 @@ service cloud.firestore {
             && fieldIn(request.resource.data, 'dayType', ['travel', 'loadIn', 'show', 'loadOut', 'offDay'])
             && request.resource.data.get('items', []) is list;
         }
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow create: if canEditEvent(eventId)
           && validDayShape()
           && dayKey.matches('\\d{4}-\\d{2}-\\d{2}')
@@ -449,7 +487,7 @@ service cloud.firestore {
       // Booked advance-call inbox: sync + attach are Admin-SDK operations. A PM/admin client may
       // only dismiss an unresolved entry; it cannot forge, attach, reopen, or delete bookings.
       match /callBookings/{bookingId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow create, delete: if false;
         allow update: if canEditEvent(eventId)
           && resource.data.status == 'needs_review'
@@ -459,7 +497,7 @@ service cloud.firestore {
 
       // Flags/comments (event-level): PM + dept-lead (+ admin) author; authors modify own.
       match /flags/{flagId} {
-        allow read: if isAdmin() || isMember(eventId);
+        allow read: if canReadEvent(eventId);
         allow create: if canFlagEvent(eventId)
           && request.resource.data.createdBy == request.auth.uid;
         allow update, delete: if isAdmin()

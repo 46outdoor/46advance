@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canCreateEvents } from '@/lib/rbac/permissions';
+import { canCreateEvents, canViewTracker } from '@/lib/rbac/permissions';
+import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
+import { useMyEventMemberships } from '@/lib/rbac/useMyEventMemberships';
 import { EVENT_STATUSES, type EventInput, type EventStatus } from '@/lib/events/event';
 import { listDepartments } from '@/lib/departments/departments-service';
 import { listTemplates } from '@/lib/templates/templates-service';
@@ -15,7 +17,7 @@ import {
   listScheduleTemplates,
 } from '@/lib/schedules/schedule-templates-service';
 import type { TemplateInclude } from '@contracts/callables/events';
-import { listEvents } from '@/lib/events/events-read';
+import { eventsListKey, listEvents } from '@/lib/events/events-read';
 import { createEvent, createEventFromTemplate } from './events-service';
 import { applyTemplateDaysToEvent } from './schedule-days-service';
 import { listStages } from './stages-service';
@@ -153,7 +155,7 @@ function TemplatePicker({
 }
 
 export function EventsListScreen() {
-  const { user, isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
@@ -163,13 +165,20 @@ export function EventsListScreen() {
   const [templateChoice, setTemplateChoice] = useState<string | null>(null);
   const [include, setInclude] = useState<TemplateInclude>(ALL_SECTIONS);
 
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer } : null;
+  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
 
   const eventsQuery = useQuery({
-    queryKey: ['events', 'list', viewer?.uid, isAdmin],
+    // The canonical factory, never a literal: its scope segment is what stops a viewer who is
+    // granted the director claim mid-session from being served their old membership-scoped list.
+    queryKey: eventsListKey(viewer),
     queryFn: () => listEvents(viewer!),
     enabled: !!viewer,
   });
+
+  // Same shared membership summary the nav gate uses — React Query dedupes them into one read.
+  const memberships = useMyEventMemberships();
+  const showTracker =
+    !!viewer && canViewTracker(viewer, isProductionManagerSomewhere(memberships.data));
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
   const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: listTemplates });
@@ -205,12 +214,14 @@ export function EventsListScreen() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl font-black tracking-tight text-brand">Events</h1>
         <div className="flex items-center gap-2">
-          <Link
-            to="/tracker"
-            className="rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
-          >
-            Tracker
-          </Link>
+          {showTracker && (
+            <Link
+              to="/tracker"
+              className="rounded border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
+            >
+              Tracker
+            </Link>
+          )}
           {canCreateEvents(viewer) && (
             <button
               type="button"

@@ -15,7 +15,27 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Production director — oversight across every event:** a new admin-granted capability for
+  someone who supervises the production managers' work without necessarily being assigned to
+  their shows. A production director can open **every event in the application** — its crew,
+  schedules, advances, production details, checklist, and files — and see the advance Tracker
+  for all of them. It is **read-only**: nothing on an event can be changed from the capability
+  itself. A director who also needs to edit a specific show is assigned that event's
+  production-manager role as usual, and the two combine. Granted per user in
+  **Admin → Users**, separately from the existing Organizer toggle.
+
 ### Changed
+
+- **The advance Tracker is now for the people running the advance.** It is available to
+  admins, production directors, and anyone who is a production manager on at least one event —
+  a PM sees the events they run. **Department leads and techs no longer see the Tracker**, in
+  the navigation or by URL; nothing else about their access changes, and they keep full access
+  to the events they're assigned to.
+- **The all-event Tracker loads in pages.** Admins and production directors previously pulled
+  every event's completion roll-up in one go; it now loads a page at a time with **Load more**,
+  so a large festival list stays responsive.
 
 - **Browser security policy — enforcement ships with the next release:** the app's
   Content-Security-Policy, served in report-only mode since 2026-07-24, now ships enforced —

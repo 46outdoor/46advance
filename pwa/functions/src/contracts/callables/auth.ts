@@ -26,9 +26,16 @@ export const syncUserClaimsInputSchema = z.object({
 });
 export type SyncUserClaimsInput = z.infer<typeof syncUserClaimsInputSchema>;
 
+// ⚠ `isProductionDirector` carries `.default(false)` so the inferred type stays a required
+// boolean while an older Functions response (pre-rollout, or after a Functions rollback)
+// still satisfies the schema. The default only fires under `.parse()`, and the CLIENT NEVER
+// PARSES CALLABLE OUTPUT — it uses these types as generics and returns `result.data` raw.
+// So the client must normalize the field itself (see AuthProvider.applyClaims); do not rely
+// on this default to protect the browser.
 export const syncUserClaimsOutputSchema = z.object({
   isAdmin: z.boolean(),
   isOrganizer: z.boolean(),
+  isProductionDirector: z.boolean().default(false),
   approved: z.boolean(),
   emailVerified: z.boolean(),
 });
@@ -51,6 +58,18 @@ export const setUserOrganizerInputSchema = z.object({
 export type SetUserOrganizerInput = z.infer<typeof setUserOrganizerInputSchema>;
 export const setUserOrganizerOutputSchema = setUserOrganizerInputSchema;
 export type SetUserOrganizerOutput = z.infer<typeof setUserOrganizerOutputSchema>;
+
+// setUserProductionDirector — admin grants/revokes the global production-director capability
+// (read-only oversight of EVERY event, whether or not the user is a member). Deliberately
+// separate from `organizer`: that toggle means "may create events", and silently widening it
+// to "may read every event" would make the Admin label lie at the moment someone grants it.
+export const setUserProductionDirectorInputSchema = z.object({
+  uid: z.string().min(1),
+  productionDirector: z.boolean(),
+});
+export type SetUserProductionDirectorInput = z.infer<typeof setUserProductionDirectorInputSchema>;
+export const setUserProductionDirectorOutputSchema = setUserProductionDirectorInputSchema;
+export type SetUserProductionDirectorOutput = z.infer<typeof setUserProductionDirectorOutputSchema>;
 
 // setUserDisplayName — admin sets a user's display name (shown in pickers/member lists).
 // An empty string clears it (falls back to email). Echoes the stored value (null when cleared).

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canEditEvent } from '@/lib/rbac/permissions';
+import { canEditEvent, canViewChecklist, canViewTrackerForEvent } from '@/lib/rbac/permissions';
 import { getEventMember } from '@/lib/rbac/membership';
 import { formatZonedDateRange } from '@/lib/dates/timezone';
 import type { EventInput, EventRecord } from '@/lib/events/event';
@@ -152,7 +152,7 @@ function enabledDepartments(
 
 export function EventDetailScreen() {
   const { eventId } = useParams();
-  const { user, isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -217,9 +217,12 @@ export function EventDetailScreen() {
 
   if (!user || !eventId) return null;
 
-  const viewer = { uid: user.uid, isAdmin, isOrganizer };
+  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
   const viewerRole = memberQuery.data?.role ?? null;
   const canEdit = canEditEvent(viewer, viewerRole);
+  // The header's second Tracker entry point, held to the same rule as the nav and the Events
+  // list: oversight anywhere, or the PM of this event. Leads and techs get no Tracker at all.
+  const showTracker = canViewTrackerForEvent(viewer, viewerRole);
   const defaultLogos = brandingQuery.data?.defaultLogos ?? [];
 
   return (
@@ -239,6 +242,7 @@ export function EventDetailScreen() {
           event={event}
           eventId={event.id}
           canEdit={canEdit}
+          showTracker={showTracker}
           defaultLogos={defaultLogos}
           showLogo={resolveShowLogo(event.eventLogo, event.festivalId, festivalsQuery.data ?? [])}
           hasDrive={connectionQuery.data?.hasDrive ?? false}
@@ -292,7 +296,13 @@ export function EventDetailScreen() {
           <BookedCallsPanel eventId={event.id} canEdit={canEdit} timeZone={event.timeZone} />
           <StagesPanel eventId={event.id} canEdit={canEdit} />
           <LineupPanel event={event} canEdit={canEdit} />
-          <EventChecklistPanel eventId={event.id} timeZone={event.timeZone} canEdit={canEdit} />
+          {/* Oversight reads the PM's checklist; leads and techs still don't see it. */}
+          <EventChecklistPanel
+            eventId={event.id}
+            timeZone={event.timeZone}
+            canView={canViewChecklist(viewer, viewerRole)}
+            canEdit={canEdit}
+          />
           <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
           <EventTeamPanel
             eventId={event.id}
@@ -320,6 +330,8 @@ interface EventDetailHeaderProps {
   event: EventRecord;
   eventId: string;
   canEdit: boolean;
+  /** Whether this viewer gets the Tracker link (oversight, or this event's PM). */
+  showTracker: boolean;
   defaultLogos: Logo[];
   /** The resolved show mark (per-event override ?? the festival's logo). */
   showLogo: Logo | null;
@@ -347,6 +359,7 @@ function EventDetailHeader({
   event,
   eventId,
   canEdit,
+  showTracker,
   defaultLogos,
   showLogo,
   hasDrive,
@@ -393,12 +406,14 @@ function EventDetailHeader({
           >
             Documents
           </Link>
-          <Link
-            to={`/tracker/${eventId}`}
-            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-          >
-            Tracker
-          </Link>
+          {showTracker && (
+            <Link
+              to={`/tracker/${eventId}`}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+            >
+              Tracker
+            </Link>
+          )}
           {event.packetDrive?.webViewLink && (
             <a
               href={event.packetDrive.webViewLink}

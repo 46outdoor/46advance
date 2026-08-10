@@ -10,7 +10,7 @@
  * admins are always approved, so admin-only callables (guarded by `assertAdmin`) don't need it.
  */
 import { HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 
 /** True when the caller holds app access — an admin, or an admin-approved user. */
@@ -65,4 +65,32 @@ export interface CallerAuth {
 export function assertAdmin(auth: CallerAuth | undefined): asserts auth is CallerAuth {
   if (!auth) throw new HttpsError('unauthenticated', 'Sign in required.');
   if (auth.token.admin !== true) throw new HttpsError('permission-denied', 'Admin only.');
+}
+
+/**
+ * Event READ gate — the callable mirror of the rules' `canReadEvent(eventId)`
+ * (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). An admin, or a holder of the global
+ * `productionDirector` claim, reads EVERY event whether or not they are on it; everyone else
+ * still needs a membership row on that event.
+ *
+ * READ ONLY. Writes stay on `assertCanEditEvent` (google.ts) — never widen an event mutation,
+ * member-management, packet-generation, Drive-linking, or cleanup callable to the director
+ * claim. A director who must edit a show is assigned the per-event production-manager role,
+ * and gains the write through that membership.
+ *
+ * Re-asserts the active-user gate first (the Admin SDK bypasses rules), so a pending or
+ * admin-revoked account — director claim or not — can't read event data through a callable.
+ */
+export async function assertCanReadEvent(
+  db: Firestore,
+  token: DecodedIdToken,
+  uid: string,
+  eventId: string,
+): Promise<void> {
+  await assertActiveUser({ uid, token });
+  if (token.admin === true || token.productionDirector === true) return;
+  const member = await db.doc(`events/${eventId}/members/${uid}`).get();
+  if (!member.exists) {
+    throw new HttpsError('permission-denied', 'You do not have access to this event.');
+  }
 }

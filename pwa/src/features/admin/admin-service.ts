@@ -16,6 +16,8 @@ import type {
   SetUserDisplayNameOutput,
   SetUserOrganizerInput,
   SetUserOrganizerOutput,
+  SetUserProductionDirectorInput,
+  SetUserProductionDirectorOutput,
 } from '@contracts/callables/auth';
 import { eventRoleSchema, type EventRole } from '@/lib/rbac/roles';
 import { parseEvent, type EventRecord } from '@/lib/events/event';
@@ -58,6 +60,26 @@ export async function setUserOrganizer(
     'setUserOrganizer',
   );
   const result = await callable({ uid, organizer });
+  return result.data;
+}
+
+/**
+ * Admin-only: grant/revoke the global `productionDirector` capability — read-only oversight
+ * of EVERY event, with or without a membership row.
+ *
+ * Deliberately separate from `setUserOrganizer`: that capability means "may create events".
+ * Folding oversight into it would make the Organizer toggle's label understate what it hands
+ * out, at exactly the moment an admin is deciding whether to hand it out.
+ */
+export async function setUserProductionDirector(
+  uid: string,
+  productionDirector: boolean,
+): Promise<SetUserProductionDirectorOutput> {
+  const callable = httpsCallable<SetUserProductionDirectorInput, SetUserProductionDirectorOutput>(
+    functions,
+    'setUserProductionDirector',
+  );
+  const result = await callable({ uid, productionDirector });
   return result.data;
 }
 

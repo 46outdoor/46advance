@@ -22,7 +22,10 @@ vi.mock('./events-service', () => ({
 }));
 
 // listEvents moved to the shared lib read module (a feature may not import another feature).
-vi.mock('@/lib/events/events-read', () => ({
+// Only the reader is stubbed — `eventsListKey` stays real so the screen keys its query the way
+// production does.
+vi.mock('@/lib/events/events-read', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/events/events-read')>()),
   listEvents: vi.fn(async () => [
     {
       id: 'event-1',
@@ -51,6 +54,12 @@ vi.mock('@/lib/events/events-read', () => ({
       updatedAt: null,
     },
   ]),
+}));
+
+// Gates the header's Tracker button. These fixtures are a plain member, so an empty summary
+// ("PM nowhere") is the right default; the gate itself is covered in the tracker-gate spec.
+vi.mock('@/lib/rbac/useMyEventMemberships', () => ({
+  useMyEventMemberships: () => ({ data: [] }),
 }));
 
 vi.mock('@/lib/departments/departments-service', () => ({

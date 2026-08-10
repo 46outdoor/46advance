@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { useScrolled } from '@/hooks/useScrolled';
 import { SystemDarkNudge } from '@/components/SystemDarkNudge';
+import { canViewTracker } from '@/lib/rbac/permissions';
+import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
+import { useMyEventMemberships } from '@/lib/rbac/useMyEventMemberships';
 import { listUsers } from '@/lib/users/users-service';
 import { countPendingApproval } from '@/lib/users/approval';
 
@@ -11,7 +14,7 @@ import { countPendingApproval } from '@/lib/users/approval';
 export function AppShell({ children }: { children: ReactNode }) {
   // Thresholds live in the hook — they're tied to how far this header collapses (see its header).
   const scrolled = useScrolled();
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, signOut } = useAuth();
   // Admins see a count of accounts awaiting approval on the Admin link — a standing nudge that new
   // registrations need action, without opening the Admin screen. Shares the ['admin','users'] cache.
   const usersQuery = useQuery({
@@ -20,6 +23,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     enabled: isAdmin,
   });
   const pendingCount = usersQuery.data ? countPendingApproval(usersQuery.data) : 0;
+  // Tracker is for the people accountable for completion: oversight (admin / production
+  // director) plus anyone who production-manages at least one event. The membership summary is
+  // a TRI-STATE — `undefined` while the shared query resolves — and `canViewTracker` treats
+  // "unknown" as hidden, so the link never flashes in and then disappears.
+  const memberships = useMyEventMemberships();
+  const showTracker =
+    !!user &&
+    canViewTracker(
+      { uid: user.uid, isAdmin, isOrganizer, isProductionDirector },
+      isProductionManagerSomewhere(memberships.data),
+    );
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
       <header
@@ -49,6 +63,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="transition-colors hover:text-accent" to="/events">
               Events
             </Link>
+            {showTracker && (
+              <Link className="transition-colors hover:text-accent" to="/tracker">
+                Tracker
+              </Link>
+            )}
             <Link className="transition-colors hover:text-accent" to="/contacts">
               Contacts
             </Link>

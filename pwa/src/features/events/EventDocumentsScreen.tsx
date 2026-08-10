@@ -241,7 +241,7 @@ function DayGroupHeader({
 
 export function EventDocumentsScreen() {
   const { eventId: eventParam } = useParams();
-  const { user, isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const queryClient = useQueryClient();
   const { query: eventQuery, eventId } = useResolvedEvent(eventParam);
 
@@ -305,7 +305,10 @@ export function EventDocumentsScreen() {
   });
 
   if (!user || !eventParam) return null;
-  const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
+  const canEdit = canEditEvent(
+    { uid: user.uid, isAdmin, isOrganizer, isProductionDirector },
+    roleQuery.data ?? null,
+  );
   const event = eventQuery.data;
   const scheduleDays = daysQuery.data ?? [];
   const dayByKey = new Map(scheduleDays.map((d) => [d.id, d]));

@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Production attachments (stage plots / CAD / site maps) under events/{eventId}/...
 // Membership is read from Firestore (per-event RBAC). Internal tool.
+// Global template/branding/festival/contact-photo paths are unaffected by event RBAC.
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -20,9 +21,21 @@ service firebase.storage {
     function isActiveUser() {
       return isAdmin() || isApproved();
     }
+    // Cross-event oversight — mirrors firestore.rules / planning/EVENT_OVERSIGHT_ROLE_PLAN.md.
+    // Read-only and event-scoped: it widens the event-path READ gate only. Uploads and deletes
+    // still require admin or the per-event production-manager role.
+    function isProductionDirector() {
+      return isActiveUser() && request.auth.token.get('productionDirector', false) == true;
+    }
+    function canOverseeAllEvents() {
+      return isAdmin() || isProductionDirector();
+    }
     function isMember(eventId) {
       return isActiveUser()
         && firestore.exists(/databases/(default)/documents/events/$(eventId)/members/$(request.auth.uid));
+    }
+    function canReadEvent(eventId) {
+      return canOverseeAllEvents() || isMember(eventId);
     }
     function isPM(eventId) {
       return isMember(eventId)
@@ -39,8 +52,10 @@ service firebase.storage {
         ];
     }
 
+    // Production attachments, quote signed copies, generated PDFs, and anything else stored
+    // under an event path. Reads follow the event-read capability; writes/deletes stay PM/admin.
     match /events/{eventId}/{allPaths=**} {
-      allow read: if isAdmin() || isMember(eventId);
+      allow read: if canReadEvent(eventId);
       allow write: if canEditEvent(eventId) && validUpload();
       allow delete: if canEditEvent(eventId);
     }

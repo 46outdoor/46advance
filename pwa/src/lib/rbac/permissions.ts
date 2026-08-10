@@ -17,6 +17,13 @@ export interface Viewer {
   isAdmin: boolean;
   /** Global organizer claim — may create events. Optional; defaults to false. */
   isOrganizer?: boolean;
+  /**
+   * Global production-director claim — read-only oversight of EVERY event, whether or not
+   * the user is a member. Grants no writes: a director who must edit a show is assigned that
+   * event's production-manager role, and the write predicates below stay membership-based.
+   * Optional; defaults to false.
+   */
+  isProductionDirector?: boolean;
 }
 
 /** Global admin = unrestricted across every event. */
@@ -33,9 +40,14 @@ export function canCreateEvents(viewer: Viewer): boolean {
   return viewer.isAdmin || viewer.isOrganizer === true;
 }
 
-/** Any member (any role) can view an event; admins can view all. */
-export function canViewEvent(viewer: Viewer, role: EventRole | null): boolean {
-  return viewer.isAdmin || role !== null;
+/**
+ * Read every event without a membership row. Admin or production director — the two global
+ * capabilities that see across events. Distinct from `canCreateEvents` on purpose: organizer
+ * and director are different populations that merely overlap today, so keeping the predicates
+ * separate means splitting them later costs one function body, not a sweep of call sites.
+ */
+export function canOverseeAllEvents(viewer: Viewer): boolean {
+  return viewer.isAdmin || viewer.isProductionDirector === true;
 }
 
 /** v1: production-manager has write scope; admin always. (Dept-lead write is deferred.) */
@@ -43,9 +55,39 @@ export function canEditEvent(viewer: Viewer, role: EventRole | null): boolean {
   return viewer.isAdmin || role === 'production-manager';
 }
 
+/**
+ * May read the event checklist. Mirrors `canReadChecklist` in `firestore.rules`: the PM's
+ * working list stays hidden from department leads and techs, but oversight sees it read-only —
+ * it is the clearest signal of whether a PM is on top of a show. Writes remain `canEditEvent`.
+ */
+export function canViewChecklist(viewer: Viewer, role: EventRole | null): boolean {
+  return canOverseeAllEvents(viewer) || canEditEvent(viewer, role);
+}
+
 /** v1: production-manager + department-lead can flag/comment; admin always. */
 export function canFlag(viewer: Viewer, role: EventRole | null): boolean {
   return viewer.isAdmin || role === 'production-manager' || role === 'department-lead';
+}
+
+/**
+ * Tracker is a production-management surface: oversight sees every event, a PM sees the
+ * events they run, and department leads / techs don't get it at all.
+ *
+ * This is a product boundary, not secrecy — leads and techs can already read the underlying
+ * section statuses for their events and could compute the same roll-up. The point is to show
+ * Tracker only to the people accountable for completion.
+ *
+ * `isPmSomewhere` is a TRI-STATE. It resolves from an async membership query, so `undefined`
+ * means "not known yet" and must render as hidden — otherwise the link flashes in and then
+ * disappears once the query settles.
+ */
+export function canViewTracker(viewer: Viewer, isPmSomewhere: boolean | undefined): boolean {
+  return canOverseeAllEvents(viewer) || isPmSomewhere === true;
+}
+
+/** May open one event's tracker: oversight anywhere, or PM of that specific event. */
+export function canViewTrackerForEvent(viewer: Viewer, role: EventRole | null): boolean {
+  return canOverseeAllEvents(viewer) || role === 'production-manager';
 }
 
 /** The membership fields the department-scoped predicates need (subset of EventMember). */

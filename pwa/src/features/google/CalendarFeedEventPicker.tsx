@@ -35,10 +35,20 @@ export function CalendarFeedEventPicker() {
     enabled: user != null,
   });
   // The feed carries the events the user is a MEMBER of, so always list memberships —
-  // never the admin-wide view, which would offer events their feed won't contain.
+  // never a cross-event view, which would offer events their feed won't contain.
+  // `isAdmin`/`isProductionDirector` are pinned false ON PURPOSE: both widen `listEvents` to
+  // every event, and a production director would otherwise be shown the entire application's
+  // event list here and could subscribe their personal calendar to shows they merely oversee.
+  // Do not "fix" this by passing the real viewer.
   const eventsQuery = useQuery({
     queryKey: ['calendarFeedEvents', user?.uid],
-    queryFn: () => listEvents({ uid: user?.uid ?? '', isAdmin: false, isOrganizer: false }),
+    queryFn: () =>
+      listEvents({
+        uid: user?.uid ?? '',
+        isAdmin: false,
+        isOrganizer: false,
+        isProductionDirector: false,
+      }),
     enabled: user != null,
   });
 
