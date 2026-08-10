@@ -53,6 +53,16 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
+- **Production director — Hosting release pending, then grant the first claim.** Functions
+  and rules are LIVE as of 2026-08-10 01:5xZ (see the entry below); the PWA half is not. Until
+  the owner ships a Hosting release from `6d7d55b` or later, production runs the **old client**
+  against the new backend — verified working, and no one's access has changed because no
+  `productionDirector` claim exists yet. After the release: grant the claim in **Admin → Users
+  → Production director**, then confirm the director lists every event, opens an unassigned one
+  read-only, and sees the Tracker. Two user-visible changes ship with that release and belong in
+  the handoff — **department leads and techs lose the Tracker**, and the all-event Tracker
+  becomes paged. Rollback = redeploy the previous rules (the fast kill switch — see the plan's
+  Emergency containment) and revoke the claim.
 - **CSP enforce — residual log watch through ~2026-08-12.** The flip is live (see the 21:08Z
   checkpoint entry); headers verified on both domains and the first hour logged no violations.
   The browser pass completed 2026-08-08 ~22:45Z (MCP-driven crawl of production, signed in as
@@ -81,6 +91,35 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Production director: FUNCTIONS + RULES live (#274, `6d7d55b`): FUNCTIONS,
+FIRESTORE RULES, STORAGE RULES.** The backend half of the cross-event oversight capability
+(`planning/EVENT_OVERSIGHT_ROLE_PLAN.md`; ROADMAP §4 records it as the first deliberate
+exception to the per-event RBAC model). Deployed in the plan's compatibility order —
+Functions first, then rules. Functions: `syncUserClaims` now returns/mirrors
+`isProductionDirector`, the new admin-only `setUserProductionDirector` callable (audit stamp +
+structured log + refresh-token revocation on revoke) is registered, and `assertCanReadEvent`
+gates the Drive broker. Rules: `canReadEvent` replaces all 15 event-subtree **read** gates and
+the event Storage path; `canReadChecklist` adds oversight without exposing the checklist to
+leads/techs; the members collection-group rule stays self-only. **No create/update/delete gate
+changed** — the capability is read-only by construction.
+
+**Nothing anyone can see has changed yet, by design.** No `productionDirector` claim has been
+granted, so both branches are inert, and the PWA half is still unreleased.
+
+Verified against production immediately after the rules release, with the **old** client still
+being served — the intended old-client/new-backend compatibility case: `syncUserClaims`
+returned 200 (the output schema's new field carries `.default(false)`, and the client never
+parses output, so an added field cannot break an older bundle), every Firestore Listen channel
+returned 200 with **no permission-denied**, and both events rendered. Pre-deploy: 536 client
+unit, 191 rules (Firestore + Storage), 176 Functions unit, 137 Functions emulator, plus
+typecheck/lint/arch — all green in CI.
+
+**Rollback:** redeploy the previous `firestore.rules`/`storage.rules` **first** — that is the
+instant kill switch, because a stale token asserting the claim stops mattering the moment the
+rules stop honoring it — then patch the Functions `assertCanReadEvent` director branch (an
+Admin-SDK path that client rules do not contain), then revoke claims. Revoking claims first is
+the *planned-withdrawal* order and is too slow for an active exposure.
 
 **2026-08-08 — Hosting checkpoint (21:08Z, `ecc5c9c` #266): HOSTING (owner) — CSP enforce is
 LIVE.** Fourth owner release of the day, from the then-current `main` tip, carrying #264
