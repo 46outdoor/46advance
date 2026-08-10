@@ -76,6 +76,9 @@ completes, record it as a ledger entry below and delete it here.
      at the old 800px breakpoint — most items, pending badge, longest email. A tech account has
      four items and cannot reproduce it. Open the owner's admin session at an 880px-wide window
      and confirm the header stays on one line.
+  3. **Chronological event ordering** (added with the `abc2400` release). The tech account sees
+     one event; ordering needs at least two. Confirm the events list leads with the soonest show,
+     and that an event with no start date sorts to the bottom rather than the top.
 - **Weak credential on the test account.** `jared@jaredfoh.com` (tech on Boots on the Bend) was
   created 2026-08-10 as the app's first non-oversight account and its password was shared in
   chat. Worth keeping — it is the only way to exercise the non-oversight path by hand, and the
@@ -99,6 +102,28 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Hosting release (`abc2400`): HOSTING (owner).** Second release of the day, ~32
+minutes after the first. Carries the **chronological events list** (#285 — the list sorted
+alphabetically by name, and because names embed the city that sorted a touring festival *by
+city*) plus the mobile-nav plan archival (#283, docs only). See the CHANGELOG entry.
+
+**Ordering is NOT verified in production.** The only non-oversight account (`jared@jaredfoh.com`)
+is a member of exactly one event, and one event demonstrates nothing about sort order. What was
+confirmed against this build is that the events list still loads and renders for that account —
+a regression check on the read path the change touched, not a check of the fix. The ordering
+itself rests on six unit tests, including one that sorts the same input in both directions to
+catch a comparator that only handles one direction of the undated case. **Closing this needs an
+account that sees more than one event** — it is folded into the open action above.
+
+One implementation note worth keeping, because the obvious version of this change is a trap: the
+oversight query still uses `orderBy('name')`, not `orderBy('startDate')`. Firestore's `orderBy`
+silently excludes documents missing the field, so ordering the query by start date would drop
+every undated event from the admin/director list entirely. Chronological order is applied
+client-side over the whole page instead.
+
+**Rollback:** re-run Hosting from `e0a5d542` — that reverts the sort while keeping the slug fix,
+the nav disclosure, and the contacts-curation UI. No backend targets changed.
 
 **2026-08-10 — Hosting release (`e0a5d542`): HOSTING (owner).** Carries three client changes
 merged today, all previously unreleased: the **narrow-screen nav disclosure** (#279), the
