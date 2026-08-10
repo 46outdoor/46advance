@@ -399,6 +399,10 @@ That suggests two very different versions of this idea:
 
 **Status:** idea — needs a decision before it can be scoped
 **Raised:** 2026-08-08
+**Note (2026-08-09):** whenever this is scoped, the new **production director** tier
+([EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md)) belongs in the permitted set
+alongside organizer/admin — otherwise oversight can read every event but not the contacts
+directory.
 **Related:** [PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md) hides the cross-event Contacts
 and Documents destinations from non-organizers, but hiding a link is cosmetic — this entry
 is the real access question.

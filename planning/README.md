@@ -7,6 +7,9 @@ filed by category.
 - **[ROADMAP.md](ROADMAP.md)** — living product spec (decisions, scope, open questions).
 - **[PWA_MOBILE_NAV_PLAN.md](PWA_MOBILE_NAV_PLAN.md)** — agreed design for collapsing the PWA header
   into a role-aware dropdown on narrow screens. Graduated from IDEAS §1; not yet built.
+- **[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md)** — the production-director
+  capability: read-only oversight of every event, granted by widening the Firestore read rules.
+  Amends the per-event RBAC model in ROADMAP §4; decided 2026-08-09, not yet built.
 - **[IDEAS.md](IDEAS.md)** — capture space for future features, fixes, and improvements that
   aren't scoped or decided yet. Ideas graduate from here to a `PHASE_*_PLAN.md` (or a small PR)
   when we commit to them; ROADMAP holds what's actually been decided.
