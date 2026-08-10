@@ -100,9 +100,10 @@ The change is larger than copying `setUserOrganizer`. Update the complete shared
 
 1. **Callable schemas** — `functions/src/contracts/callables/auth.ts`
    - Add `isProductionDirector: z.boolean().default(false)` to
-     `syncUserClaimsOutputSchema`. The parsed output remains a required boolean to clients,
-     but a new client can still consume an older Functions response during rollback.
+     `syncUserClaimsOutputSchema`, so the inferred output type stays a required boolean.
    - Add `setUserProductionDirector` input/output schemas and inferred types.
+   - **The schema default does not run on the client — the client must normalize
+     explicitly.** See below; this is the single easiest thing to get wrong here.
 2. **`syncUserClaims` handler** — `functions/src/index.ts`
    - Resolve `existing.productionDirector === true` from Auth custom claims.
    - Mirror `productionDirector` into `users/{uid}`.
@@ -131,19 +132,55 @@ The change is larger than copying `setUserOrganizer`. Update the complete shared
    - Reset it on sign-out and include it in the memo dependencies/value.
 7. **Viewer model and call sites**
    - Add `isProductionDirector` to `Viewer` and audit every constructed viewer object.
-   - Delete the unused `canViewEvent` export and its definition-only unit tests. It has no
+   - Delete the unused `canViewEvent` export and its dedicated unit tests. It has no
      production call sites, so widening it would create a misleading, non-enforcing
      checklist item. Observable event access comes from the Firestore rule plus
      `getEventBySlugOrId`; `EventDetailScreen` already renders the denial state when
      `eventQuery.data === null`.
+     - **One reference is not definition-only.** `src/lib/rbac/permissions.test.ts:103`
+       sits inside `it('can edit event A but only read event B')` alongside two
+       `canEditEvent` assertions. **Edit** that test — drop the `canViewEvent` line and keep
+       the cross-event `canEditEvent` legs — rather than deleting the case, or the
+       "can edit A, not B" scenario loses coverage.
    - Keep edit, flag, department-edit, and member-management predicates unchanged.
-   - Update auth/test mocks for the new response field. The shared schema must normalize a
-     missing field to `false`, never leave it as `undefined`.
+   - Update auth/test mocks for the new response field so it is never `undefined`.
 
-The default is a deliberate two-way compatibility guard. Functions still return the field
-explicitly after the forward deploy, but if Functions are rolled back while the new PWA is
-live, the new client parses the older response as `false` instead of failing sign-in
-app-wide.
+### The compatibility guard needs client code, not just the schema
+
+**Output schemas in this codebase are compile-time contracts, not runtime validators.** Only
+*inputs* are parsed, server-side, via `parseCallable`. On the client,
+`syncUserClaims()` (`src/features/auth/auth-service.ts:69-78`) passes the schema type as a
+generic to `httpsCallable<…>` and returns `result.data` **raw**, and
+`AuthProvider.tsx:36` destructures that result directly. Nothing calls `.parse()`.
+
+So `z.boolean().default(false)` **never executes on the client**. Against an older Functions
+response the field arrives as `undefined`, `setIsProductionDirector(undefined)` puts a
+non-boolean into boolean state, and it flows on into `Viewer.isProductionDirector: boolean`
+— a type lie that only shows at runtime.
+
+This fails *closed* (`undefined` is falsy, so nobody gains access), but do not rely on the
+schema for it. Normalize explicitly, matching the idiom the cached-token fallback path two
+lines below already uses (`token.claims.admin === true`):
+
+```typescript
+// AuthProvider.applyClaims — normalize at the destructure
+const {
+  isAdmin: admin,
+  isOrganizer: organizer,
+  isProductionDirector: director = false,
+  approved: ok,
+} = await syncUserClaims();
+```
+
+Either that, or parse in the wrapper with `syncUserClaimsOutputSchema.parse(result.data)` —
+which would make the schema default real, at the cost of introducing runtime output
+validation this codebase does not otherwise do. Pick one deliberately; the destructure
+default is the smaller change and matches existing practice.
+
+With that in place the guard is genuinely two-way: Functions return the field explicitly
+after the forward deploy, and if Functions are rolled back while the new PWA is live, the
+client reads `false` instead of `undefined` — and sign-in never depended on the field being
+present, because nothing was parsing it.
 
 The callable schemas are shared with future mobile clients. The native app is not built, so
 there is no sibling implementation to coordinate today, but the shared contract and
@@ -281,9 +318,28 @@ Use `canOverseeAllEvents(viewer)` instead and keep the existing ordered
 longer says only “Admin events list.”
 
 Every query key whose result changes with this capability must include
-`isProductionDirector` (or a stable derived scope such as `all`/`membership`). At minimum
-this includes the Events list and Tracker overview; otherwise a claim refresh can retain a
-membership-scoped result under the same cache key.
+`isProductionDirector` (or a stable derived scope such as `all`/`membership`); otherwise a
+claim refresh can retain a membership-scoped result under the same cache key.
+
+**"Result changes" means two different things, and the second is easy to miss:**
+
+- **Scope changes** — a list query returns a different *set*. `['events','list',…]` and the
+  Tracker overview `['tracker','overview', uid]` both already carry a viewer segment, so
+  they need the capability added to it.
+- **Readability flips** — a single-document lookup that previously resolved to `null`
+  because the read was denied now resolves to data. These keys carry **no viewer segment at
+  all**, so they are invisible to a rule phrased only in terms of scope:
+  - `['events','detail', param]` — `useResolvedEvent`, keyed on the raw route param.
+  - `['tracker','event', eventId]` — the per-event tracker screen.
+
+The second class matters because **React Query is not cleared on a claim change**.
+`AuthProvider` clears the cache on auth *identity* transitions (sign-out, account switch);
+granting a claim to the same uid is not one. So a user who visited an event URL before the
+grant, saw *"Event not found, or you don't have access,"* and is then made a director keeps
+being told the event doesn't exist — served from cache — until something else evicts it.
+
+Add the capability (or a derived scope) to both classes, and cover the grant-mid-session
+transition in tests rather than only the fresh-load case.
 
 Export one canonical Events-list query-key factory beside `listEvents` and use it everywhere
 that calls that reader. Replace both current literal keys in `EventsListScreen.tsx` and
@@ -447,8 +503,11 @@ contracts, client permissions, queries, and UI.
   stamps the user document, and rejects non-admin/unauthenticated callers.
 - `syncUserClaims`: returns/mirrors true and false director states without dropping other
   claims.
-- Shared-contract compatibility: parsing an older `syncUserClaims` response with no
-  `isProductionDirector` field succeeds and produces `false`.
+- Shared-contract compatibility: a `syncUserClaims` response with **no**
+  `isProductionDirector` field yields `false` on the client, not `undefined`. Assert this
+  against the real client path (`syncUserClaims()` → `AuthProvider.applyClaims`), **not**
+  against `syncUserClaimsOutputSchema.parse` — the client never parses the output, so a
+  schema-level test would pass while the app still received `undefined`.
 
 ### Client and E2E
 
@@ -472,7 +531,10 @@ contracts, client permissions, queries, and UI.
 - Tracker page size and concurrency limits are unit-tested; “Load more” preserves ordering
   without duplicates.
 - Query-key tests cover a membership-scoped user becoming or ceasing to be a director after
-  claim refresh.
+  claim refresh — for **both** key classes: the scope-changing list keys, and the
+  readability-flip keys (`['events','detail', param]`, `['tracker','event', eventId]`).
+  Include the grant-mid-session case: a cached `null` from a pre-grant visit must not keep
+  reporting "not found" after the claim lands.
 
 ## Rollout and rollback
 
