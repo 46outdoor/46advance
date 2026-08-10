@@ -531,13 +531,37 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 > (`syncUserClaims` → `ERR_CONNECTION_REFUSED`, AuthProvider falls back to the token's claims),
 > which affects both routes equally and so does not explain the split.
 >
-> Two leads, neither verified: `EventDetailScreen.tsx:160` does **not** use `useResolvedEvent`
-> — it re-declares an inline `useQuery` with the same `['events','detail',param]` key and
-> fetcher, which is exactly the duplication `useResolvedEvent`'s own doc comment warns against;
-> and the detail screen fans out many more sub-queries at mount than the schedule screen does.
-> Whether this reproduces outside the emulator is unknown. **Reproduce it against a real
-> non-admin account before drawing conclusions** — if it does reproduce, PMs cannot open an
-> event detail page at all, which is far more serious than the slug half.
+> **The decisive observation.** An instrumented run logging inside `getEventBySlugOrId` shows
+> the member's FIRST read succeeding and only later ones failing:
+>
+> ```
+> detail:    slug-query → permission-denied   (caught, expected)
+>            getEvent   → FOUND               ← the member CAN read the doc
+>            …then 3× { slug-query denied, getEvent → permission-denied }
+> schedule:  slug-query → permission-denied   (caught)
+>            getEvent   → FOUND               ← one fetch, no refetch, screen renders
+> ```
+>
+> So it is **not** that a member cannot read the event. They read it, then a **refetch** is
+> denied, and React Query exhausts its retries into `isError`. The schedule screen never
+> refetches, which is why it survives. Whatever revokes the read does so between fetches.
+>
+> **Three theories tested and REFUTED** — recorded so nobody re-walks them:
+>
+> | Theory | Test | Result |
+> | --- | --- | --- |
+> | A denied query poisons later reads on the same client | denied query then getDoc on one client, rules harness | **No** — `queryDenied=true, docExists=true` |
+> | An artifact of the absent Functions emulator (`syncUserClaims` failing) | re-ran with `--only auth,firestore,storage,functions` | **No** — still never renders; zero console errors, stuck retrying |
+> | A race with the post-sign-in token refresh in `applyClaims` | landed on `/events` and let it settle before navigating | **No** — identical failure settled or not |
+>
+> Still unexplained, and deterministic. Remaining lead: `EventDetailScreen.tsx:160` does **not**
+> use `useResolvedEvent` — it re-declares an inline `useQuery` on the same
+> `['events','detail',param]` key, exactly the duplication `useResolvedEvent`'s own doc comment
+> warns against — and the detail screen fans out far more mount-time queries than the schedule
+> screen. Neither yet explains why a *refetch* loses permission.
+>
+> **Reproduce against a real non-admin account before drawing conclusions.** If it reproduces,
+> PMs cannot open an event detail page at all, which is far more serious than the slug half.
 >
 > **There is a latency cost even when the slug is not involved.** Step 1 runs *unconditionally*
 > — the resolver always tries the slug query before falling back — so **every event page load
