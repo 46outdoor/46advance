@@ -10,12 +10,24 @@ paths:
 ## Permission Guards
 
 All permission/authorization checks MUST go through a single shared utility — never
-duplicate permission logic inline. <!-- TBD: define the canonical permission module
-during planning (e.g. src/routes/lib/permissions.ts) and record it in the canonical
-sources table. -->
+duplicate permission logic inline. The canonical module is **`src/lib/rbac/permissions.ts`**
+(pure predicates over a resolved `Viewer` + the viewer's per-event `EventRole`), mirrored
+server-side by `functions/src/lib/auth/authorize.ts` and enforced for real in
+`firestore.rules` / `storage.rules`.
 
 When you need a new permission check, extend the shared utility — don't create
-parallel inline checks.
+parallel inline checks. An inline `isAdmin || role === 'x'` at a call site is the
+failure mode: it compiles, it looks right, and it silently drifts from the rules.
+
+Name predicates for the **capability**, never for the claim that currently grants it
+(`canOverseeAllEvents`, not `isProductionDirector`), so the populations can diverge later
+without a call-site sweep.
+
+> **Presentation policy is not access control.** Hiding a link or a button protects
+> nothing — the route is still reachable by URL and the document still readable by the
+> rules. Nav visibility lives in `src/lib/nav/items.ts` and is deliberately kept out of
+> this module. If something must actually be denied, it is a rules change plus a route
+> guard, and the predicate belongs here.
 
 ## Rate Limiting
 

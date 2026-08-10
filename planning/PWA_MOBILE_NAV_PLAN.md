@@ -1,12 +1,25 @@
 # PWA narrow-screen navigation — design
 
-Graduated from [IDEAS.md §1](IDEAS.md) on 2026-08-08. Design agreed; **not yet built**.
+Graduated from [IDEAS.md §1](IDEAS.md) on 2026-08-08.
 
-> **Ready to implement (2026-08-10).** The one prerequisite — the production-director tier —
-> shipped and was activated on 2026-08-10
-> ([archived plan](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md)), and it landed several
-> pieces this plan assumed it would have to build. See
-> [Already in place](#already-in-place-2026-08-10) for what is done and what actually remains.
+> **Built 2026-08-10 — merged, not yet released.** All six remaining items below are
+> implemented: the registry (`src/lib/nav/items.ts`), the narrow disclosure in `AppShell.tsx`,
+> the `cross-event` rule and both its consumers, Templates/Schedule templates in the narrow
+> menu, the 44px targets and email cap, and the tests. The prerequisite production-director
+> tier shipped earlier the same day
+> ([archived plan](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md)).
+>
+> **This plan changed while being built.** Two amendments are recorded inline rather than
+> silently applied — `pm-or-oversight` delegates to `canViewTracker` instead of restating it
+> ([registry](#enabling-refactor-a-nav-registry)), and `cross-event` gained the production
+> director so a director can reach the Contacts directory they now curate
+> ([Already in place](#already-in-place-2026-08-10)). One refinement the plan did not
+> anticipate: exactly one presentation is mounted at a time via `matchMedia`, not two
+> CSS-hidden ones — duplicate `Main navigation` landmarks are an a11y defect, and jsdom does
+> not apply Tailwind, so CSS-hidden duplicates would make every component test ambiguous.
+>
+> **Not released.** Hosting deploys are external; nothing here is visible to users until the
+> owner releases. Archive this doc once it is live and verified.
 
 Scope: the authenticated **PWA** header on narrow screens. This is unrelated to the planned
 native Expo app under `mobile/`. The desktop presentation stays inline, but the same
@@ -24,7 +37,7 @@ in scope (see [Breakpoint](#breakpoint)).
 | Inline navigation below 800px | **Nothing** — brand + trigger only |
 | Newly surfaced routes | **Tracker** for PMs and oversight; **Templates** and **Schedule templates** for admins |
 | Inline breakpoint | **800px** (`min-[800px]:`) — see rationale below |
-| Role policy | Cross-event Contacts/Documents for **organizer or admin**; Tracker for **admin, production director, or a PM on ≥1 event** |
+| Role policy | Cross-event Contacts/Documents for **admin, organizer, or production director** (director added 2026-08-10); Tracker for **admin, production director, or a PM on ≥1 event** |
 | Menu semantics | **Disclosure**, not `role="menu"` — see [Accessibility](#interaction--accessibility) |
 
 ## Already in place (2026-08-10)
@@ -49,22 +62,40 @@ existing `canViewTracker` rather than a second nav-local predicate. That contrad
 is genuinely presentational and nav-local; `pm-or-oversight` is already a canonical predicate
 with tests, and duplicating it would create exactly the drift this plan exists to prevent.
 
-### What actually remains
+**`cross-event` now includes the production director (decided 2026-08-10).** The same
+decision that gave the director curation of the global contacts directory
+([ROADMAP §4](ROADMAP.md)) put them in this rule, so the population is
+**admin ∨ organizer ∨ production director** everywhere below. Documents comes along
+because it shares the rule — one rule is simpler than two, and the director's document access
+is unchanged either way. The rule stays nav-local and stays presentation: the directory write
+it accompanies is a real rules change, but `contacts/{id}` **reads** are untouched.
 
-1. `src/lib/nav/items.ts` — the registry. Does not exist.
-2. The narrow-screen disclosure: trigger, panel, open/close/Escape/outside-click/route-change,
-   and the 800px state clear.
-3. The `cross-event` rule and its two consumers — Contacts/Documents in **both** nav
-   presentations, and the `Manage directory →` link at `EventContactsPanel.tsx:193`, which is
-   still ungated.
-4. Surfacing **Templates** and **Schedule templates** in the narrow menu (still absent from
-   the nav entirely).
-5. The 44px touch targets, the brand-link `min-h-11`, and the `max-w-40 truncate` desktop
-   email cap.
-6. Tests per [Test impact](#test-impact) — note that
-   `responsive-accessibility.emulator.spec.ts` currently asserts `pm` **can** see Contacts
-   and Documents at 390px, which this plan inverts. That assertion must be rewritten, not
-   merely extended.
+### What remained — all built 2026-08-10
+
+Kept as the delivery record; each line names where it landed.
+
+1. ~~The registry.~~ `src/lib/nav/items.ts` — `NAV_ITEMS`, `resolveNavVisibility`,
+   `visibleNavItems`/`visibleNavGroup`, `INLINE_NAV_MEDIA_QUERY` derived from
+   `INLINE_NAV_MIN_WIDTH` so the CSS breakpoint and the `matchMedia` string cannot drift.
+2. ~~The narrow disclosure.~~ `AppShell.tsx` — trigger, overlay panel,
+   open/close/Escape-with-focus-return/outside-click/route-change (keyed on
+   pathname+search+hash), and the breakpoint state clear. No `role="menu"`, no focus trap, no
+   scroll lock. `src/hooks/useMediaQuery.ts` is the new shared hook.
+3. ~~`cross-event` and its two consumers.~~ Both nav presentations plus the
+   `Manage directory →` link in `EventContactsPanel.tsx`, all resolving through the one rule.
+4. ~~Templates and Schedule templates in the narrow menu.~~ Narrow-only, as designed.
+5. ~~44px targets, brand-link `min-h-11`, `max-w-40 truncate` email cap.~~ Applied to the
+   interactive elements themselves, not their `<li>`s.
+6. ~~Tests.~~ `nav-disclosure.emulator.spec.ts` (new) and a rewritten
+   `responsive-accessibility.emulator.spec.ts` — its old assertion that `pm` **can** see
+   Contacts and Documents was inverted, not extended. Plus `src/lib/nav/items.test.ts`,
+   `AppShell.test.tsx`, `useMediaQuery.test.ts`, and `EventContactsPanel.crossEvent.test.tsx`.
+
+**One gate worth knowing about for next time:** the emulator specs are **not** covered by
+`npm run typecheck`. The root tsconfig is solution-style and references only
+`tsconfig.app.json` and `tsconfig.node.json`; `tests/` lives in `tsconfig.test.json`, which
+nothing references. They are checked only by the separate **`npm run typecheck:tests`**. A
+type error in a spec sails through `tsc -b` untouched — that happened during this build.
 
 ## Why
 
@@ -122,6 +153,24 @@ header shrinks, so it needs its own narrow-screen `min-h-11` guard.
 └────────────────────────────────┘
 ```
 
+A **production director** sees the same destinations without the admin group. Contacts and
+Documents are there because the 2026-08-10 decision put the director in the `cross-event`
+rule — the director curates the contacts directory ([ROADMAP §4](ROADMAP.md)), and Documents
+shares the rule:
+
+```
+┌────────────────────────────────┐
+│  Events                        │
+│  Contacts                      │
+│  Documents                     │
+│  Tracker                       │
+├────────────────────────────────┤
+│  Settings                      │
+│  dana@46entertainment.com      │
+│  Sign out                      │
+└────────────────────────────────┘
+```
+
 A PM (on at least one event) who is **not** a global organizer or director sees Events plus
 their Tracker:
 
@@ -151,29 +200,38 @@ account:
 
 **At 800px and up — inline presentation**: brand, permitted inline links, email, Sign out.
 The presentation stays as it is today, but the role policy below now applies consistently,
-so a non-organizer no longer sees Contacts/Documents in the desktop bar either. Tracker and
-the two template destinations remain dropdown-only because adding them to the inline bar
-would push the row to roughly 1050px.
+so someone outside admin / organizer / production director no longer sees Contacts/Documents
+in the desktop bar either. Tracker and the two template destinations remain dropdown-only
+because adding them to the inline bar would push the row to roughly 1050px.
 
 ### Role-aware contents
 
-The global `organizer` claim and per-event roles answer different questions. A person may
-be a production manager on one event and a tech on another without being a global
-organizer. Do **not** treat `organizer` as a synonym for production manager.
+The global `organizer` and `productionDirector` claims and the per-event roles answer
+different questions. A person may be a production manager on one event and a tech on another
+without holding either global claim. Do **not** treat `organizer` as a synonym for production
+manager, or `productionDirector` as a synonym for either.
 
 | Item | Visible to | Reason |
 | --- | --- | --- |
 | Events | everyone | Non-admin results are already membership-scoped |
 | Tracker | **admin, production director, or PM on ≥1 event** | A PM tool; leads and techs don't run the advance |
-| Contacts, Documents | **organizer or admin** | Cross-event production-management surfaces |
+| Contacts, Documents | **admin, organizer, or production director** | Cross-event production-management surfaces. The director joined on 2026-08-10, when directory curation became theirs |
 | Admin, Templates, Schedule templates | **admin** | All routes sit behind `AdminGate` |
 | Settings, email, Sign out | everyone | Personal account actions |
 
-**Which signal gates cross-event navigation.** Use `isAdmin || isOrganizer` from the
-existing auth state. This is a discoverability policy for cross-event surfaces, not a new
-authorization capability and not a reason to reuse the semantically unrelated
-`canCreateEvents` predicate. Keep the resolver with the nav registry rather than naming it
-like a Firestore permission.
+**Which signal gates cross-event navigation.** Use
+`isAdmin || isOrganizer || isProductionDirector` from the existing auth state. This is a
+discoverability policy for cross-event surfaces, not a new authorization capability and not a
+reason to reuse the semantically unrelated `canCreateEvents` predicate. Keep the resolver with
+the nav registry rather than naming it like a Firestore permission.
+
+The three signals land in this one rule for three different reasons, which is why it is a
+nav-local list and not a predicate borrowed from elsewhere: admin is unrestricted, organizer
+curates the document library, and the production director curates the contacts directory
+(decided 2026-08-10 — [ROADMAP §4](ROADMAP.md)). Documents is in the director's menu only
+because it shares the rule; the owner's position is that it doesn't matter either way, and one
+rule is simpler than two. If those populations ever need to diverge, split the value in two —
+don't quietly reinterpret this one.
 
 **Tracker is the one asynchronous gate.** Admin and production director resolve synchronously
 from auth state, but "is a PM on at least one event" has to be derived from a
@@ -187,9 +245,13 @@ than re-deriving. The production-director tier is specified in
 > **⚠ Hiding a link is not access control.** At the rules level, `contacts/{id}` and
 > `artistDocuments/{id}` are both `allow read: if isActiveUser()` — *any* approved user can
 > read the entire contacts directory and the whole document library, and can still reach
-> `/contacts` or `/documents` by typing the URL. If non-organizers genuinely shouldn't
-> *access* those, that's a security-rules change and a separate piece of work, tracked as
-> [IDEAS §5](IDEAS.md). This plan only changes what the nav offers.
+> `/contacts` or `/documents` by typing the URL. If everyone outside the `cross-event` set
+> genuinely shouldn't *access* those, that's a security-rules change and a separate piece of
+> work, tracked as [IDEAS §5](IDEAS.md). This plan only changes what the nav offers.
+>
+> The 2026-08-10 director decision does not change this. It tightened nothing: it *widened*
+> `contacts/{id}` **update/delete** for the director claim. The **read** rule is the one
+> IDEAS §5 is about, and it is untouched.
 >
 > Events and Tracker are already scoped correctly: non-admins resolve events through a
 > `collectionGroup('members')` query, so both surfaces only contain assigned events.
@@ -200,7 +262,7 @@ than re-deriving. The production-director tier is specified in
   production-management tool: a PM sees their own events' completion, and admin/production
   director see every event. Department leads and techs don't get it at all. Contacts and
   Documents are cross-event directories, so their navigation entries follow the global
-  organizer/admin presentation policy.
+  admin/organizer/production-director presentation policy.
 - **Admin** (Admin, Templates, Schedule templates) — all three sit behind `AdminGate` in
   `App.tsx`, so they share one gate and one group. Admin leads the group and keeps its
   accent styling and pending count, since that badge is a standing nudge.
@@ -302,8 +364,9 @@ runtime account content rendered after that group's links; the Admin badge remai
 decoration keyed by the stable Admin item id.
 
 - `visibility` resolves once through a pure nav-specific function: `all`;
-  `pm-or-oversight`; `cross-event` (`isAdmin || isOrganizer`); or `admin`. Unit-test this
-  matrix directly. It is a presentation rule, not access control. Only `pm-or-oversight`
+  `pm-or-oversight`; `cross-event` (`isAdmin || isOrganizer || isProductionDirector`, the
+  director added 2026-08-10); or `admin`. Unit-test this matrix directly. It is a
+  presentation rule, not access control. Only `pm-or-oversight`
   depends on an async input, so the resolver takes `isPmSomewhere` as an explicit tri-state
   (`true | false | unknown`) rather than reading a query itself — that keeps it pure and
   makes the loading policy testable.
@@ -312,7 +375,10 @@ decoration keyed by the stable Admin item id.
   `isAdmin || isProductionDirector || isPmSomewhere`. That predicate now backs three call
   sites and two route guards; a fourth nav-local copy is precisely the drift this registry
   exists to prevent. `cross-event` stays nav-local — it is genuinely presentational and has
-  no rules counterpart (see the warning above).
+  no rules counterpart (see the warning above). Note that it is **not** `canManageContact`
+  either: that predicate answers "may this viewer edit this contact?", which is a different
+  question from "should the directory be offered in the nav?", and it is admin/director/creator
+  — no organizer.
 - `placements` is always explicit. Events, Contacts, Documents, Admin, and Settings render
   in both presentations; Tracker, Templates, and Schedule templates render only in
   `narrow`.
@@ -322,10 +388,11 @@ decoration keyed by the stable Admin item id.
 ## Test impact
 
 **Update `tests/emulator/responsive-accessibility.emulator.spec.ts`.** It currently signs in
-as `PERSONAS.pm`, whose claims are `{ approved: true }` — deliberately **not** a global
-organizer — and who is seeded as `production-manager` on `e2e-event-alpha`. At 390×844, open
-the disclosure and assert that this persona sees Events, Tracker, and account content but not
-Contacts, Documents, or admin-only links. Keep its `scrollWidth <= clientWidth` assertion.
+as `PERSONAS.pm`, whose claims are `{ approved: true }` — deliberately neither a global
+organizer nor a production director, so it stays outside `cross-event` — and who is seeded as
+`production-manager` on `e2e-event-alpha`. At 390×844, open the disclosure and assert that
+this persona sees Events, Tracker, and account content but not Contacts, Documents, or
+admin-only links. Keep its `scrollWidth <= clientWidth` assertion.
 
 The seeded personas already cover the whole matrix with no new fixtures — `pm` is PM on
 alpha, `lead` is department-lead on alpha, `tech` is tech on alpha, `crossEvent` is PM on
@@ -341,7 +408,10 @@ Required coverage:
 - **Lead and tech narrow menus: Events + account only — no Tracker.** This is the assertion
   that catches the gate silently failing open.
 - Organizer narrow menu: Events + Contacts + Documents + account, no admin group.
-- Director narrow menu: Events + Tracker + account (Tracker via oversight, not membership).
+- Director narrow menu: Events + Tracker + Contacts + Documents + account, no admin group —
+  Tracker via oversight rather than membership, Contacts/Documents via `cross-event` since
+  2026-08-10. Assert the admin group is absent: this persona is the one that now sees every
+  destination group but that one.
 - Admin narrow menu: every item plus the pending-approval badge.
 - Menu opens/closes; outside click closes; Escape closes and restores trigger focus.
 - Opening keeps trigger focus; Tab reaches the first visible link.
@@ -386,8 +456,10 @@ has since been fixed**:
   in the same pass.
 - **`src/features/events/EventContactsPanel.tsx:193`** — the Crew panel's "Manage directory →"
   link renders for every event member, above the `canEdit` block, pointing at `/contacts`,
-  which this plan hides from non-organizers. Must follow the same `cross-event` rule. (The
-  second `/contacts` link in that file, at `:236`, already sits inside `canEdit` and is fine.)
+  which this plan hides from everyone outside the `cross-event` set. Must follow the same
+  `cross-event` rule — including the production director, who reaches the directory to curate
+  it. (The second `/contacts` link in that file, at `:236`, already sits inside `canEdit` and
+  is fine.)
 
 Resolve both through the same predicates the nav registry uses, so there is one answer per
 capability rather than three.

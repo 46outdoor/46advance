@@ -26,6 +26,13 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   production-manager role as usual, and the two combine. Granted per user in
   **Admin → Users**, separately from the existing Organizer toggle.
 
+- **Production director — curating the contacts directory:** the one write the capability
+  carries. A production director can **edit and delete any entry in the global Contacts
+  directory**, not only the ones they added — so the directory everyone shares is kept
+  accurate by the person who oversees the shows, instead of only by whoever first typed each
+  contact in. Nothing else widens: events stay read-only from the capability, and **linking a
+  contact to a user account is still admin-only**.
+
 ### Changed
 
 - **The advance Tracker is now for the people running the advance.** It is available to

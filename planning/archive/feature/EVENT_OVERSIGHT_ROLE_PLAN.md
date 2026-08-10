@@ -13,13 +13,25 @@
 > ([`PWA_MOBILE_NAV_PLAN.md`](../../PWA_MOBILE_NAV_PLAN.md)), and tightening the underlying
 > `contacts`/`artistDocuments` **rules**, which remain `allow read: if isActiveUser()`
 > ([IDEAS §5](../../IDEAS.md)). Neither is a regression from this work — both predate it.
+>
+> **⚠ Amended after completion (2026-08-10) — read § Capability boundary with this in
+> hand.** The owner widened the capability in exactly one way after this plan closed: a
+> production director **curates the global contacts directory** and may edit and delete any
+> entry, not only their own. The body below was written when the claim carried no writes at
+> all and says so in several places; the two bullets it now contradicts are corrected
+> in-place under [Capability boundary](#capability-boundary). Everything else stands —
+> **every event write gate still ignores the claim**, and relinking a contact to a user
+> account (`createdBy`/`userId`) remains admin-only. The decision of record is
+> [`ROADMAP.md`](../../ROADMAP.md) §4; the nav consequence is in
+> [`PWA_MOBILE_NAV_PLAN.md`](../../PWA_MOBILE_NAV_PLAN.md). This plan is **not** reopened —
+> the widening was decided and shipped separately.
 
 A production director oversees the PMs' work across the whole application. They **may or may
 not** be assigned as a PM on any given event, so their access cannot be derived from event
 membership — this is the app's first genuinely global, non-admin capability.
 
 Decision: add a distinct `productionDirector` custom claim and widen the application’s
-**event read surfaces** for that claim. The claim alone grants no writes and no admin
+**event read surfaces** for that claim. The claim alone grants no event writes and no admin
 functions. The two alternatives considered — auto-enrolling the director as a member of
 every event, and computing tracker roll-ups server-side — are recorded in
 [Alternatives](#alternatives-considered) with why they lost.
@@ -49,20 +61,33 @@ The claim alone explicitly grants:
 
 It explicitly does **not** grant:
 
-- **Writes from the director claim.** A director who needs to edit a specific show must be
-  assigned a per-event production-manager role. Combined capabilities are additive: a
+- **Event writes from the director claim.** A director who needs to edit a specific show must
+  be assigned a per-event production-manager role. Combined capabilities are additive: a
   director who is also the PM on Event A may edit Event A because of the PM membership, not
   because of the director claim.
+  **Corrected 2026-08-10:** as written this bullet said *no* writes at all, which is no
+  longer true. The claim now carries exactly one write, and it is outside the event subtree —
+  curation of the global contacts directory, described in the superseded bullet below. Over
+  event data the sentence above still holds exactly as stated.
 - **Admin functions** — no user approval, role granting, branding, account deletion, or
   global configuration.
 - **Event creation** — that remains the separate global `organizer` capability.
-- **Global Contacts or artist-document-library navigation/authority.** This capability is
-  event-scoped even though it spans every event. Directors can read event-attached contacts
-  and documents. Today the global collections remain broadly readable to any approved user;
-  if [IDEAS §5](../../IDEAS.md) later tightens them, do not automatically add the director claim.
-  Revisit that expansion explicitly. This preserves the current decision in
-  [PWA_MOBILE_NAV_PLAN.md](../../PWA_MOBILE_NAV_PLAN.md) that `cross-event` navigation means
-  organizer/admin, while director navigation is Events + Tracker + account.
+- ~~**Global Contacts or artist-document-library navigation/authority.**~~ **Superseded
+  2026-08-10 — read the rest of this bullet as history.** As shipped, the capability was
+  event-scoped even though it spans every event: directors read event-attached contacts and
+  documents, the global collections stayed broadly readable to any approved user, and this
+  plan asked that the director claim never be added to them automatically — that any such
+  expansion be revisited explicitly. **That revisit happened, ahead of
+  [IDEAS §5](../../IDEAS.md) and independently of it.** The owner decided the director
+  curates the **global contacts directory**: edit and delete on any `contacts/{contactId}`,
+  with the account link (`createdBy`/`userId`) still admin-only. The same decision makes
+  `cross-event` navigation mean admin / organizer / production director, so director
+  navigation is now Events + Tracker + Contacts + Documents + account
+  ([PWA_MOBILE_NAV_PLAN.md](../../PWA_MOBILE_NAV_PLAN.md)). The artist-document **library**
+  gained no authority — Documents only rides along on the shared nav rule, and its writes
+  remain organizer/admin. IDEAS §5 is still open: both global collections are still
+  `allow read: if isActiveUser()`, so nav visibility changes what is offered, not what is
+  reachable.
 
 ### External file boundary
 

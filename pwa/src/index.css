@@ -78,6 +78,12 @@
   --color-brand: #0a0a0a; /* near-black — brand dark surface / chrome (the site is black/white) */
   --color-brand-fg: #ffffff;
   --color-accent: #f04040; /* signature red (brand/primary, not status) */
+  /* AA-compliant partner to `accent`, for SMALL WHITE TEXT on a filled accent background.
+     White on #f04040 is 3.81:1 — fine for large text (needs 3:1) but short of the 4.5:1 that
+     small text requires, so a filled pill like the Admin badge (9.6px bold) fails WCAG AA.
+     #d32f2f is 4.98:1. Use `accent` for everything else; this exists only to keep filled
+     small-text chips accessible without shifting the signature red. */
+  --color-accent-deep: #d32f2f;
   --color-accent-orange: #ff853c;
   --color-accent-lime: #8dff1c;
 

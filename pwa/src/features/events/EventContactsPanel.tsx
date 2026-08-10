@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
+import { resolveNavVisibility } from '@/lib/nav/items';
+import type { Viewer } from '@/lib/rbac/permissions';
 import { listContacts } from '@/lib/contacts/contacts-service';
 import {
   attachContact,
@@ -128,8 +131,28 @@ interface EventContactsPanelProps {
 /** Crew attached to an event (tap-to-call/email + an event-specific note), with a PM/admin picker. */
 export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanelProps) {
   const queryClient = useQueryClient();
+  const { isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const [pickContactId, setPickContactId] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
+
+  /**
+   * The acting user's GLOBAL capabilities. `isProductionDirector` is optional on `Viewer`, so
+   * dropping it here would compile cleanly and silently deny every director — carry all three.
+   * `uid` is the signed-in user's (EventDetailScreen passes `user.uid`).
+   */
+  const viewer: Viewer = { uid, isAdmin, isOrganizer, isProductionDirector };
+  /**
+   * The Crew panel used to hand every event member — techs included — a one-click route to the
+   * global directory, which the nav registry hides from anyone who is not admin / organizer /
+   * production director. Resolved through `resolveNavVisibility` rather than restated inline so
+   * `cross-event` has one answer; `undefined` is the right `isPmSomewhere` because that rule
+   * never consults the async membership summary.
+   *
+   * ⚠ Presentation, not access control: `contacts/{id}` is still `allow read: if isActiveUser()`,
+   * so any approved user can reach /contacts by typing the URL. This only stops the panel from
+   * contradicting the nav policy. Tightening the rules is tracked as IDEAS §5.
+   */
+  const showDirectoryLink = resolveNavVisibility('cross-event', viewer, undefined);
 
   const eventContactsQuery = useQuery({
     queryKey: ['event-contacts', eventId],
@@ -190,9 +213,11 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
     <div className="space-y-3 border-t border-line pt-6">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-bold text-brand">Crew</h2>
-        <Link to="/contacts" className="text-sm text-ink-muted hover:text-accent">
-          Manage directory →
-        </Link>
+        {showDirectoryLink && (
+          <Link to="/contacts" className="text-sm text-ink-muted hover:text-accent">
+            Manage directory →
+          </Link>
+        )}
       </div>
 
       {canEdit && (
