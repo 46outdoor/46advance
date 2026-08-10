@@ -1,5 +1,5 @@
 /**
- * App navigation registry (planning/PWA_MOBILE_NAV_PLAN.md).
+ * App navigation registry (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md).
  *
  * Nav links used to be hardcoded inline in `AppShell.tsx`, which is exactly how the Tracker
  * and template screens drifted out of the nav in the first place. Both presentations — the

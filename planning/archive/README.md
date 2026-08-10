@@ -24,6 +24,7 @@ for active plans (see [`../README.md`](../README.md)).
 | — | [Artist & Event Documents — Drive library, advance inclusion, packet embedding, twice-daily sync](feature/DOCUMENTS_FEATURE.md) |
 | — | [Calendar Subscriptions — per-user ICS feed; retired the per-event Google calendars](feature/CALENDAR_SUBSCRIPTIONS.md) (completed 2026-08-08; hardening backlog inside is conditional/measure-first) |
 | — | [Production Director — read-only oversight of every event; first global non-admin capability](feature/EVENT_OVERSIGHT_ROLE_PLAN.md) (completed 2026-08-10; amends the per-event RBAC model in ROADMAP §4) |
+| — | [PWA narrow-screen navigation — role-aware dropdown, nav registry, 880px inline breakpoint](feature/PWA_MOBILE_NAV_PLAN.md) (completed 2026-08-10; released in `e0a5d542`) |
 
 ## reference/ — source material
 - [AUDIO_ADVANCE_REFERENCE.md](reference/AUDIO_ADVANCE_REFERENCE.md) — the audio lead's working advance spec.

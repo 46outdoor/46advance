@@ -1,5 +1,5 @@
 /**
- * The Crew panel's "Manage directory →" link (planning/PWA_MOBILE_NAV_PLAN.md § "In-app links
+ * The Crew panel's "Manage directory →" link (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md § "In-app links
  * must honour the same policy"). It shipped ABOVE the `canEdit` block, so every event member —
  * techs included — got a one-click route to the global directory that the nav registry hides
  * from anyone who is not admin / organizer / production director. Hiding the nav destination

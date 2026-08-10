@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { composeEventName, eventDays, eventInputSchema, parseEvent } from './event';
+import {
+  compareEventsByDate,
+  composeEventName,
+  eventDays,
+  eventInputSchema,
+  parseEvent,
+  type EventRecord,
+} from './event';
 import { dayKeyToInstant, zonedDayKey } from '@/lib/dates/timezone';
 
 describe('parseEvent', () => {
@@ -143,3 +150,47 @@ describe('eventDays', () => {
   });
 });
 
+
+describe('compareEventsByDate', () => {
+  const ev = (name: string, iso: string | null): EventRecord =>
+    ({ id: name, name, startDate: iso ? new Date(iso) : null }) as EventRecord;
+
+  const order = (events: EventRecord[]) => [...events].sort(compareEventsByDate).map((e) => e.name);
+
+  it('orders soonest first', () => {
+    expect(order([ev('later', '2026-09-01'), ev('sooner', '2026-06-01')])).toEqual([
+      'sooner',
+      'later',
+    ]);
+  });
+
+  it('sinks undated events below every dated one', () => {
+    // Whichever side the undated event starts on — a comparator that only handles one
+    // direction produces an order that depends on the input, which is the classic bug here.
+    expect(order([ev('undated', null), ev('dated', '2026-09-01')])).toEqual(['dated', 'undated']);
+    expect(order([ev('dated', '2026-09-01'), ev('undated', null)])).toEqual(['dated', 'undated']);
+  });
+
+  it('falls back to name on identical dates, and between two undated events', () => {
+    expect(order([ev('Beta', '2026-06-01'), ev('Alpha', '2026-06-01')])).toEqual(['Alpha', 'Beta']);
+    expect(order([ev('Beta', null), ev('Alpha', null)])).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('is a total order — sorting is stable whatever the input order', () => {
+    const events = [
+      ev('c-undated', null),
+      ev('b-june', '2026-06-01'),
+      ev('a-undated', null),
+      ev('d-may', '2026-05-01'),
+    ];
+    const expected = ['d-may', 'b-june', 'a-undated', 'c-undated'];
+    expect(order(events)).toEqual(expected);
+    expect(order([...events].reverse())).toEqual(expected);
+  });
+
+  it('does NOT order by name when dates disagree — the alphabetical regression', () => {
+    // The exact shape of the bug: names embed the city, so alphabetical ordered a tour by city.
+    const tour = [ev('Zulu City', '2026-06-01'), ev('Ashland', '2026-08-01')];
+    expect(order(tour)).toEqual(['Zulu City', 'Ashland']);
+  });
+});

@@ -10,7 +10,7 @@
  *    an async membership query, so a gate that treated "not known yet" as `false` would be
  *    correct on every static assertion below and still render the link in and then yank it out.
  *
- * 2. **The two presentations** (planning/PWA_MOBILE_NAV_PLAN.md). Below 800px the header is a
+ * 2. **The two presentations** (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md). Below 800px the header is a
  *    hamburger disclosure; at 800px and up it is the inline row. Exactly one is in the DOM at a
  *    time, selected by `useMediaQuery(INLINE_NAV_MEDIA_QUERY)`.
  *

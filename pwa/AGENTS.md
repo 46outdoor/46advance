@@ -44,7 +44,7 @@ src/
 ├── lib/                # Core utilities & services
 │   ├── dates/         # Date formatting, calculations, parsing
 │   ├── firestore/     # Timestamp helpers, validation utilities
-│   ├── hooks/         # Shared lib hooks (e.g. useModalState)
+│   ├── hooks/         # Shared lib hooks (currently useBeforeUnload)
 │   ├── security/      # Frontend security utilities
 │   └── styles/        # Variant-based styling system
 ├── routes/             # Route components
@@ -201,7 +201,7 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Firestore timestamps  | `src/lib/firestore/timestamps.ts`                        |
 | File uploads (Storage) | `src/lib/storage/uploads.ts` (validate + upload/delete) |
 | Type definitions      | `src/types/`                                             |
-| Modal state           | `src/lib/hooks/useModalState.ts`                         |
+| Modal state           | `src/lib/hooks/useModalState.ts` — **not created yet.** Aspirational per "create on first use"; `src/lib/hooks/` currently holds only `useBeforeUnload.ts`. Don't cite it as existing |
 | Before-unload guard   | `src/lib/hooks/useBeforeUnload.ts` (warn on hard tab-close while a flag is true — e.g. an in-flight upload) |
 | Variants/styles       | `src/lib/styles/variants.ts`                             |
 | Config: endpoints     | `src/config/endpoints.ts`                                |
@@ -233,12 +233,12 @@ each on first use and keep the table updated. Domain-specific canonical sources
 | Lineup helpers (day-aware slots) | `src/lib/advances/lineup.ts` (`buildSlotArtistLookup` for `{artist N}`, `performanceDayKey`, `advanceHasData`/`advanceDataSummary`); slot-first editing UI in `src/features/events/LineupPanel.tsx` |
 | Templates (blueprints) | `src/lib/templates/` (`template.ts` + `templates-service.ts`; `isDefault` flags the master house package — `getDefaultTemplate` reads it, `setDefaultTemplate` enforces at-most-one via a batch that clears the rest) |
 | Template push to existing events | `src/lib/templates/template-push-service.ts` (callable wrapper + `PUSH_TARGET_LIMIT`) + `src/features/templates/PushToEventsPanel.tsx` (sections → explicit targets → preview → confirm; resolves field labels via `src/lib/advances/fields.ts`). Backend: `functions/src/templatePush.ts` (`pushTemplateProduction` — admin-only, rate-limited, one `dryRun`-flagged callable for both preview and apply; merge writes, stages matched by name) |
-| Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `effectiveLogos`/`logoForBackground`) |
+| Brand logos (model + helpers) | `src/lib/branding/logo.ts` (`Logo` dual-variant type + `logoForBackground`). ⚠ There is deliberately **no** `effectiveLogos` — one existed, drove nothing, and was a trap; see the tombstone comment in that file before reintroducing anything like it. Row layout lives in `src/components/branding/LogoRow.tsx` |
 | Brand defaults config | `src/lib/branding/branding-service.ts` (`config/branding` shared default marks) |
 | Packet filename config | `src/lib/packets/packet-config-service.ts` (client read/write) + `functions/src/lib/pdf/packetFilename.ts` (`formatPacketFilename`/`packetBaseName` — server fills tokens + sanitizes) — admin-set `config/packets` naming convention |
 | Logo UI (upload + display) | `src/components/branding/` (`LogoUploader` dual-variant, `LogoRow` theme-aware) |
 | Admin tabs (registry + deep links) | `src/lib/admin/tabs.ts` (`ADMIN_TABS`/`parseAdminTab`/`adminTabPath` — in `lib/` so other features can deep-link to `/admin?tab=…` without importing `features/admin`; ids are public URLs, don't rename) |
-| Nav registry (app chrome) | `src/lib/nav/items.ts` (`NAV_ITEMS` + `resolveNavVisibility`/`visibleNavItems`/`visibleNavGroup` + `INLINE_NAV_MEDIA_QUERY` — one list feeding both the narrow disclosure and the 800px inline row, same `lib/` rationale as the admin tabs above). ⚠ **Presentation policy, NOT access control** — hiding a link protects no route; `pm-or-oversight` delegates to `canViewTracker`, while `cross-event` (admin ∨ organizer ∨ production director) is nav-local with no rules counterpart. Plan: `planning/PWA_MOBILE_NAV_PLAN.md` |
+| Nav registry (app chrome) | `src/lib/nav/items.ts` (`NAV_ITEMS` + `resolveNavVisibility`/`visibleNavItems`/`visibleNavGroup` + `INLINE_NAV_MEDIA_QUERY` — one list feeding both the narrow disclosure and the 880px inline row, same `lib/` rationale as the admin tabs above). ⚠ **Presentation policy, NOT access control** — hiding a link protects no route; `pm-or-oversight` delegates to `canViewTracker`, while `cross-event` (admin ∨ organizer ∨ production director) is nav-local with no rules counterpart. Plan: `planning/archive/feature/PWA_MOBILE_NAV_PLAN.md` |
 | Users directory (read) | `src/lib/users/users-service.ts`                         |
 | Production form components (shared) | `src/components/production/` (SectionContentForm, contacts/links editors) |
 | Advance tracker (read-model) | `src/lib/tracker/` (`tracker.ts` pure roll-up + `tracker-service.ts` reads) |

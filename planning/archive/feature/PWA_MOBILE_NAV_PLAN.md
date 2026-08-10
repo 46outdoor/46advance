@@ -1,25 +1,47 @@
 # PWA narrow-screen navigation — design
 
-Graduated from [IDEAS.md §1](IDEAS.md) on 2026-08-08.
+Graduated from [IDEAS.md §1](../../IDEAS.md) on 2026-08-08.
 
-> **Built 2026-08-10 — merged, not yet released.** All six remaining items below are
-> implemented: the registry (`src/lib/nav/items.ts`), the narrow disclosure in `AppShell.tsx`,
-> the `cross-event` rule and both its consumers, Templates/Schedule templates in the narrow
-> menu, the 44px targets and email cap, and the tests. The prerequisite production-director
-> tier shipped earlier the same day
-> ([archived plan](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md)).
+> **Status: COMPLETE (2026-08-10) — built, released, and verified in production.** All six
+> items are implemented: the registry (`src/lib/nav/items.ts`), the narrow disclosure in
+> `AppShell.tsx`, the `cross-event` rule and both its consumers, Templates/Schedule templates
+> in the narrow menu, the 44px targets and email cap, and the tests. Merged as #279, released
+> to Hosting in `e0a5d542`. The prerequisite production-director tier shipped earlier the same
+> day ([archived plan](EVENT_OVERSIGHT_ROLE_PLAN.md)).
 >
-> **This plan changed while being built.** Two amendments are recorded inline rather than
-> silently applied — `pm-or-oversight` delegates to `canViewTracker` instead of restating it
-> ([registry](#enabling-refactor-a-nav-registry)), and `cross-event` gained the production
-> director so a director can reach the Contacts directory they now curate
-> ([Already in place](#already-in-place-2026-08-10)). One refinement the plan did not
-> anticipate: exactly one presentation is mounted at a time via `matchMedia`, not two
-> CSS-hidden ones — duplicate `Main navigation` landmarks are an a11y defect, and jsdom does
-> not apply Tailwind, so CSS-hidden duplicates would make every component test ambiguous.
+> **The breakpoint is 880px, not the 800px this plan originally specified.** Statements of what
+> was built now say 880; the *rationale* in [Breakpoint](#breakpoint) is left at 800 as written,
+> under its own dated note, because that argument is the historical record of how the number
+> was chosen — and re-deriving it is exactly what the 880 revision did. The plan also called for
+> a Tailwind `min-[800px]:` variant; that was **not** used. Exactly one presentation is mounted
+> at a time via `matchMedia`, because two `<nav>` landmarks both named "Main navigation" is an
+> a11y defect, and jsdom applies no Tailwind, which would make every component test ambiguous.
 >
-> **Not released.** Hosting deploys are external; nothing here is visible to users until the
-> owner releases. Archive this doc once it is live and verified.
+> **Three amendments made while building**, recorded inline rather than silently applied:
+> `pm-or-oversight` delegates to `canViewTracker` instead of restating it
+> ([registry](#enabling-refactor-a-nav-registry)); `cross-event` gained the production director
+> so a director can reach the Contacts directory they now curate
+> ([Already in place](#already-in-place-2026-08-10)); and the breakpoint moved 800 → 880.
+>
+> ### What was verified, and how
+>
+> Being specific, because "verified" covers two different levels of evidence here.
+>
+> | | Production (real account) | Emulator E2E (CI, Linux) |
+> | --- | --- | --- |
+> | Tech narrow menu — Events + account only | ✅ | ✅ |
+> | 44px targets, brand link, no overflow | ✅ | ✅ |
+> | 879 → 880 switch, open state cleared | ✅ | ✅ |
+> | Inline row on one line | ✅ (tech, 4 items) | ✅ (admin — the case that wrapped) |
+> | PM / lead / organizer / **director** / **admin** menus | ✗ | ✅ |
+> | Axe with the disclosure open | ✗ | ✅ |
+> | Short-landscape panel scroll, Sign out reachable | ✗ | ✅ |
+>
+> The production pass used a `tech` account (`jared@jaredfoh.com`), the first non-oversight
+> account the app has ever had. The director and admin menus were not exercised by hand — no
+> director credentials, and using the owner's admin session was not appropriate. The admin
+> inline row is the one that wrapped on Linux CI at 800px, so that case in particular rests on
+> CI rather than on a browser anyone looked at.
 
 Scope: the authenticated **PWA** header on narrow screens. This is unrelated to the planned
 native Expo app under `mobile/`. The desktop presentation stays inline, but the same
@@ -34,9 +56,9 @@ in scope (see [Breakpoint](#breakpoint)).
 | --- | --- |
 | Narrow-screen pattern | A **dropdown disclosure** behind a single trigger |
 | Trigger | **Hamburger**, holding navigation *and* identity |
-| Inline navigation below 800px | **Nothing** — brand + trigger only |
+| Inline navigation below the breakpoint | **Nothing** — brand + trigger only |
 | Newly surfaced routes | **Tracker** for PMs and oversight; **Templates** and **Schedule templates** for admins |
-| Inline breakpoint | **800px** (`min-[800px]:`) — see rationale below |
+| Inline breakpoint | **880px** — `INLINE_NAV_MIN_WIDTH`, applied via `matchMedia`, not a Tailwind variant (revised from 800 during the build; see [Breakpoint](#breakpoint)) |
 | Role policy | Cross-event Contacts/Documents for **admin, organizer, or production director** (director added 2026-08-10); Tracker for **admin, production director, or a PM on ≥1 event** |
 | Menu semantics | **Disclosure**, not `role="menu"` — see [Accessibility](#interaction--accessibility) |
 
@@ -64,7 +86,7 @@ with tests, and duplicating it would create exactly the drift this plan exists t
 
 **`cross-event` now includes the production director (decided 2026-08-10).** The same
 decision that gave the director curation of the global contacts directory
-([ROADMAP §4](ROADMAP.md)) put them in this rule, so the population is
+([ROADMAP §4](../../ROADMAP.md)) put them in this rule, so the population is
 **admin ∨ organizer ∨ production director** everywhere below. Documents comes along
 because it shares the rule — one rule is simpler than two, and the director's document access
 is unchanged either way. The rule stays nav-local and stays presentation: the directory write
@@ -126,7 +148,7 @@ header shrinks, so it needs its own narrow-screen `min-h-11` guard.
 
 ## Layout
 
-**Below 800px — brand + trigger, one row.**
+**Below the breakpoint (880px) — brand + trigger, one row.**
 
 ```
 ┌────────────────────────────────┐
@@ -155,7 +177,7 @@ header shrinks, so it needs its own narrow-screen `min-h-11` guard.
 
 A **production director** sees the same destinations without the admin group. Contacts and
 Documents are there because the 2026-08-10 decision put the director in the `cross-event`
-rule — the director curates the contacts directory ([ROADMAP §4](ROADMAP.md)), and Documents
+rule — the director curates the contacts directory ([ROADMAP §4](../../ROADMAP.md)), and Documents
 shares the rule:
 
 ```
@@ -198,7 +220,7 @@ account:
 └────────────────────────────────┘
 ```
 
-**At 800px and up — inline presentation**: brand, permitted inline links, email, Sign out.
+**At 880px and up — inline presentation**: brand, permitted inline links, email, Sign out.
 The presentation stays as it is today, but the role policy below now applies consistently,
 so someone outside admin / organizer / production director no longer sees Contacts/Documents
 in the desktop bar either. Tracker and the two template destinations remain dropdown-only
@@ -228,7 +250,7 @@ the nav registry rather than naming it like a Firestore permission.
 The three signals land in this one rule for three different reasons, which is why it is a
 nav-local list and not a predicate borrowed from elsewhere: admin is unrestricted, organizer
 curates the document library, and the production director curates the contacts directory
-(decided 2026-08-10 — [ROADMAP §4](ROADMAP.md)). Documents is in the director's menu only
+(decided 2026-08-10 — [ROADMAP §4](../../ROADMAP.md)). Documents is in the director's menu only
 because it shares the rule; the owner's position is that it doesn't matter either way, and one
 rule is simpler than two. If those populations ever need to diverge, split the value in two —
 don't quietly reinterpret this one.
@@ -239,7 +261,7 @@ from auth state, but "is a PM on at least one event" has to be derived from a
 never flashes in and then disappears. **This is already built** — the shared query is
 `useMyEventMemberships()` and the tri-state rule is `canViewTracker()`; consume them rather
 than re-deriving. The production-director tier is specified in
-[EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and shipped
+[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md) and shipped
 2026-08-10.
 
 > **⚠ Hiding a link is not access control.** At the rules level, `contacts/{id}` and
@@ -247,7 +269,7 @@ than re-deriving. The production-director tier is specified in
 > read the entire contacts directory and the whole document library, and can still reach
 > `/contacts` or `/documents` by typing the URL. If everyone outside the `cross-event` set
 > genuinely shouldn't *access* those, that's a security-rules change and a separate piece of
-> work, tracked as [IDEAS §5](IDEAS.md). This plan only changes what the nav offers.
+> work, tracked as [IDEAS §5](../../IDEAS.md). This plan only changes what the nav offers.
 >
 > The 2026-08-10 director decision does not change this. It tightened nothing: it *widened*
 > `contacts/{id}` **update/delete** for the director claim. The **read** rule is the one
@@ -296,9 +318,9 @@ At the breakpoint, constrain the desktop email flex item with `max-w-40 truncate
 receives it. The narrow-screen email label also needs `min-w-0` plus truncation or safe
 wrapping so an unusually long address cannot widen the panel.
 
-The CSS breakpoint and the JavaScript `matchMedia('(min-width: 800px)')` used to clear open
-menu state must stay identical. Keep the media-query string in one named constant near the
-shell implementation and cover the 799/800px boundary in tests.
+The presentation switch and the `matchMedia` query that clears open menu state must stay
+identical — both read the single `INLINE_NAV_MIN_WIDTH` constant, and a unit test asserts the
+query string is derived from it rather than duplicated. Cover the 879/880px boundary in tests.
 
 ## Panel geometry
 
@@ -321,7 +343,7 @@ toggling a `<nav>` of links is the correct shape, and Tab works naturally.
 
 - Trigger: `<button aria-expanded aria-controls="…" aria-label="Main navigation">`,
   `min-h-11 min-w-11`; the decorative hamburger glyph is `aria-hidden`.
-- Brand home link: `min-h-11` below 800px even when its visible mark shrinks to 32px.
+- Brand home link: `min-h-11` below the breakpoint even when its visible mark shrinks to 32px.
 - Panel: `<nav aria-label="Main navigation">` wrapping a `<ul>`.
 - Apply `min-h-11` to each actual interactive `<a>`/`button`, not only to its `<li>`.
 - Render destination links with `NavLink` (or equivalent) so the current destination has
@@ -409,7 +431,7 @@ admin-only links. Keep its `scrollWidth <= clientWidth` assertion.
 The seeded personas already cover the whole matrix with no new fixtures — `pm` is PM on
 alpha, `lead` is department-lead on alpha, `tech` is tech on alpha, `crossEvent` is PM on
 beta, plus `organizer` and `admin`. The `director` persona (and `directorTech`) were added by
-[EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and are already
+[EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md) and are already
 seeded.
 
 Required coverage:
@@ -427,11 +449,11 @@ Required coverage:
 - Admin narrow menu: every item plus the pending-approval badge.
 - Menu opens/closes; outside click closes; Escape closes and restores trigger focus.
 - Opening keeps trigger focus; Tab reaches the first visible link.
-- Navigating, changing location search/hash, and crossing 800px all clear open state.
+- Navigating, changing location search/hash, and crossing the breakpoint all clear open state.
 - Current destination exposes `aria-current="page"`, including descendant routes.
 - Axe passes with the disclosure open.
 - Trigger, brand link, and every interactive row measure at least 44px.
-- 799px uses the disclosure and 800px uses the inline row without wrapping; a long email
+- 879px uses the disclosure and 880px uses the inline row without wrapping; a long email
   stays constrained in both presentations.
 - At a short landscape-height viewport, the panel scrolls and Sign out remains reachable.
 - The document-level `scrollWidth <= clientWidth` overflow guard remains true.
@@ -448,10 +470,10 @@ state; keep emulator E2E for the real persona claims, rendered dimensions, and a
   `PrivacyScreen`), so this change doesn't reach the signed-out screens. Unifying them is
   a separate cleanup.
 - Tightening Firestore rules or adding route guards for Contacts/Documents; tracked in
-  [IDEAS §5](IDEAS.md).
+  [IDEAS §5](../../IDEAS.md).
 - Building the production-director tier itself (claim, rules, `listEvents`/`listVisibleEvents`
   scoping); specified in
-  [EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md) and **shipped
+  [EVENT_OVERSIGHT_ROLE_PLAN.md](EVENT_OVERSIGHT_ROLE_PLAN.md) and **shipped
   2026-08-10**. This plan consumes `isProductionDirector` and does not create it.
 - No change to routing, auth, or any other screen body.
 

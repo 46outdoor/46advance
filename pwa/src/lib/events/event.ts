@@ -158,6 +158,32 @@ export function composeEventName(
   return loc ? `${head} — ${loc}` : head;
 }
 
+/**
+ * Chronological order for an events list: **soonest first**, so the next show a PM is working
+ * leads (decided 2026-08-10).
+ *
+ * It replaced an alphabetical `name` sort, which was actively unhelpful here: event names embed
+ * the city (`composeEventName` above builds `{Festival} {Year} — {Location}`), so sorting a
+ * touring festival by name sorted it **by city**. Nothing about the running order of a tour is
+ * alphabetical.
+ *
+ * Undated events sort **last**, not first. An event with no `startDate` is normally a stub
+ * someone has started and not finished scheduling; leading the list with it would bury the show
+ * that is actually next. Ties — including two undated events — fall back to name, so the order
+ * is total and stable rather than dependent on read order.
+ *
+ * Exported because grouping the list by festival (IDEAS §2) needs the same ordering *within*
+ * each group; that entry should consume this rather than restate it.
+ */
+export function compareEventsByDate(a: EventRecord, b: EventRecord): number {
+  const at = a.startDate?.getTime();
+  const bt = b.startDate?.getTime();
+  if (at !== undefined && bt !== undefined && at !== bt) return at - bt;
+  if (at !== undefined && bt === undefined) return -1;
+  if (at === undefined && bt !== undefined) return 1;
+  return a.name.localeCompare(b.name);
+}
+
 /** Client-supplied fields when creating/editing an event. */
 export const eventInputSchema = z
   .object({
