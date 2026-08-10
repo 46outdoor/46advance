@@ -487,7 +487,27 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 
 ## Findings worth acting on separately
 
-> ### ⚠ Non-admins may not be able to open an event by slug (found 2026-08-10)
+> ### ✅ RESOLVED — non-admins could not open an event by slug (found + fixed 2026-08-10)
+>
+> **Confirmed in production, then fixed.** Everything below is kept as the investigation
+> record, including the theories that turned out to be wrong; the resolution is at the end.
+>
+> **Root cause (all of it).** `EventDetailScreen` canonicalizes `/events/{id}` → `/events/{slug}`
+> once the event loads. So a member's *first* read succeeded by doc id — which is why the
+> instrumented trace showed `getEvent ok: FOUND` — and every read *after* the redirect was keyed
+> on the slug, which they cannot resolve. The schedule route survived because it does not
+> canonicalize. That single line explains the entire confusing signature and the three refuted
+> theories below.
+>
+> **Fixed** by making `getEventBySlugOrId` resolve in three steps — slug query, doc id, then a
+> membership-scoped slug match reached only when the slug query was *denied*. Denials are
+> handled narrowly (`permission-denied` only) so an outage is never laundered into "no such
+> event". Covered by six unit tests and two emulator E2E tests; both suites were
+> mutation-checked against the pre-fix resolver and fail exactly where they should. The
+> regression test signs in as `tech` — every prior routing test used `admin`, which is precisely
+> how this shipped.
+>
+> ### ⚠ Original report — non-admins may not be able to open an event by slug (found 2026-08-10)
 >
 > **Severity: potentially user-blocking. Not yet confirmed against production data.** Found
 > by a new emulator test while building the nav; unrelated to that work, and **not** caused by
