@@ -53,14 +53,6 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Production director — grant the first claim.** All three targets are live (Functions +
-  rules 01:5xZ, Hosting 02:02Z — both entries below). The capability is **fully deployed but
-  dormant**: no `productionDirector` claim exists, so the rules branch grants nobody anything.
-  To activate: **Admin → Users → Production director → Grant** (the confirmation spells out the
-  scope). Then verify as that user — lists every event, opens an unassigned one with no edit
-  controls, sees Team and Checklist read-only, and reaches the Tracker. Rollback = redeploy the
-  previous rules first (the fast kill switch — see the plan's Emergency containment), then patch
-  the Functions director branch, then revoke the claim.
 - **CSP enforce — residual log watch through ~2026-08-12.** The flip is live (see the 21:08Z
   checkpoint entry); headers verified on both domains and the first hour logged no violations.
   The browser pass completed 2026-08-08 ~22:45Z (MCP-driven crawl of production, signed in as
@@ -89,6 +81,33 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-10 — Production director ACTIVATED: first claim granted and verified in
+production.** Granted at 02:15:19Z by `q2zpZHxJWpgfsrl3ZXK6oaTr5H83` (the app admin) to
+`jared@yourstagemanager.com` / `ar63s3b84jdkvXjbRbMiskJe9Qo1` — an approved account that is
+**not** admin, **not** organizer, and holds **zero event membership rows** (confirmed by a
+collection-group query), so the capability is doing all the work rather than a membership
+quietly standing in for it.
+
+Grant integrity: the custom claim is on the Auth account itself
+(`{"admin":false,"approved":true,"productionDirector":true}` — note `approved` survived, so
+the setter's claim **merge** did not clobber the map), mirrored to `users/{uid}` with
+`productionDirectorUpdatedAt` + `productionDirectorUpdatedBy`.
+
+Behaviour verified by signing in as the director in an isolated browser context: lists **both**
+events despite no memberships; **no** "New event" button (oversight is not authorship); opens
+an unassigned event with **zero** mutation controls (no Edit / Add stage / Generate packet /
+Save packet / Remove / Add slot / Sync now — and zero `<input>`/`<select>` on the entire page);
+**Team & access** shows the roster with no add-by-email field, role select, or Add member
+button; **Event Checklist** renders with no Import or add-item controls; **Tracker** loads and
+rolls up both events (0/105 and 0/126 sections). Every request 200, zero console messages, no
+permission-denied. Nav correctly omits **Admin**.
+
+**Known, not a regression:** the director's nav still shows **Contacts** and **Documents**.
+Role-gating those to organizer/admin belongs to `PWA_MOBILE_NAV_PLAN.md`, which is not built —
+they were visible to every approved user before this change and still are. No new exposure:
+`contacts` and `artistDocuments` are already `allow read: if isActiveUser()` for everyone
+(tracked in IDEAS §5).
 
 **2026-08-10 — Hosting checkpoint (02:02Z, `3c232bd` #275): HOSTING (owner) — the
 production-director client is LIVE.** Carries the PWA half of #274 from the current `main`
