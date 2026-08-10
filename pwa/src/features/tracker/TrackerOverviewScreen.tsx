@@ -5,10 +5,7 @@ import { formatDateRange } from '@/lib/dates/formatting';
 import { canOverseeAllEvents, canViewTracker } from '@/lib/rbac/permissions';
 import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
 import { useMyEventMemberships } from '@/lib/rbac/useMyEventMemberships';
-import {
-  listEventTrackerSummaries,
-  type TrackerPageCursor,
-} from '@/lib/tracker/tracker-service';
+import { listEventTrackerSummaries, type TrackerPageCursor } from '@/lib/tracker/tracker-service';
 import { CompletionBar } from './CompletionBar';
 
 /** Tracker overview: each visible event with its completion roll-up. Drill into an event. */
@@ -101,8 +98,8 @@ export function TrackerOverviewScreen() {
       )}
       {capped && (
         <p className="text-sm text-ink-muted">
-          Showing the first {summaries.length} events — there are more than this page can roll
-          up. Narrow the work down from the Events list.
+          Showing the first {summaries.length} events — there are more than this page can roll up.
+          Narrow the work down from the Events list.
         </p>
       )}
     </section>

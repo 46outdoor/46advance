@@ -38,7 +38,9 @@ vi.mock('@/lib/events/events-read', async (importOriginal) => ({
 }));
 
 vi.mock('./events-service', () => ({ createEvent: vi.fn(), createEventFromTemplate: vi.fn() }));
-vi.mock('@/lib/departments/departments-service', () => ({ listDepartments: vi.fn(async () => []) }));
+vi.mock('@/lib/departments/departments-service', () => ({
+  listDepartments: vi.fn(async () => []),
+}));
 vi.mock('@/lib/templates/templates-service', () => ({ listTemplates: vi.fn(async () => []) }));
 vi.mock('@/lib/schedules/schedule-templates-service', () => ({
   getDefaultMasterTemplate: vi.fn(async () => null),
@@ -119,8 +121,9 @@ describe('EventsListScreen events query key', () => {
   it('caches a membership-scoped viewer under the canonical key', () => {
     const client = renderScreen();
 
-    expect(client.getQueryCache().find({ queryKey: ['events', 'list', 'user-1', 'membership'] }))
-      .toBeDefined();
+    expect(
+      client.getQueryCache().find({ queryKey: ['events', 'list', 'user-1', 'membership'] }),
+    ).toBeDefined();
   });
 
   it('moves an oversight viewer to the all-events scope segment', () => {
@@ -128,8 +131,9 @@ describe('EventsListScreen events query key', () => {
     const client = renderScreen();
 
     // Same uid, different scope — a mid-session claim grant can't be served the stale list.
-    expect(client.getQueryCache().find({ queryKey: ['events', 'list', 'user-1', 'all'] }))
-      .toBeDefined();
+    expect(
+      client.getQueryCache().find({ queryKey: ['events', 'list', 'user-1', 'all'] }),
+    ).toBeDefined();
     expect(
       client.getQueryCache().find({ queryKey: ['events', 'list', 'user-1', 'membership'] }),
     ).toBeUndefined();

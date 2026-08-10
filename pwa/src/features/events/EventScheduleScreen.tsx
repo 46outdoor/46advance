@@ -552,7 +552,10 @@ export function EventScheduleScreen() {
       });
 
   if (!user || !eventParam) return null;
-  const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer, isProductionDirector }, roleQuery.data ?? null);
+  const canEdit = canEditEvent(
+    { uid: user.uid, isAdmin, isOrganizer, isProductionDirector },
+    roleQuery.data ?? null,
+  );
 
   const matchesFilters = makeItemFilter(filters.type, filters.stage);
   const visibleDays = days.filter((d) => !filters.day || d.id === filters.day);

@@ -204,6 +204,8 @@ describe('TrackerOverviewScreen route guard', () => {
     );
     renderRoute();
 
-    expect(await screen.findByText(/there are more than this page can roll up/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/there are more than this page can roll up/),
+    ).toBeInTheDocument();
   });
 });

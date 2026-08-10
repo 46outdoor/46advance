@@ -305,7 +305,10 @@ export function EventDocumentsScreen() {
   });
 
   if (!user || !eventParam) return null;
-  const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer, isProductionDirector }, roleQuery.data ?? null);
+  const canEdit = canEditEvent(
+    { uid: user.uid, isAdmin, isOrganizer, isProductionDirector },
+    roleQuery.data ?? null,
+  );
   const event = eventQuery.data;
   const scheduleDays = daysQuery.data ?? [];
   const dayByKey = new Map(scheduleDays.map((d) => [d.id, d]));

@@ -92,7 +92,14 @@ const EVENT: EventRecord = {
 };
 
 function member(role: EventRole): EventMember {
-  return { role, addedBy: 'admin-1', addedAt: null, departments: [], email: null, displayName: null };
+  return {
+    role,
+    addedBy: 'admin-1',
+    addedAt: null,
+    departments: [],
+    email: null,
+    displayName: null,
+  };
 }
 
 function renderScreen() {
