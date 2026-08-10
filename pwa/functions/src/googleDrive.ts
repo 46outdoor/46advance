@@ -29,7 +29,7 @@ import {
   authedClientForUser,
   assertCanEditEvent,
 } from './google.js';
-import { assertActiveUser } from './lib/auth/authorize.js';
+import { assertActiveUser, assertCanReadEvent } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { withGoogleRetry } from './lib/google/retry.js';
@@ -640,13 +640,12 @@ export const getArtistDocumentContent = onCall(
     );
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
-    // Artist-library docs serve any approved user (matches the library's read rules);
-    // with an eventId, an event document serves that event's members (PR 4).
+    // Artist-library docs serve any approved user (matches the library's read rules); with an
+    // eventId, an event document follows the canonical event READ gate — that event's members
+    // plus admins and production directors (read-only oversight of every event).
     let snap = await db.collection('artistDocuments').doc(fileId).get();
     if (!snap.exists && eventId) {
-      const isMember =
-        token.admin === true || (await db.doc(`events/${eventId}/members/${uid}`).get()).exists;
-      if (!isMember) throw new HttpsError('permission-denied', 'Not a member of this event.');
+      await assertCanReadEvent(db, token, uid, eventId);
       snap = await db.doc(`events/${eventId}/documents/${fileId}`).get();
     }
     if (!snap.exists) throw new HttpsError('not-found', 'Unknown document.');

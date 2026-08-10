@@ -7,6 +7,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  collection,
   collectionGroup,
   doc,
   getDoc,
@@ -34,6 +35,17 @@ const DEPT = 'user-dept'; // department-lead on event A assigned departments: ['
 const TECH = 'user-tech'; // tech on event A
 const OUTSIDER = 'user-out'; // approved, but member of nothing
 const PENDING = 'user-pending'; // approved:false — a member awaiting approval / revoked
+
+// Cross-event oversight (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global and
+// read-only; DIRECTOR holds NO membership anywhere. The combined identities prove that
+// capabilities are additive (director + PM writes only where the PM row is) and that a
+// lower per-event role never downgrades the global read (director + tech).
+const DIRECTOR = { uid: 'user-director', token: { approved: true, productionDirector: true } };
+const DIRECTOR_PM = { uid: 'user-dir-pm', token: { approved: true, productionDirector: true } };
+const DIRECTOR_TECH = {
+  uid: 'user-dir-tech',
+  token: { approved: true, productionDirector: true },
+};
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -1538,6 +1550,302 @@ describe('firestore.rules — advance documents (inclusion)', () => {
     await assertFails(updateDoc(doc(dbFor(PM), docPath), { webViewLink: 'https://evil/x' }));
     await assertFails(updateDoc(doc(dbFor(TECH), docPath), { includePacket: true }));
     await assertSucceeds(deleteDoc(doc(dbFor(PM), docPath)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Production director — cross-event read oversight
+// (planning/EVENT_OVERSIGHT_ROLE_PLAN.md). The claim is global, read-only and
+// event-scoped: it widens every event-subtree READ (plus the PM checklist) and
+// must never grant a write, nor widen the unscoped collection-group membership
+// surface. DIRECTOR holds no membership anywhere.
+// ---------------------------------------------------------------------------
+describe('firestore.rules — production director (cross-event read oversight)', () => {
+  const advPath = 'events/event-a/stages/stg-a/advances/adv-1';
+  const stageProd = 'events/event-a/stages/stg-a/production/record';
+  const eventProd = 'events/event-a/production/record';
+  const dayPath = 'events/event-a/scheduleDays/2026-07-14';
+  const chkPath = 'events/event-a/checklist/chk-1';
+
+  const dbDirector = () => dbFor(DIRECTOR.uid, DIRECTOR.token);
+  const attachment = { name: 'plot.pdf', path: 'events/event-a/x.pdf', url: 'https://x' };
+
+  // Every path in the plan's "Exhaustive event-read inventory", on event-a — an event the
+  // director-only identity is NOT a member of.
+  const EVENT_READ_INVENTORY: Array<[string, string]> = [
+    ['event document', 'events/event-a'],
+    ['member roster row', `events/event-a/members/${PM}`],
+    ['stage', 'events/event-a/stages/stg-a'],
+    ['advance', advPath],
+    ['advance Drive-file metadata', `${advPath}/driveFiles/df-1`],
+    ['advance included document', `${advPath}/documents/file-1`],
+    ['quote', `${advPath}/quotes/q-seed`],
+    ['stage production record', stageProd],
+    ['stage production attachment', `${stageProd}/attachments/a1`],
+    ['event production record', eventProd],
+    ['event production attachment', `${eventProd}/attachments/a1`],
+    ['event contact attachment', 'events/event-a/contacts/att-seed'],
+    ['event document', 'events/event-a/documents/efile-1'],
+    ['schedule day', dayPath],
+    ['call booking', 'events/event-a/callBookings/cal-evt-1'],
+    ['flag', 'events/event-a/flags/seed'],
+  ];
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      // Combined identities hold the director claim PLUS a per-event role on event A only.
+      await setDoc(doc(db, 'events/event-a/members', DIRECTOR_PM.uid), {
+        role: 'production-manager',
+        addedBy: 'admin-1',
+        uid: DIRECTOR_PM.uid,
+      });
+      await setDoc(doc(db, 'events/event-a/members', DIRECTOR_TECH.uid), {
+        role: 'tech',
+        addedBy: 'admin-1',
+        uid: DIRECTOR_TECH.uid,
+      });
+      // The rest of the read inventory the shared beforeEach doesn't already seed.
+      await setDoc(doc(db, `${advPath}/driveFiles/df-1`), { fileId: 'df-1', name: 'Plot.pdf' });
+      await setDoc(doc(db, `${advPath}/documents/file-1`), {
+        fileId: 'file-1',
+        name: 'Rider.pdf',
+        includePacket: false,
+        addedBy: PM,
+      });
+      await setDoc(doc(db, `${advPath}/quotes/q-seed`), {
+        title: 'Backline',
+        status: 'sent',
+        createdBy: PM,
+      });
+      await setDoc(doc(db, stageProd), { content: { audio: { foh_console: 'DM7' } } });
+      await setDoc(doc(db, `${stageProd}/attachments/a1`), attachment);
+      await setDoc(doc(db, eventProd), { info: { crew_parking: 'Lot B' } });
+      await setDoc(doc(db, `${eventProd}/attachments/a1`), attachment);
+      await setDoc(doc(db, 'events/event-a/contacts/att-seed'), {
+        contactId: 'c-pm',
+        addedBy: PM,
+      });
+      await setDoc(doc(db, 'events/event-a/documents/efile-1'), {
+        fileId: 'efile-1',
+        name: 'SitePlan.pdf',
+        uploadedBy: PM,
+      });
+      await setDoc(doc(db, dayPath), {
+        date: '2026-07-14',
+        dayType: 'loadIn',
+        items: [],
+        createdBy: PM,
+        revision: 0,
+      });
+    });
+  });
+
+  it.each(EVENT_READ_INVENTORY)(
+    'reads the %s of an event they are not a member of',
+    async (_label, path) => {
+      await assertSucceeds(getDoc(doc(dbDirector(), path)));
+    },
+  );
+
+  it('reads an event they are not a member of at every list surface too', async () => {
+    const db = dbDirector();
+    await assertSucceeds(getDocs(collection(db, 'events/event-a/stages')));
+    await assertSucceeds(getDocs(collection(db, `${advPath}/quotes`)));
+    await assertSucceeds(getDocs(collection(db, 'events/event-a/scheduleDays')));
+    await assertSucceeds(getDocs(collection(db, 'events/event-a/flags')));
+  });
+
+  it('gets no writes on the event / stage / advance spine', async () => {
+    const db = dbDirector();
+    await assertFails(updateDoc(doc(db, 'events/event-a'), { name: 'Director edit' }));
+    await assertFails(deleteDoc(doc(db, 'events/event-a')));
+    // Membership management stays admin-only — a director cannot self-enrol as PM.
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/members', DIRECTOR.uid), {
+        role: 'production-manager',
+        addedBy: DIRECTOR.uid,
+        uid: DIRECTOR.uid,
+      }),
+    );
+    await assertFails(deleteDoc(doc(db, 'events/event-a/members', TECH)));
+    await assertFails(setDoc(doc(db, 'events/event-a/stages/stg-dir'), { name: 'Nope', order: 9 }));
+    await assertFails(updateDoc(doc(db, 'events/event-a/stages/stg-a'), { name: 'Renamed' }));
+    await assertFails(deleteDoc(doc(db, 'events/event-a/stages/stg-a')));
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/stages/stg-a/advances/adv-dir'), {
+        artistName: 'Nope',
+        createdBy: DIRECTOR.uid,
+        sections: {},
+      }),
+    );
+    await assertFails(updateDoc(doc(db, advPath), { artistName: 'Renamed' }));
+    // Finalize/unlock rides the advance update gate, so it is denied as well.
+    await assertFails(
+      updateDoc(doc(db, advPath), {
+        'sections.audio': { status: 'complete', finalizedAt: null, finalizedBy: DIRECTOR.uid },
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(deleteDoc(doc(db, advPath)));
+  });
+
+  it('gets no writes on quotes, documents, production records, or attachments', async () => {
+    const db = dbDirector();
+    await assertFails(
+      setDoc(doc(db, `${advPath}/quotes/q-dir`), {
+        title: 'X',
+        status: 'draft',
+        createdBy: DIRECTOR.uid,
+      }),
+    );
+    await assertFails(updateDoc(doc(db, `${advPath}/quotes/q-seed`), { status: 'approved' }));
+    await assertFails(deleteDoc(doc(db, `${advPath}/quotes/q-seed`)));
+    await assertFails(updateDoc(doc(db, `${advPath}/documents/file-1`), { includePacket: true }));
+    await assertFails(deleteDoc(doc(db, `${advPath}/documents/file-1`)));
+    await assertFails(deleteDoc(doc(db, `${advPath}/driveFiles/df-1`)));
+    await assertFails(setDoc(doc(db, eventProd), { info: { crew_parking: 'no' } }));
+    await assertFails(setDoc(doc(db, `${eventProd}/attachments/a-dir`), attachment));
+    await assertFails(setDoc(doc(db, stageProd), { content: { audio: { foh_console: 'no' } } }));
+    await assertFails(setDoc(doc(db, `${stageProd}/attachments/a-dir`), attachment));
+  });
+
+  it('gets no writes on contacts, event documents, schedules, bookings, or flags', async () => {
+    const db = dbDirector();
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/contacts/att-dir'), {
+        contactId: 'c-pm',
+        addedBy: DIRECTOR.uid,
+      }),
+    );
+    await assertFails(deleteDoc(doc(db, 'events/event-a/contacts/att-seed')));
+    await assertFails(updateDoc(doc(db, 'events/event-a/documents/efile-1'), { day: null }));
+    await assertFails(deleteDoc(doc(db, 'events/event-a/documents/efile-1')));
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/scheduleDays/2026-07-20'), {
+        date: '2026-07-20',
+        dayType: 'show',
+        items: [],
+        createdBy: DIRECTOR.uid,
+        revision: 0,
+      }),
+    );
+    await assertFails(updateDoc(doc(db, dayPath), { notes: 'no', revision: 1 }));
+    await assertFails(deleteDoc(doc(db, dayPath)));
+    await assertFails(
+      updateDoc(doc(db, 'events/event-a/callBookings/cal-evt-1'), {
+        status: 'dismissed',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/flags/f-dir'), { createdBy: DIRECTOR.uid, text: 'no' }),
+    );
+    await assertFails(updateDoc(doc(db, 'events/event-a/flags/seed'), { text: 'edited' }));
+    await assertFails(deleteDoc(doc(db, 'events/event-a/flags/seed')));
+  });
+
+  it('reads the PM checklist but cannot mutate it', async () => {
+    const db = dbDirector();
+    await assertSucceeds(getDoc(doc(db, chkPath)));
+    await assertSucceeds(getDocs(collection(db, 'events/event-a/checklist')));
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/checklist/chk-dir'), {
+        text: 'Director item',
+        section: 'main',
+        order: 0,
+        completedAt: null,
+      }),
+    );
+    await assertFails(updateDoc(doc(db, chkPath), { text: 'Renamed' }));
+    await assertFails(updateDoc(doc(db, chkPath), { completedAt: Timestamp.fromDate(new Date()) }));
+    await assertFails(deleteDoc(doc(db, chkPath)));
+  });
+
+  it('an absent, false, unapproved, or non-boolean director claim grants nothing', async () => {
+    const identities = [
+      ['absent claim', dbFor('user-dir-absent', { approved: true })],
+      ['false claim', dbFor('user-dir-false', { approved: true, productionDirector: false })],
+      // Approval is the outer gate: the claim alone never resurrects a pending/revoked account.
+      ['unapproved', dbFor('user-dir-pending', { approved: false, productionDirector: true })],
+      // `== true` is a strict comparison — a stringy claim is not a grant.
+      ['string claim', dbFor('user-dir-string', { approved: true, productionDirector: 'true' })],
+    ] as const;
+    for (const [, db] of identities) {
+      await assertFails(getDoc(doc(db, 'events/event-a')));
+      await assertFails(getDoc(doc(db, advPath)));
+      await assertFails(getDoc(doc(db, chkPath)));
+      await assertFails(getDoc(doc(db, `${eventProd}/attachments/a1`)));
+    }
+  });
+
+  it('director + PM writes only on the assigned event (capabilities are additive)', async () => {
+    const db = dbFor(DIRECTOR_PM.uid, DIRECTOR_PM.token);
+    // Event A — they hold the PM row, so the PM capability applies.
+    await assertSucceeds(getDoc(doc(db, 'events/event-a')));
+    await assertSucceeds(updateDoc(doc(db, 'events/event-a'), { name: 'Event A — dir/PM edit' }));
+    await assertSucceeds(
+      setDoc(doc(db, 'events/event-a/stages/stg-dirpm'), { name: 'Dir Stage', order: 5 }),
+    );
+    await assertSucceeds(updateDoc(doc(db, chkPath), { text: 'PM edit' }));
+    // Event B — the director claim still reads it; the PM role does NOT follow them there.
+    await assertSucceeds(getDoc(doc(db, 'events/event-b')));
+    await assertFails(updateDoc(doc(db, 'events/event-b'), { name: 'nope' }));
+    await assertFails(
+      setDoc(doc(db, 'events/event-b/stages/stg-nope'), { name: 'nope', order: 0 }),
+    );
+    await assertFails(deleteDoc(doc(db, 'events/event-b')));
+  });
+
+  it('director + tech keeps the global read and gains no writes', async () => {
+    const db = dbFor(DIRECTOR_TECH.uid, DIRECTOR_TECH.token);
+    // A lower per-event role must never downgrade the global read capability.
+    await assertSucceeds(getDoc(doc(db, 'events/event-a'))); // member (tech)
+    await assertSucceeds(getDoc(doc(db, 'events/event-b'))); // NOT a member — director claim
+    // A tech alone cannot read the checklist; the director claim carries it.
+    await assertSucceeds(getDoc(doc(db, chkPath)));
+    await assertFails(updateDoc(doc(db, 'events/event-a'), { name: 'nope' }));
+    await assertFails(setDoc(doc(db, 'events/event-a/stages/stg-dt'), { name: 'no', order: 0 }));
+    await assertFails(updateDoc(doc(db, chkPath), { text: 'no' }));
+    // Flagging is a PM/dept-lead capability — the director claim does not add it.
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/flags/f-dt'), { createdBy: DIRECTOR_TECH.uid, text: 'no' }),
+    );
+  });
+
+  it('cannot collection-group query other users’ membership rows, but reads a known roster', async () => {
+    const db = dbDirector();
+    // The unscoped membership surface stays self-only — no "every membership row" dump.
+    await assertFails(getDocs(query(collectionGroup(db, 'members'), where('uid', '==', PM))));
+    await assertFails(getDocs(query(collectionGroup(db, 'members'))));
+    // Their own (empty) events-list query still works.
+    const own = await assertSucceeds(
+      getDocs(query(collectionGroup(db, 'members'), where('uid', '==', DIRECTOR.uid))),
+    );
+    expect(own.size).toBe(0);
+    // A KNOWN event's roster, one event at a time, through the nested rule.
+    await assertSucceeds(getDoc(doc(db, 'events/event-a/members', PM)));
+    await assertSucceeds(getDocs(collection(db, 'events/event-a/members')));
+  });
+
+  it('the oversight claim stays event-scoped — no admin surfaces', async () => {
+    const db = dbDirector();
+    // Admin-managed config: readable to any approved user, still not writable.
+    await assertFails(setDoc(doc(db, 'departments/audio'), { name: 'Audio', order: 0 }));
+    await assertFails(setDoc(doc(db, 'checklistTemplates/ctpl-dir'), { name: 'X', items: [] }));
+    await assertFails(setDoc(doc(db, 'config/branding'), { defaultLogos: [] }));
+    // No event creation (that stays the separate organizer capability, server-side).
+    await assertFails(
+      setDoc(doc(db, 'events/evt-dir'), {
+        name: 'Director Fest',
+        status: 'draft',
+        createdBy: DIRECTOR.uid,
+      }),
+    );
+    // Other users' profiles and server-only collections stay closed.
+    await assertFails(getDoc(doc(db, 'users', PM)));
+    await assertFails(getDoc(doc(db, 'googleTokens', PM)));
+    await assertFails(getDoc(doc(db, 'slugs/rtc-ashland-26')));
   });
 });
 

@@ -11,6 +11,12 @@ export interface UserProfile {
   isAdmin: boolean;
   /** Global organizer capability (may create events) — set by an admin. */
   organizer: boolean;
+  /**
+   * Global production-director capability (read-only oversight of every event) — set by an
+   * admin, mirrored from the `productionDirector` custom claim. Legacy docs predate the field;
+   * absent parses as `false` (see `users-service.ts`).
+   */
+  productionDirector: boolean;
   /** App access granted by an admin. New accounts start pending (false). */
   approved: boolean;
   createdAt: Date | null;

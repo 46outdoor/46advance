@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { getDoc, getDocs } from 'firebase/firestore';
-import { EVENTS_READ_CAP, getEvent, listEvents } from './events-read';
+import {
+  EVENTS_READ_CAP,
+  eventsListKey,
+  eventsListScope,
+  getEvent,
+  listEvents,
+} from './events-read';
 
 // Mock the Firestore app handle so no real Firebase is initialized.
 vi.mock('@/services/firebase', () => ({ db: {} }));
@@ -36,15 +42,28 @@ function eventsSnapshot(names: string[], size = names.length) {
   };
 }
 
-/** A `members` collection-group result: each doc's grandparent is its event. */
+/**
+ * A `members` collection-group result (what `listMyEventMemberships` reads): each doc's
+ * grandparent is its event, and the row carries the role.
+ */
 function membersSnapshot(eventIds: string[]) {
   return {
-    docs: eventIds.map((id) => ({ ref: { parent: { parent: { id } } } })),
+    docs: eventIds.map((id) => ({
+      ref: { parent: { parent: { id } } },
+      data: () => ({ role: 'tech', addedBy: 'admin-uid', addedAt: null }),
+    })),
   };
 }
 
 const ADMIN = { uid: 'admin-1', isAdmin: true, isOrganizer: false };
 const MEMBER = { uid: 'user-1', isAdmin: false, isOrganizer: false };
+/** Production director: global read-only oversight, no memberships, not an admin. */
+const DIRECTOR = {
+  uid: 'director-1',
+  isAdmin: false,
+  isOrganizer: false,
+  isProductionDirector: true,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -79,6 +98,19 @@ describe('listEvents', () => {
     mockGetDocs.mockResolvedValue(eventsSnapshot(['Zulu', 'Alpha', 'Mike']));
 
     expect((await listEvents(ADMIN)).map((e) => e.name)).toEqual(['Alpha', 'Mike', 'Zulu']);
+  });
+
+  // The oversight branch is the capability, not the admin flag: a production director holds
+  // no membership rows at all, so falling through to the membership path would show them
+  // nothing.
+  it('a production director reads every event, like an admin', async () => {
+    mockGetDocs.mockResolvedValue(eventsSnapshot(['Alpha', 'Beta']));
+
+    const events = await listEvents(DIRECTOR);
+
+    expect(events.map((e) => e.name)).toEqual(['Alpha', 'Beta']);
+    expect(mockGetDocs).toHaveBeenCalledTimes(1); // the all-events query, not a membership read
+    expect(mockGetDoc).not.toHaveBeenCalled();
   });
 
   // The cap is a silent correctness limit — past it, an admin is served a truncated list, so
@@ -120,5 +152,53 @@ describe('listEvents', () => {
     mockGetDocs.mockResolvedValue(membersSnapshot([]));
 
     expect(await listEvents(MEMBER)).toEqual([]);
+  });
+
+  // The membership branch now consumes the shared cross-event summary; a second
+  // collection-group read here would defeat the point of centralizing it.
+  it('a non-admin issues exactly one membership query', async () => {
+    mockGetDocs.mockResolvedValue(membersSnapshot(['evt-a', 'evt-b']));
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+
+    await listEvents(MEMBER);
+
+    expect(mockGetDocs).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('eventsListKey', () => {
+  it('scopes a member to their memberships', () => {
+    expect(eventsListKey(MEMBER)).toEqual(['events', 'list', 'user-1', 'membership']);
+  });
+
+  it('scopes admins and directors to the all-events result', () => {
+    expect(eventsListKey(ADMIN)).toEqual(['events', 'list', 'admin-1', 'all']);
+    expect(eventsListKey(DIRECTOR)).toEqual(['events', 'list', 'director-1', 'all']);
+  });
+
+  // React Query is cleared on an auth IDENTITY change, not on a claim refresh. Same uid,
+  // widened claim: without the scope segment the director would keep being served the
+  // membership-scoped list they cached before the grant.
+  it('changes when the same uid gains the director claim mid-session', () => {
+    const before = eventsListKey({ uid: 'user-1', isAdmin: false, isOrganizer: false });
+    const after = eventsListKey({
+      uid: 'user-1',
+      isAdmin: false,
+      isOrganizer: false,
+      isProductionDirector: true,
+    });
+
+    expect(before).not.toEqual(after);
+    expect(after).toEqual(['events', 'list', 'user-1', 'all']);
+  });
+
+  it('stays stable while the viewer is unresolved', () => {
+    expect(eventsListKey(null)).toEqual(['events', 'list', null, 'membership']);
+    expect(eventsListKey(undefined)).toEqual(eventsListKey(null));
+  });
+
+  // Organizer is a creation capability, not an oversight one — it must not widen the list.
+  it('does not widen the scope for an organizer', () => {
+    expect(eventsListScope({ uid: 'org-1', isAdmin: false, isOrganizer: true })).toBe('membership');
   });
 });

@@ -8,6 +8,13 @@ export interface AuthContextValue {
   isAdmin: boolean;
   /** Global organizer (custom claim `organizer`): may create events. Admin-grantable. */
   isOrganizer: boolean;
+  /**
+   * Global production director (custom claim `productionDirector`): read-only oversight of
+   * EVERY event, whether or not the user is a member. Grants no writes and no admin functions —
+   * a director who must edit a show is assigned that event's production-manager role.
+   * Always a boolean: AuthProvider normalizes the callable response (see `applyClaims`).
+   */
+  isProductionDirector: boolean;
   /** App access (custom claim `approved`). New accounts start pending until an admin approves. */
   approved: boolean;
   /** Whether the user's email is verified. No `admin`/`approved` claim is granted until it is. */

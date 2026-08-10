@@ -486,7 +486,7 @@ function EmptyState({
 
 export function EventScheduleScreen() {
   const { eventId: eventParam } = useParams();
-  const { user, isAdmin, isOrganizer } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const { filters, setFilter, clearFilters } = useScheduleFilters();
   const [addingDay, setAddingDay] = useState(false);
   // Editing is day-scoped: `editingDayId` is the one day whose rows are editable, and
@@ -552,7 +552,7 @@ export function EventScheduleScreen() {
       });
 
   if (!user || !eventParam) return null;
-  const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer }, roleQuery.data ?? null);
+  const canEdit = canEditEvent({ uid: user.uid, isAdmin, isOrganizer, isProductionDirector }, roleQuery.data ?? null);
 
   const matchesFilters = makeItemFilter(filters.type, filters.stage);
   const visibleDays = days.filter((d) => !filters.day || d.id === filters.day);

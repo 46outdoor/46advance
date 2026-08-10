@@ -64,8 +64,14 @@ export function sendPasswordReset(email: string): Promise<void> {
   return sendPasswordResetEmail(auth, email);
 }
 
-/** Upsert the caller's profile + resolve global claims (admin allowlist, organizer). Call after sign-in.
- *  Passes the registration name (or the persisted Auth profile name) so the server sets the display name. */
+/** Upsert the caller's profile + resolve global claims (admin allowlist, organizer, production
+ *  director). Call after sign-in. Passes the registration name (or the persisted Auth profile name)
+ *  so the server sets the display name.
+ *
+ *  ⚠ Returns `result.data` RAW — `SyncUserClaimsOutput` is a compile-time contract, not a runtime
+ *  validator, so `syncUserClaimsOutputSchema`'s `.default(false)` never runs here. Fields added
+ *  after a client ships arrive `undefined` from an older Functions deploy; callers must normalize
+ *  (see `AuthProvider.applyClaims`). */
 export async function syncUserClaims(): Promise<SyncUserClaimsOutput> {
   const displayName = pendingDisplayName ?? auth.currentUser?.displayName ?? null;
   pendingDisplayName = null;

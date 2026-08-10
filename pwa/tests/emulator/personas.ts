@@ -20,11 +20,22 @@ export type EventRole = 'production-manager' | 'department-lead' | 'tech';
 export interface PersonaClaims {
   admin?: boolean;
   organizer?: boolean;
+  /** Read-only oversight of EVERY event, with or without a membership row. */
+  productionDirector?: boolean;
   approved?: boolean;
 }
 
 export type PersonaKey =
-  'admin' | 'organizer' | 'pm' | 'lead' | 'tech' | 'crossEvent' | 'pending' | 'revoked';
+  | 'admin'
+  | 'organizer'
+  | 'director'
+  | 'directorTech'
+  | 'pm'
+  | 'lead'
+  | 'tech'
+  | 'crossEvent'
+  | 'pending'
+  | 'revoked';
 
 export interface Persona {
   key: PersonaKey;
@@ -80,6 +91,24 @@ export const PERSONAS: Record<PersonaKey, Persona> = {
     displayName: 'Cody Cross',
     emailVerified: true,
     claims: { approved: true },
+  },
+  // Oversight with NO membership rows anywhere — the whole point of the capability is
+  // access without assignment, so this persona must never appear in SEED_MEMBERSHIPS.
+  director: {
+    key: 'director',
+    email: 'director@e2e.test',
+    displayName: 'Dana Director',
+    emailVerified: true,
+    claims: { productionDirector: true, approved: true },
+  },
+  // Director who ALSO holds a low per-event role. Proves capabilities are additive: the
+  // tech membership must not downgrade the global read, and must not add any write.
+  directorTech: {
+    key: 'directorTech',
+    email: 'director-tech@e2e.test',
+    displayName: 'Dio Director-Tech',
+    emailVerified: true,
+    claims: { productionDirector: true, approved: true },
   },
   // Signed up, email not yet verified → held at the "verify your email" gate.
   pending: {
@@ -138,10 +167,15 @@ export interface SeedMembership {
 }
 
 /** pm/lead/tech belong to Alpha only; crossEvent belongs to Beta only — so a
- * two-user test proves each sees exactly their event and neither sees the other's. */
+ * two-user test proves each sees exactly their event and neither sees the other's.
+ *
+ * `director` is deliberately absent: its access must come from the global claim alone.
+ * `directorTech` holds only a tech row on Alpha, so tests can prove the low per-event role
+ * neither downgrades its global read nor grants it a write. */
 export const SEED_MEMBERSHIPS: SeedMembership[] = [
   { eventId: 'e2e-event-alpha', persona: 'pm', role: 'production-manager' },
   { eventId: 'e2e-event-alpha', persona: 'lead', role: 'department-lead' },
   { eventId: 'e2e-event-alpha', persona: 'tech', role: 'tech' },
+  { eventId: 'e2e-event-alpha', persona: 'directorTech', role: 'tech' },
   { eventId: 'e2e-event-beta', persona: 'crossEvent', role: 'production-manager' },
 ];

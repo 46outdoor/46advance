@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { EVENT_ROLES, formatEventRole, type EventRole } from '@/lib/rbac/roles';
-import { canManageMembers, type Viewer } from '@/lib/rbac/permissions';
+import { canManageMembers, canOverseeAllEvents, type Viewer } from '@/lib/rbac/permissions';
 import { eventMembersKey, listEventMembers, type EventMemberRow } from '@/lib/rbac/membership';
 import type { DepartmentRecord } from '@/lib/departments/department';
 import { assignMemberByEmail, assignMemberByUid, removeMember } from './event-members-service';
@@ -43,11 +43,28 @@ function DepartmentPicker({
   );
 }
 
+/** Read-only mirror of {@link DepartmentPicker} — assigned names only, no inputs. */
+function DepartmentList({
+  departments,
+  selected,
+}: {
+  departments: DepartmentRecord[];
+  selected: readonly string[];
+}) {
+  const names = selected.map((id) => departments.find((d) => d.id === id)?.name ?? id);
+  return (
+    <p className="text-xs text-ink-muted">
+      {names.length > 0 ? names.join(', ') : 'None assigned.'}
+    </p>
+  );
+}
+
 function MemberRow({
   member,
   label,
   isSelf,
   viewerIsAdmin,
+  canManage,
   departments,
   pending,
   onChangeRole,
@@ -58,6 +75,8 @@ function MemberRow({
   label: string;
   isSelf: boolean;
   viewerIsAdmin: boolean;
+  /** False for read-only oversight: role/department/remove controls are not rendered. */
+  canManage: boolean;
   departments: DepartmentRecord[];
   pending: boolean;
   onChangeRole: (role: EventRole) => void;
@@ -76,46 +95,54 @@ function MemberRow({
             <span className="ml-2 text-xs text-ink-muted">{member.email}</span>
           )}
         </span>
-        <span className="flex items-center gap-2">
-          <select
-            className="rounded border border-line px-2 py-1 text-xs outline-none focus:border-brand"
-            value={member.role}
-            disabled={locked || pending}
-            onChange={(e) => onChangeRole(e.target.value as EventRole)}
-          >
-            {EVENT_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {formatEventRole(r)}
-              </option>
-            ))}
-          </select>
-          {!locked && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onRemove}
-              className="rounded border border-line px-2 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+        {canManage ? (
+          <span className="flex items-center gap-2">
+            <select
+              className="rounded border border-line px-2 py-1 text-xs outline-none focus:border-brand"
+              value={member.role}
+              disabled={locked || pending}
+              onChange={(e) => onChangeRole(e.target.value as EventRole)}
             >
-              Remove
-            </button>
-          )}
-        </span>
+              {EVENT_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {formatEventRole(r)}
+                </option>
+              ))}
+            </select>
+            {!locked && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onRemove}
+                className="rounded border border-line px-2 py-1 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                Remove
+              </button>
+            )}
+          </span>
+        ) : (
+          <span className="text-xs text-ink-muted">{formatEventRole(member.role)}</span>
+        )}
       </div>
       {member.role === 'department-lead' && (
         <div className="pl-1">
           <p className="mb-1 text-xs font-semibold text-ink">Can edit these departments:</p>
-          <DepartmentPicker
-            departments={departments}
-            selected={member.departments}
-            disabled={locked || pending}
-            onToggle={(deptId, next) =>
-              onChangeDepartments(
-                next
-                  ? [...member.departments, deptId]
-                  : member.departments.filter((d) => d !== deptId),
-              )
-            }
-          />
+          {canManage ? (
+            <DepartmentPicker
+              departments={departments}
+              selected={member.departments}
+              disabled={locked || pending}
+              onToggle={(deptId, next) =>
+                onChangeDepartments(
+                  next
+                    ? [...member.departments, deptId]
+                    : member.departments.filter((d) => d !== deptId),
+                )
+              }
+            />
+          ) : (
+            <DepartmentList departments={departments} selected={member.departments} />
+          )}
         </div>
       )}
     </li>
@@ -124,6 +151,10 @@ function MemberRow({
 
 interface EventTeamPanelProps {
   eventId: string;
+  /**
+   * The acting user's GLOBAL capabilities. Must carry `isProductionDirector` for the
+   * read-only oversight tier to engage — the panel derives view vs. manage from it.
+   */
   viewer: Viewer;
   viewerRole: EventRole | null;
   /** The event's ENABLED departments (already filtered to event.departmentIds). */
@@ -132,8 +163,13 @@ interface EventTeamPanelProps {
 
 /**
  * Team & access: the event's member roster (who can see the event, and at what level) —
- * add by email, set roles, scope department editors, remove. Visible to admins and the
- * event's production managers; enforcement lives in the callables + firestore.rules.
+ * add by email, set roles, scope department editors, remove.
+ *
+ * Two tiers, derived from the canonical predicates (never inline checks):
+ * - **Manage** (`canManageMembers`) — admin or this event's production manager: the full
+ *   add/role/department/remove surface. Enforced by the callables + firestore.rules.
+ * - **View** (`canOverseeAllEvents`) — a production director with no membership row reads
+ *   the roster and gets NO mutation controls. Department leads and techs still see nothing.
  */
 export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: EventTeamPanelProps) {
   const { user } = useAuth();
@@ -143,10 +179,13 @@ export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: Eve
   const [deptIds, setDeptIds] = useState<string[]>([]);
 
   const manages = canManageMembers(viewer, viewerRole);
+  // Read-only oversight sees the roster too; leads/techs stay hidden as before.
+  // enabled: canView — nobody else fires a read the rules will deny.
+  const canView = manages || canOverseeAllEvents(viewer);
   const membersQuery = useQuery({
     queryKey: eventMembersKey(eventId),
     queryFn: () => listEventMembers(eventId),
-    enabled: manages,
+    enabled: canView,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: eventMembersKey(eventId) });
@@ -181,7 +220,7 @@ export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: Eve
     onError: (err) => logger.error('Failed to remove member', err),
   });
 
-  if (!manages) return null;
+  if (!canView) return null;
 
   const members = membersQuery.data ?? [];
   const error = add.isError
@@ -201,63 +240,70 @@ export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: Eve
         Leads can edit only their assigned departments; Techs are read-only.
       </p>
 
-      <form
-        className="space-y-3 rounded-lg border border-line bg-surface-muted/40 p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (email.trim()) add.mutate();
-        }}
-      >
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="block text-sm">
-            <span className="mb-1 block font-semibold text-ink">Add by email</span>
-            <input
-              type="email"
-              className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-semibold text-ink">Role</span>
-            <select
-              className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
-              value={role}
-              onChange={(e) => setRole(e.target.value as EventRole)}
+      {manages && (
+        <form
+          className="space-y-3 rounded-lg border border-line bg-surface-muted/40 p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (email.trim()) add.mutate();
+          }}
+        >
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block text-sm">
+              <span className="mb-1 block font-semibold text-ink">Add by email</span>
+              <input
+                type="email"
+                className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-semibold text-ink">Role</span>
+              <select
+                className="rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                value={role}
+                onChange={(e) => setRole(e.target.value as EventRole)}
+              >
+                {EVENT_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {formatEventRole(r)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={!email.trim() || add.isPending}
+              className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {EVENT_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {formatEventRole(r)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={!email.trim() || add.isPending}
-            className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {add.isPending ? 'Adding…' : 'Add member'}
-          </button>
-        </div>
-        {role === 'department-lead' && (
-          <div>
-            <p className="mb-1 text-xs font-semibold text-ink">Can edit these departments:</p>
-            <DepartmentPicker
-              departments={departments}
-              selected={deptIds}
-              disabled={add.isPending}
-              onToggle={(deptId, next) =>
-                setDeptIds((prev) => (next ? [...prev, deptId] : prev.filter((d) => d !== deptId)))
-              }
-            />
+              {add.isPending ? 'Adding…' : 'Add member'}
+            </button>
           </div>
-        )}
-      </form>
+          {role === 'department-lead' && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-ink">Can edit these departments:</p>
+              <DepartmentPicker
+                departments={departments}
+                selected={deptIds}
+                disabled={add.isPending}
+                onToggle={(deptId, next) =>
+                  setDeptIds((prev) =>
+                    next ? [...prev, deptId] : prev.filter((d) => d !== deptId),
+                  )
+                }
+              />
+            </div>
+          )}
+        </form>
+      )}
 
       {error && <p className="text-sm text-accent">{error}</p>}
       {membersQuery.isLoading && <p className="text-sm text-ink-muted">Loading team…</p>}
+      {!manages && !membersQuery.isLoading && members.length === 0 && (
+        <p className="text-sm text-ink-muted">No one has been added to this event yet.</p>
+      )}
 
       {members.length > 0 && (
         <ul className="divide-y divide-line/60">
@@ -274,6 +320,7 @@ export function EventTeamPanel({ eventId, viewer, viewerRole, departments }: Eve
               }
               isSelf={m.uid === viewer.uid}
               viewerIsAdmin={viewer.isAdmin}
+              canManage={manages}
               departments={departments}
               pending={pending}
               onChangeRole={(next) => update.mutate({ uid: m.uid, next, depts: m.departments })}

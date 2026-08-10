@@ -21,6 +21,8 @@ const db = getFirestore();
 const EVENT_ID = 'evt-docs';
 const MEMBER = authContext('member-uid', { approved: true });
 const OUTSIDER = authContext('outsider-uid', { approved: true });
+// Read-only cross-event oversight, with NO membership on this event.
+const DIRECTOR = authContext('director-uid', { approved: true, productionDirector: true });
 
 async function seed(): Promise<void> {
   await db.doc(`events/${EVENT_ID}`).set({ name: 'Event' });
@@ -28,6 +30,7 @@ async function seed(): Promise<void> {
   // Approved non-admins need an authoritative users record (assertActiveUser, AC-3).
   await db.doc(`users/${MEMBER.uid}`).set({ approved: true });
   await db.doc(`users/${OUTSIDER.uid}`).set({ approved: true });
+  await db.doc(`users/${DIRECTOR.uid}`).set({ approved: true });
   await db.doc(`events/${EVENT_ID}/documents/efile-1`).set({
     fileId: 'efile-1',
     name: 'SitePlan.pdf',
@@ -63,6 +66,17 @@ describe('getArtistDocumentContent — event-document gates', () => {
     await expect(
       testEnv.wrap(getArtistDocumentContent)(
         callableRequest({ fileId: 'nope', eventId: EVENT_ID }, MEMBER),
+      ),
+    ).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  // A production director passes the read gate on an event they're not a member of: the call
+  // reaches the document lookup (not-found for an unknown id) instead of permission-denied.
+  // A real fetch can't run here — no docs-broker SA key exists in the emulator.
+  it('a production director reaches an event document without membership', async () => {
+    await expect(
+      testEnv.wrap(getArtistDocumentContent)(
+        callableRequest({ fileId: 'nope', eventId: EVENT_ID }, DIRECTOR),
       ),
     ).rejects.toMatchObject({ code: 'not-found' });
   });

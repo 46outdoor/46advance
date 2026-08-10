@@ -95,6 +95,7 @@ function CompletedStamp({
 function ChecklistRow({
   item,
   timeZone,
+  canEdit,
   pending,
   onToggle,
   onSetCompletedAt,
@@ -103,6 +104,8 @@ function ChecklistRow({
 }: {
   item: ChecklistItem;
   timeZone: string;
+  /** False for read-only oversight: no handle, rename, completion, stamp edit, or delete. */
+  canEdit: boolean;
   pending: boolean;
   onToggle: (done: boolean) => void;
   onSetCompletedAt: (at: Date) => void;
@@ -111,6 +114,7 @@ function ChecklistRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    disabled: !canEdit,
   });
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.text);
@@ -130,23 +134,37 @@ function ChecklistRow({
         isDragging ? 'z-10 bg-surface-muted shadow' : ''
       }`}
     >
-      <button
-        type="button"
-        aria-label={`Drag to reorder: ${item.text}`}
-        className="cursor-grab touch-none px-1 text-ink-muted hover:text-ink active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
-      >
-        ≡
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          aria-label={`Drag to reorder: ${item.text}`}
+          className="cursor-grab touch-none px-1 text-ink-muted hover:text-ink active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          ≡
+        </button>
+      )}
       <input
         type="checkbox"
-        aria-label={`Mark complete: ${item.text}`}
+        aria-label={
+          canEdit
+            ? `Mark complete: ${item.text}`
+            : `${item.text}: ${item.completedAt ? 'complete' : 'not complete'}`
+        }
         checked={item.completedAt !== null}
-        disabled={pending}
+        disabled={!canEdit || pending}
         onChange={(e) => onToggle(e.target.checked)}
       />
-      {editing ? (
+      {!canEdit ? (
+        <span
+          className={`min-w-0 flex-1 truncate text-sm ${
+            item.completedAt ? 'text-ink-muted line-through' : 'text-ink'
+          }`}
+        >
+          {item.text}
+        </span>
+      ) : editing ? (
         <input
           className="min-w-0 flex-1 rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand"
           value={text}
@@ -173,23 +191,30 @@ function ChecklistRow({
           {item.text}
         </button>
       )}
-      {item.completedAt && (
-        <CompletedStamp
-          completedAt={item.completedAt}
-          timeZone={timeZone}
-          pending={pending}
-          onChange={onSetCompletedAt}
-        />
+      {item.completedAt &&
+        (canEdit ? (
+          <CompletedStamp
+            completedAt={item.completedAt}
+            timeZone={timeZone}
+            pending={pending}
+            onChange={onSetCompletedAt}
+          />
+        ) : (
+          <span className="whitespace-nowrap text-xs text-ink-muted">
+            {formatChecklistTimestamp(item.completedAt, timeZone)}
+          </span>
+        ))}
+      {canEdit && (
+        <button
+          type="button"
+          aria-label={`Delete: ${item.text}`}
+          disabled={pending}
+          onClick={onDelete}
+          className="px-1 text-ink-muted hover:text-accent disabled:opacity-50"
+        >
+          ×
+        </button>
       )}
-      <button
-        type="button"
-        aria-label={`Delete: ${item.text}`}
-        disabled={pending}
-        onClick={onDelete}
-        className="px-1 text-ink-muted hover:text-accent disabled:opacity-50"
-      >
-        ×
-      </button>
     </li>
   );
 }
@@ -240,27 +265,45 @@ interface EventChecklistPanelProps {
   eventId: string;
   /** Event timezone — completion stamps display and edit in it. */
   timeZone: string;
-  /** PM/admin only — the panel renders nothing otherwise (the rules gate reads too). */
+  /**
+   * May READ the checklist: PM/admin, or a production director overseeing the event.
+   * The panel renders nothing otherwise (`canReadChecklist` in the rules mirrors this —
+   * leads and techs are denied). Optional; defaults to `canEdit`, the pre-oversight
+   * behaviour, so callers that don't know about oversight yet are unchanged.
+   */
+  canView?: boolean;
+  /** May MUTATE the checklist: PM/admin only (`canEditEvent`). */
   canEdit: boolean;
 }
 
 /**
- * Event checklist (PM-only; hidden from leads/techs — the rules deny them reads).
- * Two fixed sections (main + Post-Show), drag to reorder within or across them,
- * checkbox completion stamps an editable time. Not part of the advance tracker.
+ * Event checklist (PM/admin editable, read-only for production directors; hidden from
+ * leads/techs — the rules deny them reads). Two fixed sections (main + Post-Show), drag to
+ * reorder within or across them, checkbox completion stamps an editable time. Not part of
+ * the advance tracker.
+ *
+ * `canView` gates rendering + the reads; `canEdit` gates every control (import, add, rename,
+ * reorder, complete/uncomplete, stamp edit, delete). A viewer without `canEdit` sees the
+ * items and their completion stamps and nothing else.
  */
-export function EventChecklistPanel({ eventId, timeZone, canEdit }: EventChecklistPanelProps) {
+export function EventChecklistPanel({
+  eventId,
+  timeZone,
+  canEdit,
+  canView = canEdit,
+}: EventChecklistPanelProps) {
   const queryClient = useQueryClient();
   const [templateId, setTemplateId] = useState('');
   // Optimistic arrangement while a drag's batch write is in flight (null = trust the query).
   const [arranged, setArranged] = useState<ChecklistItem[] | null>(null);
 
-  // enabled: canEdit — leads/techs must not fire reads the rules will deny.
+  // enabled: canView — leads/techs must not fire reads the rules will deny.
   const itemsQuery = useQuery({
     queryKey: eventChecklistKey(eventId),
     queryFn: () => listChecklistItems(eventId),
-    enabled: canEdit,
+    enabled: canView,
   });
+  // Templates feed the Import control only, so read-only viewers never fetch them.
   const templatesQuery = useQuery({
     queryKey: checklistTemplatesKey(),
     queryFn: listChecklistTemplates,
@@ -322,7 +365,7 @@ export function EventChecklistPanel({ eventId, timeZone, canEdit }: EventCheckli
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return;
+    if (!canEdit || !over || active.id === over.id) return;
     const moving = items.find((i) => i.id === active.id);
     if (!moving) return;
 
@@ -345,7 +388,7 @@ export function EventChecklistPanel({ eventId, timeZone, canEdit }: EventCheckli
     reorder.mutate(next);
   };
 
-  if (!canEdit) return null;
+  if (!canView) return null;
 
   const pending = add.isPending || setText.isPending || setCompleted.isPending || remove.isPending;
   const done = items.filter((i) => i.completedAt !== null).length;
@@ -361,29 +404,31 @@ export function EventChecklistPanel({ eventId, timeZone, canEdit }: EventCheckli
             </span>
           )}
         </h2>
-        <div className="flex items-center gap-2">
-          <select
-            className="rounded border border-line px-2 py-1.5 text-sm outline-none focus:border-brand"
-            value={templateId}
-            onChange={(e) => setTemplateId(e.target.value)}
-            aria-label="Checklist template to import"
-          >
-            <option value="">Import from template…</option>
-            {templatesQuery.data?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={!templateId || importTemplate.isPending}
-            onClick={() => importTemplate.mutate()}
-            className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-          >
-            {importTemplate.isPending ? 'Importing…' : 'Import'}
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <select
+              className="rounded border border-line px-2 py-1.5 text-sm outline-none focus:border-brand"
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              aria-label="Checklist template to import"
+            >
+              <option value="">Import from template…</option>
+              {templatesQuery.data?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!templateId || importTemplate.isPending}
+              onClick={() => importTemplate.mutate()}
+              className="rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              {importTemplate.isPending ? 'Importing…' : 'Import'}
+            </button>
+          </div>
+        )}
       </div>
 
       {itemsQuery.isLoading && <p className="text-sm text-ink-muted">Loading…</p>}
@@ -395,6 +440,7 @@ export function EventChecklistPanel({ eventId, timeZone, canEdit }: EventCheckli
             section={section}
             items={bySection(section)}
             timeZone={timeZone}
+            canEdit={canEdit}
             pending={pending}
             onToggle={(id, doneNow) => setCompleted.mutate({ id, at: doneNow ? new Date() : null })}
             onSetCompletedAt={(id, at) => setCompleted.mutate({ id, at })}
@@ -412,6 +458,7 @@ function ChecklistSectionList({
   section,
   items,
   timeZone,
+  canEdit,
   pending,
   onToggle,
   onSetCompletedAt,
@@ -422,6 +469,8 @@ function ChecklistSectionList({
   section: ChecklistSection;
   items: ChecklistItem[];
   timeZone: string;
+  /** False for read-only oversight: rows lose their controls and no add input renders. */
+  canEdit: boolean;
   pending: boolean;
   onToggle: (id: string, done: boolean) => void;
   onSetCompletedAt: (id: string, at: Date) => void;
@@ -444,6 +493,7 @@ function ChecklistSectionList({
               key={item.id}
               item={item}
               timeZone={timeZone}
+              canEdit={canEdit}
               pending={pending}
               onToggle={(done) => onToggle(item.id, done)}
               onSetCompletedAt={(at) => onSetCompletedAt(item.id, at)}
@@ -453,12 +503,12 @@ function ChecklistSectionList({
           ))}
         </ul>
       </SortableContext>
-      {items.length === 0 && (
-        <p className="pl-7 text-sm text-ink-muted">
-          {section === 'main' ? 'No items yet — add one below or import a template.' : ''}
+      {items.length === 0 && section === 'main' && (
+        <p className={`text-sm text-ink-muted ${canEdit ? 'pl-7' : ''}`}>
+          {canEdit ? 'No items yet — add one below or import a template.' : 'No items yet.'}
         </p>
       )}
-      <AddItemInput section={section} pending={pending} onAdd={onAdd} />
+      {canEdit && <AddItemInput section={section} pending={pending} onAdd={onAdd} />}
     </div>
   );
 }

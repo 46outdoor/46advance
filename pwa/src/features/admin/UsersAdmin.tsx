@@ -10,6 +10,7 @@ import {
   setUserApproved,
   setUserDisplayName,
   setUserOrganizer,
+  setUserProductionDirector,
 } from './admin-service';
 import { useAdminUsersQuery } from './useAdminUsers';
 
@@ -92,7 +93,8 @@ function UserActionsCell({
   );
 }
 
-/** Admin: the full user roster — approval, organizer capability, display name, and account actions. */
+/** Admin: the full user roster — approval, organizer + production-director capabilities,
+ *  display name, and account actions. */
 export function UsersAdmin() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -103,6 +105,13 @@ export function UsersAdmin() {
       setUserOrganizer(uid, organizer),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
     onError: (err) => logger.error('Failed to update organizer', err),
+  });
+
+  const setProductionDirector = useMutation({
+    mutationFn: ({ uid, productionDirector }: { uid: string; productionDirector: boolean }) =>
+      setUserProductionDirector(uid, productionDirector),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+    onError: (err) => logger.error('Failed to update production director', err),
   });
 
   const setApproved = useMutation({
@@ -146,6 +155,7 @@ export function UsersAdmin() {
                 <th className="py-2 pr-4 font-semibold">Admin</th>
                 <th className="py-2 pr-4 font-semibold">Approved</th>
                 <th className="py-2 pr-4 font-semibold">Organizer</th>
+                <th className="py-2 pr-4 font-semibold">Production director</th>
                 <th className="py-2 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -189,6 +199,46 @@ export function UsersAdmin() {
                     >
                       {u.organizer ? 'Revoke' : 'Grant'}
                     </button>
+                  </td>
+                  <td className="py-2 pr-4">
+                    {u.isAdmin ? (
+                      <span className="text-ink-muted" title="Admins already oversee every event">
+                        Yes
+                      </span>
+                    ) : (
+                      <>
+                        <span className="mr-2">{u.productionDirector ? 'Yes' : 'No'}</span>
+                        <button
+                          type="button"
+                          disabled={setProductionDirector.isPending}
+                          onClick={() => {
+                            // Granting is a broad, non-obvious capability — spell out exactly
+                            // what it opens up rather than hiding it behind a bare "Grant".
+                            const granting = !u.productionDirector;
+                            const message = granting
+                              ? `Make ${userFullName(u)} a production director?\n\n` +
+                                'They will be able to READ EVERY EVENT in the application — ' +
+                                'including events they are not assigned to — along with each ' +
+                                "event's crew, schedules, advances, production details, " +
+                                'checklist, quotes, and files, plus the Tracker for all of them.' +
+                                '\n\nThis is read-only: it grants no edit access anywhere.'
+                              : `Remove production-director oversight from ${userFullName(u)}?\n\n` +
+                                'They will keep access only to events they are assigned to. ' +
+                                'Their sign-in may hold the old capability for up to about an ' +
+                                'hour until their session token refreshes.';
+                            if (window.confirm(message)) {
+                              setProductionDirector.mutate({
+                                uid: u.uid,
+                                productionDirector: granting,
+                              });
+                            }
+                          }}
+                          className={cellButton}
+                        >
+                          {u.productionDirector ? 'Revoke' : 'Grant'}
+                        </button>
+                      </>
+                    )}
                   </td>
                   <td className="py-2">
                     <UserActionsCell

@@ -6,6 +6,7 @@ import {
   setUserApproved,
   setUserDisplayName,
   setUserOrganizer,
+  setUserProductionDirector,
   syncUserClaims,
 } from './index';
 import { authContext, callableRequest, clearEmulators, testEnv } from './testing/emulatorHarness';
@@ -120,6 +121,86 @@ describe('setUserOrganizer', () => {
         callableRequest({ uid: 'target', organizer: true }, authContext('user1', {})),
       ),
     ).rejects.toThrow(/admin only/i);
+  });
+});
+
+describe('setUserProductionDirector', () => {
+  it('an admin grants oversight, preserving unrelated claims and stamping the mirror', async () => {
+    await auth().createUser({ uid: 'target' });
+    await auth().setCustomUserClaims('target', { approved: true, organizer: true });
+
+    const res = await testEnv.wrap(setUserProductionDirector)(
+      callableRequest(
+        { uid: 'target', productionDirector: true },
+        authContext('admin1', { admin: true }),
+      ),
+    );
+
+    expect(res).toEqual({ uid: 'target', productionDirector: true });
+    const claims = await claimsOf('target');
+    expect(claims.productionDirector).toBe(true);
+    expect(claims.approved).toBe(true); // merge preserved
+    expect(claims.organizer).toBe(true); // organizer stays independent of oversight
+    const mirror = (await users().doc('target').get()).data() ?? {};
+    expect(mirror.productionDirector).toBe(true);
+    // Audit stamp — who granted the all-event read capability, and when.
+    expect(mirror.productionDirectorUpdatedBy).toBe('admin1');
+    expect(mirror.productionDirectorUpdatedAt).toBeTruthy();
+  });
+
+  it('an admin revokes oversight without touching the other claims', async () => {
+    await auth().createUser({ uid: 'target' });
+    await auth().setCustomUserClaims('target', {
+      approved: true,
+      organizer: true,
+      productionDirector: true,
+    });
+
+    const res = await testEnv.wrap(setUserProductionDirector)(
+      callableRequest(
+        { uid: 'target', productionDirector: false },
+        authContext('admin2', { admin: true }),
+      ),
+    );
+
+    expect(res).toEqual({ uid: 'target', productionDirector: false });
+    const claims = await claimsOf('target');
+    expect(claims.productionDirector).toBe(false);
+    expect(claims.approved).toBe(true);
+    expect(claims.organizer).toBe(true);
+    const mirror = (await users().doc('target').get()).data() ?? {};
+    expect(mirror.productionDirector).toBe(false);
+    expect(mirror.productionDirectorUpdatedBy).toBe('admin2');
+  });
+
+  it('rejects a non-admin caller before any write', async () => {
+    await auth().createUser({ uid: 'target' });
+    await expect(
+      testEnv.wrap(setUserProductionDirector)(
+        callableRequest({ uid: 'target', productionDirector: true }, authContext('user1', {})),
+      ),
+    ).rejects.toThrow(/admin only/i);
+    expect(await claimsOf('target')).toEqual({}); // untouched
+  });
+
+  it('rejects a caller who is merely a production director (no self-promotion)', async () => {
+    await auth().createUser({ uid: 'target' });
+    await expect(
+      testEnv.wrap(setUserProductionDirector)(
+        callableRequest(
+          { uid: 'target', productionDirector: true },
+          authContext('director1', { approved: true, productionDirector: true }),
+        ),
+      ),
+    ).rejects.toThrow(/admin only/i);
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    await expect(
+      testEnv.wrap(setUserProductionDirector)(
+        callableRequest({ uid: 'target', productionDirector: true }),
+      ),
+    ).rejects.toThrow(/sign in/i);
   });
 });
 
@@ -333,6 +414,41 @@ describe('syncUserClaims (self-service claim reconciliation)', () => {
     );
 
     expect(res).toMatchObject({ approved: false });
+  });
+
+  it('surfaces and mirrors an existing productionDirector claim', async () => {
+    await auth().createUser({ uid: 'me', email: 'director@crew.com' });
+    await auth().setCustomUserClaims('me', { approved: true, productionDirector: true });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'director@crew.com', email_verified: true })),
+    );
+
+    expect(res).toMatchObject({ isProductionDirector: true, approved: true });
+    expect((await users().doc('me').get()).data()?.productionDirector).toBe(true);
+    expect((await claimsOf('me')).productionDirector).toBe(true); // never dropped by the resync
+  });
+
+  it('reports false — and mirrors false — when the claim is absent', async () => {
+    await auth().createUser({ uid: 'me', email: 'crew@crew.com' });
+    await auth().setCustomUserClaims('me', { approved: true });
+
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: 'crew@crew.com', email_verified: true })),
+    );
+
+    expect(res.isProductionDirector).toBe(false);
+    expect((await users().doc('me').get()).data()?.productionDirector).toBe(false);
+  });
+
+  it('never self-grants oversight — an allowlisted admin sync leaves the claim off', async () => {
+    await auth().createUser({ uid: 'me', email: ADMIN_EMAIL });
+    const res = await testEnv.wrap(syncUserClaims)(
+      callableRequest({}, authContext('me', { email: ADMIN_EMAIL, email_verified: true })),
+    );
+
+    expect(res).toMatchObject({ isAdmin: true, isProductionDirector: false });
+    expect((await claimsOf('me')).productionDirector ?? false).toBe(false);
   });
 
   it('captures the display name passed at registration', async () => {
