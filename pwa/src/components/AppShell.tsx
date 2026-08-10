@@ -4,12 +4,12 @@
  * The header has TWO navigation presentations and renders **exactly one at a time**, chosen in
  * JavaScript by `useMediaQuery(INLINE_NAV_MEDIA_QUERY)` rather than by Tailwind `hidden`
  * variants (a deliberate refinement of planning/PWA_MOBILE_NAV_PLAN.md, which assumed
- * `min-[800px]:`). Two `<nav>` landmarks both named "Main navigation" is an accessibility
+ * a Tailwind variant). Two `<nav>` landmarks both named "Main navigation" is an accessibility
  * defect even when one is visually hidden, and jsdom applies no Tailwind, so a CSS-hidden
  * duplicate would make every component-test query in this file's tests ambiguous.
  *
- *   below 800px — brand + a hamburger **disclosure** carrying navigation *and* identity
- *   800px and up — the inline row, unchanged in shape
+ *   below `INLINE_NAV_MIN_WIDTH` — brand + a hamburger **disclosure** carrying navigation *and* identity
+ *   at/above it — the inline row, unchanged in shape
  *
  * Both presentations filter `src/lib/nav/items.ts`, so a destination cannot be added to one and
  * forgotten in the other — the drift that hid Tracker and the template screens for months.
@@ -223,7 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         }`}
       >
         <div className="mx-auto flex max-w-6xl items-center px-4">
-          {/* The mark shrinks to 32px when the header collapses; below 800px the link itself
+          {/* The mark shrinks to 32px when the header collapses; in narrow mode the link itself
               still has to clear 44px. */}
           <Link
             to="/"

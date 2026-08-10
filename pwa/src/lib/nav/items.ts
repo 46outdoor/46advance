@@ -3,7 +3,7 @@
  *
  * Nav links used to be hardcoded inline in `AppShell.tsx`, which is exactly how the Tracker
  * and template screens drifted out of the nav in the first place. Both presentations — the
- * narrow-screen disclosure and the inline row at 800px and up — filter and render from this
+ * narrow-screen disclosure and the inline row above the breakpoint — filter and render from this
  * one list, so a destination cannot exist in one and be forgotten in the other.
  *
  * Lives in `lib/` rather than `components/` for the same reason `lib/admin/tabs.ts` does: it
@@ -188,9 +188,20 @@ export function visibleNavGroup(
  * The inline/narrow switch. The CSS breakpoint and the `matchMedia` query that clears open
  * menu state MUST stay identical, so both read this one constant.
  *
- * 800px, not the named `md:` (768px): the full inline row measures 750px including header
- * padding, which would leave only 18px for font metrics, the pending-count badge, and identity
- * text.
+ * **880px — re-measured 2026-08-10, up from the 800px the plan specified.** The plan derived
+ * 800 from a 750px row and rejected the named `md:` (768px) for leaving "only 18px" of
+ * tolerance. That reasoning then condemned 800 itself, because the 44px touch targets widened
+ * the row after the fact: the Admin pill went `px-1.5`→`px-3` and Sign out `px-2`→`px-3`.
+ *
+ * Measured in Chromium with an admin (the worst case — most items, plus the pending badge) and
+ * the identity span at its full `max-w-40` cap: brand 120 + nav 636 + 32 header padding =
+ * **788px**. At an 800px breakpoint that is 12px of slack, which held on macOS and wrapped on
+ * Linux CI, where the row silently grew a second line (the nav is `flex-wrap`, so it never
+ * overflows — it wraps, which is the whole failure this design exists to remove).
+ *
+ * 880 leaves ~92px, comfortably past cross-platform font-metric variance. Raising the
+ * breakpoint rather than trimming the padding keeps the 44px targets intact; the identity cap
+ * stays at `max-w-40` so the address is still readable.
  */
-export const INLINE_NAV_MIN_WIDTH = 800;
+export const INLINE_NAV_MIN_WIDTH = 880;
 export const INLINE_NAV_MEDIA_QUERY = `(min-width: ${INLINE_NAV_MIN_WIDTH}px)`;

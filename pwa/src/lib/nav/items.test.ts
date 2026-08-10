@@ -284,7 +284,13 @@ describe('NAV_ITEMS registry', () => {
   });
 
   it('derives the media query from the breakpoint constant, so they cannot drift', () => {
-    expect(INLINE_NAV_MIN_WIDTH).toBe(800);
+    // Deliberately NOT `expect(INLINE_NAV_MIN_WIDTH).toBe(<literal>)`. The breakpoint is a
+    // measured value that moves whenever anything in the inline row changes size — it went
+    // 800 → 880 when the 44px touch targets widened the Admin pill and Sign out. Pinning the
+    // literal here only duplicates the number this test exists to protect, and turns a
+    // legitimate re-measurement into a spurious failure. What must hold is the derivation.
     expect(INLINE_NAV_MEDIA_QUERY).toBe(`(min-width: ${INLINE_NAV_MIN_WIDTH}px)`);
+    expect(INLINE_NAV_MIN_WIDTH).toBeGreaterThan(0);
+    expect(Number.isInteger(INLINE_NAV_MIN_WIDTH)).toBe(true);
   });
 });

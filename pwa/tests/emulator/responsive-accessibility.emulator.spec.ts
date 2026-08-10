@@ -10,7 +10,7 @@
  *
  * Division of labour: the disclosure's behaviour and the per-persona menu matrix live in
  * `nav-disclosure.emulator.spec.ts`. This file owns the things that only a real browser at a
- * real size can answer — overflow, the 799/800px presentation boundary, wrapping, touch-target
+ * real size can answer — overflow, the presentation boundary, wrapping, touch-target
  * geometry, a short landscape viewport, and axe.
  *
  * The DOM contract these tests assume is documented at the top of `nav-disclosure.emulator.spec.ts`.
@@ -22,11 +22,17 @@ import { signIn, signOut } from './fixtures';
 import { PERSONAS, type Persona } from './personas';
 
 const NARROW = { width: 390, height: 844 };
-/** One pixel below `INLINE_NAV_MIN_WIDTH` — still the disclosure. */
-const JUST_BELOW_INLINE = { width: 799, height: 900 };
-/** Exactly `INLINE_NAV_MIN_WIDTH` — the first width that must render the inline row, and the
- * width the plan's 750px measurement was sized against, so it is the real worst case. */
-const AT_INLINE = { width: 800, height: 900 };
+/**
+ * Must track `INLINE_NAV_MIN_WIDTH` in `src/lib/nav/items.ts`. Not imported: that module
+ * resolves `@/` aliases the Playwright transform does not configure, so the value is mirrored
+ * here and the boundary tests below fail loudly if the two ever drift apart.
+ */
+const INLINE_MIN = 880;
+/** One pixel below the breakpoint — still the disclosure. */
+const JUST_BELOW_INLINE = { width: INLINE_MIN - 1, height: 900 };
+/** Exactly the breakpoint: the first width that must render the inline row, and therefore the
+ * real worst case for wrapping. */
+const AT_INLINE = { width: INLINE_MIN, height: 900 };
 /** Phone in landscape: an admin menu is ~10 rows of 44px and cannot fit in 360px of height. */
 const SHORT_LANDSCAPE = { width: 740, height: 360 };
 
@@ -124,7 +130,7 @@ test.describe('authenticated responsive shell', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('799px uses the disclosure and 800px uses the inline row on a single line', async ({
+  test('one pixel below the breakpoint uses the disclosure; at it, the inline row is one line', async ({
     page,
   }) => {
     // Admin is the worst case: the most inline items, plus the pending-count badge.
@@ -148,7 +154,7 @@ test.describe('authenticated responsive shell', () => {
     await expect(menu.locator('a[href="/events"]')).toBeVisible();
     await expect(menu.locator('a[href="/admin"]')).toBeVisible();
 
-    expectOnOneLine(await rowCentres(menu, PERSONAS.admin), 'admin inline row at 800px');
+    expectOnOneLine(await rowCentres(menu, PERSONAS.admin), `admin inline row at ${INLINE_MIN}px`);
     await expectNoHorizontalOverflow(page);
   });
 

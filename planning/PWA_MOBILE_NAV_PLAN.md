@@ -271,7 +271,19 @@ than re-deriving. The production-director tier is specified in
 
 ## Breakpoint
 
-**800px**, expressed with Tailwind's arbitrary `min-[800px]:` variant.
+> **Revised to 880px on 2026-08-10, during implementation.** The reasoning below still holds —
+> it is the reasoning that condemned 800. The 44px touch targets widened the row *after* the
+> 750px measurement was taken (Admin pill `px-1.5`→`px-3`, Sign out `px-2`→`px-3`), so the real
+> requirement is now **788px**, measured in Chromium with an admin and the identity span at its
+> full 160px cap (brand 120 + nav 636 + 32 header padding). At 800px that is **12px** of
+> tolerance — it passed on macOS and **wrapped on Linux CI**, where the row silently grew a
+> second line. 880px restores ~92px of headroom. The value lives in one constant,
+> `INLINE_NAV_MIN_WIDTH`, so the CSS breakpoint and the `matchMedia` string cannot drift.
+>
+> The lesson generalises: a breakpoint derived from a measurement has to be re-derived whenever
+> anything in the row changes size. Read "800px" below as 880px throughout.
+
+**~~800px~~ 880px**, from the `INLINE_NAV_MIN_WIDTH` constant.
 
 The full inline row currently needs 750px, including the header padding. Switching at the
 named `md:` breakpoint (768px) would leave only 18px of tolerance for font metrics, a
@@ -279,7 +291,7 @@ pending-count badge, and identity text. The originally suggested `max-w-[12rem]`
 would not fix that: replacing the measured 161px email with a possible 192px flex item
 raises the row to roughly 781px.
 
-At 800px, constrain the desktop email flex item with `max-w-40 truncate` (160px) and
+At the breakpoint, constrain the desktop email flex item with `max-w-40 truncate` (160px) and
 `min-w-0`; keep the complete address as the text content so assistive technology still
 receives it. The narrow-screen email label also needs `min-w-0` plus truncation or safe
 wrapping so an unusually long address cannot widen the panel.

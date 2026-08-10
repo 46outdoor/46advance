@@ -10,7 +10,7 @@
  *     unit-tested; what this file adds is that a real ID token plus a real
  *     `collectionGroup('members')` read land on the same answer.
  *  2. **The disclosure behaves like a disclosure** — open/close, outside click, Escape and
- *     focus return, route changes, and the 800px boundary.
+ *     focus return, route changes, and the inline breakpoint.
  *
  * ⚠ Hiding a link is NOT access control. `/contacts` and `/documents` are still reachable by
  * URL for any approved user (firestore.rules: `allow read: if isActiveUser()`); the absence
@@ -29,11 +29,11 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { openAs, signIn } from './fixtures';
 import { PERSONAS, type Persona } from './personas';
 
-/** Phone portrait — below the 800px inline breakpoint (`INLINE_NAV_MIN_WIDTH`). */
+/** Phone portrait — below the inline breakpoint (`INLINE_NAV_MIN_WIDTH`, 880). */
 const NARROW = { width: 390, height: 844 };
-/** Comfortably above the breakpoint; the exact 799/800 boundary is covered in the
+/** Comfortably above the breakpoint; the exact boundary is covered in the
  * responsive spec, this is just "wide enough to be the inline presentation". */
-const WIDE = { width: 900, height: 800 };
+const WIDE = { width: 1000, height: 800 };
 
 /** The account rows every persona gets, in render order. Settings is a registry destination;
  * the email span is non-interactive so it never appears in a row list. */
@@ -308,7 +308,7 @@ test.describe('narrow nav disclosure — behaviour', () => {
     await expect(navTrigger(page)).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('crossing the 800px boundary clears the open state', async ({ page }) => {
+  test('crossing the inline breakpoint clears the open state', async ({ page }) => {
     await page.setViewportSize(NARROW);
     await signIn(page, PERSONAS.pm);
     await gotoEventsSettled(page);
