@@ -64,6 +64,14 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   the last allowlist fix (2026-07-31) came back clean with the Google sign-in, Drive, and
   packet flows all exercised, so nothing legitimate is affected.
 
+### Changed
+
+- **The events list is ordered by date — soonest first.** It used to be alphabetical by event
+  name, and because event names carry the city ("Rock the Country 2026 — Ashland, KY"), that
+  meant a touring festival was sorted **by city** rather than by when the shows actually happen.
+  The next show you're working now leads the list. Events with no start date yet sort to the
+  bottom.
+
 ### Fixed
 
 - **Crew can open the events they're assigned to.** Anyone who was not an admin or a production

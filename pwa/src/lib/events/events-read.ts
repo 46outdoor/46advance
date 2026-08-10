@@ -9,7 +9,7 @@
 import { collection, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { createLogger } from '@/lib/logger';
-import { parseEvent, type EventRecord } from '@/lib/events/event';
+import { compareEventsByDate, parseEvent, type EventRecord } from '@/lib/events/event';
 import { canOverseeAllEvents, type Viewer } from '@/lib/rbac/permissions';
 import { listMyEventMemberships } from '@/lib/rbac/my-memberships';
 
@@ -60,6 +60,12 @@ export async function getEvent(eventId: string): Promise<EventRecord | null> {
 export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
   let events: EventRecord[];
   if (canOverseeAllEvents(viewer)) {
+    // Ordered by `name`, NOT by `startDate`, even though the list is presented chronologically.
+    // Firestore's `orderBy` silently excludes documents missing the field, so ordering the query
+    // by `startDate` would make undated events vanish from the oversight list entirely. The
+    // chronological order is applied client-side below, over the whole page. (The interaction
+    // with EVENTS_READ_CAP is that truncation happens in name order — the warn below fires long
+    // before that could matter.)
     const snap = await getDocs(
       query(collection(db, 'events'), orderBy('name'), limit(EVENTS_READ_CAP)),
     );
@@ -76,5 +82,5 @@ export async function listEvents(viewer: Viewer): Promise<EventRecord[]> {
     const fetched = await Promise.all(memberships.map((m) => getEvent(m.eventId)));
     events = fetched.filter((e): e is EventRecord => e !== null);
   }
-  return events.sort((a, b) => a.name.localeCompare(b.name));
+  return events.sort(compareEventsByDate);
 }
