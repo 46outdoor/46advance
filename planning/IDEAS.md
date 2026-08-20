@@ -209,9 +209,17 @@ grouping interacts with search/filter are all open.
 
 ## 3. Crew travel & lodging (hotels, bunks, flights, rental cars)
 
-**Status:** idea — shape open
+**Status:** ✅ **GRADUATED — scoped 2026-08-20 into
+[CREW_TRAVEL_LODGING_PLAN.md](CREW_TRAVEL_LODGING_PLAN.md), which is now the source of truth.**
+This entry is kept as the origin record; everything below is what the shape looked like *before*
+the decisions. Every open question here was answered — see the plan's decision table. Two notes
+where this entry is now **wrong**: the "new access pattern" framing under Privacy overstated the
+cost (the `contact.userId` identity join already exists and is maintained on sign-in), and "the
+crew roster is thin" is true of the roster but not of the person↔account link.
 **Raised:** 2026-08-08
-**Related:** shares a root with §4 — both need to know *who is on site, and when*.
+**Related:** shares a root with §4 — both need to know *who is on site, and when*. §4 is
+**not** graduated: the plan excludes unnamed labor blocks, which is exactly the population §4's
+headcounts are about.
 
 ### The problem
 
