@@ -10,6 +10,9 @@ filed by category.
   when we commit to them; ROADMAP holds what's actually been decided.
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
+- **[CREW_TRAVEL_LODGING_PLAN.md](CREW_TRAVEL_LODGING_PLAN.md)** — *active, not started.* Crew
+  lodging + per-person travel (graduated from IDEAS §3 on 2026-08-20), plus the **Production
+  Coordinator** company-wide capability that writes it. Two independently shippable phases.
 - **[DEPLOYMENTS.md](DEPLOYMENTS.md)** — deployment & rollback ledger: the build release
   identifier, who deploys each target, rollback steps, the open deploy queue, and the
   record of backend deploys + Hosting checkpoints (deploy clock; the CHANGELOG is the
