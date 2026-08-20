@@ -53,22 +53,6 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Three production checks the 2026-08-10 releases could not cover.** The release is verified
-  (see its ledger entry) but the hand-verification used a `tech` account, which cannot exercise
-  any of these. None is suspected broken — all three are covered by CI — this is about closing
-  the gap between "CI says so" and "someone looked".
-  1. **The director's contacts curation.** The rules went live earlier and were verified against
-     the released ruleset, but the Edit/Delete controls on a contact someone else created only
-     appeared with this release. Needs the `jared@yourstagemanager.com` director session:
-     confirm they can correct another person's directory entry, and that **relinking is still
-     refused** (`createdBy`/`userId` stay admin-only — that is the F-3 guard).
-  2. **The admin inline nav row at exactly 880px.** This is the case that *wrapped* on Linux CI
-     at the old 800px breakpoint — most items, pending badge, longest email. A tech account has
-     four items and cannot reproduce it. Open the owner's admin session at an 880px-wide window
-     and confirm the header stays on one line.
-  3. **Chronological event ordering** (added with the `abc2400` release). The tech account sees
-     one event; ordering needs at least two. Confirm the events list leads with the soonest show,
-     and that an event with no start date sorts to the bottom rather than the top.
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
@@ -115,6 +99,60 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-20 — The three deferred production checks are closed: all three PASS.** No deploy —
+this closes the open action carried since the 2026-08-10 releases, whose hand-verification used
+a `tech` account that could not exercise any of them. Checked by the owner in a real browser
+against the live client (now `64ac3bc`); the behavior under test is unchanged from `abc2400`.
+
+**1. The director's contacts curation — PASS, and the two ways this test could have been
+vacuous are both ruled out by data.** `canManageContact` is `admin || productionDirector ||
+creator`, so a pass proves nothing unless the other two branches are excluded:
+
+| Branch | Excluded by |
+| --- | --- |
+| admin | Signed in as `jared@yourstagemanager.com`; nav renders no **Admin** item |
+| creator | Target contact's `createdBy` is `q2zpZHxJWpgfsrl3ZXK6oaTr5H83` (the app admin), not the director's `ar63s3b84jdkvXjbRbMiskJe9Qo1` |
+| account link | The same contact's `userId` is unset |
+
+`createdBy`/`userId` were read directly from `contacts/**` over the Firestore REST API with a
+gcloud token, not inferred from the UI. Edit + save on another user's entry succeeded and
+persisted. **Edit/Delete render across entries from multiple companies**, which is curation
+breadth rather than own-entries-only. The **relink half needs no attempt**: `ContactForm.tsx`
+exposes name / role / company / phone / email / notes / photo and **no account-link control at
+all**, for anyone — confirmed visually. The rules-level `keysUnchanged(['createdBy','userId'])`
+guard was already verified against the live released ruleset on 2026-08-10.
+
+**2. The admin inline nav row at exactly 880px — PASS.** Measured in DevTools responsive mode
+(viewport width, not window width — a window dragged to 880 has a narrower viewport and yields a
+false failure). At **880**: one inline row carrying the widest case — Events, Contacts,
+Documents, **Admin + pending badge**, Settings, full email, Sign out — no wrap, no overflow. At
+**879**: the ☰ disclosure. This is the configuration that *wrapped* on Linux CI at the old 800px
+breakpoint. Note **Tracker is absent from the inline row by design** (`placements: NARROW_ONLY`
+in `src/lib/nav/items.ts`) — it appears only in the narrow dropdown; that is not a defect.
+
+**3. Chronological event ordering — PASS on the dated half, decisively.** The list leads with
+Rock the Country 2026 (Jul 10) ahead of Boots on the Bend 2026 (Aug 15). That discriminates
+rather than merely agrees: **alphabetically "Boots on the Bend" sorts before "Rock the
+Country"**, so the pre-#285 name ordering would have inverted this pair. It didn't, so the date
+comparator is what is running. The **undated half was not observable** — both production events
+carry start dates — and continues to rest on the six unit tests, including the one that sorts
+the same input in both directions.
+
+**Observation, not a defect, raised by doing check 3.** As of today both events are already in
+the past, so the list leads with the *furthest-past* show. That is precisely what
+`compareEventsByDate` specifies — a plain ascending sort with no concept of "upcoming" — but the
+CHANGELOG's stated intent was "the next show you're working now leads the list", which ascending
+order stops serving once shows fall behind the current date. Expect this to matter more as event
+history accumulates. Tracked as a candidate in [`IDEAS.md`](IDEAS.md), not as a bug here.
+
+**Interaction worth flagging with the deferred credential item above.**
+`isPendingApproval(u)` is `!u.isAdmin && !u.approved`, so revoking approval does not move an
+account to a distinct revoked state — **it makes it *pending***. The revoked
+`jared@jaredfoh.com` therefore now sits in the Admin → Users approval queue and drives the
+Admin pending badge, indistinguishable from a routine new signup. Approving it from that panel
+would restore company-wide read with the shared password still live. That is the exact failure
+the deferred item's "change the password *before* re-approving" wording exists to prevent.
 
 **2026-08-20 — Hosting releases (`e00a01c`, then `64ac3bc`): HOSTING (owner).** Two releases ~29
 minutes apart (15:16:38Z run 32385155647; 15:45:52Z run 32388074263), both green on the first
