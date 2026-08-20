@@ -1163,11 +1163,15 @@ describe('firestore.rules — global contacts directory', () => {
     await assertFails(updateDoc(doc(dbFor(PM), 'contacts/c-pm'), { userId: PM }));
   });
 
-  it('admin can relink a contact (createdBy/userId stay admin-mutable)', async () => {
-    await assertSucceeds(
+  it('admin can NO LONGER relink through a direct write (decision 13, 2026-08-20)', async () => {
+    // `userId` became denormalized authorization data for crewLogistics — a one-write client
+    // relink would leave the copies authorizing the wrong account. The admin capability moved
+    // to the `relinkContactUser` callable (atomic); the link fields are immutable to every
+    // direct client write. The dedicated matrix lives in crew-logistics.rules.test.ts.
+    await assertFails(
       updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-linked'), { userId: PM }),
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm'), { createdBy: OUTSIDER }),
     );
   });
@@ -1236,9 +1240,13 @@ describe('firestore.rules — per-event contact attachments', () => {
     );
   });
 
-  it('only PM/admin can detach', async () => {
+  it('detach is server-only — even PM/admin cannot delete an attachment directly', async () => {
+    // Changed 2026-08-20 (CREW_TRAVEL_LODGING_PLAN §4.2): crewLogistics records reference an
+    // attachment by id and rules cannot query for those dependents, so the detach moved
+    // behind the `detachEventContact` callable (Admin SDK), which refuses while any exist.
     await assertFails(deleteDoc(doc(dbFor(TECH), attachPath('att-seed'))));
-    await assertSucceeds(deleteDoc(doc(dbFor(PM), attachPath('att-seed'))));
+    await assertFails(deleteDoc(doc(dbFor(PM), attachPath('att-seed'))));
+    await assertFails(deleteDoc(doc(dbFor(ADMIN.uid, ADMIN.token), attachPath('att-seed'))));
   });
 });
 

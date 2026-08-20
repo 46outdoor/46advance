@@ -145,3 +145,26 @@ export function canManageContact(viewer: Viewer, contact: ContactOwnership): boo
 export function canManageMembers(viewer: Viewer, role: EventRole | null): boolean {
   return viewer.isAdmin || role === 'production-manager';
 }
+
+/**
+ * May create/edit/delete crew travel & lodging records on an event
+ * (planning/CREW_TRAVEL_LODGING_PLAN.md §4.6). Phase 1: admin or the event's PM — the same
+ * population as `canEditEvent`, but deliberately its OWN predicate so the Production
+ * Coordinator capability (Phase 2) widens one function body instead of sweeping call sites.
+ * Named for the capability, never the claim that grants it.
+ */
+export function canManageCrewLogistics(viewer: Viewer, role: EventRole | null): boolean {
+  return viewer.isAdmin || role === 'production-manager';
+}
+
+/**
+ * May read EVERY crew logistics record on an event — the read superset over
+ * `canManageCrewLogistics` (decision 12): a production director inspects all itineraries
+ * read-only, preserving ROADMAP §4's "director reads every event subtree" contract, while the
+ * director claim still carries no logistics write. Everyone else reads only records whose
+ * denormalized `userId` is their own (enforced in rules; the client mirrors it by choosing the
+ * uid-constrained query — see the list-query trap in plan §4.3).
+ */
+export function canViewAllCrewLogistics(viewer: Viewer, role: EventRole | null): boolean {
+  return canManageCrewLogistics(viewer, role) || viewer.isProductionDirector === true;
+}

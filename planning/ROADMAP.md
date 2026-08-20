@@ -540,7 +540,17 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   self), edit/delete by creator or admin** (and, since 2026-08-10, by a **production
   director** over any entry — see §4); **per-event attachment** `events/{id}/contacts/{attachId}`
   (join + role-on-event label, PM/admin write, member read) resolved against the directory.
-  Tap-to-call/email shared component. **User-account link deferred.** Model in `src/lib/contacts/`.
+  Tap-to-call/email shared component. Model in `src/lib/contacts/`.
+  **User-account link — BUILT (correcting a stale "deferred" note, verified 2026-08-20):**
+  every account links to exactly one contact on sign-in (`linkOrCreateContact` — an
+  admin-pre-added contact matched by email, else a self-mirror at `contacts/{uid}`), tracked
+  via `users/{uid}.contactId`, name kept in sync, unlinked on account deletion. Since
+  2026-08-20 the link fields are **immutable to every direct client write including admin's**
+  — `contact.userId` became denormalized authorization data for crew travel & lodging
+  ([`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md) §4.2) — and admin relinking
+  runs through the atomic `relinkContactUser` callable instead. **Crew logistics remains
+  within production-director oversight** (plan decision 12): the director reads every
+  itinerary, read-only, preserving §4's "director reads every event subtree" contract.
 
 ## 12. Integrations
 

@@ -7,16 +7,20 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { z } from 'zod';
-import { db } from '@/services/firebase';
+import { db, functions } from '@/services/firebase';
 import { listContacts } from '@/lib/contacts/contacts-service';
 import type { Contact } from '@/lib/contacts/contact';
+import type {
+  DetachEventContactInput,
+  DetachEventContactOutput,
+} from '@contracts/callables/crewLogistics';
 
 export interface EventContactAttachment {
   id: string;
@@ -91,6 +95,16 @@ export async function setEventContactNotes(
   });
 }
 
+/**
+ * Detach a crew member — server-owned since 2026-08-20 (CREW_TRAVEL_LODGING_PLAN §4.2): the
+ * direct delete is refused by rules because crewLogistics records reference the attachment
+ * and only the server can run that dependent query. The callable throws
+ * `failed-precondition` while travel/lodging records still reference this person.
+ */
 export async function detachContact(eventId: string, attachId: string): Promise<void> {
-  await deleteDoc(doc(db, 'events', eventId, 'contacts', attachId));
+  const callable = httpsCallable<DetachEventContactInput, DetachEventContactOutput>(
+    functions,
+    'detachEventContact',
+  );
+  await callable({ eventId, attachId });
 }

@@ -164,6 +164,83 @@ async function seedEmulator(): Promise<void> {
       memberFields(membership.role, adminUid, uid),
     );
   }
+
+  // Crew travel & lodging fixtures (planning/CREW_TRAVEL_LODGING_PLAN.md §4.7): two crew
+  // contacts on alpha — one linked to the tech persona, one linked to nobody — each with a
+  // lodging record. The privacy matrix the spec asserts: the tech sees ONLY the Hampton
+  // record (theirs); the PM sees both.
+  await putDoc('contacts/e2e-contact-tech', {
+    name: str(PERSONAS.tech.displayName),
+    role: nul(),
+    company: nul(),
+    phone: nul(),
+    email: str(PERSONAS.tech.email),
+    notes: nul(),
+    userId: str(uidByKey.tech),
+    createdBy: str(adminUid),
+    createdAt: ts(NOW_ISO),
+    updatedAt: ts(NOW_ISO),
+  });
+  await putDoc('contacts/e2e-contact-nolink', {
+    name: str('Norma Nolink'),
+    role: nul(),
+    company: nul(),
+    phone: nul(),
+    email: nul(),
+    notes: nul(),
+    userId: nul(),
+    createdBy: str(adminUid),
+    createdAt: ts(NOW_ISO),
+    updatedAt: ts(NOW_ISO),
+  });
+  await putDoc('events/e2e-event-alpha/contacts/e2e-attach-tech', {
+    contactId: str('e2e-contact-tech'),
+    roleLabel: str('Audio Tech'),
+    addedBy: str(adminUid),
+    addedAt: ts(NOW_ISO),
+  });
+  await putDoc('events/e2e-event-alpha/contacts/e2e-attach-nolink', {
+    contactId: str('e2e-contact-nolink'),
+    roleLabel: nul(),
+    addedBy: str(adminUid),
+    addedAt: ts(NOW_ISO),
+  });
+  await putDoc('events/e2e-event-alpha/crewLogistics/e2e-log-tech', {
+    kind: str('lodging'),
+    eventContactId: str('e2e-attach-tech'),
+    contactId: str('e2e-contact-tech'),
+    userId: str(uidByKey.tech),
+    hotelName: str('Hampton Inn Alpha'),
+    address: nul(),
+    hotelPhone: nul(),
+    confirmation: str('TECH123'),
+    checkInDate: str('2026-08-14'),
+    checkOutDate: str('2026-08-18'),
+    roomType: nul(),
+    roomNumber: str('412'),
+    notes: nul(),
+    createdBy: str(uidByKey.pm),
+    createdAt: ts(NOW_ISO),
+    updatedAt: ts(NOW_ISO),
+  });
+  await putDoc('events/e2e-event-alpha/crewLogistics/e2e-log-nolink', {
+    kind: str('lodging'),
+    eventContactId: str('e2e-attach-nolink'),
+    contactId: str('e2e-contact-nolink'),
+    userId: nul(),
+    hotelName: str('Marriott Alpha'),
+    address: nul(),
+    hotelPhone: nul(),
+    confirmation: str('NOLINK456'),
+    checkInDate: str('2026-08-14'),
+    checkOutDate: str('2026-08-18'),
+    roomType: nul(),
+    roomNumber: str('210'),
+    notes: nul(),
+    createdBy: str(uidByKey.pm),
+    createdAt: ts(NOW_ISO),
+    updatedAt: ts(NOW_ISO),
+  });
 }
 
 function eventFields(event: SeedEvent, createdByUid: string): Record<string, FsValue> {

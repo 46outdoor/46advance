@@ -1,10 +1,21 @@
 # Crew travel & lodging — plan
 
-**Status:** planned, not started; implementation-gated on the two explicit prerequisites in
-§2.1. Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding
-was re-verified against the codebase the same day before scoping. Security/data-integrity review
+**Status:** **Phase 1 IMPLEMENTED 2026-08-20** (merged pending; unreleased — Hosting +
+functions + rules + indexes deploys required). §2.1 #1 resolved the same day (any roster
+member); **Phase 2 remains blocked on §2.1 #2** (the coordinator read/discovery scope).
+Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding was
+re-verified against the codebase the same day before scoping. Security/data-integrity review
 was folded in on 2026-08-20. **Ships in two phases** that are independently valuable and
 independently verifiable once their gates are resolved.
+
+> **Phase 1 as built:** model `src/lib/logistics/crewLogistics.ts` · predicates
+> `canManageCrewLogistics`/`canViewAllCrewLogistics` · rules block + `validCrewLogisticsWrite`
+> + contact-link immutability + server-only detach · collection-group indexes · backend
+> `functions/src/crewLogistics.ts` (trigger + `detachEventContact` + `relinkContactUser`) ·
+> service + `TravelLodgingPanel` · tests at four layers (13 unit + 4 predicate · 18 rules +
+> 2 deliberate updates to prior assertions · 12 functions-emulator · 3 E2E, crew case signed
+> in as tech). The emulator layer caught a real transaction-ordering bug in the relink
+> (reads-after-writes), which is the layer working as intended.
 
 Graduates IDEAS §3. That entry stays as the origin record; **this file is now the source of
 truth** for the design. Decisions below were made by the user on 2026-08-20 and are binding —
@@ -68,12 +79,13 @@ the enforcement path changes because relinking now has denormalized authorizatio
 The locked choices above expose two questions the current code cannot answer safely. Do not begin
 the affected phase by guessing:
 
-1. **What exactly makes a contact “46 Entertainment crew”?** The current Event Crew panel can
-   attach any global directory contact, and `company` is free-form text. If the Event Crew roster
-   is guaranteed by business practice to contain only 46 crew, record that as the v1 invariant
-   and enforce that a logistics record references an attachment from that roster. If the roster
-   may also contain vendors, artists, or local labor, add an explicit structured classification
-   before Phase 1. Never infer eligibility from the `company` string.
+1. **What exactly makes a contact “46 Entertainment crew”? — RESOLVED 2026-08-20: any roster
+   member.** The code enforces exactly one thing: a logistics record references an attachment on
+   the event's crew roster (`eventContactId`). The roster demonstrably spans companies (Stageline
+   et al.), so decision 2's "46 Entertainment crew only" is recorded as **business practice about
+   whose travel the company books, not a rules invariant** — no classification field, no config
+   list, and nothing breaks if a vendor's room is ever booked. Eligibility is never inferred from
+   the free-form `company` string.
 2. **What may a company-wide coordinator read?** A coordinator with no event membership cannot
    currently discover or read an event: `canReadEvent`, the events list, the event route, and the
    schedule's supporting queries are all membership/oversight-gated. Choose one before Phase 2:
