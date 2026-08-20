@@ -69,11 +69,34 @@ completes, record it as a ledger entry below and delete it here.
   3. **Chronological event ordering** (added with the `abc2400` release). The tech account sees
      one event; ordering needs at least two. Confirm the events list leads with the soonest show,
      and that an event with no start date sorts to the bottom rather than the top.
-- **Weak credential on the test account.** `jared@jaredfoh.com` (tech on Boots on the Bend) was
-  created 2026-08-10 as the app's first non-oversight account and its password was shared in
-  chat. Worth keeping — it is the only way to exercise the non-oversight path by hand, and the
-  class of bug it caught (see the slug fix) is invisible to every other account. **Change the
-  password.**
+- **Weak credential on the test account — mitigated by revocation, deferred, and gated on
+  re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
+  app's first non-oversight account and its password was shared in chat. **The owner revoked the
+  account's approval on 2026-08-20**, which is a full shutdown rather than a claim flip:
+  `setUserApproved(uid, false)` clears the `approved` claim and its `users/{uid}` mirror,
+  **revokes refresh tokens**, disconnects Google, and **revokes the calendar-feed token** — that
+  last one matters, since the feed URL is a bearer credential that would otherwise outlive
+  sign-in access. Every gate that gained from this reads `isActiveUser()`.
+
+  **Why the credential still mattered while approved,** recorded so the reasoning isn't re-derived:
+  the exposure was never about other users of the app. `contacts/{contactId}` and
+  `artistDocuments/{docId}` both `allow read: if isActiveUser()` (`firestore.rules`), so *any*
+  approved account reads the entire company contacts directory and artist document library — not
+  just its own event. A working credential in a chat log opened that from the public internet.
+  This is the read-scoping question tracked as [`IDEAS.md`](IDEAS.md) §5, seen from the credential
+  side.
+
+  **The account is worth keeping**, not deleting — it is the only way to exercise the
+  non-oversight path by hand, and the class of bug it caught (see the slug fix) is invisible to
+  every other account. So this is deferred, not closed, and the residual action has a trigger
+  rather than a date: **change the password *before* re-approving.** Re-approval restores
+  company-wide read with the same shared password, so the two steps must not be separated. The
+  expected trigger is the next time a non-oversight account is needed by hand.
+
+  Note this does **not** block the three production checks above: the director-curation and
+  880px-nav checks both call for the owner's own director/admin session, and the ordering check
+  needs an account seeing more than one event — which admin and director already do, since they
+  see every event. All three remain doable today with the account revoked.
 - *(the Phase-3 field-migration re-run gate closed 2026-08-08 with a clean dry run; see the
   ledger entry)*
 
