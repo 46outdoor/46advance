@@ -156,13 +156,19 @@ async function readRelinkState(
     }
   }
 
+  // limit(cap + 1): enough to detect over-cap without pulling an unbounded result set into
+  // the transaction — the size check below cannot distinguish cap+1 from 10,000, so the
+  // error cites the cap rather than a truncated count.
   const records = await tx.get(
-    db.collectionGroup('crewLogistics').where('contactId', '==', contactId),
+    db
+      .collectionGroup('crewLogistics')
+      .where('contactId', '==', contactId)
+      .limit(RELINK_MAX_RECORDS + 1),
   );
   if (records.size > RELINK_MAX_RECORDS) {
     throw new HttpsError(
       'failed-precondition',
-      `This contact has ${records.size} travel/lodging records — more than the ${RELINK_MAX_RECORDS} an atomic relink supports. This needs a maintenance migration; no changes were made.`,
+      `This contact has more than ${RELINK_MAX_RECORDS} travel/lodging records — beyond what an atomic relink supports. This needs a maintenance migration; no changes were made.`,
     );
   }
 

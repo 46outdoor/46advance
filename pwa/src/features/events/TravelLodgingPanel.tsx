@@ -53,7 +53,7 @@ const ZONE_OPTIONS = [
 ] as const;
 
 const inputClass =
-  'w-full rounded border border-line bg-transparent px-2 py-1.5 text-sm focus:border-accent focus:outline-none';
+  'min-h-11 w-full rounded border border-line bg-transparent px-2 py-1.5 text-sm focus:border-accent focus:outline-none sm:min-h-0';
 const buttonClass =
   'min-h-11 rounded border border-line px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50 sm:min-h-0';
 
@@ -92,8 +92,10 @@ export function TravelLodgingPanel({ eventId, viewer, role }: TravelLodgingPanel
   });
 
   const records = recordsQuery.data ?? [];
-  // Crew with nothing booked see no panel at all — not an empty shell.
-  if (!canViewAll && records.length === 0) return null;
+  // Crew with nothing booked see no panel at all — not an empty shell. Null during the
+  // pending state too (no flash), but NOT on error: a crew member whose query failed must
+  // see the failure, not silence.
+  if (!canViewAll && !recordsQuery.isError && records.length === 0) return null;
 
   const byPerson = new Map<string, CrewLogisticsRecord[]>();
   for (const r of records) {
@@ -166,7 +168,7 @@ export function TravelLodgingPanel({ eventId, viewer, role }: TravelLodgingPanel
       ) : (
         <ul className="mt-3 space-y-2">
           {records.map((r) => (
-            <RecordRow key={r.id} record={r} canManage={false} onEdit={() => {}} onDelete={() => {}} />
+            <RecordRow key={r.id} record={r} canManage={false} />
           ))}
         </ul>
       )}
@@ -182,8 +184,9 @@ function RecordRow({
 }: {
   record: CrewLogisticsRecord;
   canManage: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  /** Only rendered when canManage — the read-only views omit them. */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <li className="flex flex-wrap items-start justify-between gap-2 rounded border border-line p-3">
@@ -256,7 +259,7 @@ function RecordForm({ eventId, viewerUid, roster, record, onDone, onCancel }: Re
     mutationFn: async () => {
       const input = buildInput(kind, fields);
       if (!attachId) throw new Error('Pick a crew member.');
-      if (record) await updateCrewLogistics(eventId, record.id, attachId, input);
+      if (record) await updateCrewLogistics(eventId, record.id, attachId, input, record.kind);
       else await createCrewLogistics(eventId, attachId, input, viewerUid);
     },
     onSuccess: onDone,

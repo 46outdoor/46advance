@@ -89,7 +89,8 @@ export function isValidTimeZone(zone: string): boolean {
 const dateKeySchema = z.string().refine(isValidDateKey, 'Use a real YYYY-MM-DD date.');
 const zoneSchema = z.string().refine(isValidTimeZone, 'Use a valid IANA time zone.');
 
-/** Nullable trimmed string that stores '' as null. */
+/** Nullable/optional string on the STORED shape (no trimming here — that's the input
+ *  schema's `inputText` job; the doc schema validates what's already persisted). */
 const optionalText = z.string().nullable().optional();
 
 const baseDocShape = {

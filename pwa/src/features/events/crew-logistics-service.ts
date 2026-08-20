@@ -84,13 +84,23 @@ export async function createCrewLogistics(
   return ref.id;
 }
 
-/** Update a record's content fields; the identity triple is re-derived and re-proven. */
+/**
+ * Update a record's content fields; the identity triple is re-derived and re-proven.
+ * `existingKind` guards against a kind flip: `updateDoc` merges, so switching kinds would
+ * leave the old kind's fields on the doc — a shape the rules' `keys().hasOnly` check
+ * rejects anyway, but this fails with a clear message instead of `permission-denied`.
+ * (The form also disables the kind selector while editing.)
+ */
 export async function updateCrewLogistics(
   eventId: string,
   recordId: string,
   attachId: string,
   input: CrewLogisticsInput,
+  existingKind: CrewLogisticsInput['kind'],
 ): Promise<void> {
+  if (input.kind !== existingKind) {
+    throw new Error('A record cannot change type — delete it and add a new one.');
+  }
   const identity = await resolveIdentity(eventId, attachId);
   await updateDoc(doc(db, 'events', eventId, 'crewLogistics', recordId), {
     ...serializeInput(input),
