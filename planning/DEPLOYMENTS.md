@@ -53,6 +53,19 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
+- **Crew travel & lodging Phase 1 — backend deploys required, in order.** Merged (see the
+  CHANGELOG entry) but nothing is live until: **(1)** `firebase-safe.sh deploy --only
+  firestore:rules` — carries the new `crewLogistics` block, the server-only roster detach,
+  and the contact-link immutability (this last is SAFE to deploy ahead of functions: it only
+  narrows; admin relink is briefly unavailable until step 2); **(2)** `--only
+  firestore:indexes` — two `crewLogistics` collection-group field overrides (`contactId`,
+  `userId`); the reconcile paths and the uid-constrained crew query need them; **(3)**
+  `--only functions` — `detachEventContact`, `relinkContactUser`,
+  `reconcileCrewLogisticsOnContactWrite` (a NEW Firestore trigger), plus the updated
+  sign-in/delete paths; **(4)** owner Hosting release — until it ships, the released client
+  still calls the direct attachment delete, which the step-1 rules now refuse: **crew
+  detach is broken between steps 1 and 4**, acceptable single-user, so don't linger.
+  Verify per the plan §4.7 matrix; record each deploy here.
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
