@@ -93,6 +93,39 @@ release; note the checkpoint that carried them once known. (The table at the bot
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
 
+**2026-08-20 — Hosting releases (`e00a01c`, then `64ac3bc`): HOSTING (owner).** Two releases ~29
+minutes apart (15:16:38Z run 32385155647; 15:45:52Z run 32388074263), both green on the first
+deploy attempt with the in-workflow post-deploy runtime smoke passing.
+
+**Neither carries a user-facing change, and the CHANGELOG is deliberately untouched.** The span
+from the previously-live `abc2400` (2026-08-10) is four commits: two docs-only (#284, #286) and
+two internal (#287 lockfiles, #288 workflow pins). Anyone reading this file later will see two
+releases in half an hour and reasonably assume something shipped — nothing did. What *did* change
+is that the client was **rebuilt on an updated build toolchain**: #287's patch bumps include
+`nanoid` ← postcss ← vite, so the emitted assets are freshly compiled from identical source.
+That rebuild is the only reason these releases are worth recording at all.
+
+**The second release is the first to exercise `production-deploy.yml` on the bumped action pins**
+(`actions/checkout` v4→v7, `actions/setup-node` v4→v7 — see #288). That workflow is
+`workflow_dispatch`-only, so it could not be tested from a PR and shipped unproven; this run
+closes that gap. Both actions succeeded **including their Post steps** (setup-node's cache save,
+checkout's cleanup), which is where a bad runtime bump surfaces, and the run logged **zero** Node
+20 deprecation warnings against 8 on the last run of the old pins.
+
+Verified independently of the workflow's own smoke, immediately after: both `46advance.com` and
+`advancethat.web.app` return **200**, and still serve `Content-Security-Policy` **enforced** —
+not `…-Report-Only` — with the `report-uri` intact, plus HSTS and `nosniff`. That is a
+regression check on the 2026-08-08 CSP flip surviving a rebuild, not new evidence about it.
+
+**The three open production checks from the 2026-08-10 releases carry forward unchanged.** The
+live commit moved, but the behavior under test did not, so they still need doing against this
+build — see the Open-actions queue.
+
+**Rollback:** re-run the owner Hosting workflow from `abc2400` to return to the 2026-08-10 client,
+or from `e00a01c` to keep the rebuilt bundle. **Note what a Hosting rollback does *not* undo:**
+#288 changed workflow files, which are not part of the deployed artifact — reverting Hosting
+leaves the new action pins in place. Backing those out is a git revert, not a redeploy.
+
 **2026-08-19 — DECISION RECORD: the CSP enforce observation window is closed, clean.** No
 deploy — this closes the observation thread opened by the 2026-08-08 21:08Z enforce flip. The
 residual log watch was scoped "through ~2026-08-12"; it is reviewed here across the **full
