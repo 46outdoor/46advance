@@ -31,19 +31,21 @@ dates, no numbers, no nesting — and the editor prunes any key the item type do
 
 ## 2. Decisions (locked 2026-08-20)
 
-| #   | Decision                      | Chosen                                                            |
-| --- | ----------------------------- | ----------------------------------------------------------------- |
-| 1   | Who sees itineraries          | **PMs see all; each person sees only their own**                  |
-| 2   | Population                    | **46 Entertainment crew only**                                    |
-| 3   | Lodging model                 | **Flat per-person records**                                       |
-| 4   | v1 scope                      | **Lodging + per-person travel**                                   |
-| 5   | Existing schedule travel rows | **Keep both — different subjects**                                |
-| 6   | PDF packet                    | **No — in-app only**                                              |
-| 7   | Calendar subscription feed    | **Not in v1**                                                     |
-| 8   | UI location                   | **Its own Travel & Lodging panel**                                |
-| 9   | Write access                  | **PMs, plus a new Production Coordinator**                        |
-| 10  | Coordinator shape             | **Company-wide capability**, not a per-event role                 |
-| 11  | Coordinator writes            | travel/lodging · crew roster · contacts directory · schedule days |
+| #   | Decision                       | Chosen                                                            |
+| --- | ------------------------------ | ----------------------------------------------------------------- |
+| 1   | PM and crew visibility         | **PMs see all; each person sees only their own**                  |
+| 2   | Population                     | **46 Entertainment crew only**                                    |
+| 3   | Lodging model                  | **Flat per-person records**                                       |
+| 4   | v1 scope                       | **Lodging + per-person travel**                                   |
+| 5   | Existing schedule travel rows  | **Keep both — different subjects**                                |
+| 6   | PDF packet                     | **No — in-app only**                                              |
+| 7   | Calendar subscription feed     | **Not in v1**                                                     |
+| 8   | UI location                    | **Its own Travel & Lodging panel**                                |
+| 9   | Write access                   | **PMs, plus a new Production Coordinator**                        |
+| 10  | Coordinator shape              | **Company-wide capability**, not a per-event role                 |
+| 11  | Coordinator writes             | travel/lodging · crew roster · contacts directory · schedule days |
+| 12  | Production-director visibility | **Sees all crew logistics**, preserving shipped oversight         |
+| 13  | Admin contact relinking        | **Retained**, through an atomic admin-only server workflow        |
 
 **These interlock — do not change one in isolation.** Decisions 6 and 7 are what make decision 1
 real: the packet is generated server-side and downloaded through a member-gated URL, so printing
@@ -55,6 +57,11 @@ reopens the privacy question.
 Decisions 2 and 3 also interlock: flat per-person records cannot express a room block with
 unassigned slots, which is exactly why unnamed labor blocks were excluded. **Adding blocks later
 is a model change, not a field addition.**
+
+Decision 12 preserves ROADMAP §4's shipped promise that a production director can inspect every
+event's crew and the PM's work. They read every logistics record but receive no logistics write
+power from that claim. Decision 13 preserves the existing deliberate admin-only identity action;
+the enforcement path changes because relinking now has denormalized authorization data to update.
 
 ### 2.1 Implementation prerequisites — not product decisions yet
 
@@ -99,7 +106,8 @@ reads the full crew roster — names, phones, emails — via `canReadEvent`, and
 change. This protects room numbers and confirmation codes, not contact details.
 
 **It also only works for crew who sign in.** A contact with no account has `userId == null`, so
-their records are visible to PMs and the coordinator only. That is correct behavior, not a gap.
+their records are visible to PMs, production directors, and the coordinator only. That is correct
+behavior, not a gap.
 
 ## 4. Phase 1 — Travel & Lodging (PM writes only)
 
@@ -161,10 +169,17 @@ denormalized `email` / `displayName`.
 
 Because this field controls access to confirmation codes and room numbers, every create/update
 must prove it against the exact event attachment and global contact (§4.3); it is never an
-unchecked client assertion. Tighten the global-contact rule so `userId` is server-managed and
-immutable to **all** clients, including admins. Existing Admin SDK sign-in/delete paths may still
-link/unlink it. A→B relinking of a contact that has logistics is unsupported in v1. Any future
-relink feature needs its own reviewed server workflow; it can never be a one-write client edit.
+unchecked client assertion. Tighten the global-contact rule so `userId` is immutable through every
+direct client-SDK write, including an admin's. **This changes the enforcement path, not the admin
+capability:** sign-in/delete keep their Admin SDK link/unlink paths, and admin relinking moves to an
+admin-only `relinkContactUser` callable.
+
+The relink callable validates the old and new account/contact pointers, queries every
+`crewLogistics` record for the contact, then updates the contact, both affected `users/{uid}`
+pointers, and every denormalized logistics `userId` in one Firestore transaction. Set a conservative
+record cap below Firestore's transaction write limit. Above that cap, fail before any write with an
+actionable maintenance error; never fall back to a partially applied `ChunkedBatch` relink that
+temporarily authorizes the wrong account.
 
 **The cost of denormalizing is staleness. Handle every known lifecycle path:**
 
@@ -173,8 +188,10 @@ relink feature needs its own reviewed server workflow; it can never be a one-wri
   and need backfill before the panel becomes visible to them.
 - `deleteUser` sets the contact link to null. The Auth deletion already removes the old account's
   ability to authenticate, but the denormalized copies still need cleanup.
+- An admin relink is atomic through `relinkContactUser`; rules continue to deny the same operation
+  from production directors, coordinators, and every direct client write.
 - A global-contact deletion and legacy duplicate links must reconcile all records referencing that
-  contact. Direct A→B relinking is forbidden as described above.
+  contact.
 - In v1, block roster detachment while that attachment has logistics records; the UI requires the
   PM/coordinator to delete or reassign them first. A silent orphan is not acceptable, and
   auto-enrollment currently does not auto-remove membership on detach. Because rules cannot query
@@ -182,11 +199,12 @@ relink feature needs its own reviewed server workflow; it can never be a one-wri
   behavior and remove the direct-delete bypass.
 
 Use a retryable server reconciliation path (a contact-write trigger, with a synchronous best-effort
-call from the sign-in/delete paths) that queries the `crewLogistics` collection group by
-`contactId` and writes with `ChunkedBatch`. Do **not** require an unbounded collection-group query
-and all of its writes to fit in the same Firestore transaction. Add collection-group indexes for
-both `crewLogistics.contactId` and `crewLogistics.userId` to `firestore.indexes.json` and include
-the index deploy in the backend release target.
+call from the sign-in/delete paths) for ordinary link/unlink/delete cleanup. It queries the
+`crewLogistics` collection group by `contactId` and writes with `ChunkedBatch`; this is safe for
+null→uid visibility backfill and uid→null cleanup. Do **not** use that eventually consistent path
+for uid A→uid B relinking—the bounded atomic callable above owns that case. Add collection-group
+indexes for both `crewLogistics.contactId` and `crewLogistics.userId` to
+`firestore.indexes.json` and include the index deploy in the backend release target.
 
 ### 4.3 Rules
 
@@ -194,7 +212,7 @@ Phase 1 must not reference a Phase-2-only helper. Its read boundary is:
 
 ```
 match /events/{eventId}/crewLogistics/{recordId} {
-  allow read: if canEditEvent(eventId)
+  allow read: if canViewAllCrewLogistics(eventId)
     || (isMember(eventId)
         && resource.data.userId == request.auth.uid);
   allow create, update: if canEditEvent(eventId) && validCrewLogisticsWrite(eventId);
@@ -220,7 +238,7 @@ identity fields server-side; do not fall back to trusting client-supplied `userI
 Phase 2 widens this block only after §2.1's coordinator read scope is decided:
 
 ```
-allow read: if canManageCrewLogistics(eventId)
+allow read: if canViewAllCrewLogistics(eventId)
   || (isMember(eventId)
       && resource.data.userId == request.auth.uid);
 allow create, update: if canManageCrewLogistics(eventId) && validCrewLogisticsWrite(eventId);
@@ -229,17 +247,17 @@ allow delete: if canManageCrewLogistics(eventId);
 
 The rules-side `canManageCrewLogistics` is `canEditEvent` in Phase 1. Its Phase 2 coordinator
 branch follows §2.1 exactly: a bare active claim only if cross-event access is chosen, or an active
-claim plus membership if membership is required. Production-director oversight is deliberately
-_not_ an all-records branch: this collection is a documented privacy exception to the existing
-“director reads every event subtree” convention.
+claim plus membership if membership is required. `canViewAllCrewLogistics` is the read superset:
+it includes `canManageCrewLogistics` **or** `isProductionDirector()`. This preserves the existing
+director convention while keeping that claim read-only.
 
 **⚠ The list-query trap — this is the one thing most likely to ship broken.** Firestore evaluates
 `list` against the _query_, not the returned documents. A crew member issuing an unconstrained
 `collection(...)` read is **denied**, even though every document they would receive is one they
 may read. The client must issue `where('userId','==',uid)` for non-managers and the unconstrained
-query for admin/PM. In Phase 2, a coordinator uses the all-records query only if §2.1's read
-decision grants that view. Query scope must be selected from `canManageCrewLogistics`, not from an
-ad-hoc admin or role check.
+query for admin/PM/production director. In Phase 2, a coordinator uses the all-records query only
+if §2.1's read decision grants that view. Query scope must be selected from
+`canViewAllCrewLogistics`, not from an ad-hoc admin or role check.
 
 This is the exact failure mode of the 2026-08-10 slug bug — a list query denied for members while
 every test signed in as admin. **Non-negotiable: the emulator test for this panel signs in as a
@@ -252,6 +270,8 @@ per decision 8.
 
 - **PM view:** every crew member's records, grouped by person, with add/edit/delete. The
   coordinator gets this same view in Phase 2 only after §2.1's read/discovery decision is wired.
+- **Production-director view:** every crew member's records, grouped by person, read-only unless
+  the director separately holds admin or this event's PM role.
 - **Crew view:** their own records only — read-only, and the panel hides entirely when they have
   none rather than rendering an empty shell.
 - Gate the PM affordances on a new predicate, per 4.6.
@@ -266,8 +286,9 @@ packet output · calendar feed · cross-event ("where is Joe this season") views
 
 Predicates are named for the **capability**, never the holder:
 `canManageCrewLogistics(viewer, role)` in `src/lib/rbac/permissions.ts` — **not**
-`isCoordinator`. In phase 1 only admin and PM satisfy it. Phase 2 then widens **one predicate**
-instead of sweeping call sites. This is the whole reason phase 1 can ship first.
+`isCoordinator`. In phase 1 only admin and PM satisfy it. Phase 2 then widens **one write
+predicate** instead of sweeping call sites. The separate `canViewAllCrewLogistics(viewer, role)`
+adds production-director read oversight and owns the all-records versus self-query choice.
 
 ### 4.7 Tests
 
@@ -276,14 +297,16 @@ instead of sweeping call sites. This is the whole reason phase 1 can ship first.
 - Rules: PM reads all · crew reads own · **crew denied another person's record** · crew denied
   the unconstrained list query · crew denied write · matching-uid but unapproved account denied ·
   matching-uid but non-member denied · mismatched/forged `contactId` / `eventContactId` / `userId`
-  denied · all clients including admin denied direct global-contact `userId` rewrites · malformed
-  discriminated shapes denied · production director denied everyone else's records despite normal
-  event oversight.
-- Functions emulator: first-sign-in backfill · delete cleanup · A→B relink rejected · contact
-  deletion · roster detach blocked while logistics exist · retry after partial reconciliation ·
-  more records than one write batch.
-- Service/unit: PM uses the all-records query; ordinary crew uses the uid-constrained query; no
-  call site can accidentally issue the other scope.
+  denied · every direct client write including admin denied global-contact `userId` rewrites ·
+  malformed discriminated shapes denied · production director reads every logistics record but is
+  denied create/update/delete without a separate PM/admin capability.
+- Functions emulator: first-sign-in backfill · delete cleanup · bounded admin A→B relink updates
+  contact/user pointers and every logistics record atomically · over-cap relink fails with no
+  partial writes · non-admin relink denied · contact deletion · roster detach blocked while
+  logistics exist · retry after partial reconciliation · more records than one cleanup batch.
+- Service/unit: PM and production director use the all-records query; only the PM gets controls;
+  ordinary crew uses the uid-constrained query; no call site can accidentally issue the other
+  scope.
 - Emulator E2E: **signed in as `tech`** — panel shows own records only; **signed in as PM** —
   shows everyone's.
 
@@ -328,7 +351,7 @@ cannot discover or read. **Each surface gets its own branch:**
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `events/{id}/crewLogistics/**`                  | Widen rules-side and client `canManageCrewLogistics`; preserve §4.3 validation and query-scope selection.                                                                                                                                                               |
 | `events/{id}/contacts/{attachId}` (crew roster) | Add the claim to create/update. Detach moves behind the §4.2 callable, which gets the matching narrow coordinator authorization and blocks while logistics exist. Add a dedicated `canManageCrewRoster` UI predicate rather than reusing the event-wide `canEdit` prop. |
-| `contacts/{contactId}` (global directory)       | Add the claim beside `isProductionDirector()` while preserving `createdBy`/`userId` immutability; widen `canManageContact` and route/nav presentation as allowed by §2.1.                                                                                               |
+| `contacts/{contactId}` (global directory)       | Add the claim beside `isProductionDirector()` while preserving direct-write `createdBy`/`userId` immutability; `relinkContactUser` remains admin-only. Widen `canManageContact` and route/nav presentation as allowed by §2.1.                                          |
 | `events/{id}/scheduleDays/{dayKey}`             | Add a dedicated `canManageScheduleDays` rule/client predicate while keeping `validDayShape()`, `createdBy`, and the `revision` optimistic-concurrency guard. Update `EventScheduleScreen`; changing rules alone leaves every control hidden.                            |
 
 The event root/list/read work selected in §2.1 is a fifth, read-only integration concern. Keep it
@@ -384,10 +407,16 @@ than letting exceptions accumulate case by case.
 
 Phase 2 can ship before Phase 1 if schedule/roster coordination is more urgent, but only after its
 read/discovery choice is resolved. In that order it ships the claim plus the three already-existing
-write surfaces; the logistics predicate/rules branch is added when Phase 1 lands.
+write surfaces **and pulls the roster-detach and `relinkContactUser` callables from §4.2 forward
+into Phase 2**. Their logistics queries return empty before Phase 1 creates the collection, so
+detach behaves as it does today while relink still updates the contact/user pointers atomically;
+Phase 1 later adds logistics reconciliation, blocking behavior, and seeded-record tests. The
+logistics predicate/rules branch itself is added when Phase 1 lands. No Phase-2-first step may
+reference an undeployed Phase 1 callable.
 
 Each phase also updates the canonical code-organization index, the Firestore rules commentary,
-ROADMAP (the stale contact-link note and the global-capability principle), and `CHANGELOG.md`.
+ROADMAP (the stale contact-link note, the global-capability principle, and explicit confirmation
+that crew logistics remains within production-director oversight), and `CHANGELOG.md`.
 The shared-surface audit must record that the planned native app currently has no consumer to
 update. Functions/rules/index changes are backend work: after merge, run the secrets health check
 where applicable, obtain deploy confirmation, deploy only the changed backend targets, verify, and
