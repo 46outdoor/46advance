@@ -489,6 +489,95 @@ for **every** festival. Nothing in the UI invites that, but nothing prevents it 
 
 ---
 
+## 6. The events list has no concept of "now" — past shows lead it
+
+**Status:** idea — the sort is correct; the question is whether ascending order is the goal
+**Raised:** 2026-08-20
+**Related:** §2, which already flags within-festival date ordering as "arguably a fix independent
+of grouping". If §2 is built, this decision has to be made anyway — grouping by festival does not
+answer where a *finished* festival goes.
+
+### The problem
+
+Ordering the list by date (#285) fixed a real bug: names embed the city, so alphabetical order
+sorted a touring festival **by city**. Date order is unambiguously better. But it is a **plain
+ascending sort with no notion of the current date**, and that difference only becomes visible
+once shows fall into the past.
+
+Observed in production on 2026-08-20 while verifying the ordering release: both live events —
+Rock the Country 2026 (Jul 10) and Boots on the Bend 2026 (Aug 15) — are already past, so the
+list led with the **furthest-past** show. That is exactly what the comparator specifies, so
+nothing is broken. But the CHANGELOG's stated intent for the change was:
+
+> "The next show you're working now leads the list."
+
+Ascending order delivers that only while the next show is also the earliest — i.e. only while no
+event has finished. With two events it is a curiosity. With three seasons of history it means the
+list opens on a show from two years ago and the work you actually have gets pushed down.
+
+### Direction
+
+Undecided, and worth deciding deliberately rather than by patching the comparator. Three shapes,
+roughly in increasing cost:
+
+1. **Do nothing — `archived` is already the answer.** The status model is
+   `draft | active | archived` and the list has an Archived filter. If finished shows are meant
+   to be archived, the list self-cleans and no code changes. **This is the first thing to
+   confirm**, because if it is the intent, everything below is wasted work — the real gap would
+   be that nothing prompts or automates archiving.
+2. **Sort upcoming first, past after.** Partition on today, ascending within upcoming, and
+   descending within past (most-recently-finished first, which is what you want when looking
+   backwards). One comparator change, but it introduces "now" into a currently pure function —
+   see the testing note in Grounding.
+3. **Separate the past out visually** — an "Upcoming" list with a collapsed "Past" section. Most
+   useful, most design work, and it interacts with §2's grouping.
+
+### Open questions
+
+- **Is archiving actually the intended workflow?** Both production events are past and neither is
+  archived, which is weak evidence that it is not — but with two events and a single user, it may
+  equally mean nobody has gotten around to it. This is a workflow question for the user, not a
+  code question, and it gates everything else.
+- **Where does "now" live if the sort needs it?** A comparator that reads the clock is not purely
+  testable. Passing a `today` argument down from the caller keeps it pure — the same shape
+  `applyPolicy(advisories, exceptions, today)` already uses in `scripts/dependency-audit.mjs`.
+- **Does an in-progress show count as upcoming?** An event spanning today (`startDate` past,
+  `endDate` future) is the one you care most about. Partitioning on `startDate` alone buries it
+  with the past; partitioning on `endDate` keeps it on top. `endDate` is almost certainly right,
+  and it is the kind of detail that gets discovered in production rather than in review.
+- **Do undated events still sink?** They sort last today. If the list partitions, "undated" is a
+  third bucket, and whether it sits with upcoming or after past is a real choice.
+- **Does the Tracker have the same problem?** It rolls up the same events and is the other
+  cross-event surface. Not checked.
+
+### Grounding
+
+- **Nothing in the app distinguishes past from upcoming.** A search for
+  `upcoming|isPast|futureEvent|now()|Date.now` across `src/lib/events/`,
+  `EventsListScreen.tsx`, and `filter-events.ts` returns **zero hits**. This is not a weakened
+  concept, it is an absent one — which is why this is a design decision rather than a bug fix.
+- **The comparator** is `compareEventsByDate` (`src/lib/events/event.ts:178-185`): ascending on
+  `startDate`; dated before undated; ties broken by `name.localeCompare`. Pure, no clock.
+- **Applied client-side, deliberately.** `listEvents` (`src/lib/events/events-read.ts`) queries
+  `orderBy('name')` and re-sorts in memory, because Firestore's `orderBy` silently excludes
+  documents missing the field — ordering the query by `startDate` would drop every undated event
+  from the oversight list. **Any fix here stays client-side for the same reason.**
+- **Status model:** `EVENT_STATUSES = ['draft','active','archived']` (`event.ts:13`), exposed as
+  the All/Draft/Active/Archived filter. `filterEvents`
+  (`src/features/events/filter-events.ts`) composes status with free-text search over name,
+  venue, and venueAddress — it is the established pure, separately-tested module for
+  list-shaping, and a partition belongs there or beside it rather than inlined into the screen.
+- **Test coverage is good and will constrain the change:** 5 cases in the `compareEventsByDate`
+  describe (`event.test.ts`), including one that sorts the same input in both directions to catch
+  a one-directional comparator, plus 2 in `events-read.test.ts` — `sorts soonest-first regardless
+  of the order returned` and `puts undated events last, not first`. **Both of those names encode
+  the current behavior**, so a partition would rewrite them, not extend them.
+- **Complexity budget:** `EventsListScreen` measured **21** against a hard gate of 25 (re-measured
+  2026-08-10). Inlining a partition into the render would plausibly straddle the gate; the
+  `filter-events.ts` precedent is the established escape hatch.
+
+---
+
 ## Findings worth acting on separately
 
 > ### ✅ RESOLVED — non-admins could not open an event by slug (found + fixed 2026-08-10)
