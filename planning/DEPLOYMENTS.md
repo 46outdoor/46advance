@@ -53,19 +53,9 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **CSP enforce — residual log watch through ~2026-08-12.** The flip is live (see the 21:08Z
-  checkpoint entry); headers verified on both domains and the first hour logged no violations.
-  The browser pass completed 2026-08-08 ~22:45Z (MCP-driven crawl of production, signed in as
-  the owner): password sign-in, Firestore listeners, calendar-feed status/subscription calls,
-  a per-day schedule edit round-trip, and the full Generate-packet Google flow
-  (`generatePacket` → Storage-hosted PDF) all returned 200, with zero `cspviolationreport`
-  requests across the session and no console "Refused to …" errors on any page (Events, event
-  detail, Production, Schedule, Contacts, Documents, Admin, Settings, Tracker, advance detail).
-  Left to do: glance at the cspReport query over the next few days. Rollback = rename the
-  header key back + owner Hosting redeploy (the guard test must be reverted with it).
-- **Two production checks the 2026-08-10 release could not cover.** The release is verified
+- **Three production checks the 2026-08-10 releases could not cover.** The release is verified
   (see its ledger entry) but the hand-verification used a `tech` account, which cannot exercise
-  either of these. Neither is suspected broken — both are covered by CI — this is about closing
+  any of these. None is suspected broken — all three are covered by CI — this is about closing
   the gap between "CI says so" and "someone looked".
   1. **The director's contacts curation.** The rules went live earlier and were verified against
      the released ruleset, but the Edit/Delete controls on a contact someone else created only
@@ -102,6 +92,44 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-19 — DECISION RECORD: the CSP enforce observation window is closed, clean.** No
+deploy — this closes the observation thread opened by the 2026-08-08 21:08Z enforce flip. The
+residual log watch was scoped "through ~2026-08-12"; it is reviewed here across the **full
+enforced period** (flip → 2026-08-19, ~11 days) rather than the original window.
+
+**Zero CSP violations.** The ongoing-monitoring query recorded with the flip entry, widened to
+`--freshness=12d` to span the whole period, returned no rows.
+
+A null result from a log query is worthless without proof the query works, so the zero was
+controlled:
+
+| Check | Result |
+| --- | --- |
+| Violation query, `--freshness=12d` | **0 entries** |
+| Control — any `cspreport` log entry, 12d | rows returned (latest 2026-08-10T01:53Z, deploy NOTICE/INFO) |
+| Control — any `cspreport` log entry, 90d | same rows; resource labels + service name confirmed correct |
+| `GET https://…/cspReport` | **405** — collector deployed and reachable |
+| `46advance.com` response headers | `Content-Security-Policy` present; `…-Report-Only` absent |
+| `advancethat.web.app` response headers | same |
+
+The reachability check is the one that makes the zero mean anything: **"no violations reported"
+and "the collector is dead" produce identical output.** GET→405 proves the function is live
+without POSTing a synthetic violation into production logs — and since the handler is a
+straight-line `logger.warn` (`functions/src/cspReport.ts`), a running function implies a working
+log path.
+
+**This evidence is recorded here because it expires.** `cspReport` logs violations and
+**stores nothing**; Cloud Logging's `_Default` bucket retains 30 days, so the raw basis for
+this entry ages out around **2026-09-07** and is not re-derivable after that.
+
+**Enforcement is real but not complete** — unchanged from the flip entry: `script-src` still
+carries `'unsafe-inline'` (`firebase.json`), so this is not full XSS protection. Nonce/hash
+tightening remains a separate, unscheduled effort; closing this window does not close that.
+
+**Rollback (unchanged):** rename the header key back to `Content-Security-Policy-Report-Only` +
+owner Hosting redeploy, reverting the WS-I guard test
+(`pwa/test/security-headers.config.test.ts`) in the same change so it can't land silently.
 
 **2026-08-10 — Hosting release (`abc2400`): HOSTING (owner).** Second release of the day, ~32
 minutes after the first. Carries the **chronological events list** (#285 — the list sorted
