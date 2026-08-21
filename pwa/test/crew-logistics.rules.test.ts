@@ -130,9 +130,7 @@ describe('crewLogistics — read boundary (narrower than canReadEvent)', () => {
 
   it('director lists every record with NO membership row — decision 12', async () => {
     await assertSucceeds(
-      getDocs(
-        collection(dbFor(DIRECTOR.uid, DIRECTOR.token), 'events/event-a/crewLogistics'),
-      ),
+      getDocs(collection(dbFor(DIRECTOR.uid, DIRECTOR.token), 'events/event-a/crewLogistics')),
     );
   });
 
@@ -149,24 +147,18 @@ describe('crewLogistics — read boundary (narrower than canReadEvent)', () => {
     const db = dbFor(TECH);
     await assertFails(getDocs(collection(db, 'events/event-a/crewLogistics')));
     await assertSucceeds(
-      getDocs(
-        query(collection(db, 'events/event-a/crewLogistics'), where('userId', '==', TECH)),
-      ),
+      getDocs(query(collection(db, 'events/event-a/crewLogistics'), where('userId', '==', TECH))),
     );
   });
 
   it('a matching uid WITHOUT approval is denied (isMember carries the active gate)', async () => {
     await assertFails(
-      getDoc(
-        doc(dbFor(TECH, { approved: false }), 'events/event-a/crewLogistics/log-tech'),
-      ),
+      getDoc(doc(dbFor(TECH, { approved: false }), 'events/event-a/crewLogistics/log-tech')),
     );
   });
 
   it('a matching uid who is NOT a member is denied — uid match alone is not access', async () => {
-    await assertFails(
-      getDoc(doc(dbFor(OUTSIDER), 'events/event-a/crewLogistics/log-outsider')),
-    );
+    await assertFails(getDoc(doc(dbFor(OUTSIDER), 'events/event-a/crewLogistics/log-outsider')));
   });
 });
 
@@ -289,9 +281,7 @@ describe('contact link immutability + server-only detach (decisions 12/13 enforc
         userId: OUTSIDER,
       }),
     );
-    await assertFails(
-      updateDoc(doc(dbFor(TECH), 'contacts/contact-tech'), { userId: null }),
-    );
+    await assertFails(updateDoc(doc(dbFor(TECH), 'contacts/contact-tech'), { userId: null }));
   });
 
   it('admin still edits ordinary contact fields — only the link fields froze', async () => {
@@ -303,9 +293,7 @@ describe('contact link immutability + server-only detach (decisions 12/13 enforc
   });
 
   it('roster detach is server-only: even the PM cannot delete an attachment directly', async () => {
-    await assertFails(
-      deleteDoc(doc(dbFor(PM), 'events/event-a/contacts/attach-tech')),
-    );
+    await assertFails(deleteDoc(doc(dbFor(PM), 'events/event-a/contacts/attach-tech')));
     await assertFails(
       deleteDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/contacts/attach-tech')),
     );

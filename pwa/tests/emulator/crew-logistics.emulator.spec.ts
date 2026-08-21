@@ -49,9 +49,7 @@ test.describe('crew travel & lodging — per-person visibility', () => {
     // Both records, with their group headers resolved from the roster.
     await expect(panel.getByText('Hampton Inn Alpha')).toBeVisible();
     await expect(panel.getByText('Marriott Alpha')).toBeVisible();
-    await expect(
-      panel.getByRole('heading', { name: PERSONAS.tech.displayName }),
-    ).toBeVisible();
+    await expect(panel.getByRole('heading', { name: PERSONAS.tech.displayName })).toBeVisible();
     await expect(panel.getByRole('heading', { name: 'Norma Nolink' })).toBeVisible();
 
     // Management affordances present.

@@ -4,14 +4,7 @@
  * referencing a directory contact + a role-on-this-event label. Reads/writes gated by
  * firestore.rules (member read; PM/admin write). Contact details resolve from the directory.
  */
-import {
-  addDoc,
-  collection,
-  doc,
-  getDocs,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { z } from 'zod';
 import { db, functions } from '@/services/firebase';

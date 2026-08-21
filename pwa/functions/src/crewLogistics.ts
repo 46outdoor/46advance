@@ -53,10 +53,7 @@ export async function reconcileCrewLogisticsForContact(
   contactId: string,
   userId: string | null,
 ): Promise<number> {
-  const stale = await db
-    .collectionGroup('crewLogistics')
-    .where('contactId', '==', contactId)
-    .get();
+  const stale = await db.collectionGroup('crewLogistics').where('contactId', '==', contactId).get();
   const batch = new ChunkedBatch(db);
   let rewritten = 0;
   for (const doc of stale.docs) {
@@ -144,9 +141,7 @@ async function readRelinkState(
   // A uid links to at most one contact: refuse when the target account is already linked
   // elsewhere (the caller unlinks that contact first, explicitly).
   if (uid) {
-    const conflict = await tx.get(
-      db.collection('contacts').where('userId', '==', uid).limit(2),
-    );
+    const conflict = await tx.get(db.collection('contacts').where('userId', '==', uid).limit(2));
     const other = conflict.docs.find((d) => d.id !== contactId);
     if (other) {
       throw new HttpsError(

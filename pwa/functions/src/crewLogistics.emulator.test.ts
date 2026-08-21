@@ -26,13 +26,13 @@ const ATTACH = 'attach-1';
 
 async function seedRoster(): Promise<void> {
   await db().doc(`events/${EVENT}`).set({ name: 'Event X', status: 'active' });
-  await db()
-    .doc(`events/${EVENT}/members/pm-1`)
-    .set({ role: 'production-manager', uid: 'pm-1' });
+  await db().doc(`events/${EVENT}/members/pm-1`).set({ role: 'production-manager', uid: 'pm-1' });
   // assertActiveUser is fail-closed on the server-owned users/{uid} record.
   await db().doc('users/pm-1').set({ approved: true });
   await db().doc('users/tech-1').set({ approved: true });
-  await db().doc(`contacts/${CONTACT}`).set({ name: 'Terry Tech', createdBy: 'admin-1', userId: null });
+  await db()
+    .doc(`contacts/${CONTACT}`)
+    .set({ name: 'Terry Tech', createdBy: 'admin-1', userId: null });
   await db().doc(`events/${EVENT}/contacts/${ATTACH}`).set({ contactId: CONTACT });
 }
 
@@ -66,8 +66,14 @@ beforeEach(async () => {
 describe('reconcileCrewLogisticsForContact', () => {
   it('null→uid backfill: first-sign-in linking makes pre-created records visible', async () => {
     const c = 'contact-backfill';
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('r1').set(logisticsDoc({ contactId: c }));
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('r2').set(logisticsDoc({ contactId: c }));
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('r1')
+      .set(logisticsDoc({ contactId: c }));
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('r2')
+      .set(logisticsDoc({ contactId: c }));
 
     const rewritten = await reconcileCrewLogisticsForContact(db(), c, 'uid-tech');
     expect(rewritten).toBe(2);
@@ -81,7 +87,10 @@ describe('reconcileCrewLogisticsForContact', () => {
       .collection(`events/${EVENT}/crewLogistics`)
       .doc('c1')
       .set(logisticsDoc({ contactId: c, userId: 'uid-tech' }));
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('c2').set(logisticsDoc({ contactId: c })); // already null
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('c2')
+      .set(logisticsDoc({ contactId: c })); // already null
 
     const rewritten = await reconcileCrewLogisticsForContact(db(), c, null);
     expect(rewritten).toBe(1);
@@ -92,7 +101,9 @@ describe('reconcileCrewLogisticsForContact', () => {
     // test-unique contactId keys the collection-group query so no other test's records can
     // pollute the count, however the emulator's clear interleaves.
     const bulkContact = 'contact-bulk';
-    await db().doc(`contacts/${bulkContact}`).set({ name: 'Bulk', createdBy: 'admin-1', userId: null });
+    await db()
+      .doc(`contacts/${bulkContact}`)
+      .set({ name: 'Bulk', createdBy: 'admin-1', userId: null });
     const writes: Promise<unknown>[] = [];
     for (let i = 0; i < 450; i++) {
       writes.push(
@@ -169,8 +180,14 @@ describe('relinkContactUser', () => {
     await getAuth().createUser({ uid: 'uid-b', email: 'b@x.test' });
     await db().doc(`contacts/${c}`).set({ name: 'AB', userId: 'uid-a', createdBy: 'admin-1' });
     await db().doc('users/uid-a').set({ contactId: c });
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('ab1').set(logisticsDoc({ contactId: c, userId: 'uid-a' }));
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('ab2').set(logisticsDoc({ contactId: c, userId: 'uid-a' }));
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('ab1')
+      .set(logisticsDoc({ contactId: c, userId: 'uid-a' }));
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('ab2')
+      .set(logisticsDoc({ contactId: c, userId: 'uid-a' }));
 
     const res = await testEnv.wrap(relinkContactUser)(
       callableRequest({ contactId: c, uid: 'uid-b' }, asAdmin()),
@@ -189,7 +206,10 @@ describe('relinkContactUser', () => {
     await getAuth().createUser({ uid: 'uid-a2', email: 'a2@x.test' });
     await db().doc(`contacts/${c}`).set({ name: 'U', userId: 'uid-a2', createdBy: 'admin-1' });
     await db().doc('users/uid-a2').set({ contactId: c });
-    await db().collection(`events/${EVENT}/crewLogistics`).doc('u1').set(logisticsDoc({ contactId: c, userId: 'uid-a2' }));
+    await db()
+      .collection(`events/${EVENT}/crewLogistics`)
+      .doc('u1')
+      .set(logisticsDoc({ contactId: c, userId: 'uid-a2' }));
 
     const res = await testEnv.wrap(relinkContactUser)(
       callableRequest({ contactId: c, uid: null }, asAdmin()),
@@ -200,7 +220,9 @@ describe('relinkContactUser', () => {
 
   it('refuses when the target account is already linked to a different contact', async () => {
     await getAuth().createUser({ uid: 'uid-taken', email: 'taken@x.test' });
-    await db().doc('contacts/other-contact').set({ name: 'Other', createdBy: 'admin-1', userId: 'uid-taken' });
+    await db()
+      .doc('contacts/other-contact')
+      .set({ name: 'Other', createdBy: 'admin-1', userId: 'uid-taken' });
 
     await expect(
       testEnv.wrap(relinkContactUser)(
@@ -215,14 +237,17 @@ describe('relinkContactUser', () => {
     await db().doc(`contacts/${c}`).set({ name: 'Cap', userId: null, createdBy: 'admin-1' });
     const writes: Promise<unknown>[] = [];
     for (let i = 0; i < RELINK_MAX_RECORDS + 1; i++) {
-      writes.push(db().collection(`events/${EVENT}/crewLogistics`).doc(`cap-${i}`).set(logisticsDoc({ contactId: c })));
+      writes.push(
+        db()
+          .collection(`events/${EVENT}/crewLogistics`)
+          .doc(`cap-${i}`)
+          .set(logisticsDoc({ contactId: c })),
+      );
     }
     await Promise.all(writes);
 
     await expect(
-      testEnv.wrap(relinkContactUser)(
-        callableRequest({ contactId: c, uid: 'uid-cap' }, asAdmin()),
-      ),
+      testEnv.wrap(relinkContactUser)(callableRequest({ contactId: c, uid: 'uid-cap' }, asAdmin())),
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
     // Zero writes applied: the contact link and a sample record are untouched.

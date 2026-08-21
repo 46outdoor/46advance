@@ -114,7 +114,11 @@ export function TravelLodgingPanel({ eventId, viewer, role }: TravelLodgingPanel
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-xl font-black tracking-tight">Travel &amp; Lodging</h2>
         {canManage && !editing && (
-          <button type="button" className={buttonClass} onClick={() => setEditing({ record: null })}>
+          <button
+            type="button"
+            className={buttonClass}
+            onClick={() => setEditing({ record: null })}
+          >
             Add record
           </button>
         )}
@@ -213,12 +217,14 @@ function RecordRow({
             </p>
             {record.departAt && (
               <p className="text-ink-muted">
-                Departs {formatZonedDateTime(record.departAt, record.departTimeZone ?? APP_TIME_ZONE)}
+                Departs{' '}
+                {formatZonedDateTime(record.departAt, record.departTimeZone ?? APP_TIME_ZONE)}
               </p>
             )}
             {record.arriveAt && (
               <p className="text-ink-muted">
-                Arrives {formatZonedDateTime(record.arriveAt, record.arriveTimeZone ?? APP_TIME_ZONE)}
+                Arrives{' '}
+                {formatZonedDateTime(record.arriveAt, record.arriveTimeZone ?? APP_TIME_ZONE)}
               </p>
             )}
           </>
@@ -347,9 +353,23 @@ function LodgingFields({
       <Field label="Hotel name" value={fields.hotelName ?? ''} onChange={set('hotelName')} />
       <Field label="Address" value={fields.address ?? ''} onChange={set('address')} />
       <Field label="Hotel phone" value={fields.hotelPhone ?? ''} onChange={set('hotelPhone')} />
-      <Field label="Confirmation #" value={fields.confirmation ?? ''} onChange={set('confirmation')} />
-      <Field label="Check-in" type="date" value={fields.checkInDate ?? ''} onChange={set('checkInDate')} />
-      <Field label="Check-out" type="date" value={fields.checkOutDate ?? ''} onChange={set('checkOutDate')} />
+      <Field
+        label="Confirmation #"
+        value={fields.confirmation ?? ''}
+        onChange={set('confirmation')}
+      />
+      <Field
+        label="Check-in"
+        type="date"
+        value={fields.checkInDate ?? ''}
+        onChange={set('checkInDate')}
+      />
+      <Field
+        label="Check-out"
+        type="date"
+        value={fields.checkOutDate ?? ''}
+        onChange={set('checkOutDate')}
+      />
       <Field label="Room type" value={fields.roomType ?? ''} onChange={set('roomType')} />
       <Field label="Room #" value={fields.roomNumber ?? ''} onChange={set('roomNumber')} />
     </div>
@@ -376,7 +396,11 @@ function TravelFields({
         </select>
       </label>
       <Field label="Carrier" value={fields.carrier ?? ''} onChange={set('carrier')} />
-      <Field label="Flight / Conf #" value={fields.confirmation ?? ''} onChange={set('confirmation')} />
+      <Field
+        label="Flight / Conf #"
+        value={fields.confirmation ?? ''}
+        onChange={set('confirmation')}
+      />
       <Field label="From" value={fields.from ?? ''} onChange={set('from')} />
       <Field label="To" value={fields.to ?? ''} onChange={set('to')} />
       <Field
@@ -385,14 +409,22 @@ function TravelFields({
         value={fields.departAt ?? ''}
         onChange={set('departAt')}
       />
-      <ZoneField label="Departure zone" value={fields.departTimeZone ?? APP_TIME_ZONE} onChange={set('departTimeZone')} />
+      <ZoneField
+        label="Departure zone"
+        value={fields.departTimeZone ?? APP_TIME_ZONE}
+        onChange={set('departTimeZone')}
+      />
       <Field
         label="Arrives"
         type="datetime-local"
         value={fields.arriveAt ?? ''}
         onChange={set('arriveAt')}
       />
-      <ZoneField label="Arrival zone" value={fields.arriveTimeZone ?? APP_TIME_ZONE} onChange={set('arriveTimeZone')} />
+      <ZoneField
+        label="Arrival zone"
+        value={fields.arriveTimeZone ?? APP_TIME_ZONE}
+        onChange={set('arriveTimeZone')}
+      />
     </div>
   );
 }
