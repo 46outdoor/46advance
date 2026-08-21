@@ -53,19 +53,14 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Crew travel & lodging Phase 1 — backend deploys required, in order.** Merged (see the
-  CHANGELOG entry) but nothing is live until: **(1)** `firebase-safe.sh deploy --only
-  firestore:rules` — carries the new `crewLogistics` block, the server-only roster detach,
-  and the contact-link immutability (this last is SAFE to deploy ahead of functions: it only
-  narrows; admin relink is briefly unavailable until step 2); **(2)** `--only
-  firestore:indexes` — two `crewLogistics` collection-group field overrides (`contactId`,
-  `userId`); the reconcile paths and the uid-constrained crew query need them; **(3)**
-  `--only functions` — `detachEventContact`, `relinkContactUser`,
-  `reconcileCrewLogisticsOnContactWrite` (a NEW Firestore trigger), plus the updated
-  sign-in/delete paths; **(4)** owner Hosting release — until it ships, the released client
-  still calls the direct attachment delete, which the step-1 rules now refuse: **crew
-  detach is broken between steps 1 and 4**, acceptable single-user, so don't linger.
-  Verify per the plan §4.7 matrix; record each deploy here.
+- **Crew travel & lodging Phase 1 — backend is LIVE; the owner Hosting release is the only
+  remaining step.** Rules, indexes, and functions deployed + verified 2026-08-21 (see the
+  ledger entry). Until Hosting ships the `4f10f5d` client: the released client's crew detach
+  calls the direct attachment delete, which the live rules now refuse — **crew detach is
+  broken in production until the Hosting release**. Acceptable single-user; don't linger.
+  The new Travel & Lodging panel also doesn't exist in the released client yet, so the live
+  backend surface is simply unused until then. After the release, verify per the plan §4.7
+  matrix (the director read-only view needs the `jared@yourstagemanager.com` session).
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
@@ -112,6 +107,40 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-21 — Crew travel & lodging Phase 1 (#296, `4f10f5d`): FIRESTORE RULES + INDEXES +
+FUNCTIONS.** Three scoped deploys in the queue's order, all as the owner account, secrets
+health green before and after. See the CHANGELOG entry for user-facing behavior; design in
+[`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md).
+
+- **Rules** — the `crewLogistics` block (reads narrower than `canReadEvent`: event editors +
+  production director see all, members only records carrying their own denormalized
+  `userId`; writes prove the identity triple against the roster attachment and the contact's
+  CURRENT link), the server-only roster detach (`allow delete: if false`), and contact-link
+  immutability through every direct client write including admin's. **Verified against the
+  live released ruleset**, not the deploy output: ruleset
+  `7bdf6098-babe-423c-8d98-122ead221572` fetched back from the Rules API (quota-project
+  header required — the bare ADC call 403s, same as during #274) with all four probes
+  present: the match block, `canViewAllCrewLogistics`, `identityProven`, and the detach
+  denial.
+- **Indexes** — two `crewLogistics` collection-group field overrides (`contactId`, `userId`);
+  `firestore:indexes` lists both live. The reconcile paths and the uid-constrained crew
+  query depend on them.
+- **Functions** — `detachEventContact` (refuses while dependents exist), `relinkContactUser`
+  (admin-only bounded atomic relink), and `reconcileCrewLogisticsOnContactWrite` — the
+  fleet's first `contacts/{id}` write-trigger — plus the updated sign-in/delete paths.
+  `functions:list` shows all three ACTIVE (v2, nodejs22); the rest of the fleet updated
+  clean. Pre-deploy: 213 rules tests, 149 functions-emulator tests, 3 E2E (crew case signed
+  in as tech), full CI on the merged PR.
+
+**Not yet live to users:** the client (panel + callable-based detach) ships on the next owner
+Hosting release — until then crew detach in the released client is refused by the new rules
+(known, accepted, single-user; see the open action above).
+
+**Rollback:** rules/indexes — redeploy the prior `firestore.rules` / `firestore.indexes.json`
+from `d4cdb7e` (widening; safe alone). Functions — redeploy `pwa/functions` from `d4cdb7e`;
+deleting the three new functions is optional (unused by the old client). The denormalized
+`userId` copies written meanwhile are inert data under the old rules.
 
 **2026-08-20 — The three deferred production checks are closed: all three PASS.** No deploy —
 this closes the open action carried since the 2026-08-10 releases, whose hand-verification used
