@@ -5,9 +5,11 @@ import {
   canEditEvent,
   canFlag,
   canManageContact,
+  canManageCrewLogistics,
   canManageMembers,
   canOverseeAllEvents,
   canViewChecklist,
+  canViewAllCrewLogistics,
   canViewTracker,
   canViewTrackerForEvent,
   isAdmin,
@@ -242,5 +244,32 @@ describe('permissions — multi-event scenario (the Phase 1 exit case)', () => {
   it('can edit event A but only read event B', () => {
     expect(canEditEvent(member, roleByEvent['event-a'])).toBe(true);
     expect(canEditEvent(member, roleByEvent['event-b'])).toBe(false);
+  });
+});
+
+describe('permissions — crew logistics (CREW_TRAVEL_LODGING_PLAN §4.6 / decision 12)', () => {
+  it('write: admin and the event PM manage; leads, techs, and non-members do not', () => {
+    expect(canManageCrewLogistics(admin, null)).toBe(true);
+    expect(canManageCrewLogistics(member, 'production-manager')).toBe(true);
+    expect(canManageCrewLogistics(member, 'department-lead')).toBe(false);
+    expect(canManageCrewLogistics(member, 'tech')).toBe(false);
+    expect(canManageCrewLogistics(member, null)).toBe(false);
+  });
+
+  it('the director claim carries NO logistics write — read-only oversight', () => {
+    expect(canManageCrewLogistics(director, null)).toBe(false);
+  });
+
+  it('read superset: everyone who manages, plus the production director', () => {
+    expect(canViewAllCrewLogistics(admin, null)).toBe(true);
+    expect(canViewAllCrewLogistics(member, 'production-manager')).toBe(true);
+    expect(canViewAllCrewLogistics(director, null)).toBe(true);
+    expect(canViewAllCrewLogistics(director, 'tech')).toBe(true);
+  });
+
+  it('ordinary members see only their own — the all-records view is refused', () => {
+    expect(canViewAllCrewLogistics(member, 'department-lead')).toBe(false);
+    expect(canViewAllCrewLogistics(member, 'tech')).toBe(false);
+    expect(canViewAllCrewLogistics(member, null)).toBe(false);
   });
 });

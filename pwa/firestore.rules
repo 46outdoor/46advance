@@ -93,6 +93,14 @@ service cloud.firestore {
       return canOverseeAllEvents() || canEditEvent(eventId);
     }
 
+    // Crew logistics read superset (planning/CREW_TRAVEL_LODGING_PLAN.md decision 12): the
+    // people who see EVERY itinerary on an event — its editors, plus the production director
+    // read-only (preserving the "director reads every event subtree" contract). Everyone else
+    // reads only records carrying their own denormalized userId (the self branch at the match).
+    function canViewAllCrewLogistics(eventId) {
+      return canEditEvent(eventId) || isProductionDirector();
+    }
+
     function canFlagEvent(eventId) {
       return isAdmin()
         || hasEventRole(eventId, 'production-manager')
@@ -226,18 +234,23 @@ service cloud.firestore {
       // Ordinary clients (the creator, or a user linked via userId — e.g. editing their own
       // profile photo) may update, but NOT rewrite the ownership/link fields: `createdBy` and
       // `userId` are immutable to them (F-3). Otherwise a linked user could seize `createdBy`
-      // and then satisfy the creator-only delete. Legitimate relinking is admin-only (or the
-      // Admin-SDK server path, which bypasses these rules).
+      // and then satisfy the creator-only delete.
       // A production director curates the whole directory (decision 2026-08-10) — they may
-      // edit and delete ANY entry, not only their own. They do NOT get the admin relink
-      // power: `createdBy`/`userId` stay immutable to them, so the F-3 ownership-seizure
-      // guard above still holds and account linking remains an admin-only identity action.
-      allow update: if isAdmin()
+      // edit and delete ANY entry, not only their own.
+      // `userId` is now DENORMALIZED authorization data: crewLogistics records copy it and
+      // gate reads of room numbers / confirmation codes on the copy
+      // (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2). So since 2026-08-20 the link fields are
+      // immutable through EVERY direct client write, including an admin's — a one-write client
+      // relink would leave the copies authorizing the wrong account. Admin relinking is not
+      // lost (decision 13): it moved to the admin-only `relinkContactUser` callable, which
+      // updates the contact, both users/{uid} pointers, and every denormalized copy in one
+      // transaction. Sign-in/delete keep their Admin-SDK link/unlink paths (rules-exempt).
+      allow update: if (isAdmin()
         || (isActiveUser()
             && (isProductionDirector()
                 || resource.data.createdBy == request.auth.uid
-                || resource.data.userId == request.auth.uid)
-            && keysUnchanged(['createdBy', 'userId']));
+                || resource.data.userId == request.auth.uid)))
+        && keysUnchanged(['createdBy', 'userId']);
       allow delete: if isAdmin()
         || (isActiveUser()
             && (isProductionDirector() || resource.data.createdBy == request.auth.uid));
@@ -434,10 +447,75 @@ service cloud.firestore {
         }
       }
 
-      // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin write.
+      // Per-event contact attachments (join → global contacts/{id}): member read; PM/admin
+      // create/update. DELETE is server-only since 2026-08-20: crewLogistics records reference
+      // an attachment by id, rules cannot query for those dependents, and a silent orphan is
+      // not acceptable — the `detachEventContact` callable (Admin SDK) refuses the detach
+      // while any logistics record references the attachment.
       match /contacts/{attachId} {
         allow read: if canReadEvent(eventId);
-        allow create, update, delete: if canEditEvent(eventId);
+        allow create, update: if canEditEvent(eventId);
+        allow delete: if false;
+      }
+
+      // Crew travel & lodging (planning/CREW_TRAVEL_LODGING_PLAN.md §4.3): per-person records
+      // holding room numbers and confirmation codes, so the read boundary is DELIBERATELY
+      // narrower than canReadEvent — event editors and the production director see all; an
+      // ordinary member sees only records carrying their own denormalized userId. The self
+      // branch requires isMember so a pending/revoked matching account, or an approved
+      // non-member, is still denied. NOTE the list-query trap: clients must issue the
+      // uid-constrained query unless they satisfy canViewAllCrewLogistics.
+      match /crewLogistics/{recordId} {
+        // The record's three identity fields are server-verifiable, not client assertions:
+        // the attachment must exist on THIS event's roster, name the same directory contact,
+        // and the denormalized userId must equal that contact's CURRENT link (absent → null).
+        function attachmentPath() {
+          return /databases/$(database)/documents/events/$(eventId)/contacts/$(request.resource.data.eventContactId);
+        }
+        function linkedContact() {
+          return get(/databases/$(database)/documents/contacts/$(request.resource.data.contactId));
+        }
+        function identityProven() {
+          return exists(attachmentPath())
+            && get(attachmentPath()).data.contactId == request.resource.data.contactId
+            && request.resource.data.get('userId', null) == linkedContact().data.get('userId', null);
+        }
+        // Discriminated shape: exactly the keys of one kind, nothing unknown (the client Zod
+        // parser owns finer validation — value types, real dates, IANA zones).
+        function lodgingShape() {
+          return request.resource.data.kind == 'lodging'
+            && request.resource.data.keys().hasOnly(['kind', 'eventContactId', 'contactId',
+                 'userId', 'notes', 'createdBy', 'createdAt', 'updatedAt', 'hotelName',
+                 'address', 'hotelPhone', 'confirmation', 'checkInDate', 'checkOutDate',
+                 'roomType', 'roomNumber'])
+            && nonEmptyStr(request.resource.data, 'hotelName')
+            && request.resource.data.get('checkInDate', '').matches('\\d{4}-\\d{2}-\\d{2}')
+            && request.resource.data.get('checkOutDate', '').matches('\\d{4}-\\d{2}-\\d{2}')
+            && request.resource.data.checkOutDate >= request.resource.data.checkInDate;
+        }
+        function travelShape() {
+          return request.resource.data.kind == 'travel'
+            && request.resource.data.keys().hasOnly(['kind', 'eventContactId', 'contactId',
+                 'userId', 'notes', 'createdBy', 'createdAt', 'updatedAt', 'mode', 'carrier',
+                 'confirmation', 'from', 'to', 'departAt', 'arriveAt', 'departTimeZone',
+                 'arriveTimeZone'])
+            && fieldIn(request.resource.data, 'mode', ['flight', 'drive', 'train', 'other'])
+            && (request.resource.data.get('departAt', null) == null
+                || nonEmptyStr(request.resource.data, 'departTimeZone'))
+            && (request.resource.data.get('arriveAt', null) == null
+                || nonEmptyStr(request.resource.data, 'arriveTimeZone'));
+        }
+        function validCrewLogisticsWrite() {
+          return identityProven() && (lodgingShape() || travelShape());
+        }
+
+        allow read: if canViewAllCrewLogistics(eventId)
+          || (isMember(eventId) && resource.data.userId == request.auth.uid);
+        allow create: if canEditEvent(eventId) && validCrewLogisticsWrite()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if canEditEvent(eventId) && validCrewLogisticsWrite()
+          && keysUnchanged(['createdBy', 'createdAt']);
+        allow delete: if canEditEvent(eventId);
       }
 
       // Event checklist: a PM-only working surface — READ requires canEditEvent (or the

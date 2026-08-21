@@ -17,6 +17,29 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ### Added
 
+- **Travel & Lodging — per-person crew logistics on the event page.** A new panel records
+  where each crew member stays and how they get in: **lodging** (hotel, confirmation number,
+  check-in/out dates, room type and number) and **travel** (flight/drive/train, carrier,
+  confirmation, from/to, departure and arrival times with their time zones). Entered and
+  edited by the event's production managers; grouped by person.
+- **Your itinerary is yours.** These records carry room numbers and confirmation codes, so
+  they are the first event surface that is **not** readable by every member: PMs and the
+  production director see everything (the director read-only, as everywhere), and each crew
+  member sees **only their own** records — a signed-in crew member opens the event and finds
+  their hotel and flights, not anyone else's. Rooming lists deliberately do **not** print in
+  the packet and do **not** feed calendar subscriptions.
+
+### Changed
+
+- **Removing someone from an event's crew now checks their travel first.** Detaching a crew
+  member is refused while travel or lodging records still reference them — delete or
+  reassign those records first. Prevents silently orphaning a person's itinerary.
+- **Linking a contact to a user account is now a single administrative action.** Admins
+  relink through a server operation that moves the account link and every dependent
+  travel/lodging record together, atomically — a half-applied relink could have shown one
+  person's itinerary to another account. Behavior is otherwise unchanged: linking remains
+  admin-only.
+
 - **Production director — oversight across every event:** a new admin-granted capability for
   someone who supervises the production managers' work without necessarily being assigned to
   their shows. A production director can open **every event in the application** — its crew,

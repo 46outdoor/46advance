@@ -25,6 +25,7 @@ import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseAdminEmails, isAdminEmail } from './lib/auth/adminAllowlist.js';
 import { assertActiveUser, assertAdmin } from './lib/auth/authorize.js';
 import { ChunkedBatch, type BatchLike } from './lib/db/chunkedBatch.js';
+import { tryReconcileCrewLogistics } from './crewLogistics.js';
 import { asArray } from './lib/db/docValues.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import {
@@ -76,6 +77,13 @@ export {
 } from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 export { cspReport } from './cspReport.js';
+// Crew travel & lodging (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2): the userId-denormalization
+// lifecycle — reconciliation trigger + the two server-owned writes (roster detach, admin relink).
+export {
+  detachEventContact,
+  relinkContactUser,
+  reconcileCrewLogisticsOnContactWrite,
+} from './crewLogistics.js';
 
 // Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.
 export { renameEventSlug } from './eventSlug.js';
@@ -177,6 +185,10 @@ async function linkOrCreateContact(
         { userId: uid, updatedAt: FieldValue.serverTimestamp() },
         { merge: true },
       );
+      // Crew logistics created against this pre-added contact BEFORE the person ever signed
+      // in carry userId: null — backfill so their itinerary is visible on first sign-in. The
+      // contact-write trigger is the retryable guarantee; this just makes it prompt.
+      await tryReconcileCrewLogistics(db, match.id, uid);
       return { contactId: match.id, contactName: nameOrNull(match.data().name) };
     }
   }
@@ -512,6 +524,11 @@ export const deleteUser = onCall({ secrets: OAUTH_SECRETS }, async (request) => 
   );
   batch.delete(db.collection('users').doc(uid));
   await batch.commit();
+  // Clear the denormalized crewLogistics userId copies for each unlinked contact (best-effort;
+  // the contact-write trigger retries any that fail). uid→null only — never an A→B move.
+  for (const c of contacts.docs) {
+    await tryReconcileCrewLogistics(db, c.id, null);
+  }
 
   return { uid, deleted: true };
 });
