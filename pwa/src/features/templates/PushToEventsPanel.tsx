@@ -16,7 +16,7 @@ import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { EVENT_PRODUCTION_FIELDS, getDepartmentFields } from '@/lib/advances/fields';
 import { listDepartments } from '@/lib/departments/departments-service';
-import { listEvents } from '@/lib/events/events-read';
+import { eventsListKey, listEvents } from '@/lib/events/events-read';
 import { PUSH_TARGET_LIMIT, pushTemplateProduction } from '@/lib/templates/template-push-service';
 import type { EventRecord } from '@/lib/events/event';
 import type {
@@ -52,7 +52,7 @@ export function PushToEventsPanel({ templateId }: { templateId: string }) {
     ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
     : null;
   const eventsQuery = useQuery({
-    queryKey: ['events', 'list', viewer?.uid, isAdmin],
+    queryKey: eventsListKey(viewer),
     queryFn: () => listEvents(viewer!),
     enabled: !!viewer,
   });

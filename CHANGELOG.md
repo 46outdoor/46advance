@@ -25,7 +25,8 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   never assign or change roles), the shared **Contacts directory**, and event **schedules** —
   so arrival times they book land on the timeline directly. Everything else stays read-only:
   advances, production records, packets, checklists, quotes, and team roles are untouched by
-  the capability, and removing it forces the account to re-authenticate.
+  the capability. Removing it revokes the account's sign-in sessions; a token already issued
+  can carry the old capability for up to about an hour before it expires.
 
 - **Travel & Lodging — per-person crew logistics on the event page.** A new panel records
   where each crew member stays and how they get in: **lodging** (hotel, confirmation number,

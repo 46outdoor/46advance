@@ -251,7 +251,7 @@ an approved non-member, read the record and would contradict the non-member-deni
 If those checks become impractical in rules, move create/update behind a callable that derives the
 identity fields server-side; do not fall back to trusting client-supplied `userId`.
 
-Phase 2 widens this block only after §2.1's coordinator read scope is decided:
+Phase 2 widens this block per §2.1's resolved coordinator read scope:
 
 ```
 allow read: if canViewAllCrewLogistics(eventId)
@@ -331,8 +331,8 @@ adds production-director read oversight and owns the all-records versus self-que
 A company-wide claim, following the production-director precedent (a function that cannot be
 derived from event membership). **Does not touch `EVENT_ROLES`** — no fourth per-event role, so
 none of the 49 role-branching sites, 17 rules branches, or the Team & access role editor change.
-Phase 2 remains blocked until §2.1 defines how this company-wide writer discovers and reads the
-events it coordinates.
+§2.1 #2 (resolved 2026-08-21: full cross-event read) defines how this company-wide writer
+discovers and reads the events it coordinates.
 
 ### 5.1 The claim
 
@@ -413,10 +413,10 @@ than letting exceptions accumulate case by case.
 
 ## 6. Sequencing
 
-1. Resolve §2.1's crew-population invariant.
+1. ~~Resolve §2.1's crew-population invariant.~~ Resolved 2026-08-20 (any roster member).
 2. **Phase 1** — model, rules, indexes, identity reconciliation, service, panel, and tests.
    PM-only writes. Ships useful alone.
-3. Resolve §2.1's coordinator read/discovery scope.
+3. ~~Resolve §2.1's coordinator read/discovery scope.~~ Resolved 2026-08-21 (full cross-event read).
 4. **Phase 2** — the complete coordinator claim lifecycle, selected read path, four narrow write
    capabilities, client predicates/UI, Tech-only auto-enroll authorization, and tests. Logistics
    itself still widens through the single predicate from §4.6.

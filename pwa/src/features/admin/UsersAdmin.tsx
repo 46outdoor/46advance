@@ -18,7 +18,7 @@ import { useAdminUsersQuery } from './useAdminUsers';
 const logger = createLogger('Admin');
 
 const cellButton =
-  'rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
+  'min-h-11 rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50 sm:min-h-0';
 
 /** Inline editable display-name cell. Local draft; Save appears once it differs from stored. */
 function UserNameCell({
@@ -318,7 +318,7 @@ export function UsersAdmin() {
               ))}
               {usersQuery.data.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-3 text-ink-muted">
+                  <td colSpan={9} className="py-3 text-ink-muted">
                     No users yet.
                   </td>
                 </tr>

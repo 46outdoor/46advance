@@ -167,7 +167,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   // ProtectedLayout, but the registry must not hand a null user cross-event or Tracker links.
   const viewer: Viewer = user
     ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : { uid: '', isAdmin: false, isOrganizer: false, isProductionDirector: false };
+    : {
+        uid: '',
+        isAdmin: false,
+        isOrganizer: false,
+        isProductionDirector: false,
+        isProductionCoordinator: false,
+      };
 
   const inlineItems = visibleNavItems('inline', viewer, isPmSomewhere);
   const panelGroups = PANEL_GROUPS.map((group) =>
