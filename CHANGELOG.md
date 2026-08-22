@@ -17,6 +17,16 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ### Added
 
+- **Production coordinator — a new company-wide capability for the person who books travel.**
+  Granted per user in **Admin → Users**, like the Organizer and Production director toggles.
+  A coordinator can **open every event in the application** (the same read reach as a
+  production director) and **edit exactly four things** everywhere: crew **Travel & Lodging**,
+  event **crew rosters** (attaching crew still auto-enrolls their account as a Tech; it can
+  never assign or change roles), the shared **Contacts directory**, and event **schedules** —
+  so arrival times they book land on the timeline directly. Everything else stays read-only:
+  advances, production records, packets, checklists, quotes, and team roles are untouched by
+  the capability, and removing it forces the account to re-authenticate.
+
 - **Travel & Lodging — per-person crew logistics on the event page.** A new panel records
   where each crew member stays and how they get in: **lodging** (hotel, confirmation number,
   check-in/out dates, room type and number) and **travel** (flight/drive/train, carrier,

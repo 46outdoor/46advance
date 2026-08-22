@@ -94,6 +94,12 @@ beforeEach(async () => {
       createdBy: ADMIN.uid,
       userId: null,
     });
+    // A stage + advance so the coordinator-denied test hits a rules denial, not not-found.
+    await setDoc(doc(db, 'events/event-a/stages/stg-a'), { name: 'Main', order: 0 });
+    await setDoc(doc(db, 'events/event-a/stages/stg-a/advances/adv-1'), {
+      artistName: 'Seed Band',
+      createdBy: PM,
+    });
     // Roster attachments on event A.
     await setDoc(doc(db, 'events/event-a/contacts/attach-tech'), { contactId: 'contact-tech' });
     await setDoc(doc(db, 'events/event-a/contacts/attach-nolink'), {
@@ -296,6 +302,90 @@ describe('contact link immutability + server-only detach (decisions 12/13 enforc
     await assertFails(deleteDoc(doc(dbFor(PM), 'events/event-a/contacts/attach-tech')));
     await assertFails(
       deleteDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'events/event-a/contacts/attach-tech')),
+    );
+  });
+});
+
+describe('production coordinator (Phase 2) — four writes, full read, nothing else', () => {
+  const COORD = { uid: 'user-coord', token: { approved: true, productionCoordinator: true } };
+  const asCoord = () => dbFor(COORD.uid, COORD.token);
+
+  it('reads events + every crewLogistics record with NO membership row (§2.1 #2)', async () => {
+    await assertSucceeds(getDoc(doc(asCoord(), 'events/event-a')));
+    await assertSucceeds(getDocs(collection(asCoord(), 'events/event-a/crewLogistics')));
+  });
+
+  it('writes crew logistics (the widened canManageCrewLogistics)', async () => {
+    await assertSucceeds(
+      setDoc(doc(asCoord(), 'events/event-a/crewLogistics/coord-1'), {
+        ...validLodging(),
+        createdBy: COORD.uid,
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(asCoord(), 'events/event-a/crewLogistics/log-tech'), { roomNumber: '777' }),
+    );
+  });
+
+  it('curates the crew roster (create/update; detach stays server-only)', async () => {
+    await assertSucceeds(
+      setDoc(doc(asCoord(), 'events/event-a/contacts/coord-attach'), {
+        contactId: 'contact-nolink',
+        roleLabel: 'Driver',
+        addedBy: COORD.uid,
+        addedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(deleteDoc(doc(asCoord(), 'events/event-a/contacts/attach-tech')));
+  });
+
+  it('curates the contacts directory — link fields still frozen', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asCoord(), 'contacts/contact-nolink'), { phone: '555-0100' }),
+    );
+    await assertFails(updateDoc(doc(asCoord(), 'contacts/contact-tech'), { userId: COORD.uid }));
+  });
+
+  it('writes schedule days under the same shape + revision guards as a PM', async () => {
+    await assertSucceeds(
+      setDoc(doc(asCoord(), 'events/event-a/scheduleDays/2026-08-14'), {
+        date: '2026-08-14',
+        dayType: 'travel',
+        items: [],
+        createdBy: COORD.uid,
+        revision: 0,
+      }),
+    );
+    // createdBy pinned on create: spoofing someone else is refused.
+    await assertFails(
+      setDoc(doc(asCoord(), 'events/event-a/scheduleDays/2026-08-15'), {
+        date: '2026-08-15',
+        dayType: 'travel',
+        items: [],
+        createdBy: PM,
+        revision: 0,
+      }),
+    );
+  });
+
+  it('is DENIED every canEditEvent surface — the gate was not widened', async () => {
+    const db = asCoord();
+    await assertFails(updateDoc(doc(db, 'events/event-a'), { name: 'Renamed' }));
+    await assertFails(
+      updateDoc(doc(db, 'events/event-a/stages/stg-a/advances/adv-1'), {
+        artistName: 'Hijacked',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/checklist/coord-chk'), {
+        text: 'Not allowed',
+        section: 'main',
+        order: 1,
+        completedAt: null,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'events/event-a/members/user-new'), { role: 'tech', uid: 'user-new' }),
     );
   });
 });

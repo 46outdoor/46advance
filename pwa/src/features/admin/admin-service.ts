@@ -18,6 +18,8 @@ import type {
   SetUserOrganizerOutput,
   SetUserProductionDirectorInput,
   SetUserProductionDirectorOutput,
+  SetUserProductionCoordinatorInput,
+  SetUserProductionCoordinatorOutput,
 } from '@contracts/callables/auth';
 import { eventRoleSchema, type EventRole } from '@/lib/rbac/roles';
 import { parseEvent, type EventRecord } from '@/lib/events/event';
@@ -80,6 +82,23 @@ export async function setUserProductionDirector(
     'setUserProductionDirector',
   );
   const result = await callable({ uid, productionDirector });
+  return result.data;
+}
+
+/**
+ * Admin-only: grant/revoke the production-coordinator capability — the director's
+ * cross-event read plus four narrow writes (crew logistics, crew roster, contacts
+ * directory, schedule days). Revoking forces re-auth server-side.
+ */
+export async function setUserProductionCoordinator(
+  uid: string,
+  productionCoordinator: boolean,
+): Promise<SetUserProductionCoordinatorOutput> {
+  const callable = httpsCallable<
+    SetUserProductionCoordinatorInput,
+    SetUserProductionCoordinatorOutput
+  >(functions, 'setUserProductionCoordinator');
+  const result = await callable({ uid, productionCoordinator });
   return result.data;
 }
 

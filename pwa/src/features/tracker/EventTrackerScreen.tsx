@@ -11,8 +11,10 @@ import { TrackerGrid } from './TrackerGrid';
 /** Per-event tracker grid: advances × departments, status-colored. */
 export function EventTrackerScreen() {
   const { eventId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = user
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : null;
   // Oversight (admin / production director) opens any event's tracker, so its role read is
   // skipped entirely rather than fetched and ignored.
   const oversees = !!viewer && canOverseeAllEvents(viewer);

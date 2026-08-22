@@ -3,7 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canEditEvent, canViewChecklist, canViewTrackerForEvent } from '@/lib/rbac/permissions';
+import {
+  canEditEvent,
+  canManageCrewRoster,
+  canViewChecklist,
+  canViewTrackerForEvent,
+} from '@/lib/rbac/permissions';
 import { getEventMember } from '@/lib/rbac/membership';
 import { formatZonedDateRange } from '@/lib/dates/timezone';
 import type { EventInput, EventRecord } from '@/lib/events/event';
@@ -150,7 +155,7 @@ function enabledDepartments(
 
 export function EventDetailScreen() {
   const { eventId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -213,9 +218,18 @@ export function EventDetailScreen() {
 
   if (!user || !eventId) return null;
 
-  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
+  const viewer = {
+    uid: user.uid,
+    isAdmin,
+    isOrganizer,
+    isProductionDirector,
+    isProductionCoordinator,
+  };
   const viewerRole = memberQuery.data?.role ?? null;
   const canEdit = canEditEvent(viewer, viewerRole);
+  // The Crew panel keys off roster curation, not event-wide edit: the production
+  // coordinator curates crew without gaining the event (CREW_TRAVEL_LODGING_PLAN §5.2).
+  const canManageRoster = canManageCrewRoster(viewer, viewerRole);
   // The header's second Tracker entry point, held to the same rule as the nav and the Events
   // list: oversight anywhere, or the PM of this event. Leads and techs get no Tracker at all.
   const showTracker = canViewTrackerForEvent(viewer, viewerRole);
@@ -299,7 +313,7 @@ export function EventDetailScreen() {
             canView={canViewChecklist(viewer, viewerRole)}
             canEdit={canEdit}
           />
-          <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canEdit} />
+          <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canManageRoster} />
           <TravelLodgingPanel eventId={event.id} viewer={viewer} role={viewerRole} />
           <EventTeamPanel
             eventId={event.id}

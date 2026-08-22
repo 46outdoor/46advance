@@ -147,6 +147,7 @@ async function seedEmulator(): Promise<void> {
       isAdmin: bool(persona.claims.admin === true),
       organizer: bool(persona.claims.organizer === true),
       productionDirector: bool(persona.claims.productionDirector === true),
+      productionCoordinator: bool(persona.claims.productionCoordinator === true),
       approved: bool(persona.claims.approved === true),
       createdAt: ts(NOW_ISO),
       lastSeenAt: ts(NOW_ISO),

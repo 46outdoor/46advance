@@ -32,7 +32,7 @@ export function StageProductionPanel({
   stageId: string;
   member: EventMember | null;
 }) {
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
 
   const productionQuery = useQuery({
@@ -85,7 +85,9 @@ export function StageProductionPanel({
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
+  const viewer = user
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : null;
   // Whole-record scope (attachments): PM/admin. Sections are gated per department below.
   const canEdit = viewer ? canEditEvent(viewer, member?.role ?? null) : false;
 

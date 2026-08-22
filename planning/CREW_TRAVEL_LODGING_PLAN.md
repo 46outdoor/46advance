@@ -1,8 +1,14 @@
 # Crew travel & lodging — plan
 
-**Status:** **Phase 1 IMPLEMENTED 2026-08-20** (merged pending; unreleased — Hosting +
-functions + rules + indexes deploys required). §2.1 #1 resolved the same day (any roster
-member); **Phase 2 remains blocked on §2.1 #2** (the coordinator read/discovery scope).
+**Status:** **Phase 1 deployed 2026-08-21** (rules + indexes + functions live and verified;
+awaiting the owner Hosting release). **Phase 2 IMPLEMENTED 2026-08-21** — §2.1 #2 resolved
+the same day (full cross-event read, threat-model cost accepted): the
+`setUserProductionCoordinator` claim lifecycle, the oversight-read widening
+(`canOverseeAllEvents` in rules/storage/client), the four write surfaces, the Tech-only
+auto-enroll authorization in `assignEventMember`, the Admin → Users toggle, and tests at
+four layers (predicate unit · rules matrix incl. every-canEditEvent-surface-denied ·
+functions-emulator claim lifecycle + auto-enroll branch · E2E persona with zero
+memberships). Unreleased pending its own backend deploys + Hosting.
 Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding was
 re-verified against the codebase the same day before scoping. Security/data-integrity review
 was folded in on 2026-08-20. **Ships in two phases** that are independently valuable and
@@ -86,17 +92,15 @@ the affected phase by guessing:
    whose travel the company books, not a rules invariant** — no classification field, no config
    list, and nothing breaks if a vendor's room is ever booked. Eligibility is never inferred from
    the free-form `company` string.
-2. **What may a company-wide coordinator read?** A coordinator with no event membership cannot
-   currently discover or read an event: `canReadEvent`, the events list, the event route, and the
-   schedule's supporting queries are all membership/oversight-gated. Choose one before Phase 2:
-   grant cross-event read oversight (which exposes the whole event subtree under today's canonical
-   gate); require per-event membership (which weakens “company-wide”); or build a narrow
-   coordinator workspace/read model. Four write-rule branches alone do not create a usable UI.
-
-The second choice must be threat-modeled explicitly. Adding the coordinator to
-`canOverseeAllEvents` is the simplest implementation, but also grants reads of advances,
-production records, quotes, packets, checklists, and other event data—not only the four write
-surfaces.
+2. **What may a company-wide coordinator read? — RESOLVED 2026-08-21: full cross-event read,
+   like the director.** The coordinator claim joins `canOverseeAllEvents()` (rules, storage,
+   and client), so events-list discovery, event pages, schedules, and every oversight read
+   surface work with zero per-event setup — one population, not two subtly different ones.
+   **The threat-model cost was stated and accepted explicitly:** under today's canonical gate
+   this grants reads of advances, production records, quotes, packets, and checklists — the
+   travel booker can read every artist's financials. The alternatives (per-event membership;
+   a narrow read model) were presented and declined. Writes remain exactly the four narrow
+   surfaces in §5.2; joining the read population widens **no** write.
 
 ## 3. What "each person sees only their own" rests on
 

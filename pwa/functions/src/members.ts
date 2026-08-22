@@ -23,6 +23,7 @@ import {
 } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { assertCanEditEvent } from './google.js';
+import { assertActiveUser } from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
@@ -65,7 +66,19 @@ export const assignEventMember = onCall(async (request): Promise<AssignEventMemb
   const input = parseCallableData(assignEventMemberInputSchema, request.data);
   const db = getFirestore();
   await enforceRateLimit(db, ['assignEventMember', uid], 30);
-  await assertCanEditEvent(db, token, uid, input.eventId);
+  // Production coordinator (CREW_TRAVEL_LODGING_PLAN §5.3): managing the crew roster implies
+  // the Tech auto-enroll that attaching fires, so the claim gets EXACTLY that — the parsed
+  // request must be role 'tech' with ifAbsent, the no-op-if-any-membership-exists path that
+  // can never assign authority or alter an existing membership. Everything else (role
+  // assignment, edits, removal) still requires assertCanEditEvent, which this claim never
+  // satisfies.
+  const coordinatorAutoEnroll =
+    token.productionCoordinator === true && input.role === 'tech' && input.ifAbsent === true;
+  if (!coordinatorAutoEnroll) {
+    await assertCanEditEvent(db, token, uid, input.eventId);
+  } else {
+    await assertActiveUser({ uid, token });
+  }
 
   const eventSnap = await db.doc(`events/${input.eventId}`).get();
   if (!eventSnap.exists) throw new HttpsError('not-found', 'Event not found.');

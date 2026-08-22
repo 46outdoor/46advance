@@ -6,7 +6,9 @@ import {
   canFlag,
   canManageContact,
   canManageCrewLogistics,
+  canManageCrewRoster,
   canManageMembers,
+  canManageScheduleDays,
   canOverseeAllEvents,
   canViewChecklist,
   canViewAllCrewLogistics,
@@ -271,5 +273,37 @@ describe('permissions — crew logistics (CREW_TRAVEL_LODGING_PLAN §4.6 / decis
     expect(canViewAllCrewLogistics(member, 'department-lead')).toBe(false);
     expect(canViewAllCrewLogistics(member, 'tech')).toBe(false);
     expect(canViewAllCrewLogistics(member, null)).toBe(false);
+  });
+});
+
+describe('permissions — production coordinator (CREW_TRAVEL_LODGING_PLAN Phase 2)', () => {
+  const coordinator: Viewer = { uid: 'coord-1', isAdmin: false, isProductionCoordinator: true };
+
+  it('joins the cross-event read population (§2.1 #2)', () => {
+    expect(canOverseeAllEvents(coordinator)).toBe(true);
+    expect(canViewTracker(coordinator, undefined)).toBe(true);
+    expect(canViewChecklist(coordinator, null)).toBe(true);
+  });
+
+  it('carries exactly the four writes — logistics, roster, directory, schedule days', () => {
+    expect(canManageCrewLogistics(coordinator, null)).toBe(true);
+    expect(canManageCrewRoster(coordinator, null)).toBe(true);
+    expect(canManageScheduleDays(coordinator, null)).toBe(true);
+    expect(canManageContact(coordinator, { createdBy: 'someone-else' })).toBe(true);
+  });
+
+  it('never widens event editing or membership management', () => {
+    expect(canEditEvent(coordinator, null)).toBe(false);
+    expect(canManageMembers(coordinator, null)).toBe(false);
+    expect(canEditDepartment(coordinator, null, 'audio')).toBe(false);
+    expect(canCreateEvents(coordinator)).toBe(false);
+  });
+
+  it('the roster/schedule predicates stay PM-or-admin without the claim', () => {
+    expect(canManageCrewRoster(member, 'production-manager')).toBe(true);
+    expect(canManageCrewRoster(member, 'department-lead')).toBe(false);
+    expect(canManageScheduleDays(member, 'production-manager')).toBe(true);
+    expect(canManageScheduleDays(member, 'tech')).toBe(false);
+    expect(canManageScheduleDays(director, null)).toBe(false); // director stays read-only
   });
 });

@@ -20,7 +20,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
-import { canEditEvent } from '@/lib/rbac/permissions';
+import { canManageScheduleDays } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
 import { formatDateKey } from '@/lib/dates/formatting';
 import { APP_TIME_ZONE, zonedDayKey } from '@/lib/dates/timezone';
@@ -486,7 +486,7 @@ function EmptyState({
 
 export function EventScheduleScreen() {
   const { eventId: eventParam } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const { filters, setFilter, clearFilters } = useScheduleFilters();
   const [addingDay, setAddingDay] = useState(false);
   // Editing is day-scoped: `editingDayId` is the one day whose rows are editable, and
@@ -552,8 +552,10 @@ export function EventScheduleScreen() {
       });
 
   if (!user || !eventParam) return null;
-  const canEdit = canEditEvent(
-    { uid: user.uid, isAdmin, isOrganizer, isProductionDirector },
+  // canManageScheduleDays, not canEditEvent: the production coordinator edits schedules
+  // (one of the claim's four writes) without holding the event (CREW_TRAVEL_LODGING_PLAN §5.2).
+  const canEdit = canManageScheduleDays(
+    { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator },
     roleQuery.data ?? null,
   );
 

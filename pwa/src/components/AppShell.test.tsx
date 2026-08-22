@@ -159,6 +159,7 @@ function profile(uid: string, approved: boolean): UserProfile {
     isAdmin: false,
     organizer: false,
     productionDirector: false,
+    productionCoordinator: false,
     approved,
     createdAt: null,
     lastSeenAt: null,

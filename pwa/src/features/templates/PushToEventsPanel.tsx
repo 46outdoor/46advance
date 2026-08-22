@@ -39,7 +39,7 @@ const secondaryButtonClass =
   'inline-flex min-h-11 items-center justify-center rounded border border-line px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-brand disabled:opacity-50';
 
 export function PushToEventsPanel({ templateId }: { templateId: string }) {
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
 
   const [include, setIncludeState] = useState<TemplatePushInclude>(ALL_SECTIONS);
@@ -48,7 +48,9 @@ export function PushToEventsPanel({ templateId }: { templateId: string }) {
   const [confirming, setConfirming] = useState(false);
   const [applied, setApplied] = useState<PushTemplateProductionOutput | null>(null);
 
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
+  const viewer = user
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : null;
   const eventsQuery = useQuery({
     queryKey: ['events', 'list', viewer?.uid, isAdmin],
     queryFn: () => listEvents(viewer!),

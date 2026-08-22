@@ -10,8 +10,10 @@ import { CompletionBar } from './CompletionBar';
 
 /** Tracker overview: each visible event with its completion roll-up. Drill into an event. */
 export function TrackerOverviewScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = user
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : null;
 
   // The shared cross-event summary: it decides both whether this route is allowed at all and,
   // for a PM, which events the overview pages through — so it's passed straight to the service

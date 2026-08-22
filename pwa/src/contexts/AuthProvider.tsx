@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isProductionDirector, setIsProductionDirector] = useState(false);
+  const [isProductionCoordinator, setIsProductionCoordinator] = useState(false);
   const [approved, setApproved] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,12 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: admin,
         isOrganizer: organizer,
         isProductionDirector: director = false,
+        // Same legacy-response normalization as the director flag above.
+        isProductionCoordinator: coordinator = false,
         approved: ok,
       } = await syncUserClaims();
       await nextUser.getIdToken(true); // refresh so the token carries the new claim
       setIsAdmin(admin);
       setIsOrganizer(organizer);
       setIsProductionDirector(director);
+      setIsProductionCoordinator(coordinator);
       setApproved(ok);
     } catch (err) {
       logger.error('Failed to sync user claims; falling back to cached claims', err);
@@ -61,11 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(token.claims.admin === true);
         setIsOrganizer(token.claims.organizer === true);
         setIsProductionDirector(token.claims.productionDirector === true);
+        setIsProductionCoordinator(token.claims.productionCoordinator === true);
         setApproved(token.claims.approved === true);
       } catch {
         setIsAdmin(false);
         setIsOrganizer(false);
         setIsProductionDirector(false);
+        setIsProductionCoordinator(false);
         setApproved(false);
       }
     }
@@ -89,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
         setIsOrganizer(false);
         setIsProductionDirector(false);
+        setIsProductionCoordinator(false);
         setApproved(false);
         setLoading(false);
         return;
@@ -126,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isOrganizer,
       isProductionDirector,
+      isProductionCoordinator,
       approved,
       emailVerified,
       signIn: async (email, password) => {
@@ -156,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isOrganizer,
       isProductionDirector,
+      isProductionCoordinator,
       approved,
       emailVerified,
       refreshUser,
