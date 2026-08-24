@@ -60,8 +60,18 @@ service cloud.firestore {
       return isActiveUser() && request.auth.token.get('productionDirector', false) == true;
     }
 
+    // Production coordinator (CREW_TRAVEL_LODGING_PLAN Phase 2): the director's cross-event
+    // READ population plus exactly four narrow writes — crew logistics, the crew roster,
+    // the contacts directory, and schedule days. canEditEvent NEVER includes this claim:
+    // advances, production records, stages, packets, checklists, and quotes stay PM/admin.
+    function isProductionCoordinator() {
+      return isActiveUser() && request.auth.token.get('productionCoordinator', false) == true;
+    }
+
+    // §2.1 #2 (resolved 2026-08-21): the coordinator joins the oversight read population
+    // wholesale — one population, not two subtly different ones.
     function canOverseeAllEvents() {
-      return isAdmin() || isProductionDirector();
+      return isAdmin() || isProductionDirector() || isProductionCoordinator();
     }
 
     function memberPath(eventId) {
@@ -93,12 +103,19 @@ service cloud.firestore {
       return canOverseeAllEvents() || canEditEvent(eventId);
     }
 
-    // Crew logistics read superset (planning/CREW_TRAVEL_LODGING_PLAN.md decision 12): the
-    // people who see EVERY itinerary on an event — its editors, plus the production director
-    // read-only (preserving the "director reads every event subtree" contract). Everyone else
-    // reads only records carrying their own denormalized userId (the self branch at the match).
+    // Crew logistics WRITE gate (plan §4.6/§5.2): event editors, plus the coordinator —
+    // the one event-scoped write the coordinator claim carries alongside roster/directory/
+    // schedule-days below.
+    function canManageCrewLogistics(eventId) {
+      return canEditEvent(eventId) || isProductionCoordinator();
+    }
+
+    // Crew logistics read superset (plan decision 12): everyone who manages, plus the
+    // production director read-only (preserving the "director reads every event subtree"
+    // contract). Everyone else reads only records carrying their own denormalized userId
+    // (the self branch at the match).
     function canViewAllCrewLogistics(eventId) {
-      return canEditEvent(eventId) || isProductionDirector();
+      return canManageCrewLogistics(eventId) || isProductionDirector();
     }
 
     function canFlagEvent(eventId) {
@@ -248,12 +265,15 @@ service cloud.firestore {
       allow update: if (isAdmin()
         || (isActiveUser()
             && (isProductionDirector()
+                || isProductionCoordinator()
                 || resource.data.createdBy == request.auth.uid
                 || resource.data.userId == request.auth.uid)))
         && keysUnchanged(['createdBy', 'userId']);
       allow delete: if isAdmin()
         || (isActiveUser()
-            && (isProductionDirector() || resource.data.createdBy == request.auth.uid));
+            && (isProductionDirector()
+                || isProductionCoordinator()
+                || resource.data.createdBy == request.auth.uid));
     }
 
     // User profiles are server-managed (Admin SDK). Self/admin read; no client write.
@@ -454,7 +474,10 @@ service cloud.firestore {
       // while any logistics record references the attachment.
       match /contacts/{attachId} {
         allow read: if canReadEvent(eventId);
-        allow create, update: if canEditEvent(eventId);
+        // Coordinator (Phase 2): roster curation is one of the claim's four writes. The Tech
+        // auto-enroll this can trigger is authorized server-side as exactly role=tech +
+        // ifAbsent (members.ts) — the claim cannot assign or alter memberships.
+        allow create, update: if canEditEvent(eventId) || isProductionCoordinator();
         allow delete: if false;
       }
 
@@ -511,11 +534,11 @@ service cloud.firestore {
 
         allow read: if canViewAllCrewLogistics(eventId)
           || (isMember(eventId) && resource.data.userId == request.auth.uid);
-        allow create: if canEditEvent(eventId) && validCrewLogisticsWrite()
+        allow create: if canManageCrewLogistics(eventId) && validCrewLogisticsWrite()
           && request.resource.data.createdBy == request.auth.uid;
-        allow update: if canEditEvent(eventId) && validCrewLogisticsWrite()
+        allow update: if canManageCrewLogistics(eventId) && validCrewLogisticsWrite()
           && keysUnchanged(['createdBy', 'createdAt']);
-        allow delete: if canEditEvent(eventId);
+        allow delete: if canManageCrewLogistics(eventId);
       }
 
       // Event checklist: a PM-only working surface — READ requires canEditEvent (or the
@@ -552,6 +575,12 @@ service cloud.firestore {
       // in the day. Member read; PM/admin write. (Rules can't practically gate fields inside
       // an embedded array; the client Zod parser owns per-item shape.)
       match /scheduleDays/{dayKey} {
+        // Coordinator (Phase 2, CREW_TRAVEL_LODGING_PLAN §5.2): schedule days are one of the
+        // claim's four writes — arrival times they book land on the timeline directly.
+        // validDayShape, createdBy pinning, and the revision counter all still bind.
+        function canManageScheduleDays() {
+          return canEditEvent(eventId) || isProductionCoordinator();
+        }
         // Shared shape gate for create + update: the stored date always equals the doc
         // id, the day type is a known key, and items is a (possibly empty) list.
         function validDayShape() {
@@ -560,20 +589,20 @@ service cloud.firestore {
             && request.resource.data.get('items', []) is list;
         }
         allow read: if canReadEvent(eventId);
-        allow create: if canEditEvent(eventId)
+        allow create: if canManageScheduleDays()
           && validDayShape()
           && dayKey.matches('\\d{4}-\\d{2}-\\d{2}')
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.revision is int
           && request.resource.data.revision == 0;
-        allow update: if canEditEvent(eventId)
+        allow update: if canManageScheduleDays()
           && validDayShape()
           && keysUnchanged(['createdBy'])
           // Every client update increments the optimistic-concurrency counter. Legacy docs without
           // a counter start at zero; Admin-SDK calendar reconciliation bypasses rules.
           && request.resource.data.revision is int
           && request.resource.data.revision == resource.data.get('revision', 0) + 1;
-        allow delete: if canEditEvent(eventId);
+        allow delete: if canManageScheduleDays();
       }
 
       // Booked advance-call inbox: sync + attach are Admin-SDK operations. A PM/admin client may

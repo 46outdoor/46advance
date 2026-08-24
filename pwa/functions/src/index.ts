@@ -34,6 +34,7 @@ import {
   setUserDisplayNameInputSchema,
   setUserOrganizerInputSchema,
   setUserProductionDirectorInputSchema,
+  setUserProductionCoordinatorInputSchema,
   syncUserClaimsInputSchema,
 } from './contracts/callables/auth.js';
 import { resolveDisplayName } from './lib/auth/displayName.js';
@@ -262,6 +263,9 @@ export const syncUserClaims = onCall(async (request) => {
   // Read-only cross-event oversight. Granted only by setUserProductionDirector — never
   // derived from the allowlist or from membership — so this is a pure surface + mirror.
   const isProductionDirector = existing.productionDirector === true;
+  // Cross-event read + four narrow writes (CREW_TRAVEL_LODGING_PLAN Phase 2). Granted only
+  // by setUserProductionCoordinator; a pure surface + mirror here, same as the director.
+  const isProductionCoordinator = existing.productionCoordinator === true;
   const wasAdmin = existing.admin === true;
   const wasApproved = existing.approved === true;
 
@@ -320,6 +324,7 @@ export const syncUserClaims = onCall(async (request) => {
       isAdmin,
       organizer: isOrganizer,
       productionDirector: isProductionDirector,
+      productionCoordinator: isProductionCoordinator,
       approved,
       lastSeenAt: FieldValue.serverTimestamp(),
       ...(snap.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
@@ -327,7 +332,14 @@ export const syncUserClaims = onCall(async (request) => {
     { merge: true },
   );
 
-  return { isAdmin, isOrganizer, isProductionDirector, approved, emailVerified };
+  return {
+    isAdmin,
+    isOrganizer,
+    isProductionDirector,
+    isProductionCoordinator,
+    approved,
+    emailVerified,
+  };
 });
 
 /**
@@ -435,6 +447,48 @@ export const setUserProductionDirector = onCall(async (request) => {
   });
 
   return { uid, productionDirector };
+});
+
+/**
+ * Admin-only. Grants/revokes the global `productionCoordinator` capability
+ * (CREW_TRAVEL_LODGING_PLAN.md Phase 2): the director's cross-event READ population plus
+ * four narrow writes — crew logistics, crew roster, contacts directory, schedule days.
+ * Never widens canEditEvent. Same lifecycle shape as the director setter: claim merge,
+ * users/{uid} mirror with who/when stamps, refresh-token revocation on REVOKE (containment
+ * for a read-everything capability), and a structured audit line.
+ */
+export const setUserProductionCoordinator = onCall(async (request) => {
+  assertAdmin(request.auth);
+  const { uid, productionCoordinator } = parseCallableData(
+    setUserProductionCoordinatorInputSchema,
+    request.data,
+  );
+  const db = getFirestore();
+  await enforceRateLimit(db, ['setUserProductionCoordinator', request.auth.uid], 30);
+
+  const adminAuth = getAuth();
+  const existing = (await adminAuth.getUser(uid)).customClaims ?? {};
+  await adminAuth.setCustomUserClaims(uid, { ...existing, productionCoordinator });
+  await db.collection('users').doc(uid).set(
+    {
+      productionCoordinator,
+      productionCoordinatorUpdatedAt: FieldValue.serverTimestamp(),
+      productionCoordinatorUpdatedBy: request.auth.uid,
+    },
+    { merge: true },
+  );
+
+  if (!productionCoordinator) {
+    await adminAuth.revokeRefreshTokens(uid);
+  }
+
+  logger.info('production-coordinator claim changed', {
+    actorUid: request.auth.uid,
+    targetUid: uid,
+    productionCoordinator,
+  });
+
+  return { uid, productionCoordinator };
 });
 
 /**

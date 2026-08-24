@@ -19,7 +19,16 @@ const listDepartments = vi.fn<() => Promise<DepartmentRecord[]>>();
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({ user: { uid: 'admin1' }, isAdmin: true, isOrganizer: false }),
 }));
-vi.mock('@/lib/events/events-read', () => ({ listEvents: () => listEvents() }));
+vi.mock('@/lib/events/events-read', () => ({
+  listEvents: () => listEvents(),
+  // Key builder is pure — the real shape keeps the query cache keyed like production.
+  eventsListKey: (viewer: { uid?: string } | null | undefined) => [
+    'events',
+    'list',
+    viewer?.uid ?? null,
+    'test-scope',
+  ],
+}));
 vi.mock('@/lib/departments/departments-service', () => ({
   listDepartments: () => listDepartments(),
 }));

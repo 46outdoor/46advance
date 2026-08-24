@@ -17,6 +17,12 @@ export interface UserProfile {
    * absent parses as `false` (see `users-service.ts`).
    */
   productionDirector: boolean;
+  /**
+   * Global production-coordinator capability (cross-event read + the four crew-logistics
+   * writes — CREW_TRAVEL_LODGING_PLAN Phase 2) — set by an admin, mirrored from the
+   * `productionCoordinator` custom claim. Absent parses as `false`.
+   */
+  productionCoordinator: boolean;
   /** App access granted by an admin. New accounts start pending (false). */
   approved: boolean;
   createdAt: Date | null;

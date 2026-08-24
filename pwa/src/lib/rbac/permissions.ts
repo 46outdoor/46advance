@@ -25,6 +25,14 @@ export interface Viewer {
    * (`canManageContact`), which is not event authority. Optional; defaults to false.
    */
   isProductionDirector?: boolean;
+  /**
+   * Global production-coordinator claim (CREW_TRAVEL_LODGING_PLAN Phase 2): joins the
+   * cross-event READ population (§2.1 #2, resolved 2026-08-21 — threat-model cost accepted),
+   * and carries exactly four writes: crew logistics, the crew roster, the contacts
+   * directory, and schedule days. Every other event write predicate ignores it.
+   * Optional; defaults to false.
+   */
+  isProductionCoordinator?: boolean;
 }
 
 /** Global admin = unrestricted across every event. */
@@ -48,7 +56,11 @@ export function canCreateEvents(viewer: Viewer): boolean {
  * separate means splitting them later costs one function body, not a sweep of call sites.
  */
 export function canOverseeAllEvents(viewer: Viewer): boolean {
-  return viewer.isAdmin || viewer.isProductionDirector === true;
+  return (
+    viewer.isAdmin ||
+    viewer.isProductionDirector === true ||
+    viewer.isProductionCoordinator === true
+  );
 }
 
 /** v1: production-manager has write scope; admin always. (Dept-lead write is deferred.) */
@@ -133,7 +145,10 @@ export interface ContactOwnership {
  */
 export function canManageContact(viewer: Viewer, contact: ContactOwnership): boolean {
   return (
-    viewer.isAdmin || viewer.isProductionDirector === true || contact.createdBy === viewer.uid
+    viewer.isAdmin ||
+    viewer.isProductionDirector === true ||
+    viewer.isProductionCoordinator === true ||
+    contact.createdBy === viewer.uid
   );
 }
 
@@ -154,7 +169,9 @@ export function canManageMembers(viewer: Viewer, role: EventRole | null): boolea
  * Named for the capability, never the claim that grants it.
  */
 export function canManageCrewLogistics(viewer: Viewer, role: EventRole | null): boolean {
-  return viewer.isAdmin || role === 'production-manager';
+  return (
+    viewer.isAdmin || role === 'production-manager' || viewer.isProductionCoordinator === true
+  );
 }
 
 /**
@@ -167,4 +184,28 @@ export function canManageCrewLogistics(viewer: Viewer, role: EventRole | null): 
  */
 export function canViewAllCrewLogistics(viewer: Viewer, role: EventRole | null): boolean {
   return canManageCrewLogistics(viewer, role) || viewer.isProductionDirector === true;
+}
+
+/**
+ * May curate the event's CREW roster (attach contacts, edit role labels/notes): event
+ * editors, plus the production coordinator (CREW_TRAVEL_LODGING_PLAN §5.2). Distinct from
+ * `canEditEvent` on purpose — the coordinator curates crew without gaining the event.
+ * Detach is server-owned either way (`detachEventContact`). The Tech auto-enroll attach
+ * fires is authorized server-side as exactly role=tech + ifAbsent for this claim.
+ */
+export function canManageCrewRoster(viewer: Viewer, role: EventRole | null): boolean {
+  return (
+    viewer.isAdmin || role === 'production-manager' || viewer.isProductionCoordinator === true
+  );
+}
+
+/**
+ * May edit schedule days (rows, day add/redate/shift, template import): event editors, plus
+ * the production coordinator — arrival times they book land on the timeline directly
+ * (CREW_TRAVEL_LODGING_PLAN §5.2). Mirrors the rules' `canManageScheduleDays`.
+ */
+export function canManageScheduleDays(viewer: Viewer, role: EventRole | null): boolean {
+  return (
+    viewer.isAdmin || role === 'production-manager' || viewer.isProductionCoordinator === true
+  );
 }

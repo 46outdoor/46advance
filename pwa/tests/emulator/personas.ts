@@ -22,6 +22,8 @@ export interface PersonaClaims {
   organizer?: boolean;
   /** Read-only oversight of EVERY event, with or without a membership row. */
   productionDirector?: boolean;
+  /** Cross-event read + the four crew-logistics writes (CREW_TRAVEL_LODGING_PLAN Phase 2). */
+  productionCoordinator?: boolean;
   approved?: boolean;
 }
 
@@ -34,6 +36,7 @@ export type PersonaKey =
   | 'lead'
   | 'tech'
   | 'crossEvent'
+  | 'coordinator'
   | 'pending'
   | 'revoked';
 
@@ -109,6 +112,16 @@ export const PERSONAS: Record<PersonaKey, Persona> = {
     displayName: 'Dio Director-Tech',
     emailVerified: true,
     claims: { productionDirector: true, approved: true },
+  },
+  // Production coordinator (CREW_TRAVEL_LODGING_PLAN Phase 2): cross-event read like the
+  // director, plus the four narrow writes. Deliberately holds NO membership rows — the
+  // capability must do all the work (same discipline as the director persona).
+  coordinator: {
+    key: 'coordinator',
+    email: 'coordinator@e2e.test',
+    displayName: 'Cory Coordinator',
+    emailVerified: true,
+    claims: { productionCoordinator: true, approved: true },
   },
   // Signed up, email not yet verified → held at the "verify your email" gate.
   pending: {

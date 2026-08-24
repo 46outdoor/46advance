@@ -139,7 +139,8 @@ function SignOutButton({ className, onSignOut }: { className: string; onSignOut:
 export function AppShell({ children }: { children: ReactNode }) {
   // Thresholds live in the hook — they're tied to how far this header collapses (see its header).
   const scrolled = useScrolled();
-  const { user, isAdmin, isOrganizer, isProductionDirector, signOut } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator, signOut } =
+    useAuth();
   const inline = useMediaQuery(INLINE_NAV_MEDIA_QUERY);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -165,8 +166,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Signed out, the viewer holds no capability at all: the shell only mounts inside
   // ProtectedLayout, but the registry must not hand a null user cross-event or Tracker links.
   const viewer: Viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector }
-    : { uid: '', isAdmin: false, isOrganizer: false, isProductionDirector: false };
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : {
+        uid: '',
+        isAdmin: false,
+        isOrganizer: false,
+        isProductionDirector: false,
+        isProductionCoordinator: false,
+      };
 
   const inlineItems = visibleNavItems('inline', viewer, isPmSomewhere);
   const panelGroups = PANEL_GROUPS.map((group) =>

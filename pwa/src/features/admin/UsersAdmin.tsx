@@ -11,13 +11,14 @@ import {
   setUserDisplayName,
   setUserOrganizer,
   setUserProductionDirector,
+  setUserProductionCoordinator,
 } from './admin-service';
 import { useAdminUsersQuery } from './useAdminUsers';
 
 const logger = createLogger('Admin');
 
 const cellButton =
-  'rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50';
+  'min-h-11 rounded border border-line px-2 py-0.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50 sm:min-h-0';
 
 /** Inline editable display-name cell. Local draft; Save appears once it differs from stored. */
 function UserNameCell({
@@ -114,6 +115,13 @@ export function UsersAdmin() {
     onError: (err) => logger.error('Failed to update production director', err),
   });
 
+  const setProductionCoordinator = useMutation({
+    mutationFn: ({ uid, productionCoordinator }: { uid: string; productionCoordinator: boolean }) =>
+      setUserProductionCoordinator(uid, productionCoordinator),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+    onError: (err) => logger.error('Failed to update production coordinator', err),
+  });
+
   const setApproved = useMutation({
     mutationFn: ({ uid, approved }: { uid: string; approved: boolean }) =>
       setUserApproved(uid, approved),
@@ -156,6 +164,7 @@ export function UsersAdmin() {
                 <th className="py-2 pr-4 font-semibold">Approved</th>
                 <th className="py-2 pr-4 font-semibold">Organizer</th>
                 <th className="py-2 pr-4 font-semibold">Production director</th>
+                <th className="py-2 pr-4 font-semibold">Production coordinator</th>
                 <th className="py-2 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -240,6 +249,46 @@ export function UsersAdmin() {
                       </>
                     )}
                   </td>
+                  <td className="py-2 pr-4">
+                    {u.isAdmin ? (
+                      <span className="text-ink-muted" title="Admins already hold every capability">
+                        Yes
+                      </span>
+                    ) : (
+                      <>
+                        <span className="mr-2">{u.productionCoordinator ? 'Yes' : 'No'}</span>
+                        <button
+                          type="button"
+                          disabled={setProductionCoordinator.isPending}
+                          onClick={() => {
+                            const granting = !u.productionCoordinator;
+                            const message = granting
+                              ? `Make ${userFullName(u)} a production coordinator?\n\n` +
+                                'They will be able to READ EVERY EVENT in the application ' +
+                                '(like a production director), and additionally EDIT four ' +
+                                'things everywhere: crew travel & lodging, event crew ' +
+                                'rosters, the shared Contacts directory, and event ' +
+                                'schedules.\n\nThey cannot edit advances, production ' +
+                                'records, packets, checklists, or quotes, and cannot manage ' +
+                                'team roles.'
+                              : `Remove production-coordinator access from ${userFullName(u)}?\n\n` +
+                                'They will keep access only to events they are assigned to. ' +
+                                'Their sign-in may hold the old capability for up to about an ' +
+                                'hour until their session token refreshes.';
+                            if (window.confirm(message)) {
+                              setProductionCoordinator.mutate({
+                                uid: u.uid,
+                                productionCoordinator: granting,
+                              });
+                            }
+                          }}
+                          className={cellButton}
+                        >
+                          {u.productionCoordinator ? 'Revoke' : 'Grant'}
+                        </button>
+                      </>
+                    )}
+                  </td>
                   <td className="py-2">
                     <UserActionsCell
                       email={u.email}
@@ -269,7 +318,7 @@ export function UsersAdmin() {
               ))}
               {usersQuery.data.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-3 text-ink-muted">
+                  <td colSpan={9} className="py-3 text-ink-muted">
                     No users yet.
                   </td>
                 </tr>

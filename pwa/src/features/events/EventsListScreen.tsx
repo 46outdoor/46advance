@@ -155,7 +155,7 @@ function TemplatePicker({
 }
 
 export function EventsListScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
@@ -165,7 +165,9 @@ export function EventsListScreen() {
   const [templateChoice, setTemplateChoice] = useState<string | null>(null);
   const [include, setInclude] = useState<TemplateInclude>(ALL_SECTIONS);
 
-  const viewer = user ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector } : null;
+  const viewer = user
+    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
+    : null;
 
   const eventsQuery = useQuery({
     // The canonical factory, never a literal: its scope segment is what stops a viewer who is

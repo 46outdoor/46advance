@@ -36,6 +36,8 @@ export const syncUserClaimsOutputSchema = z.object({
   isAdmin: z.boolean(),
   isOrganizer: z.boolean(),
   isProductionDirector: z.boolean().default(false),
+  // Same legacy-response caveat as isProductionDirector above: the client normalizes.
+  isProductionCoordinator: z.boolean().default(false),
   approved: z.boolean(),
   emailVerified: z.boolean(),
 });
@@ -70,6 +72,24 @@ export const setUserProductionDirectorInputSchema = z.object({
 export type SetUserProductionDirectorInput = z.infer<typeof setUserProductionDirectorInputSchema>;
 export const setUserProductionDirectorOutputSchema = setUserProductionDirectorInputSchema;
 export type SetUserProductionDirectorOutput = z.infer<typeof setUserProductionDirectorOutputSchema>;
+
+// setUserProductionCoordinator — admin grants/revokes the global production-coordinator
+// capability (CREW_TRAVEL_LODGING_PLAN.md Phase 2): the same cross-event READ population as
+// the director (§2.1 #2, resolved 2026-08-21), plus four narrow writes — crew logistics,
+// the crew roster, the contacts directory, and schedule days. It never widens
+// canEditEvent/assertCanEditEvent: advances, production records, packets, checklists, and
+// quotes stay PM/admin.
+export const setUserProductionCoordinatorInputSchema = z.object({
+  uid: z.string().min(1),
+  productionCoordinator: z.boolean(),
+});
+export type SetUserProductionCoordinatorInput = z.infer<
+  typeof setUserProductionCoordinatorInputSchema
+>;
+export const setUserProductionCoordinatorOutputSchema = setUserProductionCoordinatorInputSchema;
+export type SetUserProductionCoordinatorOutput = z.infer<
+  typeof setUserProductionCoordinatorOutputSchema
+>;
 
 // setUserDisplayName — admin sets a user's display name (shown in pickers/member lists).
 // An empty string clears it (falls back to email). Echoes the stored value (null when cleared).

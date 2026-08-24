@@ -15,6 +15,13 @@ export interface AuthContextValue {
    * Always a boolean: AuthProvider normalizes the callable response (see `applyClaims`).
    */
   isProductionDirector: boolean;
+  /**
+   * Global production coordinator (custom claim `productionCoordinator`): the director's
+   * cross-event READ population plus four narrow writes — crew logistics, the crew roster,
+   * the contacts directory, and schedule days (CREW_TRAVEL_LODGING_PLAN Phase 2). Never
+   * widens canEditEvent. Always a boolean: AuthProvider normalizes the callable response.
+   */
+  isProductionCoordinator: boolean;
   /** App access (custom claim `approved`). New accounts start pending until an admin approves. */
   approved: boolean;
   /** Whether the user's email is verified. No `admin`/`approved` claim is granted until it is. */

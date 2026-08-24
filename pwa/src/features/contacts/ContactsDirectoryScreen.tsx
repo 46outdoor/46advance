@@ -114,7 +114,7 @@ function ContactRow({
 
 /** Global personnel directory: anyone adds; creator/admin/production-director edits/deletes. */
 export function ContactsDirectoryScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -176,7 +176,13 @@ export function ContactsDirectoryScreen() {
   });
 
   if (!user) return null;
-  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
+  const viewer = {
+    uid: user.uid,
+    isAdmin,
+    isOrganizer,
+    isProductionDirector,
+    isProductionCoordinator,
+  };
   const canManage = (c: Contact) => canManageContact(viewer, c);
 
   return (

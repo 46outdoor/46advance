@@ -16,6 +16,7 @@ function toUserProfile(uid: string, data: DocumentData): UserProfile {
     organizer: data.organizer === true,
     // `=== true` so legacy docs written before the field existed parse as false, never undefined.
     productionDirector: data.productionDirector === true,
+    productionCoordinator: data.productionCoordinator === true,
     approved: data.approved === true,
     createdAt: timestampToDate(data.createdAt ?? null),
     lastSeenAt: timestampToDate(data.lastSeenAt ?? null),

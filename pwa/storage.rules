@@ -27,8 +27,14 @@ service firebase.storage {
     function isProductionDirector() {
       return isActiveUser() && request.auth.token.get('productionDirector', false) == true;
     }
+    // Production coordinator (CREW_TRAVEL_LODGING_PLAN Phase 2): joins the oversight READ
+    // population (§2.1 #2). Storage writes stay admin/per-event-PM — the claim's four writes
+    // are all Firestore surfaces; none is a Storage upload.
+    function isProductionCoordinator() {
+      return isActiveUser() && request.auth.token.get('productionCoordinator', false) == true;
+    }
     function canOverseeAllEvents() {
-      return isAdmin() || isProductionDirector();
+      return isAdmin() || isProductionDirector() || isProductionCoordinator();
     }
     function isMember(eventId) {
       return isActiveUser()

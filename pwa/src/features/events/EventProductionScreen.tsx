@@ -31,7 +31,7 @@ const logger = createLogger('Production');
 /** Event-level production record: tech-operational info + contacts + links. */
 export function EventProductionScreen() {
   const { eventId: eventParam } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
 
   // Resolve slug-or-id → canonical event id for all reads.
@@ -87,7 +87,13 @@ export function EventProductionScreen() {
 
   if (!user || !eventParam) return null;
 
-  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
+  const viewer = {
+    uid: user.uid,
+    isAdmin,
+    isOrganizer,
+    isProductionDirector,
+    isProductionCoordinator,
+  };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
   const production = productionQuery.data;
 

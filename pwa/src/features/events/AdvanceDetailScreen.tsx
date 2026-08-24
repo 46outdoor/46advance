@@ -62,7 +62,7 @@ function advanceDetailDerived(
 
 export function AdvanceDetailScreen() {
   const { eventId: eventParam, stageId, advanceId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector } = useAuth();
+  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -133,7 +133,13 @@ export function AdvanceDetailScreen() {
 
   if (!user || !eventId || !stageId || !advanceId) return null;
 
-  const viewer = { uid: user.uid, isAdmin, isOrganizer, isProductionDirector };
+  const viewer = {
+    uid: user.uid,
+    isAdmin,
+    isOrganizer,
+    isProductionDirector,
+    isProductionCoordinator,
+  };
   const member = memberQuery.data ?? null;
   const canEdit = canEditEvent(viewer, member?.role ?? null);
   const advance = advanceQuery.data;

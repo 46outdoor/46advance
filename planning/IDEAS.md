@@ -702,6 +702,18 @@ roughly in increasing cost:
 > return `null` so the fallback degrades to "not found" rather than an error. A rules change is
 > **not** obviously right — the list query is genuinely unsafe to allow.
 
+- **The four claim setters share a read-modify-write race** (flagged by review, 2026-08-21).
+  `setUserApproved`/`setUserOrganizer`/`setUserProductionDirector`/`setUserProductionCoordinator`
+  all do `getUser → merge claims → setCustomUserClaims`; two concurrent toggles against the same
+  target can drop one change. Pre-existing shared idiom, single-admin reality, rate-limited —
+  deferred rather than fixed in one setter (which would just desynchronize the four). A fix
+  serializes per-target (transaction on users/{uid} or a claims-reconciler) across ALL four.
+- **Viewer construction is duplicated across ~13 screens** (flagged by review, 2026-08-21).
+  `const viewer = { uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }`
+  now appears in every capability-aware screen; the Phase 2 sweep touched all of them
+  mechanically. A shared `useViewer()` hook is the obvious extraction — deliberately deferred
+  to its own focused diff rather than folded into the tail of a 38-file feature PR.
+
 Small documentation-accuracy issues surfaced while grounding the above. Independent of
 whether either idea gets built:
 

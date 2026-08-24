@@ -155,7 +155,12 @@ export function resolveNavVisibility(
     case 'pm-or-oversight':
       return canViewTracker(viewer, isPmSomewhere);
     case 'cross-event':
-      return viewer.isAdmin || viewer.isOrganizer === true || viewer.isProductionDirector === true;
+      return (
+        viewer.isAdmin ||
+        viewer.isOrganizer === true ||
+        viewer.isProductionDirector === true ||
+        viewer.isProductionCoordinator === true
+      );
     case 'admin':
       return viewer.isAdmin;
   }

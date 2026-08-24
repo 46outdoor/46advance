@@ -88,7 +88,15 @@ export async function assertCanReadEvent(
   eventId: string,
 ): Promise<void> {
   await assertActiveUser({ uid, token });
-  if (token.admin === true || token.productionDirector === true) return;
+  // Mirrors the rules' canOverseeAllEvents(): admin, director, and (since Phase 2 of
+  // CREW_TRAVEL_LODGING_PLAN) the production coordinator all read every event.
+  if (
+    token.admin === true ||
+    token.productionDirector === true ||
+    token.productionCoordinator === true
+  ) {
+    return;
+  }
   const member = await db.doc(`events/${eventId}/members/${uid}`).get();
   if (!member.exists) {
     throw new HttpsError('permission-denied', 'You do not have access to this event.');
