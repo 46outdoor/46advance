@@ -53,14 +53,15 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Crew travel & lodging Phase 1 — backend is LIVE; the owner Hosting release is the only
-  remaining step.** Rules, indexes, and functions deployed + verified 2026-08-21 (see the
-  ledger entry). Until Hosting ships the `4f10f5d` client: the released client's crew detach
-  calls the direct attachment delete, which the live rules now refuse — **crew detach is
-  broken in production until the Hosting release**. Acceptable single-user; don't linger.
-  The new Travel & Lodging panel also doesn't exist in the released client yet, so the live
-  backend surface is simply unused until then. After the release, verify per the plan §4.7
-  matrix (the director read-only view needs the `jared@yourstagemanager.com` session).
+- **Crew travel & lodging — BOTH phases' backends are LIVE; one owner Hosting release
+  remains.** Phase 1 (2026-08-21) and Phase 2 (2026-08-24) rules/functions deploys are
+  verified live (see their ledger entries). The next Hosting release carries, at once: the
+  Travel & Lodging panel, the callable-based crew detach (closing the known gap where the
+  released client's direct detach is refused by the live rules), and the Admin → Users
+  **Production coordinator** toggle. Until then the coordinator claim is grantable but no
+  released UI offers it — the same safe ordering the director rollout used. After the
+  release, verify per plan §4.7/§5.4 (the director read-only view needs the
+  `jared@yourstagemanager.com` session; granting a coordinator needs the admin session).
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
@@ -107,6 +108,35 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-24 — Production coordinator, Phase 2 (#298, `6c6cac6`): FIRESTORE RULES + STORAGE
+RULES + FUNCTIONS.** Three scoped deploys as the owner; secrets health green before and after.
+See the CHANGELOG entry; design + the recorded threat-model acceptance in
+[`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md) §2.1 #2.
+
+- **Firestore rules** — `isProductionCoordinator()`; `canOverseeAllEvents()` widened (the
+  coordinator joins the director's read population wholesale); the four write branches:
+  `canManageCrewLogistics`, roster create/update (detach stays server-only), the contacts
+  directory beside the director (link fields still frozen), and `canManageScheduleDays`
+  (shape + `createdBy` + revision guards intact). Verified against the fetched live ruleset
+  `8eeef990-ffe8-4fd2-ae96-c1f336d0d69f` — both probes present.
+- **Storage rules** — the storage-side `canOverseeAllEvents()` gains the claim (read-only;
+  no Storage write changes). Verified against fetched ruleset `171f3185-…` — both probes
+  present. (Note for future verifications: the storage release name is
+  `releases/firebase.storage/advancethat.firebasestorage.app`, not bare `firebase.storage`.)
+- **Functions** — `setUserProductionCoordinator` CREATED (claim merge, users/{uid} mirror
+  with who/when stamps, refresh-token revocation on revoke, audit line);
+  `syncUserClaims` surfaces + mirrors the claim; `assignEventMember` gains the coordinator
+  branch honoring EXACTLY role=tech + ifAbsent; `assertCanReadEvent` matches the widened
+  rules. Fleet updated clean. Pre-deploy: 219 rules tests, 156 functions-emulator tests,
+  44 E2E (coordinator persona holds zero membership rows), full CI on the merged PR.
+
+**Nobody holds the claim yet** — granting the first coordinator is an Admin → Users action
+after the Hosting release ships the toggle.
+
+**Rollback:** all three targets redeploy from `e0c8035` (the pre-merge parent). Rules-only
+rollback is safe alone (it only narrows the coordinator back out); deleting the new function
+is optional — with no claim granted it is unreachable.
 
 **2026-08-21 — Crew travel & lodging Phase 1 (#296, `4f10f5d`): FIRESTORE RULES + INDEXES +
 FUNCTIONS.** Three scoped deploys in the queue's order, all as the owner account, secrets
