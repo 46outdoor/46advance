@@ -53,15 +53,11 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Crew travel & lodging — BOTH phases' backends are LIVE; one owner Hosting release
-  remains.** Phase 1 (2026-08-21) and Phase 2 (2026-08-24) rules/functions deploys are
-  verified live (see their ledger entries). The next Hosting release carries, at once: the
-  Travel & Lodging panel, the callable-based crew detach (closing the known gap where the
-  released client's direct detach is refused by the live rules), and the Admin → Users
-  **Production coordinator** toggle. Until then the coordinator claim is grantable but no
-  released UI offers it — the same safe ordering the director rollout used. After the
-  release, verify per plan §4.7/§5.4 (the director read-only view needs the
-  `jared@yourstagemanager.com` session; granting a coordinator needs the admin session).
+- **Crew travel & lodging / production coordinator — nothing left to deploy** (both phases
+  live on every target; see the 2026-08-24 Hosting checkpoint). Residual, by-hand and
+  untimed: grant the first coordinator in **Admin → Users** when there is someone to grant
+  it to, and exercise the director's read-only Travel & Lodging view from the
+  `jared@yourstagemanager.com` session the next time it is open.
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
@@ -108,6 +104,24 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-24 — Hosting checkpoint (16:29Z, `262b0d7` #299): HOSTING (owner) — the crew
+travel & lodging AND production-coordinator clients are LIVE.** The `production-deploy.yml`
+run on the `#299` docs commit (which sits on `6c6cac6` #298) carried both client halves at
+once, completing the three-target rollout of Phase 1 (#296) and Phase 2 (#298) below and
+closing the known gap where the released client's direct roster detach was refused by the
+live rules. Verified 2026-08-28 against the live site: `Last-Modified: 24 Aug 2026 16:29:35
+GMT`; the `EventDetailScreen` chunk carries the **Travel & Lodging** panel, the `crewLogistics`
+service, and the `detachEventContact` callable path; the `AdminScreen` chunk carries the
+**Production coordinator** toggle and `setUserProductionCoordinator`; `functions:list` shows
+`detachEventContact`, `relinkContactUser`, `reconcileCrewLogisticsOnContactWrite`,
+`setUserProductionCoordinator`, `assignEventMember`, `syncUserClaims` ACTIVE (v2, nodejs22);
+`firestore:indexes` lists both `crewLogistics` collection-group overrides. Nobody holds the
+coordinator claim yet — that is an Admin → Users action, tracked in Open deploy actions.
+**Rollback:** re-run the Hosting workflow from `d5272d6` (#297, the `main` tip before #298)
+to drop the coordinator toggle while keeping the Phase 1 client; the backends may stay, since
+with no claim granted the coordinator branches are unreachable. Do not roll Hosting back past
+#296 while the Phase 1 rules are live — that client's direct roster detach is refused by them.
 
 **2026-08-24 — Production coordinator, Phase 2 (#298, `6c6cac6`): FIRESTORE RULES + STORAGE
 RULES + FUNCTIONS.** Three scoped deploys as the owner; secrets health green before and after.

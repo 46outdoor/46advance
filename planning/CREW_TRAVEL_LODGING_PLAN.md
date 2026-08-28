@@ -1,14 +1,20 @@
 # Crew travel & lodging — plan
 
-**Status:** **Phase 1 deployed 2026-08-21** (rules + indexes + functions live and verified;
-awaiting the owner Hosting release). **Phase 2 IMPLEMENTED 2026-08-21** — §2.1 #2 resolved
-the same day (full cross-event read, threat-model cost accepted): the
+**Status: COMPLETE — both phases LIVE on every target as of 2026-08-24.** Phase 1 (#296)
+backends deployed 2026-08-21 (rules + indexes + functions); Phase 2 (#298) backends deployed
+2026-08-24 (Firestore rules + Storage rules + functions); the owner Hosting release of
+2026-08-24 16:29Z (`262b0d7`) carried both clients at once — the Travel & Lodging panel,
+the callable-based crew detach, and the Admin → Users **Production coordinator** toggle.
+Re-verified live 2026-08-28 (bundle markers, `functions:list`, `firestore:indexes`); the
+ledger entries in [`DEPLOYMENTS.md`](DEPLOYMENTS.md) hold the evidence and rollback steps.
+Phase 2 = §2.1 #2 resolved 2026-08-21 (full cross-event read, threat-model cost accepted): the
 `setUserProductionCoordinator` claim lifecycle, the oversight-read widening
 (`canOverseeAllEvents` in rules/storage/client), the four write surfaces, the Tech-only
 auto-enroll authorization in `assignEventMember`, the Admin → Users toggle, and tests at
 four layers (predicate unit · rules matrix incl. every-canEditEvent-surface-denied ·
 functions-emulator claim lifecycle + auto-enroll branch · E2E persona with zero
-memberships). Unreleased pending its own backend deploys + Hosting.
+memberships). **Nobody holds the coordinator claim yet** — granting the first one is an
+Admin → Users action. What remains is use, not build: see §7.
 Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding was
 re-verified against the codebase the same day before scoping. Security/data-integrity review
 was folded in on 2026-08-20. **Ships in two phases** that are independently valuable and
