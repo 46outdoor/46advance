@@ -13,8 +13,9 @@ Phase 2 = §2.1 #2 resolved 2026-08-21 (full cross-event read, threat-model cost
 auto-enroll authorization in `assignEventMember`, the Admin → Users toggle, and tests at
 four layers (predicate unit · rules matrix incl. every-canEditEvent-surface-denied ·
 functions-emulator claim lifecycle + auto-enroll branch · E2E persona with zero
-memberships). **Nobody holds the coordinator claim yet** — granting the first one is an
-Admin → Users action. What remains is use, not build: see §7.
+memberships). **First coordinator granted 2026-08-28** (23:12Z, via Admin → Users, to the
+owner account `jared@yourstagemanager.com` — which already holds director; the mirror field
+confirmed live). What remains is use, not build: see §7.
 Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding was
 re-verified against the codebase the same day before scoping. Security/data-integrity review
 was folded in on 2026-08-20. **Ships in two phases** that are independently valuable and
