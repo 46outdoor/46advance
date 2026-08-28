@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
-// Crew travel & lodging rules (planning/CREW_TRAVEL_LODGING_PLAN.md §4.3/§4.7). In its own
+// Crew travel & lodging rules (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.3/§4.7). In its own
 // file (the main firestore matrix sits at the test-file size limit) — same pattern as
 // storage-oversight.rules.test.ts. The suite's center of gravity is the privacy boundary:
 // records carry room numbers and confirmation codes, so reads are NARROWER than

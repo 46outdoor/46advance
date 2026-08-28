@@ -1,6 +1,6 @@
 /**
  * Travel & Lodging panel — the privacy boundary in a real browser
- * (planning/CREW_TRAVEL_LODGING_PLAN.md §4.7).
+ * (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.7).
  *
  * The plan makes one E2E requirement non-negotiable: **the crew case signs in as `tech`,
  * not admin.** The 2026-08-10 slug bug shipped precisely because every routing test used

@@ -166,7 +166,7 @@ async function seedEmulator(): Promise<void> {
     );
   }
 
-  // Crew travel & lodging fixtures (planning/CREW_TRAVEL_LODGING_PLAN.md §4.7): two crew
+  // Crew travel & lodging fixtures (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.7): two crew
   // contacts on alpha — one linked to the tech persona, one linked to nobody — each with a
   // lodging record. The privacy matrix the spec asserts: the tech sees ONLY the Hampton
   // record (theirs); the PM sees both.

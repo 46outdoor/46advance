@@ -1,5 +1,5 @@
 /**
- * Travel & Lodging panel (planning/CREW_TRAVEL_LODGING_PLAN.md §4.4): per-person lodging and
+ * Travel & Lodging panel (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.4): per-person lodging and
  * travel records for the event's crew. Three views from two predicates:
  * - canManageCrewLogistics → every record, grouped by person, with add/edit/delete;
  * - canViewAllCrewLogistics only (production director) → the same grouping, read-only;

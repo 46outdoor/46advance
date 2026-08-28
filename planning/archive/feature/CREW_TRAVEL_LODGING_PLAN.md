@@ -6,7 +6,7 @@ backends deployed 2026-08-21 (rules + indexes + functions); Phase 2 (#298) backe
 2026-08-24 16:29Z (`262b0d7`) carried both clients at once — the Travel & Lodging panel,
 the callable-based crew detach, and the Admin → Users **Production coordinator** toggle.
 Re-verified live 2026-08-28 (bundle markers, `functions:list`, `firestore:indexes`); the
-ledger entries in [`DEPLOYMENTS.md`](DEPLOYMENTS.md) hold the evidence and rollback steps.
+ledger entries in [`DEPLOYMENTS.md`](../../DEPLOYMENTS.md) hold the evidence and rollback steps.
 Phase 2 = §2.1 #2 resolved 2026-08-21 (full cross-event read, threat-model cost accepted): the
 `setUserProductionCoordinator` claim lifecycle, the oversight-read widening
 (`canOverseeAllEvents` in rules/storage/client), the four write surfaces, the Tech-only
@@ -15,8 +15,12 @@ four layers (predicate unit · rules matrix incl. every-canEditEvent-surface-den
 functions-emulator claim lifecycle + auto-enroll branch · E2E persona with zero
 memberships). **First coordinator granted 2026-08-28** (23:12Z, via Admin → Users, to the
 owner account `jared@yourstagemanager.com` — which already holds director; the mirror field
-confirmed live). What remains is use, not build: see §7.
-Scoped 2026-08-20 from [`IDEAS.md`](IDEAS.md) §3 (raised 2026-08-08), whose grounding was
+confirmed live). **Archived 2026-08-28.** What remains is use, not build: the §7 leftovers
+(field-set revision after real use · no cross-event view · the unreconciled
+`EventProduction.contacts[]` surface) are tracked in [`IDEAS.md`](../../IDEAS.md) §3, and the
+one residual verification (the director's read-only view, from a director-only account) in
+[`DEPLOYMENTS.md`](../../DEPLOYMENTS.md) Open deploy actions.
+Scoped 2026-08-20 from [`IDEAS.md`](../../IDEAS.md) §3 (raised 2026-08-08), whose grounding was
 re-verified against the codebase the same day before scoping. Security/data-integrity review
 was folded in on 2026-08-20. **Ships in two phases** that are independently valuable and
 independently verifiable once their gates are resolved.
@@ -447,6 +451,8 @@ record the event in `planning/DEPLOYMENTS.md`. Hosting remains externally manage
 agent deploy target.
 
 ## 7. Open items
+
+> Handed off to [`IDEAS.md`](../../IDEAS.md) §3 on archive (2026-08-28); kept here as written.
 
 - **Field set is a proposal, not confirmed by use.** Before this plan there was no prior art in
   the repo, so §4.1 was drafted from the domain rather than a real form. Expect one revision after

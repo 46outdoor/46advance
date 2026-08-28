@@ -1,6 +1,6 @@
 /**
  * Callable contract schemas — crew travel & lodging lifecycle
- * (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2). Pure Zod — see ./auth.ts header.
+ * (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.2). Pure Zod — see ./auth.ts header.
  *
  * Two callables exist because two client-reachable writes became server-owned when
  * `crewLogistics.userId` became denormalized authorization data:

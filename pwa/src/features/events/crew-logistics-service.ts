@@ -1,6 +1,6 @@
 /**
  * Crew travel & lodging IO (`events/{eventId}/crewLogistics/**` —
- * planning/CREW_TRAVEL_LODGING_PLAN.md §4.3/§4.4). Reads are the delicate part: Firestore
+ * planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.3/§4.4). Reads are the delicate part: Firestore
  * evaluates a LIST against the query, not the returned documents, so a non-manager issuing
  * the unconstrained query is denied outright even though every document they'd receive is
  * theirs. `listCrewLogistics` therefore takes the resolved `canViewAll` (from
