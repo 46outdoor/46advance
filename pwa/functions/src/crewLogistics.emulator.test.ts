@@ -12,7 +12,7 @@ import { authContext, callableRequest, clearEmulators, testEnv } from './testing
 
 if (getApps().length === 0) initializeApp();
 
-// Handler tests for the crew-logistics lifecycle (planning/CREW_TRAVEL_LODGING_PLAN.md
+// Handler tests for the crew-logistics lifecycle (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md
 // §4.2/§4.7): the eventually consistent reconcile path (null→uid / uid→null), the
 // server-owned roster detach that refuses while dependents exist, and the bounded ATOMIC
 // admin relink — including the over-cap case failing with zero writes, which is the

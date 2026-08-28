@@ -78,7 +78,7 @@ export {
 } from './googleDrive.js';
 export { deleteAdvance, deleteStage, deleteQuote } from './eventCleanup.js';
 export { cspReport } from './cspReport.js';
-// Crew travel & lodging (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2): the userId-denormalization
+// Crew travel & lodging (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.2): the userId-denormalization
 // lifecycle — reconciliation trigger + the two server-owned writes (roster detach, admin relink).
 export {
   detachEventContact,

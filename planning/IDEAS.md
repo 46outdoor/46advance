@@ -210,7 +210,7 @@ grouping interacts with search/filter are all open.
 ## 3. Crew travel & lodging (hotels, bunks, flights, rental cars)
 
 **Status:** ✅ **GRADUATED — scoped 2026-08-20 into
-[CREW_TRAVEL_LODGING_PLAN.md](CREW_TRAVEL_LODGING_PLAN.md), which is now the source of truth.**
+[CREW_TRAVEL_LODGING_PLAN.md](archive/feature/CREW_TRAVEL_LODGING_PLAN.md), which is now the source of truth.**
 This entry is kept as the origin record; everything below is what the shape looked like *before*
 the decisions. Every open question here was answered — see the plan's decision table. Two notes
 where this entry is now **wrong**: the "new access pattern" framing under Privacy overstated the
@@ -220,6 +220,21 @@ crew roster is thin" is true of the roster but not of the person↔account link.
 **Related:** shares a root with §4 — both need to know *who is on site, and when*. §4 is
 **not** graduated: the plan excludes unnamed labor blocks, which is exactly the population §4's
 headcounts are about.
+
+**Shipped and archived 2026-08-28** (both phases live 2026-08-24; first coordinator granted
+2026-08-28). The plan's §7 leftovers are now tracked **here**, as ideas, not commitments:
+
+- **Field set unconfirmed by use.** §4.1 was drafted from the domain with no prior art in the
+  repo. Expect one revision after a PM books a real show. Adding a field is cheap; changing the
+  *shape* (flat per-person records — plan decision 3) is a model change. Trigger: first real use.
+- **No cross-event view** ("where is Joe this season"). Needs a `crewLogistics` collection-group
+  query — the indexes exist — and a rules story for it: today's read boundary is per-event, and a
+  collection-group list would need its own predicate, since a coordinator/director sees all but a
+  crew member may only see their own rows. Likely wanted eventually; not scoped.
+- **`EventProduction.contacts[]` remains a third people-surface.** The crew roster, the contacts
+  directory, and the hand-typed `{role,name,phone,email}` array on the production record still
+  do not reference each other, and crew logistics now hangs off the roster as a fourth thing.
+  Already noted under Grounding below; still unresolved.
 
 ### The problem
 

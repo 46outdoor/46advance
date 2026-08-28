@@ -1,5 +1,5 @@
 /**
- * Crew travel & lodging backend (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2): the identity
+ * Crew travel & lodging backend (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.2): the identity
  * lifecycle around the denormalized `crewLogistics.userId` authorization field, plus the two
  * writes that moved server-side because rules cannot express them.
  *

@@ -163,7 +163,7 @@ export function canManageMembers(viewer: Viewer, role: EventRole | null): boolea
 
 /**
  * May create/edit/delete crew travel & lodging records on an event
- * (planning/CREW_TRAVEL_LODGING_PLAN.md §4.6). Phase 1: admin or the event's PM — the same
+ * (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.6). Phase 1: admin or the event's PM — the same
  * population as `canEditEvent`, but deliberately its OWN predicate so the Production
  * Coordinator capability (Phase 2) widens one function body instead of sweeping call sites.
  * Named for the capability, never the claim that grants it.

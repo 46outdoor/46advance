@@ -134,7 +134,7 @@ person oversee work across all of them?" These are user-level claims, not event 
 | **admin** | Top-level; see above. | Built |
 | **organizer** | May create events; may curate the artist document library. Set by an admin via `setUserOrganizer`, mirrored to `users/{uid}.organizer`. | Built (previously undocumented here) |
 | **production director** | Oversight of **every event in the application**, whether or not assigned to it. Over event data it is **read-only** — no event writes, no admin functions. Plus one global write, added 2026-08-10: **curation of the global contacts directory** (edit/delete any entry, not only their own; relinking a contact to an account stays admin-only). Set by an admin via `setUserProductionDirector`, mirrored to `users/{uid}.productionDirector`. | Built (shipped + activated 2026-08-10; directory curation decided the same day) |
-| **production coordinator** | The director's cross-event **read** reach, plus exactly **four writes** everywhere: crew travel & lodging, event crew rosters (Tech auto-enroll only — never role assignment), the global contacts directory, and event schedule days. Never widens `canEditEvent`. Set by an admin via `setUserProductionCoordinator`, mirrored to `users/{uid}.productionCoordinator`. Design: [`CREW_TRAVEL_LODGING_PLAN.md`](../planning/CREW_TRAVEL_LODGING_PLAN.md) Phase 2. | Built 2026-08-21; live on all targets 2026-08-24; first holder granted 2026-08-28 |
+| **production coordinator** | The director's cross-event **read** reach, plus exactly **four writes** everywhere: crew travel & lodging, event crew rosters (Tech auto-enroll only — never role assignment), the global contacts directory, and event schedule days. Never widens `canEditEvent`. Set by an admin via `setUserProductionCoordinator`, mirrored to `users/{uid}.productionCoordinator`. Design: [`CREW_TRAVEL_LODGING_PLAN.md`](archive/feature/CREW_TRAVEL_LODGING_PLAN.md) Phase 2. | Built 2026-08-21; live on all targets 2026-08-24; first holder granted 2026-08-28 |
 
 > **Decided (2026-08-09): the production-director exception.** A production director oversees
 > the PMs' work and may or may not be assigned as a PM on any given event — so the capability
@@ -555,7 +555,7 @@ A reusable **contacts/personnel directory** — many events share the same peopl
   via `users/{uid}.contactId`, name kept in sync, unlinked on account deletion. Since
   2026-08-20 the link fields are **immutable to every direct client write including admin's**
   — `contact.userId` became denormalized authorization data for crew travel & lodging
-  ([`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md) §4.2) — and admin relinking
+  ([`CREW_TRAVEL_LODGING_PLAN.md`](archive/feature/CREW_TRAVEL_LODGING_PLAN.md) §4.2) — and admin relinking
   runs through the atomic `relinkContactUser` callable instead. **Crew logistics remains
   within production-director oversight** (plan decision 12): the director reads every
   itinerary, read-only, preserving §4's "director reads every event subtree" contract.

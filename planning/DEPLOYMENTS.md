@@ -136,7 +136,7 @@ with no claim granted the coordinator branches are unreachable. Do not roll Host
 **2026-08-24 — Production coordinator, Phase 2 (#298, `6c6cac6`): FIRESTORE RULES + STORAGE
 RULES + FUNCTIONS.** Three scoped deploys as the owner; secrets health green before and after.
 See the CHANGELOG entry; design + the recorded threat-model acceptance in
-[`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md) §2.1 #2.
+[`CREW_TRAVEL_LODGING_PLAN.md`](archive/feature/CREW_TRAVEL_LODGING_PLAN.md) §2.1 #2.
 
 - **Firestore rules** — `isProductionCoordinator()`; `canOverseeAllEvents()` widened (the
   coordinator joins the director's read population wholesale); the four write branches:
@@ -165,7 +165,7 @@ is optional — with no claim granted it is unreachable.
 **2026-08-21 — Crew travel & lodging Phase 1 (#296, `4f10f5d`): FIRESTORE RULES + INDEXES +
 FUNCTIONS.** Three scoped deploys in the queue's order, all as the owner account, secrets
 health green before and after. See the CHANGELOG entry for user-facing behavior; design in
-[`CREW_TRAVEL_LODGING_PLAN.md`](CREW_TRAVEL_LODGING_PLAN.md).
+[`CREW_TRAVEL_LODGING_PLAN.md`](archive/feature/CREW_TRAVEL_LODGING_PLAN.md).
 
 - **Rules** — the `crewLogistics` block (reads narrower than `canReadEvent`: event editors +
   production director see all, members only records carrying their own denormalized

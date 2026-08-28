@@ -256,7 +256,7 @@ service cloud.firestore {
       // edit and delete ANY entry, not only their own.
       // `userId` is now DENORMALIZED authorization data: crewLogistics records copy it and
       // gate reads of room numbers / confirmation codes on the copy
-      // (planning/CREW_TRAVEL_LODGING_PLAN.md §4.2). So since 2026-08-20 the link fields are
+      // (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.2). So since 2026-08-20 the link fields are
       // immutable through EVERY direct client write, including an admin's — a one-write client
       // relink would leave the copies authorizing the wrong account. Admin relinking is not
       // lost (decision 13): it moved to the admin-only `relinkContactUser` callable, which
@@ -481,7 +481,7 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // Crew travel & lodging (planning/CREW_TRAVEL_LODGING_PLAN.md §4.3): per-person records
+      // Crew travel & lodging (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.3): per-person records
       // holding room numbers and confirmation codes, so the read boundary is DELIBERATELY
       // narrower than canReadEvent — event editors and the production director see all; an
       // ordinary member sees only records carrying their own denormalized userId. The self

@@ -1,5 +1,5 @@
 /**
- * Crew travel & lodging model (planning/CREW_TRAVEL_LODGING_PLAN.md §4.1):
+ * Crew travel & lodging model (planning/archive/feature/CREW_TRAVEL_LODGING_PLAN.md §4.1):
  * `events/{eventId}/crewLogistics/{recordId}` — one flat record per person per stay/leg,
  * discriminated on `kind`. Types + Zod + parser + pure helpers live together (mirrors
  * @/lib/quotes/quote).

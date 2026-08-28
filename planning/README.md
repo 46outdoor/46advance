@@ -10,16 +10,14 @@ filed by category.
   when we commit to them; ROADMAP holds what's actually been decided.
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
-- **[CREW_TRAVEL_LODGING_PLAN.md](CREW_TRAVEL_LODGING_PLAN.md)** — *active, not started.* Crew
-  lodging + per-person travel (graduated from IDEAS §3 on 2026-08-20), plus the **Production
-  Coordinator** company-wide capability that writes it. Two independently shippable phases.
 - **[DEPLOYMENTS.md](DEPLOYMENTS.md)** — deployment & rollback ledger: the build release
   identifier, who deploys each target, rollback steps, the open deploy queue, and the
   record of backend deploys + Hosting checkpoints (deploy clock; the CHANGELOG is the
   merge clock).
 Phases 0–13 are built and archived; the calendar-subscriptions feature (per-user ICS feed,
 retiring the per-event Google calendars) completed 2026-08-08, and both the production-director
-oversight capability and the PWA narrow-screen navigation completed 2026-08-10 — all archived
+oversight capability and the PWA narrow-screen navigation completed 2026-08-10, and crew
+travel & lodging with the production-coordinator capability completed 2026-08-28 — all archived
 under `archive/feature/`; the
 forensic remediation plan (all phases 0–3) is complete and archived
 under `archive/fix/`. When the next feature phase starts, add its
