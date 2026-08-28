@@ -53,11 +53,12 @@ The standing queue — everything decided-but-not-yet-live or gated on a future 
 this section current: it is the *only* forward-looking part of this file. When an item
 completes, record it as a ledger entry below and delete it here.
 
-- **Crew travel & lodging / production coordinator — nothing left to deploy** (both phases
-  live on every target; see the 2026-08-24 Hosting checkpoint). Residual, by-hand and
-  untimed: grant the first coordinator in **Admin → Users** when there is someone to grant
-  it to, and exercise the director's read-only Travel & Lodging view from the
-  `jared@yourstagemanager.com` session the next time it is open.
+- **Crew travel & lodging / production coordinator — nothing left to deploy; first
+  coordinator granted 2026-08-28** (both phases live on every target; see the 2026-08-24
+  Hosting checkpoint and the 2026-08-28 decision record). Residual, by-hand and untimed:
+  exercise a **read-only** director view of Travel & Lodging — which now needs a
+  director-only account, since the owner session holds both claims and sees the write
+  controls through the coordinator branch.
 - **Weak credential on the test account — mitigated by revocation, deferred, and gated on
   re-approval.** `jared@jaredfoh.com` (tech on Boots on the Bend) was created 2026-08-10 as the
   app's first non-oversight account and its password was shared in chat. **The owner revoked the
@@ -104,6 +105,15 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-08-28 — Decision record: first production coordinator activated (23:12Z).** No deploy;
+the claim was granted through the released Admin → Users toggle to the owner account
+`jared@yourstagemanager.com` (uid `ar63s3b8…`), which already holds admin + director. Verified
+from the live `users/{uid}` mirror (`productionCoordinator == true`, stamped 23:12:36Z); one
+holder company-wide. Consequence for verification: that session now sees the coordinator's
+write controls on Travel & Lodging, so proving the director's read-only view needs an account
+holding director without coordinator. **Rollback:** flip the toggle off — `setUserProductionCoordinator`
+clears the claim and mirror and revokes refresh tokens (bounded ID-token window, per plan §5.4).
 
 **2026-08-24 — Hosting checkpoint (16:29Z, `262b0d7` #299): HOSTING (owner) — the crew
 travel & lodging AND production-coordinator clients are LIVE.** The `production-deploy.yml`
