@@ -70,11 +70,13 @@ completes, record it as a ledger entry below and delete it here.
 
   **Why the credential still mattered while approved,** recorded so the reasoning isn't re-derived:
   the exposure was never about other users of the app. `contacts/{contactId}` and
-  `artistDocuments/{docId}` both `allow read: if isActiveUser()` (`firestore.rules`), so *any*
-  approved account reads the entire company contacts directory and artist document library — not
-  just its own event. A working credential in a chat log opened that from the public internet.
-  This is the read-scoping question tracked as [`IDEAS.md`](IDEAS.md) §5, seen from the credential
-  side.
+  `artistDocuments/{docId}` both used to be `allow read: if isActiveUser()`, so *any* approved
+  account read the entire company contacts directory and artist document library — not just its
+  own event. A working credential in a chat log opened that from the public internet.
+  **Substantially reduced 2026-09-03** (see the ledger entry): both reads now require
+  `canBrowseGlobalDirectories()`, and this account holds no global claim — so even re-approved
+  it would reach only the events it is a member of, plus its own linked contact. The password
+  still must be changed before re-approval; the blast radius is simply no longer company-wide.
 
   **The account is worth keeping**, not deleting — it is the only way to exercise the
   non-oversight path by hand, and the class of bug it caught (see the slug fix) is invisible to
@@ -105,6 +107,57 @@ Record backend deploys and Hosting checkpoints. Client-only PRs ship on the next
 release; note the checkpoint that carried them once known. (The table at the bottom is the
 **closed record** of the 2026-07-22 → 2026-08-03 deploys, from the remediation era's format —
 don't extend it; new entries are prose.)
+
+**2026-09-03 — Read-access scoping (#305/#306/#307/#308): HOSTING (owner) + FUNCTIONS +
+FIRESTORE INDEXES + FIRESTORE RULES.** The full four-step rollout of
+[`ACCESS_SCOPING_PLAN.md`](ACCESS_SCOPING_PLAN.md), in the order the plan required — a
+restrictive rules change gated on a verified client, per the cross-cutting rule 7 pattern.
+`contacts/{id}` and `artistDocuments/{id}` had been `allow read: if isActiveUser()`: the whole
+cross-company directory and the whole artist library, readable by every approved account
+including techs auto-enrolled by a crew attachment. Both now require
+`canBrowseGlobalDirectories()` — admin ∨ organizer ∨ production director ∨ production
+coordinator.
+
+Order, and why it was not negotiable:
+
+1. **Hosting (owner, 20:41Z, `f82afee` #307)** — the client that stops issuing the wide
+   queries. Crew rosters now render from display fields denormalized onto
+   `events/{e}/contacts/{a}`; the artist-library query runs only for advance editors; the two
+   directory routes gained a `CapabilityGate`. Verified live: the `EventDetailScreen` chunk
+   (`EventDetailScreen-CgknmEa5.js`) carries the roster copies (`contactDeletedAt`), the
+   "no longer in the directory" flag, and the "Adding crew needs access to the contacts
+   directory" notice; `Last-Modified: 03 Sep 2026 20:41:07 GMT`.
+2. **Backfill (20:47Z)** — `scripts/backfill-crew-contact-snapshots.ts` against production:
+   4 attachments across both events, 0 orphans, 0 malformed. Dry-run first; the re-run reports
+   "4 already current", so it is idempotent. **This had to precede the rules** — an
+   unbackfilled attachment renders as "Unknown contact" once the directory closes.
+3. **Functions + indexes** — `reconcileCrewContactsOnContactWrite` (new trigger keeping the
+   roster copies aligned with the directory) and the `getArtistDocumentContent` inclusion
+   check, which lets an event member open a library file included on their advance without any
+   library access of their own. Secrets health green before and after (4 secrets, 1 ENABLED
+   version each). `functions:list` shows the new trigger ACTIVE (v2, nodejs22) beside
+   `reconcileCrewLogisticsOnContactWrite`. The **`contacts.contactId` COLLECTION_GROUP index**
+   deployed with it — the trigger's query needs it, and deploying rules without it would have
+   left the copies silently un-maintained.
+4. **Firestore rules (20:55:48Z)** — verified against the fetched live ruleset
+   `263fe24b-1327-4cc9-9f36-6ff28014b274`: `canBrowseGlobalDirectories()` is defined as the
+   four-claim disjunction; `artistDocuments` reads require it; `contacts` reads require it
+   **or** `resource.data.userId == request.auth.uid` (the query-shaped self clause that keeps
+   Settings' profile-photo save working). No `allow read: if isActiveUser()` remains on either
+   collection.
+
+**Blast radius at the time of the change: none.** A read-only audit of live Firestore found
+three user records — the only PM (`jared@46entertainment.com`) already holds `organizer`, the
+owner holds director + coordinator, and the only other account (`jared@jaredfoh.com`) is
+revoked. No approved account sits outside the permitted set.
+
+**Rollback:** redeploy the previous rules from git (`firebase-safe.sh deploy --only
+firestore:rules` from `f82afee`) — that alone restores the wide reads, and the released client
+keeps working either way, since the denormalized copies are additive and it never needs the
+directory to render a roster. Functions may stay: the new trigger is idempotent and the
+broker's inclusion check only ever *widens* what a non-privileged caller can reach relative to
+a narrowed rule. Do not roll Hosting back past `f82afee` while these rules are live — the
+older client resolves crew rosters by listing the global directory, which they refuse.
 
 **2026-08-28 — Decision record: first production coordinator activated (23:12Z).** No deploy;
 the claim was granted through the released Admin → Users toggle to the owner account
