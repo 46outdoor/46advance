@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import {
   canEditEvent,
@@ -155,7 +155,7 @@ function enabledDepartments(
 
 export function EventDetailScreen() {
   const { eventId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -168,9 +168,9 @@ export function EventDetailScreen() {
   const { query: eventQuery, event, eventId: id } = useResolvedEvent(eventId);
 
   const memberQuery = useQuery({
-    queryKey: ['events', 'member', id, user?.uid],
-    queryFn: () => getEventMember(user!.uid, id!),
-    enabled: !!id && !!user,
+    queryKey: ['events', 'member', id, viewer?.uid],
+    queryFn: () => getEventMember(viewer!.uid, id!),
+    enabled: !!id && !!viewer,
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
@@ -216,15 +216,8 @@ export function EventDetailScreen() {
     }
   }, [event?.slug, eventId, navigate]);
 
-  if (!user || !eventId) return null;
+  if (!viewer || !eventId) return null;
 
-  const viewer = {
-    uid: user.uid,
-    isAdmin,
-    isOrganizer,
-    isProductionDirector,
-    isProductionCoordinator,
-  };
   const viewerRole = memberQuery.data?.role ?? null;
   const canEdit = canEditEvent(viewer, viewerRole);
   // The Crew panel keys off roster curation, not event-wide edit: the production
@@ -313,7 +306,7 @@ export function EventDetailScreen() {
             canView={canViewChecklist(viewer, viewerRole)}
             canEdit={canEdit}
           />
-          <EventContactsPanel eventId={event.id} uid={user.uid} canEdit={canManageRoster} />
+          <EventContactsPanel eventId={event.id} uid={viewer.uid} canEdit={canManageRoster} />
           <TravelLodgingPanel eventId={event.id} viewer={viewer} role={viewerRole} />
           <EventTeamPanel
             eventId={event.id}

@@ -15,6 +15,13 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Production coordinators now see the "Manage directory" link on an event's Crew panel.**
+  The panel checked only three of the four company-wide capabilities, so a coordinator — who
+  can edit the Contacts directory — was the one role missing its shortcut to it. Every other
+  route to the directory already worked.
+
 ### Added
 
 - **Production coordinator — a new company-wide capability for the person who books travel.**

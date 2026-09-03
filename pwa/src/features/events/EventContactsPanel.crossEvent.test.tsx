@@ -2,14 +2,14 @@
  * The Crew panel's "Manage directory →" link (planning/archive/feature/PWA_MOBILE_NAV_PLAN.md § "In-app links
  * must honour the same policy"). It shipped ABOVE the `canEdit` block, so every event member —
  * techs included — got a one-click route to the global directory that the nav registry hides
- * from anyone who is not admin / organizer / production director. Hiding the nav destination
- * accomplishes nothing while a screen still links to it.
+ * from anyone who is not admin / organizer / production director / production coordinator.
+ * Hiding the nav destination accomplishes nothing while a screen still links to it.
  *
  * These tests pin the panel to the registry's `cross-event` rule (`resolveNavVisibility`), which
  * stays real here — the point is that there is ONE answer per capability, so a change to the
  * rule must move this panel too. It is presentation, not access control: `contacts/{id}` is
  * still `allow read: if isActiveUser()`, and any approved user can reach /contacts by typing
- * the URL (tightening the rules is IDEAS §5).
+ * the URL (tightening the rules is planned in planning/ACCESS_SCOPING_PLAN.md).
  */
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ const auth = vi.hoisted(() => ({
   isAdmin: false,
   isOrganizer: false,
   isProductionDirector: false,
+  isProductionCoordinator: false,
 }));
 vi.mock('@/contexts/auth-context', () => ({ useAuth: () => auth }));
 
@@ -86,6 +87,7 @@ beforeEach(() => {
   auth.isAdmin = false;
   auth.isOrganizer = false;
   auth.isProductionDirector = false;
+  auth.isProductionCoordinator = false;
   vi.mocked(listEventContacts).mockResolvedValue(CREW);
 });
 
@@ -106,6 +108,20 @@ describe('EventContactsPanel "Manage directory" cross-event gate', () => {
 
   it('offers the directory to a production director', async () => {
     auth.isProductionDirector = true;
+    await renderPanel();
+
+    expect(directoryLink()).toBeInTheDocument();
+  });
+
+  /**
+   * REGRESSION. The panel hand-built its `Viewer` from three claims and never picked up
+   * `isProductionCoordinator` when Phase 2 added it to the registry's `cross-event` rule, so a
+   * coordinator silently lost this link — every capability flag on `Viewer` is optional, so the
+   * omission compiled cleanly. Fixed by sourcing the viewer from `useViewer()`. This case fails
+   * against the old literal.
+   */
+  it('offers the directory to a production coordinator', async () => {
+    auth.isProductionCoordinator = true;
     await renderPanel();
 
     expect(directoryLink()).toBeInTheDocument();

@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
 import { resolveNavVisibility } from '@/lib/nav/items';
-import type { Viewer } from '@/lib/rbac/permissions';
+import { ANONYMOUS_VIEWER, useViewer } from '@/lib/rbac/useViewer';
 import { listContacts } from '@/lib/contacts/contacts-service';
 import {
   attachContact,
@@ -131,16 +130,21 @@ interface EventContactsPanelProps {
 /** Crew attached to an event (tap-to-call/email + an event-specific note), with a PM/admin picker. */
 export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanelProps) {
   const queryClient = useQueryClient();
-  const { isAdmin, isOrganizer, isProductionDirector } = useAuth();
   const [pickContactId, setPickContactId] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
 
   /**
-   * The acting user's GLOBAL capabilities. `isProductionDirector` is optional on `Viewer`, so
-   * dropping it here would compile cleanly and silently deny every director — carry all three.
-   * `uid` is the signed-in user's (EventDetailScreen passes `user.uid`).
+   * The acting user's GLOBAL capabilities, from the shared hook — which exists because this
+   * very line got it wrong. It was hand-built from three claims and never picked up
+   * `isProductionCoordinator` when Phase 2 added it, so a coordinator silently lost the
+   * directory link below: every flag on `Viewer` is optional, so omitting one compiles
+   * cleanly and denies that population with no error. Build a `Viewer` literal here again
+   * and the next capability repeats it.
+   *
+   * `uid` stays a prop (the panel's other consumers pass it for attribution); the hook's uid
+   * is the same signed-in user.
    */
-  const viewer: Viewer = { uid, isAdmin, isOrganizer, isProductionDirector };
+  const viewer = useViewer() ?? ANONYMOUS_VIEWER;
   /**
    * The Crew panel used to hand every event member — techs included — a one-click route to the
    * global directory, which the nav registry hides from anyone who is not admin / organizer /
@@ -150,7 +154,8 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
    *
    * ⚠ Presentation, not access control: `contacts/{id}` is still `allow read: if isActiveUser()`,
    * so any approved user can reach /contacts by typing the URL. This only stops the panel from
-   * contradicting the nav policy. Tightening the rules is tracked as IDEAS §5.
+   * contradicting the nav policy. Tightening the rules is planned in
+   * planning/ACCESS_SCOPING_PLAN.md (graduated from IDEAS §5).
    */
   const showDirectoryLink = resolveNavVisibility('cross-event', viewer, undefined);
 

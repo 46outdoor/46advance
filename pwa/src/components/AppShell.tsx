@@ -35,6 +35,7 @@ import {
 import type { Viewer } from '@/lib/rbac/permissions';
 import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
 import { useMyEventMemberships } from '@/lib/rbac/useMyEventMemberships';
+import { ANONYMOUS_VIEWER, useViewer } from '@/lib/rbac/useViewer';
 import { listUsers } from '@/lib/users/users-service';
 import { countPendingApproval } from '@/lib/users/approval';
 
@@ -139,8 +140,7 @@ function SignOutButton({ className, onSignOut }: { className: string; onSignOut:
 export function AppShell({ children }: { children: ReactNode }) {
   // Thresholds live in the hook — they're tied to how far this header collapses (see its header).
   const scrolled = useScrolled();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator, signOut } =
-    useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const inline = useMediaQuery(INLINE_NAV_MEDIA_QUERY);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -165,15 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isPmSomewhere = isProductionManagerSomewhere(memberships.data);
   // Signed out, the viewer holds no capability at all: the shell only mounts inside
   // ProtectedLayout, but the registry must not hand a null user cross-event or Tracker links.
-  const viewer: Viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : {
-        uid: '',
-        isAdmin: false,
-        isOrganizer: false,
-        isProductionDirector: false,
-        isProductionCoordinator: false,
-      };
+  const viewer: Viewer = useViewer() ?? ANONYMOUS_VIEWER;
 
   const inlineItems = visibleNavItems('inline', viewer, isPmSomewhere);
   const panelGroups = PANEL_GROUPS.map((group) =>

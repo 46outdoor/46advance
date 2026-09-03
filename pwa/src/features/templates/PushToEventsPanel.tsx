@@ -11,7 +11,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { describeCallableError } from '@/lib/errors/callableError';
 import { EVENT_PRODUCTION_FIELDS, getDepartmentFields } from '@/lib/advances/fields';
@@ -39,7 +39,7 @@ const secondaryButtonClass =
   'inline-flex min-h-11 items-center justify-center rounded border border-line px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-brand disabled:opacity-50';
 
 export function PushToEventsPanel({ templateId }: { templateId: string }) {
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
 
   const [include, setIncludeState] = useState<TemplatePushInclude>(ALL_SECTIONS);
@@ -48,9 +48,6 @@ export function PushToEventsPanel({ templateId }: { templateId: string }) {
   const [confirming, setConfirming] = useState(false);
   const [applied, setApplied] = useState<PushTemplateProductionOutput | null>(null);
 
-  const viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : null;
   const eventsQuery = useQuery({
     queryKey: eventsListKey(viewer),
     queryFn: () => listEvents(viewer!),

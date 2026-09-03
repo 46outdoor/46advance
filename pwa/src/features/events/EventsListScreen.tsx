@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canCreateEvents, canViewTracker } from '@/lib/rbac/permissions';
 import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
@@ -155,7 +155,7 @@ function TemplatePicker({
 }
 
 export function EventsListScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
@@ -164,10 +164,6 @@ export function EventsListScreen() {
   /** The user's explicit pick; `null` until they touch the picker (see resolveTemplateId). */
   const [templateChoice, setTemplateChoice] = useState<string | null>(null);
   const [include, setInclude] = useState<TemplateInclude>(ALL_SECTIONS);
-
-  const viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : null;
 
   const eventsQuery = useQuery({
     // The canonical factory, never a literal: its scope segment is what stops a viewer who is

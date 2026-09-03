@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventMember } from '@/lib/rbac/membership';
@@ -16,7 +16,7 @@ const logger = createLogger('Stages');
 
 export function StageDetailScreen() {
   const { eventId: eventParam, stageId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -32,9 +32,9 @@ export function StageDetailScreen() {
   });
 
   const memberQuery = useQuery({
-    queryKey: ['events', 'member', eventId, user?.uid],
-    queryFn: () => getEventMember(user!.uid, eventId!),
-    enabled: !!eventId && !!user,
+    queryKey: ['events', 'member', eventId, viewer?.uid],
+    queryFn: () => getEventMember(viewer!.uid, eventId!),
+    enabled: !!eventId && !!viewer,
   });
 
   const update = useMutation({
@@ -55,15 +55,8 @@ export function StageDetailScreen() {
     onError: (err) => logger.error('Failed to delete stage', err),
   });
 
-  if (!user || !eventParam || !stageId) return null;
+  if (!viewer || !eventParam || !stageId) return null;
 
-  const viewer = {
-    uid: user.uid,
-    isAdmin,
-    isOrganizer,
-    isProductionDirector,
-    isProductionCoordinator,
-  };
   const canEdit = canEditEvent(viewer, memberQuery.data?.role ?? null);
   const stage = stageQuery.data;
 
