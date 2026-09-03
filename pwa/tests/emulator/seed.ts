@@ -51,7 +51,8 @@ type FsValue =
   | { integerValue: string }
   | { timestampValue: string }
   | { nullValue: null }
-  | { arrayValue: { values: FsValue[] } };
+  | { arrayValue: { values: FsValue[] } }
+  | { mapValue: { fields: Record<string, FsValue> } };
 
 const str = (v: string): FsValue => ({ stringValue: v });
 const bool = (v: boolean): FsValue => ({ booleanValue: v });
@@ -59,6 +60,28 @@ const int = (v: number): FsValue => ({ integerValue: String(v) });
 const ts = (isoOrDate: string): FsValue => ({ timestampValue: isoOrDate });
 const nul = (): FsValue => ({ nullValue: null });
 const emptyArr = (): FsValue => ({ arrayValue: { values: [] } });
+const map = (fields: Record<string, FsValue>): FsValue => ({ mapValue: { fields } });
+
+/**
+ * The display fields a crew attachment copies from its directory contact
+ * (planning/ACCESS_SCOPING_PLAN.md §4.2) — seeded in the post-backfill shape, which is what
+ * production looks like once the rules narrow. Without this an event member cannot resolve
+ * their own crew roster at all: they have no read on the global directory.
+ */
+const crewSnapshot = (contact: {
+  name: string;
+  role?: string | null;
+  company?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}): FsValue =>
+  map({
+    name: str(contact.name),
+    role: contact.role ? str(contact.role) : nul(),
+    company: contact.company ? str(contact.company) : nul(),
+    phone: contact.phone ? str(contact.phone) : nul(),
+    email: contact.email ? str(contact.email) : nul(),
+  });
 
 const OWNER = { Authorization: 'Bearer owner' } as const;
 const JSON_HEADERS = { 'Content-Type': 'application/json', ...OWNER } as const;
@@ -196,12 +219,19 @@ async function seedEmulator(): Promise<void> {
   });
   await putDoc('events/e2e-event-alpha/contacts/e2e-attach-tech', {
     contactId: str('e2e-contact-tech'),
+    contact: crewSnapshot({
+      name: PERSONAS.tech.displayName,
+      email: PERSONAS.tech.email,
+    }),
+    contactDeletedAt: nul(),
     roleLabel: str('Audio Tech'),
     addedBy: str(adminUid),
     addedAt: ts(NOW_ISO),
   });
   await putDoc('events/e2e-event-alpha/contacts/e2e-attach-nolink', {
     contactId: str('e2e-contact-nolink'),
+    contact: crewSnapshot({ name: 'Norma Nolink' }),
+    contactDeletedAt: nul(),
     roleLabel: nul(),
     addedBy: str(adminUid),
     addedAt: ts(NOW_ISO),

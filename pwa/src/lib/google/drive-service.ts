@@ -111,20 +111,37 @@ export async function includeArtistDocumentOnAdvance(input: IncludeAdvanceDocume
 }
 
 /**
- * Fetch a document's bytes via the service-account broker — for approved techs who can't
- * open the file in Drive directly. The fileId must be a known artist document, or (with
- * `eventId`) an event document the caller's membership covers. Returns base64 + mime +
- * name. See openArtistDocument() for the view/download flow.
+ * Where a document is being opened FROM. The broker uses it to authorize a caller who has no
+ * cross-event claim of their own:
+ * - `{ eventId }` — an event document, served to that event's members (PR 4).
+ * - `{ eventId, stageId, advanceId }` — an artist-library file INCLUDED on that advance.
+ *   Browsing the library is a global capability, but opening a file an editor deliberately
+ *   attached to your show is not (planning/ACCESS_SCOPING_PLAN.md decision 5).
+ *
+ * Always send what you have: the server decides which check applies.
+ */
+export interface DocumentContext {
+  eventId: string;
+  stageId?: string;
+  advanceId?: string;
+}
+
+/**
+ * Fetch a document's bytes via the service-account broker — for approved users who can't open
+ * the file in Drive directly. The fileId must be a library document the caller may browse, a
+ * library document included on the advance named by `context`, or (with `context.eventId`
+ * alone) an event document their membership covers. Returns base64 + mime + name. See
+ * openArtistDocument() for the view/download flow.
  */
 export async function getArtistDocumentContent(
   fileId: string,
-  eventId?: string,
+  context?: DocumentContext,
 ): Promise<GetArtistDocumentContentOutput> {
   const callable = httpsCallable<GetArtistDocumentContentInput, GetArtistDocumentContentOutput>(
     functions,
     'getArtistDocumentContent',
   );
-  return (await callable(eventId ? { fileId, eventId } : { fileId })).data;
+  return (await callable({ fileId, ...(context ?? {}) })).data;
 }
 
 export interface DriveUploadResult {
@@ -207,11 +224,14 @@ body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;c
 p{margin-top:18px;color:#8a8a8a;font-size:14px;letter-spacing:.02em}
 </style></head><body><div style="text-align:center"><div class="s"></div><p>Loading document…</p></div></body></html>`;
 
-export async function openArtistDocument(fileId: string, eventId?: string): Promise<void> {
+export async function openArtistDocument(
+  fileId: string,
+  context?: DocumentContext,
+): Promise<void> {
   const tab = window.open('', '_blank');
   if (tab) tab.document.write(DOC_LOADING_HTML); // show a spinner while the broker fetches the bytes
   try {
-    const { base64, mimeType, name } = await getArtistDocumentContent(fileId, eventId);
+    const { base64, mimeType, name } = await getArtistDocumentContent(fileId, context);
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
     if (tab) {

@@ -1,8 +1,9 @@
 /**
- * Emulator-backed tests for the docs-broker callable's access gates (Documents PR 4):
- * the artist-library path serves any approved user; the event-document path serves the
- * event's members. Everything up to (not including) the Drive fetch — no SA key exists
- * in the emulator.
+ * Emulator-backed tests for the docs-broker callable's access gates (Documents PR 4, narrowed
+ * by planning/ACCESS_SCOPING_PLAN.md decision 5): the artist-library path serves a caller who
+ * may BROWSE the library, or any event member who names an advance the file is included on;
+ * the event-document path serves the event's members. Everything up to (not including) the
+ * Drive fetch — no SA key exists in the emulator.
  */
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -85,6 +86,85 @@ describe('getArtistDocumentContent — event-document gates', () => {
     await expect(
       testEnv.wrap(getArtistDocumentContent)(callableRequest({ fileId: 'efile-1' }, MEMBER)),
     ).rejects.toMatchObject({ code: 'not-found' });
+  });
+});
+
+/**
+ * ARTIST-LIBRARY gates (ACCESS_SCOPING_PLAN decision 5).
+ *
+ * Browsing the library is a global capability, but a crew member must still be able to open a
+ * document an editor deliberately included on their advance — otherwise narrowing the library
+ * would quietly break the feature's whole point. The broker is what makes that possible, and
+ * it must NOT be satisfied by naming an advance the file is not on.
+ *
+ * No Drive fetch can complete here (no SA key), so "allowed" is asserted as *not*
+ * permission-denied: authorization passed and the handler moved on to fetching bytes.
+ */
+describe('getArtistDocumentContent — artist-library gates', () => {
+  const COORDINATOR = authContext('coord-uid', { approved: true, productionCoordinator: true });
+
+  beforeEach(async () => {
+    await clearEmulators();
+    await seedAdvanceAndLibrary();
+    await db.doc(`users/${COORDINATOR.uid}`).set({ approved: true });
+    await db.doc(`users/${OUTSIDER.uid}`).set({ approved: true });
+    // 'lib-1' is included on the advance; 'lib-2' exists in the library but is not.
+    await db.doc(`events/${EVENT_ID}/stages/stg-1/advances/adv-1/documents/lib-1`).set({
+      fileId: 'lib-1',
+      name: 'Rider.pdf',
+      webViewLink: 'https://drive/x',
+      addedBy: PM.uid,
+    });
+    await db.doc('artistDocuments/lib-2').set({
+      fileId: 'lib-2',
+      name: 'Other.pdf',
+      webViewLink: 'https://drive/y',
+      importedBy: 'admin-1',
+    });
+  });
+
+  /** The rejection's error code, or null when the call somehow succeeded. */
+  async function denial(data: Record<string, string>, ctx = TECH): Promise<string | null> {
+    try {
+      await testEnv.wrap(getArtistDocumentContent)(callableRequest(data, ctx));
+      return null;
+    } catch (err) {
+      return (err as { code?: string }).code ?? 'non-https-error';
+    }
+  }
+
+  const onAdvance = { eventId: EVENT_ID, stageId: 'stg-1', advanceId: 'adv-1' };
+
+  it('refuses a plain member asking for a library file with no advance context', async () => {
+    expect(await denial({ fileId: 'lib-1' })).toBe('permission-denied');
+  });
+
+  it('lets a plain member open a library file INCLUDED on their advance', async () => {
+    expect(await denial({ fileId: 'lib-1', ...onAdvance })).not.toBe('permission-denied');
+  });
+
+  it('refuses a library file that is NOT included on the named advance', async () => {
+    // The inclusion record is the whole authorization. Without this, naming any advance you
+    // can read would unlock the entire library.
+    expect(await denial({ fileId: 'lib-2', ...onAdvance })).toBe('permission-denied');
+  });
+
+  it('refuses a member of a DIFFERENT event who names this advance', async () => {
+    expect(await denial({ fileId: 'lib-1', ...onAdvance }, OUTSIDER)).toBe('permission-denied');
+  });
+
+  it('lets a browsing capability through with no advance context at all', async () => {
+    expect(await denial({ fileId: 'lib-1' }, ADMIN)).not.toBe('permission-denied');
+    expect(await denial({ fileId: 'lib-2' }, COORDINATOR)).not.toBe('permission-denied');
+  });
+
+  it('rejects a half-specified advance path instead of silently weakening the check', async () => {
+    expect(await denial({ fileId: 'lib-1', eventId: EVENT_ID, stageId: 'stg-1' })).toBe(
+      'invalid-argument',
+    );
+    expect(await denial({ fileId: 'lib-1', eventId: EVENT_ID, advanceId: 'adv-1' })).toBe(
+      'invalid-argument',
+    );
   });
 });
 

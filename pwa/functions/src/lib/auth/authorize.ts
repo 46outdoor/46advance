@@ -68,6 +68,29 @@ export function assertAdmin(auth: CallerAuth | undefined): asserts auth is Calle
 }
 
 /**
+ * May browse the app's GLOBAL directories — the contacts directory and the artist document
+ * library. The callable mirror of `canBrowseGlobalDirectories` in
+ * `src/lib/rbac/permissions.ts` and of the read gates in `firestore.rules`
+ * (planning/ACCESS_SCOPING_PLAN.md decisions 1 and 4).
+ *
+ * A predicate, not an assertion: the broker uses it to CHOOSE which check to run — a caller
+ * without the capability is not refused outright, they just have to prove the document was
+ * included on an advance they can reach.
+ *
+ * Note this is the BROWSE population (four capabilities), which is deliberately wider than the
+ * library's CURATION population (admin/organizer, enforced inline by `importDriveFolder` and
+ * by the `artistDocuments` write rules). Reading the shelf is not the same as restocking it.
+ */
+export function canBrowseGlobalDirectories(token: DecodedIdToken): boolean {
+  return (
+    token.admin === true ||
+    token.organizer === true ||
+    token.productionDirector === true ||
+    token.productionCoordinator === true
+  );
+}
+
+/**
  * Event READ gate — the callable mirror of the rules' `canReadEvent(eventId)`
  * (planning/archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md). An admin, or a holder of the global
  * `productionDirector` claim, reads EVERY event whether or not they are on it; everyone else

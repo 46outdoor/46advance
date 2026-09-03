@@ -153,7 +153,7 @@ function DocumentRow({
         type="button"
         className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
         onClick={() =>
-          void openArtistDocument(doc.fileId, eventId).catch((e) =>
+          void openArtistDocument(doc.fileId, { eventId }).catch((e) =>
             logger.error('Failed to open document', e),
           )
         }

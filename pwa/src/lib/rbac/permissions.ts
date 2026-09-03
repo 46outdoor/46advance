@@ -63,6 +63,34 @@ export function canOverseeAllEvents(viewer: Viewer): boolean {
   );
 }
 
+/**
+ * May browse the app's GLOBAL people/document directories — the contacts directory
+ * (`contacts/{id}`) and the artist document library (`artistDocuments/{id}`), i.e. the
+ * `/contacts` and `/documents` screens (planning/ACCESS_SCOPING_PLAN.md decisions 1 and 4).
+ *
+ * These collections are global, so the rules gate on them can only see GLOBAL claims: a
+ * per-event role like production-manager is not expressible ("is this person a PM on some
+ * event?" needs a membership join that runs the wrong direction). That is a property of the
+ * data model, not a policy preference — the permitted set is therefore the four capabilities,
+ * and a PM who needs the directory holds `organizer`.
+ *
+ * This is NOT what a crew member needs to reach the people on their own show: the per-event
+ * crew roster carries its own denormalized contact details (`event-contacts-service.ts`) and
+ * is member-readable. Directory browsing is the cross-event surface.
+ *
+ * One predicate for both collections on purpose — splitting the populations later costs one
+ * function body rather than a call-site sweep (the same rationale as `canCreateEvents` vs
+ * `canOverseeAllEvents`).
+ */
+export function canBrowseGlobalDirectories(viewer: Viewer): boolean {
+  return (
+    viewer.isAdmin ||
+    viewer.isOrganizer === true ||
+    viewer.isProductionDirector === true ||
+    viewer.isProductionCoordinator === true
+  );
+}
+
 /** v1: production-manager has write scope; admin always. (Dept-lead write is deferred.) */
 export function canEditEvent(viewer: Viewer, role: EventRole | null): boolean {
   return viewer.isAdmin || role === 'production-manager';

@@ -8,6 +8,8 @@ import { lazyWithRetry } from '@/lib/pwa/lazyWithRetry';
 // out of the initial chunk so its screens can split.
 import { AuthGate } from '@/features/auth/AuthGate';
 import { AdminGate } from '@/features/admin/AdminGate';
+import { CapabilityGate } from '@/components/CapabilityGate';
+import { canBrowseGlobalDirectories } from '@/lib/rbac/permissions';
 
 // Route screens are lazy-loaded so each feature ships in its own chunk and the
 // initial bundle stays small (routing uses lazy code splitting).
@@ -142,9 +144,33 @@ export function App() {
           <Route path="/events/:eventId/documents" element={<EventDocumentsScreen />} />
           <Route path="/tracker" element={<TrackerOverviewScreen />} />
           <Route path="/tracker/:eventId" element={<EventTrackerScreen />} />
-          <Route path="/contacts" element={<ContactsDirectoryScreen />} />
-          <Route path="/documents" element={<DocumentsScreen />} />
-          <Route path="/documents/artists/:artistKey" element={<ArtistDocumentsScreen />} />
+          {/* The cross-event directories: a global capability, not an event role — see
+              CapabilityGate, and planning/ACCESS_SCOPING_PLAN.md for why the rules can only
+              gate these on global claims. */}
+          <Route
+            path="/contacts"
+            element={
+              <CapabilityGate allow={canBrowseGlobalDirectories}>
+                <ContactsDirectoryScreen />
+              </CapabilityGate>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <CapabilityGate allow={canBrowseGlobalDirectories}>
+                <DocumentsScreen />
+              </CapabilityGate>
+            }
+          />
+          <Route
+            path="/documents/artists/:artistKey"
+            element={
+              <CapabilityGate allow={canBrowseGlobalDirectories}>
+                <ArtistDocumentsScreen />
+              </CapabilityGate>
+            }
+          />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/events/:eventId/stages/:stageId" element={<StageDetailScreen />} />
           <Route

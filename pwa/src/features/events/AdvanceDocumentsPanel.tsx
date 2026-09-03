@@ -12,7 +12,7 @@ import { artistKey, documentTitle, type ArtistDocument } from '@/lib/documents/a
 import { listDocumentsForArtist } from '@/lib/documents/artist-documents-service';
 import { listDocumentCategories } from '@/lib/documents/document-categories-service';
 import type { DocumentCategory } from '@/lib/documents/documentCategory';
-import { openArtistDocument } from '@/lib/google/drive-service';
+import { openArtistDocument, type AdvanceRef } from '@/lib/google/drive-service';
 import {
   excludeArtistDocument,
   includeArtistDocument,
@@ -30,13 +30,20 @@ interface Props {
   canEdit: boolean;
 }
 
-function OpenButton({ fileId }: { fileId: string }) {
+/**
+ * Opens a library file through the docs broker. The advance coordinates travel with the
+ * request so the broker can authorize a caller who has no artist-library access of their own:
+ * it checks that this file is actually included on this advance, on an event the caller can
+ * read (planning/ACCESS_SCOPING_PLAN.md §4.4). Privileged callers never need them, but they
+ * are always sent — the server decides which check to run, not the client.
+ */
+function OpenButton({ fileId, on }: { fileId: string; on: AdvanceRef }) {
   return (
     <button
       type="button"
       className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-muted hover:text-accent sm:min-h-0"
       onClick={() =>
-        void openArtistDocument(fileId).catch((e) => logger.error('Failed to open document', e))
+        void openArtistDocument(fileId, on).catch((e) => logger.error('Failed to open document', e))
       }
     >
       Open
@@ -48,10 +55,21 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
   const queryClient = useQueryClient();
   const key = artistKey(artistName);
   const [showObsolete, setShowObsolete] = useState(false);
+  const advanceRef: AdvanceRef = { eventId, stageId, advanceId };
 
+  /**
+   * The LIBRARY query only ever fed the include checkboxes, but it ran for every viewer —
+   * so opening any advance read the artist library, which under
+   * planning/ACCESS_SCOPING_PLAN.md is a cross-event surface a crew member has no claim on.
+   * Editors still need it to choose files; everyone else renders from the advance's own
+   * copies (`includedQuery`), which are member-readable and carry the display fields for
+   * exactly this reason. Nothing is lost from the viewer's side — the included set is what
+   * they could see before.
+   */
   const libraryQuery = useQuery({
     queryKey: ['artistDocuments', 'byArtist', key],
     queryFn: () => listDocumentsForArtist(key),
+    enabled: canEdit,
   });
   const includedQuery = useQuery({
     queryKey: ['advanceDocuments', eventId, stageId, advanceId],
@@ -117,12 +135,23 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
   const obsoleteCount = canEdit
     ? library.filter((d) => d.obsolete && !includedIds.has(d.id)).length
     : 0;
+  // Library rows exist only for editors — the query does not run for anyone else, so a
+  // viewer's rows all come from `fromAdvanceCopies` below.
   const visibleLibrary = canEdit
     ? library.filter((d) => !d.obsolete || includedIds.has(d.id) || showObsolete)
-    : library.filter((d) => includedIds.has(d.id));
+    : [];
 
-  // Included docs whose library entry vanished — render from the advance's own copy.
-  const orphaned = included.filter((d) => !library.some((l) => l.id === d.id));
+  /**
+   * Rows rendered from the advance's own copies rather than from a library entry.
+   *
+   * For an editor that means the ORPHANS — included docs whose library entry vanished, which
+   * carry a "(removed from library)" note. For a viewer the library was never fetched, so it
+   * is simply every included doc, and the note must NOT appear: nothing was removed, we just
+   * did not look. Conflating the two would tell every crew member their documents are gone.
+   */
+  const fromAdvanceCopies = canEdit
+    ? included.filter((d) => !library.some((l) => l.id === d.id))
+    : included;
   const categoryName = (id: string | null) =>
     (categoriesQuery.data ?? []).find((c: DocumentCategory) => c.id === id)?.name ?? null;
 
@@ -172,11 +201,11 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
                 Obsolete
               </span>
             )}
-            <OpenButton fileId={doc.fileId} />
+            <OpenButton fileId={doc.fileId} on={advanceRef} />
             {packetCheckbox(doc.id)}
           </li>
         ))}
-        {orphaned.map((doc) => (
+        {fromAdvanceCopies.map((doc) => (
           <li key={doc.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
             {canEdit && (
               <label className="inline-flex min-h-11 min-w-11 items-center justify-center sm:min-h-0 sm:min-w-0">
@@ -190,8 +219,15 @@ export function AdvanceDocumentsPanel({ eventId, stageId, advanceId, artistName,
               </label>
             )}
             <span className="font-semibold text-ink">{doc.displayName ?? doc.name}</span>
-            <span className="text-[0.65rem] text-ink-muted">(removed from library)</span>
-            <OpenButton fileId={doc.fileId} />
+            {canEdit && (
+              <span className="text-[0.65rem] text-ink-muted">(removed from library)</span>
+            )}
+            {categoryName(doc.categoryId) && (
+              <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ink-muted">
+                {categoryName(doc.categoryId)}
+              </span>
+            )}
+            <OpenButton fileId={doc.fileId} on={advanceRef} />
             {packetCheckbox(doc.id)}
           </li>
         ))}

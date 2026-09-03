@@ -58,7 +58,13 @@ const CONTACT: Contact = {
 
 const CREW: ResolvedEventContact[] = [
   {
-    attachment: { id: 'attach-1', contactId: 'contact-1', roleLabel: 'Stage Manager', notes: null },
+    attachment: {
+      id: 'attach-1',
+      contactId: 'contact-1',
+      roleLabel: 'Stage Manager',
+      notes: null,
+      contactDeletedAt: null,
+    },
     contact: CONTACT,
   },
 ];
@@ -138,16 +144,39 @@ describe('EventContactsPanel "Manage directory" cross-event gate', () => {
     expect(screen.getByText('Stage Manager')).toBeInTheDocument();
   });
 
-  it('hides the directory from a production manager holding no global claim', async () => {
-    // `canEdit` is the per-event PM/admin scope; it says nothing about cross-event capability.
+  /**
+   * CHANGED by planning/ACCESS_SCOPING_PLAN.md decision 1. This case used to assert that a PM
+   * holding no global claim still got the picker — true while `contacts/{id}` was readable by
+   * every approved user. The directory is now a cross-event surface, so roster-edit rights and
+   * directory access have come apart: this PM may still curate the crew they have, but cannot
+   * enumerate the directory to add someone. The panel says so rather than firing a query the
+   * rules will refuse.
+   */
+  it('tells a production manager holding no global claim why they cannot add crew', async () => {
     await renderPanel(true);
 
     expect(directoryLink()).not.toBeInTheDocument();
+    expect(screen.queryByText('Add crew member')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add more' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Adding crew needs access to the contacts directory/),
+    ).toBeInTheDocument();
+    // Curation of the crew already on the show is untouched — the panel is narrowed, not
+    // disabled.
     expect(screen.getByRole('heading', { name: 'Crew' })).toBeInTheDocument();
+    expect(screen.getByText('Dana Reyes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+  });
+
+  it('gives a production manager who also holds organizer the full picker', async () => {
+    auth.isOrganizer = true;
+    await renderPanel(true);
+
     expect(screen.getByText('Add crew member')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Attach' })).toBeInTheDocument();
-    // The second /contacts link, inside the `canEdit` block, is deliberately untouched (plan
-    // § In-app links) — one flag must not sweep both away.
+    // The second /contacts link, inside the `canEdit` block, is deliberately untouched (nav
+    // plan § In-app links) — one flag must not sweep both away.
     expect(await screen.findByRole('link', { name: 'Add more' })).toHaveAttribute(
       'href',
       '/contacts',
