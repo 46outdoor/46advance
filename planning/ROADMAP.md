@@ -171,8 +171,11 @@ person oversee work across all of them?" These are user-level claims, not event 
 > admin-only identity action. The same decision adds the director to the navigation's
 > `cross-event` rule, so Contacts and Documents appear in their nav
 > ([`PWA_MOBILE_NAV_PLAN.md`](archive/feature/PWA_MOBILE_NAV_PLAN.md)); that is presentation only —
-> `contacts/{id}` and `artistDocuments/{id}` remain readable by every approved user, which
-> is still open as [`IDEAS.md`](IDEAS.md) §5.
+> `contacts/{id}` and `artistDocuments/{id}` remain readable by every approved user — now
+> scoped for change in [`ACCESS_SCOPING_PLAN.md`](ACCESS_SCOPING_PLAN.md) (decisions locked
+> 2026-09-03, not yet built), which narrows both to the global capabilities and gives crew
+> their own show's people through denormalized roster fields instead. Origin record:
+> [`IDEAS.md`](IDEAS.md) §5.
 
 - **Departments (decided):** a configurable, admin-managed list (app-wide), used by department-lead roles, schedules, and packets.
 - **Default role/permission template (decided):** creating an event auto-populates a default
