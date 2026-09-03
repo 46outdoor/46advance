@@ -424,7 +424,21 @@ That suggests two very different versions of this idea:
 
 ## 5. Scope non-PM access to what a crew member actually needs
 
-**Status:** idea — needs a decision before it can be scoped
+**Status:** ✅ **GRADUATED — scoped 2026-09-03 into
+[ACCESS_SCOPING_PLAN.md](ACCESS_SCOPING_PLAN.md), which is now the source of truth.**
+This entry is kept as the origin record; everything below is the shape *before* the decisions.
+The plan takes the **read** half of this entry — the two global collections (`contacts/{id}`,
+`artistDocuments/{id}`) — and answers every open question here: the permitted set is the four
+global capabilities; department leads land with techs **by architecture** (a global collection's
+rules gate cannot see a per-event role, so "is PM somewhere" is not expressible); contacts split
+exactly as this entry predicted, into "the directory" (privileged) and "people on this event"
+(denormalized onto the attach docs, member-readable); and documents resolve narrowly — the
+library becomes privileged, while docs *included* on an advance stay openable through a broker
+inclusion check. **Per-event** read narrowing (any member reads the full production record) is
+explicitly NOT in that plan and remains an open idea — see its §7.
+One correction to what's below: "the rules test suite is good here and should be extended first"
+is right, but two of its assertions (`firestore.rules.test.ts:1112`, `:1301`) exist to pin the
+*wide* policy and flip by design.
 **Raised:** 2026-08-08
 **Note (2026-08-09, updated 2026-08-10):** whenever this is scoped, the **production
 director** tier ([EVENT_OVERSIGHT_ROLE_PLAN.md](archive/feature/EVENT_OVERSIGHT_ROLE_PLAN.md),

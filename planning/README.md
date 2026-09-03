@@ -10,6 +10,10 @@ filed by category.
   when we commit to them; ROADMAP holds what's actually been decided.
 - **[BUILD_PLAN.md](BUILD_PLAN.md)** — the original phased build order (executed phases diverged
   from it and are recorded in `archive/feature/`; ROADMAP is the source of truth for what shipped).
+- **[ACCESS_SCOPING_PLAN.md](ACCESS_SCOPING_PLAN.md)** — *active, not started*. Narrows the two
+  globally-readable collections (contacts directory, artist document library) to the global
+  capabilities, with crew reaching their own show's people through denormalized roster fields.
+  Graduated from IDEAS §5; decisions locked 2026-09-03.
 - **[DEPLOYMENTS.md](DEPLOYMENTS.md)** — deployment & rollback ledger: the build release
   identifier, who deploys each target, rollback steps, the open deploy queue, and the
   record of backend deploys + Hosting checkpoints (deploy clock; the CHANGELOG is the
