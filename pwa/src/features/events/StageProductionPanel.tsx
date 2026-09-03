@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canEditDepartment, canEditEvent } from '@/lib/rbac/permissions';
 import type { SectionContent } from '@/lib/advances/fields';
@@ -32,7 +32,7 @@ export function StageProductionPanel({
   stageId: string;
   member: EventMember | null;
 }) {
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
 
   const productionQuery = useQuery({
@@ -57,7 +57,7 @@ export function StageProductionPanel({
 
   const setStatus = useMutation({
     mutationFn: ({ key, status }: { key: string; status: SectionStatus }) =>
-      updateStageProductionStatus(eventId, stageId, key, status, user!.uid),
+      updateStageProductionStatus(eventId, stageId, key, status, viewer!.uid),
     onSuccess: invalidate,
     onError: (err) => logger.error('Failed to update production status', err),
   });
@@ -75,7 +75,7 @@ export function StageProductionPanel({
     onError: (err) => logger.error('Failed to save production content', err),
   });
   const uploadAttachment = useMutation({
-    mutationFn: (file: File) => addStageProductionAttachment(eventId, stageId, file, user!.uid),
+    mutationFn: (file: File) => addStageProductionAttachment(eventId, stageId, file, viewer!.uid),
     onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to upload attachment', err),
   });
@@ -85,9 +85,6 @@ export function StageProductionPanel({
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
-  const viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : null;
   // Whole-record scope (attachments): PM/admin. Sections are gated per department below.
   const canEdit = viewer ? canEditEvent(viewer, member?.role ?? null) : false;
 

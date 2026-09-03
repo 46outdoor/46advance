@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canEditEvent } from '@/lib/rbac/permissions';
 import { getEventRole } from '@/lib/rbac/membership';
@@ -31,7 +31,7 @@ const logger = createLogger('Production');
 /** Event-level production record: tech-operational info + contacts + links. */
 export function EventProductionScreen() {
   const { eventId: eventParam } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
 
   // Resolve slug-or-id → canonical event id for all reads.
@@ -44,9 +44,9 @@ export function EventProductionScreen() {
   });
 
   const roleQuery = useQuery({
-    queryKey: ['events', 'role', eventId, user?.uid],
-    queryFn: () => getEventRole(user!.uid, eventId!),
-    enabled: !!eventId && !!user,
+    queryKey: ['events', 'role', eventId, viewer?.uid],
+    queryFn: () => getEventRole(viewer!.uid, eventId!),
+    enabled: !!eventId && !!viewer,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['production', eventId] });
@@ -75,7 +75,7 @@ export function EventProductionScreen() {
     onError: (err) => logger.error('Failed to save production links', err),
   });
   const uploadAttachment = useMutation({
-    mutationFn: (file: File) => addEventProductionAttachment(eventId!, file, user!.uid),
+    mutationFn: (file: File) => addEventProductionAttachment(eventId!, file, viewer!.uid),
     onSuccess: invalidateAttachments,
     onError: (err) => logger.error('Failed to upload attachment', err),
   });
@@ -85,15 +85,8 @@ export function EventProductionScreen() {
     onError: (err) => logger.error('Failed to remove attachment', err),
   });
 
-  if (!user || !eventParam) return null;
+  if (!viewer || !eventParam) return null;
 
-  const viewer = {
-    uid: user.uid,
-    isAdmin,
-    isOrganizer,
-    isProductionDirector,
-    isProductionCoordinator,
-  };
   const canEdit = canEditEvent(viewer, roleQuery.data ?? null);
   const production = productionQuery.data;
 

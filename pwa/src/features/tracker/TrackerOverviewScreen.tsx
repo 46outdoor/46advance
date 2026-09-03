@@ -1,6 +1,6 @@
 import { Link, Navigate } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { formatDateRange } from '@/lib/dates/formatting';
 import { canOverseeAllEvents, canViewTracker } from '@/lib/rbac/permissions';
 import { isProductionManagerSomewhere } from '@/lib/rbac/my-memberships';
@@ -10,10 +10,7 @@ import { CompletionBar } from './CompletionBar';
 
 /** Tracker overview: each visible event with its completion roll-up. Drill into an event. */
 export function TrackerOverviewScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
-  const viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : null;
+  const viewer = useViewer();
 
   // The shared cross-event summary: it decides both whether this route is allowed at all and,
   // for a PM, which events the overview pages through — so it's passed straight to the service
@@ -33,7 +30,7 @@ export function TrackerOverviewScreen() {
     queryKey: [
       'tracker',
       'overview',
-      user?.uid,
+      viewer?.uid,
       viewer && canOverseeAllEvents(viewer) ? 'all' : 'pm',
     ],
     queryFn: ({ pageParam }) =>

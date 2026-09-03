@@ -1,9 +1,9 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
 import { formatDateRange } from '@/lib/dates/formatting';
 import { getEventMember } from '@/lib/rbac/membership';
 import { canOverseeAllEvents, canViewTrackerForEvent } from '@/lib/rbac/permissions';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { getEventTracker } from '@/lib/tracker/tracker-service';
 import { CompletionBar } from './CompletionBar';
 import { TrackerGrid } from './TrackerGrid';
@@ -11,10 +11,7 @@ import { TrackerGrid } from './TrackerGrid';
 /** Per-event tracker grid: advances × departments, status-colored. */
 export function EventTrackerScreen() {
   const { eventId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
-  const viewer = user
-    ? { uid: user.uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }
-    : null;
+  const viewer = useViewer();
   // Oversight (admin / production director) opens any event's tracker, so its role read is
   // skipped entirely rather than fetched and ignored.
   const oversees = !!viewer && canOverseeAllEvents(viewer);
@@ -22,9 +19,9 @@ export function EventTrackerScreen() {
   // Tracker links carry the raw doc id (not a slug), so the role reads against `eventId`
   // directly — the same per-event membership lookup the event screens use.
   const memberQuery = useQuery({
-    queryKey: ['events', 'member', eventId, user?.uid],
-    queryFn: () => getEventMember(user!.uid, eventId!),
-    enabled: !!eventId && !!user && !oversees,
+    queryKey: ['events', 'member', eventId, viewer?.uid],
+    queryFn: () => getEventMember(viewer!.uid, eventId!),
+    enabled: !!eventId && !!viewer && !oversees,
   });
 
   // TRI-STATE: `undefined` while the membership read is in flight. Only a resolved role may

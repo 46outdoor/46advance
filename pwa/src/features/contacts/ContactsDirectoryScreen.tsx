@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canManageContact } from '@/lib/rbac/permissions';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
@@ -114,7 +114,7 @@ function ContactRow({
 
 /** Global personnel directory: anyone adds; creator/admin/production-director edits/deletes. */
 export function ContactsDirectoryScreen() {
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function ContactsDirectoryScreen() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['contacts'] });
 
   const create = useMutation({
-    mutationFn: (input: ContactInput) => createContact(input, user!.uid),
+    mutationFn: (input: ContactInput) => createContact(input, viewer!.uid),
     onSuccess: () => {
       void invalidate();
       setCreating(false);
@@ -175,14 +175,7 @@ export function ContactsDirectoryScreen() {
     overscan: 8,
   });
 
-  if (!user) return null;
-  const viewer = {
-    uid: user.uid,
-    isAdmin,
-    isOrganizer,
-    isProductionDirector,
-    isProductionCoordinator,
-  };
+  if (!viewer) return null;
   const canManage = (c: Contact) => canManageContact(viewer, c);
 
   return (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useViewer } from '@/lib/rbac/useViewer';
 import { createLogger } from '@/lib/logger';
 import { canEditDepartment, canEditEvent, type Viewer } from '@/lib/rbac/permissions';
 import { getEventMember } from '@/lib/rbac/membership';
@@ -62,7 +62,7 @@ function advanceDetailDerived(
 
 export function AdvanceDetailScreen() {
   const { eventId: eventParam, stageId, advanceId } = useParams();
-  const { user, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator } = useAuth();
+  const viewer = useViewer();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -78,9 +78,9 @@ export function AdvanceDetailScreen() {
   });
 
   const memberQuery = useQuery({
-    queryKey: ['events', 'member', eventId, user?.uid],
-    queryFn: () => getEventMember(user!.uid, eventId!),
-    enabled: !!eventId && !!user,
+    queryKey: ['events', 'member', eventId, viewer?.uid],
+    queryFn: () => getEventMember(viewer!.uid, eventId!),
+    enabled: !!eventId && !!viewer,
   });
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: listDepartments });
@@ -112,7 +112,7 @@ export function AdvanceDetailScreen() {
 
   const setStatus = useMutation({
     mutationFn: ({ key, status }: { key: SectionKey; status: SectionStatus }) =>
-      updateSectionStatus(eventId!, stageId!, advanceId!, key, status, user!.uid),
+      updateSectionStatus(eventId!, stageId!, advanceId!, key, status, viewer!.uid),
     onSuccess: () => invalidate(),
     onError: (err) => logger.error('Failed to update section status', err),
   });
@@ -131,15 +131,8 @@ export function AdvanceDetailScreen() {
     onError: (err) => logger.error('Failed to save section content', err),
   });
 
-  if (!user || !eventId || !stageId || !advanceId) return null;
+  if (!viewer || !eventId || !stageId || !advanceId) return null;
 
-  const viewer = {
-    uid: user.uid,
-    isAdmin,
-    isOrganizer,
-    isProductionDirector,
-    isProductionCoordinator,
-  };
   const member = memberQuery.data ?? null;
   const canEdit = canEditEvent(viewer, member?.role ?? null);
   const advance = advanceQuery.data;
@@ -225,7 +218,7 @@ export function AdvanceDetailScreen() {
             eventId={eventId}
             stageId={stageId}
             advanceId={advanceId}
-            uid={user.uid}
+            uid={viewer.uid}
             canEdit={canEdit}
           />
         </>
