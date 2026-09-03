@@ -101,12 +101,21 @@ export const includeAdvanceDocumentInputSchema = z.object({
 export type IncludeAdvanceDocumentInput = z.infer<typeof includeAdvanceDocumentInputSchema>;
 
 // getArtistDocumentContent — serve an artist document's bytes via the service-account broker, so
-// approved techs can view files in permission-gated Drive folders they can't open directly.
-// fileId alone serves the artist library (approved users); with `eventId`, the file may
-// instead be one of that event's documents — served to the event's members (PR 4).
+// approved users can view files in permission-gated Drive folders they can't open directly.
+// Three authorization paths, decided server-side (see the handler):
+//   fileId alone                      → an artist-library file, for a caller who may BROWSE the
+//                                       library (a global capability, ACCESS_SCOPING_PLAN).
+//   fileId + eventId + stage/advance  → a library file INCLUDED on that advance, for any member
+//                                       of the event — the crew's path to documents put in front
+//                                       of them without library access of their own.
+//   fileId + eventId                  → one of that event's own documents, for its members (PR 4).
+// stageId and advanceId travel together; the handler rejects a partial advance path rather than
+// silently falling back to a weaker check.
 export const getArtistDocumentContentInputSchema = z.object({
   fileId: z.string().min(1),
   eventId: z.string().min(1).optional(),
+  stageId: z.string().min(1).optional(),
+  advanceId: z.string().min(1).optional(),
 });
 export type GetArtistDocumentContentInput = z.infer<typeof getArtistDocumentContentInputSchema>;
 export const getArtistDocumentContentOutputSchema = z.object({

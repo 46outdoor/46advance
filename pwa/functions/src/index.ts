@@ -85,6 +85,11 @@ export {
   relinkContactUser,
   reconcileCrewLogisticsOnContactWrite,
 } from './crewLogistics.js';
+// Crew-roster contact snapshots (planning/ACCESS_SCOPING_PLAN.md §4.2): keeps each attachment's
+// copied display fields aligned with the directory, so members can see their own show's crew
+// without reading the global directory. Separate from the userId trigger above on purpose —
+// display data, not authorization data.
+export { reconcileCrewContactsOnContactWrite } from './crewContacts.js';
 
 // Transactional slug rename (WS-G): moves an event's `slugs/{slug}` reservation atomically.
 export { renameEventSlug } from './eventSlug.js';

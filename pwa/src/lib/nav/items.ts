@@ -10,12 +10,14 @@
  * is shared data with no React dependency, and a feature may never import from another feature.
  *
  * ⚠ VISIBILITY IS PRESENTATION, NOT ACCESS CONTROL. Hiding a link does not protect a route.
- * `Events` and `Tracker` are genuinely scoped (membership-scoped queries plus route guards),
- * but `contacts/{id}` and `artistDocuments/{id}` are still `allow read: if isActiveUser()` —
- * any approved user can reach them by typing the URL. Tightening that is a rules change,
- * tracked as IDEAS §5.
+ * `Events` and `Tracker` are genuinely scoped (membership-scoped queries plus route guards).
+ * The `cross-event` destinations now have a route guard too (`CapabilityGate`, sharing this
+ * rule's `canBrowseGlobalDirectories` predicate) — but the guard is still only UX until the
+ * matching rules change lands: `contacts/{id}` and `artistDocuments/{id}` remain
+ * `allow read: if isActiveUser()` until then. See planning/ACCESS_SCOPING_PLAN.md §6 for why
+ * the client ships first and the rules follow.
  */
-import { canViewTracker, type Viewer } from '@/lib/rbac/permissions';
+import { canBrowseGlobalDirectories, canViewTracker, type Viewer } from '@/lib/rbac/permissions';
 
 /** Which presentation(s) render an item. Always explicit — never inferred from a default. */
 export type NavPlacement = 'narrow' | 'inline';
@@ -25,7 +27,9 @@ export type NavPlacement = 'narrow' | 'inline';
  * - `all` — every signed-in user.
  * - `pm-or-oversight` — admin, production director, or a PM on ≥1 event. Delegates to
  *   `canViewTracker`; see `resolveNavVisibility`.
- * - `cross-event` — admin, organizer, or production director. Cross-event directories.
+ * - `cross-event` — the global contacts directory and artist document library. Delegates to
+ *   `canBrowseGlobalDirectories` (admin, organizer, production director, or production
+ *   coordinator); see `resolveNavVisibility`.
  * - `admin` — admin only; all of these routes also sit behind `AdminGate` in `App.tsx`.
  */
 export type NavVisibility = 'all' | 'pm-or-oversight' | 'cross-event' | 'admin';
@@ -140,9 +144,10 @@ export type PmSomewhere = boolean | undefined;
  * drift this registry exists to prevent. Unknown resolves to hidden, so the link never flashes
  * in and then disappears once the query settles.
  *
- * `cross-event` is the one genuinely nav-local rule — it has no rules counterpart (see the
- * warning at the top of this file), so it is not named like a Firestore permission and does
- * not reuse the semantically unrelated `canCreateEvents`.
+ * `cross-event` USED to be the one genuinely nav-local rule, with no rules counterpart. It has
+ * one now — `canBrowseGlobalDirectories` (planning/ACCESS_SCOPING_PLAN.md) — so it delegates,
+ * exactly as `pm-or-oversight` delegates to `canViewTracker`. Restating the claim list here
+ * is what let the coordinator drift in only one of the two places when Phase 2 added it.
  */
 export function resolveNavVisibility(
   visibility: NavVisibility,
@@ -155,12 +160,7 @@ export function resolveNavVisibility(
     case 'pm-or-oversight':
       return canViewTracker(viewer, isPmSomewhere);
     case 'cross-event':
-      return (
-        viewer.isAdmin ||
-        viewer.isOrganizer === true ||
-        viewer.isProductionDirector === true ||
-        viewer.isProductionCoordinator === true
-      );
+      return canBrowseGlobalDirectories(viewer);
     case 'admin':
       return viewer.isAdmin;
   }

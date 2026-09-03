@@ -29,7 +29,11 @@ import {
   authedClientForUser,
   assertCanEditEvent,
 } from './google.js';
-import { assertActiveUser, assertCanReadEvent } from './lib/auth/authorize.js';
+import {
+  assertActiveUser,
+  assertCanReadEvent,
+  canBrowseGlobalDirectories,
+} from './lib/auth/authorize.js';
 import { enforceRateLimit } from './lib/security/firestoreRateLimit.js';
 import { parseCallableData } from './lib/parseCallable.js';
 import { withGoogleRetry } from './lib/google/retry.js';
@@ -634,17 +638,42 @@ export const getArtistDocumentContent = onCall(
     if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
     const { uid, token } = request.auth;
     await assertActiveUser({ uid, token });
-    const { fileId, eventId } = parseCallableData(
+    const { fileId, eventId, stageId, advanceId } = parseCallableData(
       getArtistDocumentContentInputSchema,
       request.data,
     );
     const db = getFirestore();
     await enforceRateLimit(db, ['getArtistDocumentContent', uid], 120);
-    // Artist-library docs serve any approved user (matches the library's read rules); with an
-    // eventId, an event document follows the canonical event READ gate — that event's members
-    // plus admins and production directors (read-only oversight of every event).
+    // A half-specified advance path is a client bug, not a weaker request: rejecting it stops a
+    // typo from quietly degrading into the event-document branch.
+    if ((stageId === undefined) !== (advanceId === undefined)) {
+      throw new HttpsError('invalid-argument', 'stageId and advanceId must be sent together.');
+    }
     let snap = await db.collection('artistDocuments').doc(fileId).get();
-    if (!snap.exists && eventId) {
+    if (snap.exists) {
+      // An artist-library file. The library is a cross-event surface, so browsing it takes a
+      // global capability — but a crew member must still be able to open a document an editor
+      // deliberately included on their advance (ACCESS_SCOPING_PLAN decision 5). Callers who
+      // may browse skip the join; everyone else has to name the advance, and the inclusion
+      // record has to exist on an event they can read.
+      if (!canBrowseGlobalDirectories(token)) {
+        if (!eventId || !stageId || !advanceId) {
+          throw new HttpsError(
+            'permission-denied',
+            'You do not have access to the document library.',
+          );
+        }
+        await assertCanReadEvent(db, token, uid, eventId);
+        const included = await db
+          .doc(`events/${eventId}/stages/${stageId}/advances/${advanceId}/documents/${fileId}`)
+          .get();
+        if (!included.exists) {
+          throw new HttpsError('permission-denied', 'That document is not on this advance.');
+        }
+      }
+    } else if (eventId) {
+      // An event document follows the canonical event READ gate — that event's members plus
+      // the cross-event oversight claims.
       await assertCanReadEvent(db, token, uid, eventId);
       snap = await db.doc(`events/${eventId}/documents/${fileId}`).get();
     }

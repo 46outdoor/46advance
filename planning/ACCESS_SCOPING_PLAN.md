@@ -1,6 +1,12 @@
 # Read-access scoping — contacts directory & artist document library — plan
 
-**Status: DRAFT — decisions locked 2026-09-03 with the owner; not yet built.**
+**Status: IN PROGRESS — decisions locked 2026-09-03; PR 0 (#306) and PR 1 merged, rules not yet
+narrowed.** The client and functions half is built: crew rosters render from denormalized
+copies, the library query and both directory routes are gated, and the broker authorizes
+included documents. Until the §4.1 rules deploy (PR 2), `contacts/{id}` and
+`artistDocuments/{id}` are **still readable by every approved user** — the guards shipped so
+far are UX, and the enforcement is what remains. Next: the owner's Hosting release, then the
+backfill, then PR 2.
 Graduates [`IDEAS.md`](IDEAS.md) §5 ("Scope non-PM access to what a crew member actually
 needs"), which narrowed to a **read**-side question after the write side shipped in the
 director (2026-08-10) and coordinator (2026-08-28) work. Companion context:
@@ -100,20 +106,33 @@ Notes:
 ungated for every member. Under the new rule that breaks every non-privileged member's
 event page, so:
 
-- **Attach docs grow display copies**: `contactName`, `contactCompany`, `contactPhone`,
-  `contactEmail`, `contactPhoto` written at attach time (the attacher can read the directory
-  — attach requires `canManageCrewRoster`, all of whom hold a browsing capability in
-  practice). These are **display data, not authorization data** — unlike the crewLogistics
-  `userId` copy there is no rules gate hanging off them, so client-written copies are
-  acceptable; the trigger below keeps them honest.
+- **Attach docs grow display copies**, written at attach time (the attacher can read the
+  directory — the picker is gated on `canBrowseGlobalDirectories`). These are **display data,
+  not authorization data** — unlike the crewLogistics `userId` copy there is no rules gate
+  hanging off them, so client-written copies are acceptable; the trigger below keeps them
+  honest.
+  - **Shape, as built (PR 1):** a nested `contact` map — `{name, role, company, phone, email}`
+    — rather than the flat `contactName`/`contactCompany`/… this section first sketched. One
+    field to write and refresh, it maps 1:1 onto what the roster renders, and it keeps the
+    copy visibly distinct from the join's own fields. The snapshot deliberately omits
+    `photo` (the roster does not render one today) and `userId` (authorization data).
+  - **Deleted directory entries keep their copy**, with a `contactDeletedAt` stamp — added
+    during PR 1, not in the original sketch. Blanking a roster row because a directory entry
+    was tidied up would lose who was actually on the show; the stamp preserves the existing
+    "no longer in the directory" signal while keeping the name. It clears if a contact
+    reappears under the same id.
 - **`listEventContacts` reworked** to render from the attach docs alone — one member-gated
   read, no directory join, for every viewer. (Also kills the standing inefficiency of a
   1000-doc list to resolve three crew members.) The directory query survives only in the
   add-crew picker, `enabled:` the viewer's browsing capability.
-- **Freshness**: extend `reconcileCrewLogisticsOnContactWrite`
-  (`functions/src/crewLogistics.ts` — it already watches `contacts/{contactId}` writes) to
-  propagate name/company/phone/email/photo changes to every attach doc referencing the
-  contact, alongside the `userId` reconciliation it already does.
+- **Freshness**: a trigger on `contacts/{contactId}` propagates display-field changes to every
+  attach doc referencing the contact.
+  - **As built (PR 1):** a SEPARATE trigger in a new `functions/src/crewContacts.ts`, rather
+    than extending `reconcileCrewLogisticsOnContactWrite` as this section first proposed. That
+    function reconciles `userId` — authorization data under a strict consistency model its
+    file header spells out. Folding a cosmetic name change into it would put the two on the
+    same footing and complicate a deliberately careful piece of code. Two small triggers on
+    the same path, one concern each; the extra invocation is negligible at this scale.
   - Needs a **collection-group index** on the attach subcollection's `contactId`. ⚠ The
     subcollection is literally named `contacts`, so `collectionGroup('contacts')` also
     matches the top-level directory — harmless here (directory docs carry no `contactId`
@@ -133,7 +152,7 @@ event page, so:
 | `TravelLodgingPanel` roster join follows the same rework (it consumes `listEventContacts`) | `src/features/events/TravelLodgingPanel.tsx` |
 | `AdvanceDocumentsPanel`: the library query (`listDocumentsForArtist`) becomes `enabled: canEdit` — it only populates the include-checkboxes; viewers read the **included** set from the member-readable advance subcollection, which already carries copied metadata | `src/features/events/AdvanceDocumentsPanel.tsx:53` |
 | `openArtistDocument` passes advance context (`eventId`/`stageId`/`advanceId`) so the broker can run the inclusion check for non-privileged callers | `src/lib/google/drive-service.ts` |
-| Nav: no change needed (`cross-event` already = the same four claims) — but fix the drift found in review: the `items.ts` header/JSDoc still describe `cross-event` as three claims, and `items.test.ts` never covers the coordinator | `src/lib/nav/items.ts`, `items.test.ts` |
+| Nav: `resolveNavVisibility`'s `cross-event` case now **delegates** to `canBrowseGlobalDirectories` instead of restating the four claims inline (as `pm-or-oversight` delegates to `canViewTracker`). That restatement is exactly what let the coordinator drift into one list and not the other; the file's "no rules counterpart" note is retired, since it has one now | `src/lib/nav/items.ts` |
 
 ### 4.4 Server changes
 

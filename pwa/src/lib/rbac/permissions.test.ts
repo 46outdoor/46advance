@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  canBrowseGlobalDirectories,
   canCreateEvents,
   canEditDepartment,
   canEditEvent,
@@ -305,5 +306,37 @@ describe('permissions — production coordinator (CREW_TRAVEL_LODGING_PLAN Phase
     expect(canManageScheduleDays(member, 'production-manager')).toBe(true);
     expect(canManageScheduleDays(member, 'tech')).toBe(false);
     expect(canManageScheduleDays(director, null)).toBe(false); // director stays read-only
+  });
+});
+
+describe('permissions — global directory browsing (ACCESS_SCOPING_PLAN decisions 1 & 4)', () => {
+  const coordinator: Viewer = { uid: 'coord-1', isAdmin: false, isProductionCoordinator: true };
+
+  it('admits exactly the four global capabilities', () => {
+    expect(canBrowseGlobalDirectories(admin)).toBe(true);
+    expect(canBrowseGlobalDirectories(organizer)).toBe(true);
+    expect(canBrowseGlobalDirectories(director)).toBe(true);
+    expect(canBrowseGlobalDirectories(coordinator)).toBe(true);
+  });
+
+  it('excludes a plain member, and takes no per-event role as input at all', () => {
+    // The crux of decision 1: these collections are GLOBAL, so the rules gate on them can only
+    // see global claims — "is this person a PM somewhere?" is not expressible, because the
+    // membership join runs the wrong direction. The predicate's ARITY is the point: unlike
+    // canEditEvent it has nowhere to put a role, so a PM who needs the directory holds
+    // `organizer` rather than being inferred from a membership.
+    expect(canBrowseGlobalDirectories(member)).toBe(false);
+    expect(canBrowseGlobalDirectories.length).toBe(1);
+    // The same user IS a full editor of an event they run — the two questions are unrelated.
+    expect(canEditEvent(member, 'production-manager')).toBe(true);
+  });
+
+  it('is independent of event-creation rights, despite the overlap today', () => {
+    // canCreateEvents is admin ∨ organizer; this adds director and coordinator. Keeping them
+    // separate is what lets the populations diverge without a call-site sweep.
+    expect(canCreateEvents(director)).toBe(false);
+    expect(canBrowseGlobalDirectories(director)).toBe(true);
+    expect(canCreateEvents(coordinator)).toBe(false);
+    expect(canBrowseGlobalDirectories(coordinator)).toBe(true);
   });
 });

@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createLogger } from '@/lib/logger';
 import { ContactLinks } from '@/components/contacts/ContactLinks';
 import { resolveNavVisibility } from '@/lib/nav/items';
+import { canBrowseGlobalDirectories } from '@/lib/rbac/permissions';
+import { contactSubtitle } from '@/lib/contacts/contact';
 import { ANONYMOUS_VIEWER, useViewer } from '@/lib/rbac/useViewer';
 import { listContacts } from '@/lib/contacts/contacts-service';
 import {
@@ -37,6 +39,11 @@ function CrewCard({
   const { attachment, contact } = resolved;
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState(attachment.notes ?? '');
+  // Details come from the copy on the attachment, so this renders for every event member —
+  // including one with no directory access at all (ACCESS_SCOPING_PLAN §4.2). A deleted
+  // directory entry KEEPS its name here (who was on the show is event history) and is flagged;
+  // a null snapshot means a legacy row the backfill has not reached.
+  const subtitle = contact ? contactSubtitle(contact) : '';
 
   return (
     <article className="rounded-lg border border-line p-4">
@@ -47,8 +54,13 @@ function CrewCard({
             {attachment.roleLabel && (
               <span className="font-medium text-accent">{attachment.roleLabel}</span>
             )}
-            {!contact && <span>No longer in the directory</span>}
+            {attachment.roleLabel && subtitle && <span> · </span>}
+            {subtitle && <span>{subtitle}</span>}
+            {!contact && <span>Details unavailable</span>}
           </p>
+          {attachment.contactDeletedAt && (
+            <p className="text-xs text-ink-muted">No longer in the directory</p>
+          )}
         </div>
         {canEdit && (
           <button
@@ -164,23 +176,37 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
     queryFn: () => listEventContacts(eventId),
     enabled: !!eventId,
   });
+  /**
+   * The add-crew picker is the panel's ONLY directory read, and it is now gated on the
+   * capability as well as on roster-edit rights — under ACCESS_SCOPING_PLAN the directory is
+   * a cross-event surface, so a roster editor without a global claim (a PM holding no
+   * `organizer`) may curate crew but cannot enumerate the directory to pick from. Firing the
+   * query anyway would just surface a permission error, so the panel says what is missing
+   * instead (see `canPickFromDirectory` below).
+   */
+  const canBrowseDirectory = canBrowseGlobalDirectories(viewer);
+  const canPickFromDirectory = canEdit && canBrowseDirectory;
   const directoryQuery = useQuery({
     queryKey: ['contacts'],
     queryFn: () => listContacts(),
-    enabled: canEdit,
+    enabled: canPickFromDirectory,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event-contacts', eventId] });
 
   const attach = useMutation({
     mutationFn: async () => {
-      await attachContact(eventId, pickContactId, roleLabel || null, uid);
+      // The picked contact comes from the directory the picker already loaded, and is passed
+      // whole: `attachContact` copies its display fields onto the join so crew who cannot read
+      // the directory still see who is on their show (ACCESS_SCOPING_PLAN §4.2).
+      const contact = directoryQuery.data?.find((c) => c.id === pickContactId);
+      if (!contact) throw new Error('That contact is no longer in the directory.');
+      await attachContact(eventId, contact, roleLabel || null, uid);
       // Crew → access: a contact linked to an app account is auto-enrolled as a read-only
       // `tech` member so they can open the event. `ifAbsent` (server-enforced) means an
       // existing PM/department-lead/tech keeps their role. Best-effort: the attach above
       // already succeeded, so a failure here (e.g. account not approved yet) only warns.
-      const contact = directoryQuery.data?.find((c) => c.id === pickContactId);
-      if (contact?.userId && contact.userId !== uid) {
+      if (contact.userId && contact.userId !== uid) {
         try {
           await enrollTechIfAbsent(eventId, contact.userId);
           void queryClient.invalidateQueries({ queryKey: eventMembersKey(eventId) });
@@ -215,7 +241,10 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
   const available = (directoryQuery.data ?? []).filter((c) => !attachedIds.has(c.id));
 
   return (
-    <div className="space-y-3 border-t border-line pt-6">
+    // A named region landmark, matching the sibling Travel & Lodging panel: screen-reader
+    // navigable, and it lets a test scope to the roster — crew names also appear in that
+    // panel's per-person grouping, so an unscoped match is ambiguous.
+    <section aria-label="Crew" className="space-y-3 border-t border-line pt-6">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-bold text-brand">Crew</h2>
         {showDirectoryLink && (
@@ -225,7 +254,16 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
         )}
       </div>
 
-      {canEdit && (
+      {canEdit && !canBrowseDirectory && (
+        // A roster editor without a cross-event capability: say so plainly rather than
+        // rendering a picker whose query the rules refuse.
+        <p className="rounded-lg border border-line bg-surface-muted/40 p-3 text-sm text-ink-muted">
+          Adding crew needs access to the contacts directory, which is granted per account by an
+          admin. You can still edit notes and remove crew below.
+        </p>
+      )}
+
+      {canPickFromDirectory && (
         <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface-muted/40 p-3">
           <label className="block text-sm">
             <span className="mb-1 block font-semibold text-ink">Add crew member</span>
@@ -290,6 +328,6 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
