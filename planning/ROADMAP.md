@@ -552,10 +552,15 @@ A reusable **contacts/personnel directory** — many events share the same peopl
 **Mobile:** contact lookup + tap-to-call/email is high-value day-of — prioritize mobile read access.
 
 - **Built — execution Phase 10 (2026-06-24):** global directory `contacts/{id}` (name, role,
-  company, phone, email, notes) — read by any signed-in user, **create by anyone (createdBy
-  self), edit/delete by creator or admin** (and, since 2026-08-10, by a **production
-  director** over any entry — see §4); **per-event attachment** `events/{id}/contacts/{attachId}`
-  (join + role-on-event label, PM/admin write, member read) resolved against the directory.
+  company, phone, email, notes) — **read by the global capabilities only since 2026-09-03**
+  (`canBrowseGlobalDirectories`; previously any signed-in user — see §4 and
+  [`ACCESS_SCOPING_PLAN.md`](ACCESS_SCOPING_PLAN.md)), plus the entry linked to your own
+  account; **create by anyone (createdBy self), edit/delete by creator or admin** (and, since
+  2026-08-10, by a **production director** over any entry — see §4); **per-event attachment**
+  `events/{id}/contacts/{attachId}` (join + role-on-event label, PM/coordinator write, member
+  read). The attachment **carries a denormalized copy** of the contact's display fields, so
+  crew resolve their own show's people without the directory — it is no longer a join against
+  it.
   Tap-to-call/email shared component. Model in `src/lib/contacts/`.
   **User-account link — BUILT (correcting a stale "deferred" note, verified 2026-08-20):**
   every account links to exactly one contact on sign-in (`linkOrCreateContact` — an

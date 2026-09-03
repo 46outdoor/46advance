@@ -424,8 +424,10 @@ That suggests two very different versions of this idea:
 
 ## 5. Scope non-PM access to what a crew member actually needs
 
-**Status:** ✅ **GRADUATED — scoped 2026-09-03 into
-[ACCESS_SCOPING_PLAN.md](ACCESS_SCOPING_PLAN.md), which is now the source of truth.**
+**Status:** ✅ **SHIPPED — scoped 2026-09-03 into
+[ACCESS_SCOPING_PLAN.md](ACCESS_SCOPING_PLAN.md), built and LIVE on every target the same day**
+(#305–#309; `contacts/{id}` and `artistDocuments/{id}` now require `canBrowseGlobalDirectories`).
+That plan is the source of truth for what was decided and built.
 This entry is kept as the origin record; everything below is the shape *before* the decisions.
 The plan takes the **read** half of this entry — the two global collections (`contacts/{id}`,
 `artistDocuments/{id}`) — and answers every open question here: the permitted set is the four
@@ -447,11 +449,12 @@ oversight can read every event but not the contacts directory. **That prediction
 come true, and from the other end: the write side moved first.** The 2026-08-10
 directory-curation decision ([ROADMAP §4](ROADMAP.md)) lets a director **edit and delete any
 entry** in `contacts/{id}` — the account link (`createdBy`/`userId`) stays admin-only. So the
-director is now the only non-admin who can change an entry they didn't create, while **every
-approved user can still read every entry**. The read rule is untouched, and the read rule is
-what this entry is about. Practical consequence when this is finally scoped: the director's
-place in the permitted set is settled, not open — the remaining question is only who *else*
-is in it.
+director is now the only non-admin who can change an entry they didn't create, while ~~**every
+approved user can still read every entry**~~ — true when this was written, **no longer true since
+2026-09-03**: the read rule was the whole point of this entry, and it is now
+`canBrowseGlobalDirectories`. The prediction held exactly — the director's place in the permitted
+set was settled, and the only open question was who else joined them (answer: organizer and the
+production coordinator).
 **Related:** [PWA_MOBILE_NAV_PLAN.md](archive/feature/PWA_MOBILE_NAV_PLAN.md) hides the cross-event Contacts
 and Documents destinations from everyone outside admin / organizer / production director, but
 hiding a link is cosmetic — this entry is the real access question.
@@ -737,11 +740,13 @@ roughly in increasing cost:
   target can drop one change. Pre-existing shared idiom, single-admin reality, rate-limited —
   deferred rather than fixed in one setter (which would just desynchronize the four). A fix
   serializes per-target (transaction on users/{uid} or a claims-reconciler) across ALL four.
-- **Viewer construction is duplicated across ~13 screens** (flagged by review, 2026-08-21).
-  `const viewer = { uid, isAdmin, isOrganizer, isProductionDirector, isProductionCoordinator }`
-  now appears in every capability-aware screen; the Phase 2 sweep touched all of them
-  mechanically. A shared `useViewer()` hook is the obvious extraction — deliberately deferred
-  to its own focused diff rather than folded into the tail of a 38-file feature PR.
+- ~~**Viewer construction is duplicated across ~13 screens**~~ (flagged by review, 2026-08-21).
+  **DONE 2026-09-03 (#306)** — extracted to `src/lib/rbac/useViewer.ts`. Worth recording why it
+  mattered: the hand-built literal had already gone wrong. `EventContactsPanel` carried three
+  claims and never picked up `isProductionCoordinator` when Phase 2 added it, so a coordinator
+  silently lost the Crew panel's directory link — every flag on `Viewer` is optional, so the
+  omission compiled cleanly and warned about nothing. The extraction fixed that bug and makes a
+  future capability a one-file edit.
 
 Small documentation-accuracy issues surfaced while grounding the above. Independent of
 whether either idea gets built:
