@@ -17,8 +17,8 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
 
 ### Changed
 
-- **The contacts directory and artist document library are becoming cross-event surfaces.**
-  Browsing them (the **Contacts** and **Documents** screens) is moving to the company-wide
+- **The contacts directory and artist document library are now cross-event surfaces.**
+  Browsing them (the **Contacts** and **Documents** screens) takes one of the company-wide
   capabilities — admin, organizer, production director, production coordinator — instead of
   being open to every approved account. Crew are not losing anything they use day to day:
   an event's **Crew** panel now carries each person's name, role, company, phone and email on
@@ -27,8 +27,6 @@ actually live per target (Hosting / Functions / rules), with rollback steps.
   browsing *every* company's contacts and *every* artist's files from an account that only
   needs one show. A production manager who adds crew needs one of those capabilities to open
   the directory picker; the Crew panel now says so plainly instead of failing.
-  **This release ships the app-side half only — the data is not restricted until the matching
-  security-rules release follows.**
 
 ### Fixed
 

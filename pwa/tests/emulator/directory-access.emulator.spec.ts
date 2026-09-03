@@ -15,9 +15,10 @@
  * goes blank the moment the rules land. It is asserted here against a real emulator, signed in
  * as a real tech.
  *
- * ⚠ These tests describe the CLIENT's behaviour. Until the rules change deploys, both
- * collections are still `allow read: if isActiveUser()` — the guard is UX, not enforcement
- * (plan §6: client first, rules last).
+ * ⚠ These tests describe the CLIENT's behaviour — the redirect and the roster render. The
+ * ENFORCEMENT is `firestore.rules` (narrowed 2026-09-03), covered by
+ * `test/firestore.rules.test.ts`. Both matter: the rules stop the read, and these stop a user
+ * being dropped on a screen that can only fail.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { openAs } from './fixtures';

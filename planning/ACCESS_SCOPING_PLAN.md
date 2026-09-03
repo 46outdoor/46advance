@@ -1,12 +1,13 @@
 # Read-access scoping — contacts directory & artist document library — plan
 
-**Status: IN PROGRESS — decisions locked 2026-09-03; PR 0 (#306) and PR 1 merged, rules not yet
-narrowed.** The client and functions half is built: crew rosters render from denormalized
-copies, the library query and both directory routes are gated, and the broker authorizes
-included documents. Until the §4.1 rules deploy (PR 2), `contacts/{id}` and
-`artistDocuments/{id}` are **still readable by every approved user** — the guards shipped so
-far are UX, and the enforcement is what remains. Next: the owner's Hosting release, then the
-backfill, then PR 2.
+**Status: COMPLETE — built and enforced 2026-09-03.** All three PRs merged: PR 0 (#306,
+`useViewer`), PR 1 (#307, client + functions), PR 2 (rules). The owner's Hosting release of
+2026-09-03 20:41Z (`f82afee`) put the new client in the field — verified live by the bundle
+markers — the snapshot backfill ran against production immediately after (4 attachments, 0
+orphans, re-run idempotent), and only then did the read rules narrow. `contacts/{id}` and
+`artistDocuments/{id}` now require `canBrowseGlobalDirectories`; crew reach their own show's
+people through the denormalized roster copies. [`DEPLOYMENTS.md`](DEPLOYMENTS.md) holds the
+ledger entry and rollback steps.
 Graduates [`IDEAS.md`](IDEAS.md) §5 ("Scope non-PM access to what a crew member actually
 needs"), which narrowed to a **read**-side question after the write side shipped in the
 director (2026-08-10) and coordinator (2026-08-28) work. Companion context:

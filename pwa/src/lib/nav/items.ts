@@ -11,11 +11,11 @@
  *
  * ⚠ VISIBILITY IS PRESENTATION, NOT ACCESS CONTROL. Hiding a link does not protect a route.
  * `Events` and `Tracker` are genuinely scoped (membership-scoped queries plus route guards).
- * The `cross-event` destinations now have a route guard too (`CapabilityGate`, sharing this
- * rule's `canBrowseGlobalDirectories` predicate) — but the guard is still only UX until the
- * matching rules change lands: `contacts/{id}` and `artistDocuments/{id}` remain
- * `allow read: if isActiveUser()` until then. See planning/ACCESS_SCOPING_PLAN.md §6 for why
- * the client ships first and the rules follow.
+ * The `cross-event` destinations are genuinely scoped as of 2026-09-03: a `CapabilityGate`
+ * route guard shares this rule's `canBrowseGlobalDirectories` predicate, and `contacts/{id}` /
+ * `artistDocuments/{id}` reads now require that capability in firestore.rules. The rule below
+ * is still only what the chrome OFFERS — but it no longer differs from what is enforced.
+ * See planning/ACCESS_SCOPING_PLAN.md.
  */
 import { canBrowseGlobalDirectories, canViewTracker, type Viewer } from '@/lib/rbac/permissions';
 
