@@ -7,9 +7,9 @@
  *
  * These tests pin the panel to the registry's `cross-event` rule (`resolveNavVisibility`), which
  * stays real here — the point is that there is ONE answer per capability, so a change to the
- * rule must move this panel too. It is presentation, not access control: `contacts/{id}` is
- * still `allow read: if isActiveUser()`, and any approved user can reach /contacts by typing
- * the URL (tightening the rules is planned in planning/ACCESS_SCOPING_PLAN.md).
+ * rule must move this panel too. It is presentation, not access control — the enforcement is
+ * the `contacts/{id}` read rule (narrowed 2026-09-03 to `canBrowseGlobalDirectories`) plus the
+ * `CapabilityGate` on /contacts. See planning/ACCESS_SCOPING_PLAN.md.
  */
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

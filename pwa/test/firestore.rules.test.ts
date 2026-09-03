@@ -46,6 +46,12 @@ const DIRECTOR_TECH = {
   uid: 'user-dir-tech',
   token: { approved: true, productionDirector: true },
 };
+// The fourth global capability. Holds no membership anywhere — like DIRECTOR, the claim must
+// do all the work (ACCESS_SCOPING_PLAN decisions 1 & 4).
+const COORDINATOR = {
+  uid: 'user-coordinator',
+  token: { approved: true, productionCoordinator: true },
+};
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -203,9 +209,12 @@ describe('firestore.rules — approved-user gate (pending/revoked lockout)', () 
   // A signed-in account whose claims have never synced (no `approved` field at all).
   const dbNoClaim = () => dbFor('user-noclaim', {});
 
-  it('a pending user cannot read app-wide config (departments/templates/contacts)', async () => {
+  it('a pending user cannot read app-wide config (departments/templates)', async () => {
     await assertFails(getDoc(doc(dbPending(), 'departments/audio')));
     await assertFails(getDoc(doc(dbPending(), 'templates/tpl-1')));
+    // The contacts directory is no longer "app-wide config an approved user may read" — since
+    // 2026-09-03 it needs a global capability, so this case is about the pending gate only.
+    // The directory's own gate is covered in its describe block.
     await assertFails(getDoc(doc(dbPending(), 'contacts/c-anything')));
   });
 
@@ -1108,9 +1117,50 @@ describe('firestore.rules — global contacts directory', () => {
     });
   });
 
-  it('any signed-in user can read; anonymous cannot', async () => {
-    await assertSucceeds(getDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+  /**
+   * NARROWED 2026-09-03 (planning/ACCESS_SCOPING_PLAN.md decision 1). This case previously
+   * asserted that ANY signed-in approved user could read a directory entry — the behaviour the
+   * plan exists to end. The directory is the whole cross-company contact list, and every
+   * approved account could read all of it, techs included.
+   */
+  it('only a global capability can read a directory entry; a tech and anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'contacts/c-pm')));
+    await assertSucceeds(getDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'contacts/c-pm')));
+    await assertSucceeds(getDoc(doc(dbFor(DIRECTOR.uid, DIRECTOR.token), 'contacts/c-pm')));
+    await assertSucceeds(getDoc(doc(dbFor(COORDINATOR.uid, COORDINATOR.token), 'contacts/c-pm')));
+
+    await assertFails(getDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+    // A production manager holds no GLOBAL claim — the crux of decision 1. They curate crew
+    // through the per-event roster, which carries its own copies of these details.
+    await assertFails(getDoc(doc(dbFor(PM), 'contacts/c-pm')));
     await assertFails(getDoc(doc(dbAnon(), 'contacts/c-pm')));
+  });
+
+  /**
+   * The second read clause. Settings saves a profile photo onto the contact linked to your own
+   * account, so everyone keeps reading THAT entry — and only that one.
+   */
+  it('a user reads the entry linked to their own account, but not a neighbour’s', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(TECH), 'contacts/c-linked')));
+    // `c-pm` is not linked to anyone: the self clause must not become a general read.
+    await assertFails(getDoc(doc(dbFor(TECH), 'contacts/c-pm')));
+    // Nor does one user reach another user's linked entry.
+    await assertFails(getDoc(doc(dbFor(PM), 'contacts/c-linked')));
+  });
+
+  it('a directory-wide LIST needs the capability; the self-query does not', async () => {
+    // The list-query trap: rules evaluate a query against the RULE, not the returned docs, so
+    // an unconstrained list fails for a tech even though one matching doc would be readable.
+    // The uid-constrained query is what the Settings profile read actually issues.
+    await assertFails(getDocs(query(collection(dbFor(TECH), 'contacts'))));
+    await assertSucceeds(
+      getDocs(query(collection(dbFor(TECH), 'contacts'), where('userId', '==', TECH))),
+    );
+    // Someone else's uid must not be readable by asking for it directly.
+    await assertFails(
+      getDocs(query(collection(dbFor(TECH), 'contacts'), where('userId', '==', PM))),
+    );
+    await assertSucceeds(getDocs(query(collection(dbFor(ADMIN.uid, ADMIN.token), 'contacts'))));
   });
 
   it('a signed-in user can create a contact they author', async () => {
@@ -1297,9 +1347,31 @@ describe('firestore.rules — artistDocuments (library)', () => {
     });
   });
 
-  it('any approved user reads; anonymous cannot', async () => {
-    await assertSucceeds(getDoc(doc(dbFor(TECH), 'artistDocuments/doc-1')));
+  /**
+   * NARROWED 2026-09-03 (planning/ACCESS_SCOPING_PLAN.md decision 4) — this asserted that any
+   * approved user could read the library. An event member still OPENS a file included on their
+   * advance, but that goes through the `getArtistDocumentContent` broker's inclusion check
+   * (Admin SDK, rules-exempt), not through this rule.
+   */
+  it('only a global capability reads the library; a tech and anonymous cannot', async () => {
+    await assertSucceeds(getDoc(doc(dbFor(ADMIN.uid, ADMIN.token), 'artistDocuments/doc-1')));
+    await assertSucceeds(
+      getDoc(doc(dbFor(ORGANIZER.uid, ORGANIZER.token), 'artistDocuments/doc-1')),
+    );
+    await assertSucceeds(getDoc(doc(dbFor(DIRECTOR.uid, DIRECTOR.token), 'artistDocuments/doc-1')));
+    await assertSucceeds(
+      getDoc(doc(dbFor(COORDINATOR.uid, COORDINATOR.token), 'artistDocuments/doc-1')),
+    );
+
+    await assertFails(getDoc(doc(dbFor(TECH), 'artistDocuments/doc-1')));
+    await assertFails(getDoc(doc(dbFor(PM), 'artistDocuments/doc-1')));
     await assertFails(getDoc(doc(dbAnon(), 'artistDocuments/doc-1')));
+    // The per-artist query the advance screen used to run for everyone.
+    await assertFails(
+      getDocs(
+        query(collection(dbFor(TECH), 'artistDocuments'), where('artistKey', '==', 'jelly roll')),
+      ),
+    );
   });
 
   it('admin + organizer classify; tech cannot', async () => {

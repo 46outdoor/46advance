@@ -13,11 +13,10 @@
  *     focus return, route changes, and the inline breakpoint.
  *
  * ⚠ Hiding a link is NOT access control — the absence assertions below are about what the
- * chrome OFFERS, not what it protects. `/contacts` and `/documents` now also sit behind a
- * `CapabilityGate` route guard sharing this rule's `canBrowseGlobalDirectories` predicate
- * (covered by `directory-access.emulator.spec.ts`), but even that is UX until the matching
- * rules change lands: both collections remain `allow read: if isActiveUser()` until then.
- * See planning/ACCESS_SCOPING_PLAN.md §6.
+ * chrome OFFERS, not what it protects. `/contacts` and `/documents` are separately protected
+ * by a `CapabilityGate` route guard (covered by `directory-access.emulator.spec.ts`) and, since
+ * 2026-09-03, by the `canBrowseGlobalDirectories` read rules in firestore.rules.
+ * See planning/ACCESS_SCOPING_PLAN.md.
  *
  * DOM contract this file assumes (see AppShell + the plan's § Interaction & accessibility):
  *   - trigger: `<button type="button" aria-label="Main navigation" aria-expanded aria-controls="app-nav-menu">`

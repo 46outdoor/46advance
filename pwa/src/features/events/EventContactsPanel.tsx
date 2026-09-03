@@ -164,10 +164,10 @@ export function EventContactsPanel({ eventId, uid, canEdit }: EventContactsPanel
    * `cross-event` has one answer; `undefined` is the right `isPmSomewhere` because that rule
    * never consults the async membership summary.
    *
-   * ⚠ Presentation, not access control: `contacts/{id}` is still `allow read: if isActiveUser()`,
-   * so any approved user can reach /contacts by typing the URL. This only stops the panel from
-   * contradicting the nav policy. Tightening the rules is planned in
-   * planning/ACCESS_SCOPING_PLAN.md (graduated from IDEAS §5).
+   * ⚠ Presentation, not access control — but as of 2026-09-03 the policy behind it IS enforced:
+   * `contacts/{id}` reads now require `canBrowseGlobalDirectories` in firestore.rules, and
+   * `/contacts` also sits behind a `CapabilityGate` route guard. Hiding this link stops the
+   * panel from contradicting that policy; the rules are what uphold it.
    */
   const showDirectoryLink = resolveNavVisibility('cross-event', viewer, undefined);
 

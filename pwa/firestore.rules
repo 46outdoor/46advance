@@ -74,6 +74,24 @@ service cloud.firestore {
       return isAdmin() || isProductionDirector() || isProductionCoordinator();
     }
 
+    // May browse the app's GLOBAL directories — the contacts directory and the artist document
+    // library (planning/ACCESS_SCOPING_PLAN.md decisions 1 and 4). Mirrored by
+    // `canBrowseGlobalDirectories` in src/lib/rbac/permissions.ts and in
+    // functions/src/lib/auth/authorize.ts.
+    //
+    // These collections are GLOBAL, so this gate can only see GLOBAL claims: "is this person a
+    // PM on some event?" is not expressible here — answering it needs a per-document membership
+    // join that runs the wrong direction. That is a property of the data model, not a policy
+    // preference, and it is why a PM who needs the directory holds `organizer`.
+    //
+    // NOT what a crew member needs to reach their own show's people: the per-event roster
+    // (`events/{e}/contacts/{a}`) carries denormalized contact details and is member-readable.
+    // Deliberately WIDER than the library's curation gate (admin/organizer) below — reading the
+    // shelf is not restocking it.
+    function canBrowseGlobalDirectories() {
+      return isAdmin() || isOrganizer() || isProductionDirector() || isProductionCoordinator();
+    }
+
     function memberPath(eventId) {
       return /databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid);
     }
@@ -191,11 +209,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Artist document library: any approved user reads; admin/organizer classify, delete,
-    // and record their own uploads (doc id = the Drive file id; audit field pinned).
-    // Bulk creation stays server-side (importDriveFolder, Admin SDK).
+    // Artist document library: a CROSS-EVENT surface since 2026-09-03 — only the global
+    // capabilities browse it (planning/ACCESS_SCOPING_PLAN.md decision 4); admin/organizer
+    // classify, delete, and record their own uploads (doc id = the Drive file id; audit field
+    // pinned). Bulk creation stays server-side (importDriveFolder, Admin SDK).
+    //
+    // An event member still OPENS a library file included on one of their advances — that runs
+    // through the `getArtistDocumentContent` broker, which checks the inclusion record
+    // server-side (Admin SDK, rules-exempt). Narrowing this read without that check would have
+    // left the file bytes reachable; the two shipped together.
     match /artistDocuments/{docId} {
-      allow read: if isActiveUser();
+      allow read: if canBrowseGlobalDirectories();
       // Server-only (S8): registered by the registerArtistDocument callable (Admin SDK), which
       // verifies the file's Drive provenance under the library root first (F-1). No client create.
       allow create: if false;
@@ -238,10 +262,23 @@ service cloud.firestore {
     }
 
     // Global contact directory (ROADMAP §11): reference data, distinct from RBAC users.
-    // Any approved member reads + adds; the creator (or admin) edits/deletes. A user may also
-    // update the entry linked to their own account (userId == them) — e.g. their profile photo.
+    // Any approved member ADDS; the creator (or admin) edits/deletes. A user may also update
+    // the entry linked to their own account (userId == them) — e.g. their profile photo.
+    //
+    // READ narrowed 2026-09-03 (planning/ACCESS_SCOPING_PLAN.md decision 1): this is the whole
+    // cross-company directory — every name, phone, email and note — and it was readable by
+    // every approved account, including techs auto-enrolled by a crew attachment. Now only the
+    // global capabilities browse it. Two things depend on that being survivable, both shipped
+    // first (PR 1):
+    //   1. Crew see their own show's people from the DENORMALIZED copies on
+    //      `events/{e}/contacts/{a}`, which are member-readable. Nothing here resolves them.
+    //   2. Everyone keeps reading the entry linked to their OWN account — the second clause —
+    //      which is how Settings saves a profile photo. It is query-shaped on purpose: it
+    //      authorizes `where('userId','==',uid)` and per-doc reads of your own mirror, and
+    //      nothing wider. A directory-wide list still needs the capability.
     match /contacts/{contactId} {
-      allow read: if isActiveUser();
+      allow read: if canBrowseGlobalDirectories()
+        || (isActiveUser() && resource.data.userId == request.auth.uid);
       // `userId` links a contact to an account (profile mirror). A client may only create an
       // unlinked contact or one linked to THEMSELVES — never spoof a link to another account.
       // The server-created self-mirror (syncUserClaims, Admin SDK) bypasses these rules.
